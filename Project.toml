@@ -1,0 +1,9 @@
+name = "Maranatha"
+uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
+authors = ["Benjamin J. Choi <benchoi@ccs.tsukuba.ac.jp>"]
+version = "0.1.0"
+
+[deps]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+LsqFit = "2fda8390-95c7-5789-9bda-21331edee243"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
