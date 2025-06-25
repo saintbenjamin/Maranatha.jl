@@ -10,7 +10,6 @@ the structure and clarity of numerical methods rather than production-level accu
 
 ## 🔤 Name Philosophy
 
-```
 **M**eshes are generated over the interval,  
 **A**daptively refined based on error estimates,  
 **R**ules like Simpson’s and Bode’s are applied to evaluate,  
@@ -20,7 +19,6 @@ the structure and clarity of numerical methods rather than production-level accu
 **T**otal values are extrapolated via least-squares fitting,  
 **H**igher-dimensional extensions are made possible,  
 and **A**nalysis-ready results are provided for interpretation.
-```
 
 ---
 
