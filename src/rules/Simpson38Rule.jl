@@ -1,9 +1,9 @@
 module Simpson38Rule
 
-export simpson38_rule_1d
+export simpson38_rule
 
 """
-    simpson38_rule_1d(f::Function, a::Float64, b::Float64, N::Int) -> Float64
+    simpson38_rule_1d(f::Function, a::Float64, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using Simpson’s 3/8 rule  
 (composite Newton–Cotes with 4-point stencil).  
@@ -20,7 +20,7 @@ Numerically integrate a 1D function `f(x)` over `[a, b]` using Simpson’s 3/8 r
 - Simpson’s 3/8 rule uses weights: `[1, 3, 3, 2, 3, 3, 2, ..., 3, 3, 1]`
 - The method requires `N ≡ 0 mod 3`, as it applies the 4-point rule repeatedly
 """
-function simpson38_rule_1d(f::Function, a::Float64, b::Float64, N::Int)
+function simpson38_rule(f::Function, a::Float64, b::Real, N::Int)
     if N % 3 != 0
         error("Simpson 3/8 rule requires N divisible by 3, got N = $N")
     end

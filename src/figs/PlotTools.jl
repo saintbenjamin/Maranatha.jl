@@ -14,18 +14,18 @@ as the step size decreases, and overlays a least-squares fit curve.
 
 # Arguments
 - `name`: Identifier for output filename (used as prefix)
-- `hs`: Vector of step sizes (h)
-- `estimates`: Vector of raw integral values at each h
+- `hs`: Vector of step sizes `h`
+- `estimates`: Vector of integral estimates at each `h`
 - `errors`: Error bars (used as vertical uncertainty)
-- `fit_result`: Output from `fit_convergence`, containing extrapolated I₀ and slope
-- `rule`: Integration rule used (`:simpson13`, `:simpson38`, `:bode`); used in title/filename
+- `fit_result`: Output from `fit_convergence`, containing extrapolated `I₀` and slope
+- `rule`: Integration rule used (`:simpson13`, `:simpson38`, `:bode`); used in title and filename
 
 # Output
 - Saves plot as PNG file: `"convergence_\$(name)_\$(rule).png"`
 
 # Plot Details
-- X-axis: `h²` (log scale)  
-- Y-axis: Estimated integral (log scale)  
+- X-axis: `h²` (step size squared, linear scale)  
+- Y-axis: Integral estimates (linear scale)  
 - Includes:  
     - Scatter with error bars  
     - Least-squares fit curve `I(h²) ≈ I₀ + C * h²`
@@ -40,7 +40,6 @@ function plot_convergence_result(name::String, hs::Vector{Float64}, estimates::V
 
     plt = scatter(h2, estimates;
         yerror = errors,
-        xscale = :log10, yscale = :log10,
         label = "Numerical Estimates ± Error",
         xlabel = "h² (Step size squared)", ylabel = "Integral Estimate",
         title = "Convergence of Integration Result ($(Symbol(rule)))",

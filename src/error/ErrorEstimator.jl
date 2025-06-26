@@ -83,11 +83,11 @@ function estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
         return -(h^4 / 36) * est
 
     elseif rule == :bode
-        # For Bode, simulate a 6th derivative approximation using nested diff
-        d6 = ForwardDiff.derivative(z -> ForwardDiff.derivative(
-                     z -> ForwardDiff.derivative(
-                         z -> ForwardDiff.derivative(f2, z), z), z), [x, y])
-        return -(h^6 / 100.0) * sum(d6)  # placeholder coefficient
+        H = ForwardDiff.hessian(f2, [x, y])
+        # Approximate 6th derivative using the cube of 2nd derivatives (∂²f/∂x² and ∂²f/∂y²)
+        # This is a heuristic proxy, not an exact sixth derivative
+        est = H[1,1]^3 + H[2,2]^3
+        return -(h^6 / 100.0) * est
 
     else
         return 0.0
@@ -115,18 +115,19 @@ function estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     y = (a + b) / 2
     z = (a + b) / 2
 
-    f3(v) = f(v[1], v[2], v[3])  # convert to vector form
+    f3(v) = f(v[1], v[2], v[3])  # convert to vector-input form
 
     if rule == :simpson13 || rule == :simpson38
         H = ForwardDiff.hessian(f3, [x, y, z])
-        est = tr(H)  # sum of ∂²f/∂x², ∂²f/∂y², ∂²f/∂z²
-        return -(h^4 / 64) * est
+        # Use trace of Hessian (sum of ∂²f/∂x², ∂²f/∂y², ∂²f/∂z²) as a second-derivative proxy
+        return -(h^4 / 64) * tr(H)
 
     elseif rule == :bode
-        d6 = ForwardDiff.derivative(v -> ForwardDiff.derivative(
-                     v -> ForwardDiff.derivative(
-                         v -> ForwardDiff.derivative(f3, v), v), v), [x, y, z])
-        return -(h^6 / 1000.0) * sum(d6)
+        H = ForwardDiff.hessian(f3, [x, y, z])
+        # Approximate sixth derivative using cube of diagonal Hessian terms
+        # Heuristic: ∂²f/∂x²³ + ∂²f/∂y²³ + ∂²f/∂z²³
+        est = H[1,1]^3 + H[2,2]^3 + H[3,3]^3
+        return -(h^6 / 1000.0) * est
 
     else
         return 0.0
@@ -155,18 +156,18 @@ function estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     z = (a + b) / 2
     t = (a + b) / 2
 
-    f4(v) = f(v[1], v[2], v[3], v[4])
+    f4(v) = f(v[1], v[2], v[3], v[4])  # convert to vector-input form
 
     if rule == :simpson13 || rule == :simpson38
         H = ForwardDiff.hessian(f4, [x, y, z, t])
-        est = tr(H)
-        return -(h^4 / 100) * est
+        # Use trace of Hessian (sum of ∂²f/∂x², ∂²f/∂y², ∂²f/∂z², ∂²f/∂t²)
+        return -(h^4 / 100) * tr(H)
 
     elseif rule == :bode
-        d6 = ForwardDiff.derivative(v -> ForwardDiff.derivative(
-                     v -> ForwardDiff.derivative(
-                         v -> ForwardDiff.derivative(f4, v), v), v), [x, y, z, t])
-        return -(h^6 / 5000.0) * sum(d6)
+        H = ForwardDiff.hessian(f4, [x, y, z, t])
+        # Approximate sixth derivative using cube of diagonal Hessian terms
+        est = H[1,1]^3 + H[2,2]^3 + H[3,3]^3 + H[4,4]^3
+        return -(h^6 / 5000.0) * est
 
     else
         return 0.0

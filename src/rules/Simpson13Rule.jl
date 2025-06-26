@@ -22,12 +22,23 @@ Numerically integrate a 1D function `f(x)` over `[a, b]` using Simpson’s 1/3 r
 - The interval `[a, b]` is divided into `N` equal subintervals of width `h = (b - a)/N`
 - Composite rule: uses weights `[1, 4, 2, 4, ..., 2, 4, 1]`
 """
-function simpson13_rule(f, a, b, N)
-    @assert N % 2 == 0 "N must be even for Simpson's 1/3 rule"
+function simpson13_rule(f::Function, a::Float64, b::Real, N::Int)
+    if N % 2 != 0
+        error("Simpson's 1/3 rule requires N divisible by 2, got N = $N")
+    end
+
     h = (b - a) / N
-    x = a:h:b
-    y = f.(x)
-    return h/3 * (y[1] + y[end] + 4*sum(y[2:2:end-1]) + 2*sum(y[3:2:end-2]))
+    x = [a + i * h for i in 0:N]
+    result = f(x[1]) + f(x[end])
+
+    for i in 2:2:N
+        result += 4 * f(x[i])
+    end
+    for i in 3:2:N-1
+        result += 2 * f(x[i])
+    end
+
+    return (h / 3) * result
 end
 
 end # module
