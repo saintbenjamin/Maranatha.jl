@@ -9,48 +9,115 @@ export estimate_error
     estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
 Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`  
-using Newton–Cotes rules and automatic differentiation.
+using Newton–Cotes quadrature rules and automatic differentiation.
+
+This function uses centered higher-order derivatives (4th–10th) to  
+approximate the leading error terms for each rule, based on symbolic  
+error expansions.
 
 # Arguments
-- `f`: 1D integrand `f(x)`
+- `f`: Integrand function `f(x)`
 - `a`, `b`: Integration limits
-- `N`: Number of intervals
-- `rule`: One of `:simpson13`, `:simpson38`, or `:bode`
+- `N`: Number of subintervals (must be divisible by rule-specific block size)
+- `rule`: Integration rule symbol:
+    - `:simpson13` → Simpson’s 1/3 rule (4th, 6th, 8th derivative)
+    - `:simpson38` → Simpson’s 3/8 rule (4th, 6th, 8th derivative)
+    - `:bode`      → Bode’s rule (6th, 8th, 10th derivative)
 
 # Returns
-- Approximate leading-order integration error using centered finite derivatives:
-    - 4th derivative for Simpson rules
-    - 6th derivative for Bode’s rule
+- Approximate total integration error as a sum of leading derivative-based terms.
 """
 function estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     h = (b - a) / N
-    x = (a + b) / 2  # use midpoint for derivative estimation
+    x = (a + b) / 2  # midpoint for derivative estimation
 
     if rule == :simpson13
-        # Simpson 1/3 rule: error involves 4th derivative
-        deriv4 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
-                    x -> ForwardDiff.derivative(
-                        x -> ForwardDiff.derivative(f, x), x), x), x)
-        return -(h^5 / 90) * deriv4
+        # 4th derivative
+        d4 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                 x -> ForwardDiff.derivative(
+                     x -> ForwardDiff.derivative(f, x), x), x), x)
+
+        # 6th derivative
+        d6 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                 x -> ForwardDiff.derivative(
+                     x -> ForwardDiff.derivative(
+                         x -> ForwardDiff.derivative(
+                             x -> ForwardDiff.derivative(f, x), x), x), x), x), x)
+
+        # 8th derivative
+        d8 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                 x -> ForwardDiff.derivative(
+                     x -> ForwardDiff.derivative(
+                         x -> ForwardDiff.derivative(
+                             x -> ForwardDiff.derivative(
+                                 x -> ForwardDiff.derivative(
+                                     x -> ForwardDiff.derivative(f, x), x), x), x), x), x), x), x)
+
+        # Combine leading 3 terms of Simpson 1/3 error expansion
+        return -(h^5 / 90) * d4 - (h^7 / 1890) * d6 - (h^9 / 90720) * d8
 
     elseif rule == :simpson38
-        # Simpson 3/8 rule: also involves 4th derivative
-        deriv4 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
-                    x -> ForwardDiff.derivative(
-                        x -> ForwardDiff.derivative(f, x), x), x), x)
-        return -(3h^5 / 80) * deriv4  # coefficient needs validation
+        # Simpson 3/8 rule: use center point between x1 and x2
+        x̄ = (a + b) / 2 + h / 2  # midpoint between x1 and x2
 
-    elseif rule == :bode
-        # Bode rule: error involves 6th derivative
-        deriv6 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+        # 4th derivative
+        d4 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                x -> ForwardDiff.derivative(
+                    x -> ForwardDiff.derivative(f, x), x), x), x̄)
+
+        # 6th derivative
+        d6 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                x -> ForwardDiff.derivative(
+                    x -> ForwardDiff.derivative(
+                        x -> ForwardDiff.derivative(
+                            x -> ForwardDiff.derivative(f, x), x), x), x), x), x̄)
+
+        # 8th derivative
+        d8 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                x -> ForwardDiff.derivative(
                     x -> ForwardDiff.derivative(
                         x -> ForwardDiff.derivative(
                             x -> ForwardDiff.derivative(
-                                x -> ForwardDiff.derivative(f, x), x), x), x), x), x)
-        return -(8 / 945) * h^7 * deriv6
+                                x -> ForwardDiff.derivative(
+                                    x -> ForwardDiff.derivative(f, x), x), x), x), x), x), x), x̄)
+
+        return -(3h^5 / 80) * d4 - (23h^7 / 4480) * d6 - (19h^9 / 71680) * d8
+
+    elseif rule == :bode
+        # Bode rule: center point is x₂ = midpoint of full interval
+        x̄ = (a + b) / 2
+
+        # 6th derivative
+        d6 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                x -> ForwardDiff.derivative(
+                    x -> ForwardDiff.derivative(
+                        x -> ForwardDiff.derivative(
+                            x -> ForwardDiff.derivative(f, x), x), x), x), x), x̄)
+
+        # 8th derivative
+        d8 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                x -> ForwardDiff.derivative(
+                    x -> ForwardDiff.derivative(
+                        x -> ForwardDiff.derivative(
+                            x -> ForwardDiff.derivative(
+                                x -> ForwardDiff.derivative(
+                                    x -> ForwardDiff.derivative(f, x), x), x), x), x), x), x), x̄)
+
+        # 10th derivative
+        d10 = ForwardDiff.derivative(x -> ForwardDiff.derivative(
+                x -> ForwardDiff.derivative(
+                    x -> ForwardDiff.derivative(
+                        x -> ForwardDiff.derivative(
+                            x -> ForwardDiff.derivative(
+                                x -> ForwardDiff.derivative(
+                                    x -> ForwardDiff.derivative(
+                                        x -> ForwardDiff.derivative(
+                                            x -> ForwardDiff.derivative(f, x), x), x), x), x), x), x), x), x), x̄)
+
+        return -(8 / 945) * h^7 * d6 - (17 / 14175) * h^9 * d8 - (23 / 311850) * h^11 * d10
 
     else
-        return 0.0  # unknown rule, fallback to zero error
+        return 0.0  # fallback
     end
 end
 

@@ -72,7 +72,7 @@ function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson1
     end
 
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
-    fit_result = fit_convergence(hs, estimates, errors, rule)
+    fit_result = fit_convergence(hs, estimates, errors, rule; dim=dim)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
 end
