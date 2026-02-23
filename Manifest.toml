@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "f1d45a0f0105213903cd18fb863c683867017310"
+project_hash = "372ee7b254d12dcbd504b1a83dcb455086099642"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -180,7 +180,7 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.Maranatha]]
-deps = ["ForwardDiff", "PyPlot"]
+deps = ["ForwardDiff", "LinearAlgebra", "Printf", "PyPlot", "SpecialFunctions"]
 path = "."
 uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
 version = "0.1.0"
