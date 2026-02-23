@@ -129,22 +129,23 @@ function plot_convergence_result(
     # Style
     set_pyplot_latex_style(0.5)
 
-    fig, ax = PyPlot.subplots()
+    fig, ax = PyPlot.subplots(figsize=(5.6, 5.0), dpi=500)
+
+    # Fit curve
+    ax.plot(h2_range, y_fit; color = "red", linewidth=2.5)
 
     # Error bars + scatter
     ax.errorbar(
         h2p, estp;
         yerr = errp,
         fmt = "o",
-        markersize = 6,
-        color = (0.0, 0.0, 1.0, 0.5),
-        ecolor = (0.0, 0.0, 1.0, 0.25),
-        elinewidth = 1.0,
-        capsize = 0.0
-    )
+        color = "blue",
+        alpha = 1.0,
+        capsize = 6,
+        markerfacecolor="none", 
+        markeredgecolor="blue"
 
-    # Fit curve
-    ax.plot(h2_range, y_fit; linewidth=2.5)
+    )
 
     # Axes
     ax.set_xscale("log")
@@ -155,7 +156,7 @@ function plot_convergence_result(
 
     # Save (keep filename convention)
     outfile = "convergence_$(name)_$(String(rule)).png"
-    fig.savefig(outfile, dpi=500)
+    fig.savefig(outfile)
     PyPlot.close(fig)
 
     return nothing
