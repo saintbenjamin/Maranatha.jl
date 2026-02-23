@@ -215,7 +215,7 @@ MIT License
 This project uses:
 
 * [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl) for automatic differentiation
-* [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) for visualization
+* [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl) for visualization
 
 ------------------------------------------------------------------------
 
