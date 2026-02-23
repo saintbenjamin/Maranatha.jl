@@ -1,61 +1,125 @@
 module FitConvergence
 
-using LsqFit
+using LinearAlgebra
 using Statistics
+using Printf
+using ..AvgErrFormatter
 
-export fit_convergence
+export fit_convergence, print_fit_result
 
 """
-    fit_convergence(hs::Vector{<:Real}, estimates::Vector{<:Real}, errors::Vector{<:Real},
-                    rule::Symbol; dim::Int=1) -> NamedTuple
+    fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
 
-Perform a weighted least-squares fit to extrapolate the integral value  
-as step size `h → 0`, using the known error structure of the specified integration rule.
+Perform weighted linear least-χ² extrapolation for I(h → 0).
 
-# Arguments
-- `hs`: Vector of step sizes `h = (b - a) / N`
-- `estimates`: Vector of raw integral approximations at each `h`
-- `errors`: Estimated integration errors (used as weights in the fit)
-- `rule`: Integration rule used (`:simpson13`, `:simpson38`, or `:bode`)
-- `dim`: Dimension of the integral (default = 1); affects the error model
+The model is linear in parameters:
 
-# Returns
-- `NamedTuple`:
-    - `estimate`: Extrapolated value as `h → 0` (i.e., `fit.param[1]`)
-    - `fit`: Full `LsqFitResult` object from `LsqFit.curve_fit`
+    I(h) = I0 + C1*h^p + C2*h^(p+2)     (1D case)
 
-# Notes
-- For 1D integrals (`dim=1`), fits to:  
-      `I(h) ≈ I₀ + C₁·h^p + C₂·h^{p+2} + C₃·h^{p+4}`  
-  to capture higher-order corrections.
-- For higher dimensions (`dim>1`), uses simpler model:  
-      `I(h) ≈ I₀ + C·h^p`
-- Uses robust error fallback to prevent division-by-zero if any `errors[i] ≤ 0`.
+This allows a stable weighted linear least squares solve
+instead of nonlinear curve_fit.
+
+Returns:
+    NamedTuple(
+        estimate = extrapolated I0,
+        params   = fitted parameter vector,
+        chisq    = chi-square,
+        redchisq = reduced chi-square,
+        dof      = degrees of freedom
+    )
 """
 function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
-    # Determine leading error power
-    p = rule == :simpson13 ? 4 :
-        rule == :simpson38 ? 4 :
-        rule == :bode ? 6 :
+
+    p =
+        rule == :simpson13_close            ? 4 :
+        rule == :simpson13_open  ? 4 :
+        rule == :simpson38_close            ? 4 :
+        rule == :simpson38_open  ? 4 :
+        rule == :bode_close                 ? 6 :
+        rule == :bode_open       ? 6 :
         error("Unknown rule")
 
-    # Define error model by dimension
+    h = collect(float.(hs))
+    y = collect(float.(estimates))
+    σ = map(e -> e > 0 ? float(e) : 1e-8, errors)
+
     if dim == 1
-        model_1d(h, pars) = pars[1] .+ pars[2]*h.^p .+ pars[3]*h.^(p+2) .+ pars[4]*h.^(p+4)
-        model = model_1d
-        init_params = [mean(estimates), 0.0, 0.0, 0.0]
+        X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4))
     else
-        model_nd(h, pars) = pars[1] .+ pars[2]*h.^p
-        model = model_nd
-        init_params = [mean(estimates), 0.0]
+        X = hcat(ones(length(h)), h.^p)
     end
 
-    # Safe error weights
-    safe_errors = map(e -> e > 0 ? e : 1e-8, errors)
+    # weights
+    W = Diagonal(1.0 ./ σ)
 
-    fit = curve_fit(model, hs, estimates, safe_errors, init_params)
+    Xw = W * X
+    yw = W * y
 
-    return (; estimate = fit.param[1], fit = fit)
+    # --- WLS solve ---
+    params = Xw \ yw
+
+    # --- covariance (Toussaint style) ---
+    # (Xᵀ W² X)^(-1)
+    Cov = inv(transpose(X) * (W^2) * X)
+
+    param_errors = sqrt.(diag(Cov))
+
+    # diagnostics
+    yhat  = X * params
+    resid = y .- yhat
+
+    chisq = sum((resid ./ σ).^2)
+    dof   = length(y) - length(params)
+    redchisq = chisq / dof
+
+    return (;
+        estimate = params[1],
+        estimate_error = param_errors[1],
+        params   = params,
+        param_errors = param_errors,
+        cov      = Cov,
+        chisq    = chisq,
+        redchisq = redchisq,
+        dof      = dof
+    )
+end
+
+"""
+    print_fit_result(fit)
+
+Pretty formatted output similar to legacy least-χ² C routine.
+"""
+function print_fit_result(fit)
+
+    # println("\nFitting parameters (float)")
+    # println("--------------------")
+
+    # for i in eachindex(fit.params)
+    #     @printf("λ_%-2d = % .12e (± %.12e)\n",
+    #             i-1,
+    #             fit.params[i],
+    #             fit.param_errors[i])
+    # end
+    
+    # println()
+
+    for i in eachindex(fit.params)
+        tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.params[i], fit.param_errors[i])
+        println("           λ_$(i-1) = $(tmp_str)")
+    end
+    
+    println()
+
+    @printf("Chi^2 / d.o.f. = %.12e / %d = %.12e\n",
+            fit.chisq,
+            fit.dof,
+            fit.redchisq)
+    # @printf("Result (h→0)   = %.12e\n", fit.estimate)
+    # @printf("Error  (h→0)   = %.12e\n", fit.estimate_error)
+    tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.estimate, fit.estimate_error)
+    println("Result (h→0)   = $(tmp_str)")
+
+    println()
 end
 
 end # module

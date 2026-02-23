@@ -1,12 +1,14 @@
+# src/rules/Simpson38Rule.jl
+
 module Simpson38Rule
 
 export simpson38_rule
 
 """
-    simpson38_rule_1d(f::Function, a::Float64, b::Real, N::Int) -> Float64
+    simpson38_rule(f::Function, a::Real, b::Real, N::Int) -> Float64
 
-Numerically integrate a 1D function `f(x)` over `[a, b]` using Simpson’s 3/8 rule  
-(composite Newton–Cotes with 4-point stencil).  
+Numerically integrate a 1D function `f(x)` over `[a, b]` using the composite
+Simpson’s 3/8 rule (closed Newton–Cotes, repeated 4-point stencil).
 
 # Arguments
 - `f`: Function of one variable, `f(x)`
@@ -14,32 +16,38 @@ Numerically integrate a 1D function `f(x)` over `[a, b]` using Simpson’s 3/8 r
 - `N`: Number of subintervals (must be divisible by 3)
 
 # Returns
-- `Float64`: Estimated definite integral of `f(x)` over `[a, b]`
+- Estimated value of the definite integral of `f(x)` over `[a, b]`
 
 # Notes
-- Simpson’s 3/8 rule uses weights: `[1, 3, 3, 2, 3, 3, 2, ..., 3, 3, 1]`
-- The method requires `N ≡ 0 mod 3`, as it applies the 4-point rule repeatedly
+- Requires `N % 3 == 0`
+- Composite weights:
+  - endpoints: 1
+  - interior points: weight 2 if the point index is a multiple of 3, else 3
+- Step size: `h = (b - a) / N`
+- Final scaling: `(3h/8) * Σ w_i f(x_i)`
 """
-function simpson38_rule(f::Function, a::Float64, b::Real, N::Int)
+function simpson38_rule(f::Function, a::Real, b::Real, N::Int)::Float64
     if N % 3 != 0
         error("Simpson 3/8 rule requires N divisible by 3, got N = $N")
     end
 
-    h = (b - a) / N
-    x = [a + i * h for i in 0:N]
-    result = f(x[1]) + f(x[end])
+    aa = float(a)
+    bb = float(b)
 
-    for i in 2:3:N
-        result += 3 * f(x[i])
-    end
-    for i in 3:3:N-1
-        result += 2 * f(x[i])
-    end
-    for i in 4:3:N-2
-        result += 3 * f(x[i])
+    h = (bb - aa) / N
+
+    # endpoints
+    result = f(aa) + f(bb)
+
+    # interior points: i = 1,2,...,N-1 (where x = a + i*h)
+    # weight = 2 if i % 3 == 0 else 3
+    for i in 1:(N - 1)
+        xi = aa + i * h
+        w  = (i % 3 == 0) ? 2.0 : 3.0
+        result += w * f(xi)
     end
 
-    return (3h / 8) * result
+    return (3.0 * h / 8.0) * result
 end
 
-end # module
+end # module Simpson38Rule

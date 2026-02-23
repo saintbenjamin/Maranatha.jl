@@ -78,7 +78,7 @@ To run a simple example:
 using Maranatha
 
 f(x) = sin(x)
-I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4,8,16,32], rule=:simpson13)
+I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4,8,16,32], rule=:simpson13_close)
 ```
 
 See the `plot_convergence_result()` function for convergence visualization.

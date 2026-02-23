@@ -2,9 +2,6 @@ __precompile__(false)
 
 module Maranatha
 
-using ForwardDiff
-using LsqFit
-
 # === Include numerical integration rules ===
 include("rules/Simpson13Rule.jl")
 include("rules/Simpson38Rule.jl")
@@ -14,17 +11,27 @@ using .Simpson13Rule
 using .Simpson38Rule
 using .BodeRule
 
+include("rules/Simpson13Rule_MinOpen_MaxOpen.jl")
+include("rules/Simpson38Rule_MinOpen_MaxOpen.jl")
+include("rules/BodeRule_MinOpen_MaxOpen.jl")
+
+using .Simpson13Rule_MinOpen_MaxOpen
+using .Simpson38Rule_MinOpen_MaxOpen
+using .BodeRule_MinOpen_MaxOpen
+
 # === Include error estimation and fitting tools ===
 include("error/ErrorEstimator.jl")
+include("fit/AvgErrFormatter.jl")
 include("fit/FitConvergence.jl")
 
 using .ErrorEstimator
+using .AvgErrFormatter
 using .FitConvergence
 
 export run_Maranatha, integrate_nd
 
 """
-    run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13)
+    run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13_close)
 
 Evaluate a definite integral in 1–4 dimensions using Newton–Cotes quadrature  
 rules and extrapolate to zero step size via least χ² fitting.
@@ -34,7 +41,7 @@ rules and extrapolate to zero step size via least χ² fitting.
 - `a::Real`, `b::Real`: Integration bounds (applied identically across all dimensions).
 - `dim::Int`: Dimensionality of the integral (1 ≤ dim ≤ 4).
 - `nsamples::Vector{Int}`: List of sample sizes `N` to use, e.g., `[4, 8, 16]`.
-- `rule::Symbol`: Integration rule; one of `:simpson13`, `:simpson38`, or `:bode`.
+- `rule::Symbol`: Integration rule; one of `:simpson13_close`, `:simpson38_close`, or `:bode_close`.
 
 # Returns
 A 3-tuple:
@@ -48,10 +55,10 @@ A 3-tuple:
 # Example
 ```julia
 f(x) = sin(x)
-I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4, 8, 16, 32], rule=:simpson13)
+I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4, 8, 16, 32], rule=:simpson13_close)
 ```
 """
-function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13)
+function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13_close)
 
     estimates = Float64[]     # List of integral results
     errors = Float64[]        # List of estimated errors
@@ -73,6 +80,7 @@ function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson1
 
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
     fit_result = fit_convergence(hs, estimates, errors, rule; dim=dim)
+    print_fit_result(fit_result)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
 end
@@ -87,7 +95,7 @@ Dispatch integration method by dimension and rule.
 - `a`, `b`: integration bounds (same for all dimensions)
 - `N`: number of intervals
 - `dim`: dimensionality (1, 2, 3, or 4)
-- `rule`: integration rule symbol (e.g. `:simpson13`, `:simpson38`, `:bode`)
+- `rule`: integration rule symbol (e.g. `:simpson13_close`, `:simpson38_close`, `:bode_close`)
 
 # Returns
 - Estimated integral value (Float64)
@@ -108,12 +116,24 @@ end
 
 # 1D integration
 function integrate_1d(f, a, b, N, rule)
-    if rule == :simpson13
+    if rule == :simpson13_close
         return simpson13_rule(f, a, b, N)
-    elseif rule == :simpson38
+
+    elseif rule == :simpson13_open
+        return simpson13_rule_min_open_max_open(f, a, b, N)
+
+    elseif rule == :simpson38_close
         return simpson38_rule(f, a, b, N)
-    elseif rule == :bode
+
+    elseif rule == :simpson38_open
+        return simpson38_rule_min_open_max_open(f, a, b, N)
+
+    elseif rule == :bode_close
         return bode_rule(f, a, b, N)
+
+    elseif rule == :bode_open
+        return bode_rule_min_open_max_open(f, a, b, N)
+
     else
         error("Unknown integration rule: $rule")
     end
