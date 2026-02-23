@@ -208,55 +208,115 @@ function quadrature_1d_nodes_weights(a::Real, b::Real, N::Int, rule::Symbol)
 
     # -----------------------------
     # Simpson 1/3 Open-chain
-    # (min-open max-open)
-    # nodes: interior only
     # -----------------------------
     elseif rule == :simpson13_open
-        N % 2 == 0 || error("Simpson13_open requires even N")
+        (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
+        (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
 
-        for j in 1:N-1
-            push!(xs, aa + j*h)
-            if isodd(j)
-                push!(ws, 4.0)
-            else
-                push!(ws, 2.0)
-            end
+        # Nodes used:
+        #   j = 1, 3, even 4..N-4, odd 5..N-5, N-3, N-1
+        # Coefficients (inside bracket) multiplied by h:
+        #   (9/4) at j=1 and j=N-1
+        #   (13/12) at j=3 and j=N-3
+        #   (4/3) for even j=4,6,...,N-4
+        #   (2/3) for odd  j=5,7,...,N-5
+
+        push!(xs, aa + 1*h);          push!(ws, 9.0/4.0)
+        push!(xs, aa + 3*h);          push!(ws, 13.0/12.0)
+
+        @inbounds for j in 4:2:(N-4)
+            push!(xs, aa + j*h);      push!(ws, 4.0/3.0)
         end
-        ws .*= (h/3)
+
+        @inbounds for j in 5:2:(N-5)
+            push!(xs, aa + j*h);      push!(ws, 2.0/3.0)
+        end
+
+        push!(xs, aa + (N-3)*h);      push!(ws, 13.0/12.0)
+        push!(xs, aa + (N-1)*h);      push!(ws, 9.0/4.0)
+
+        ws .*= h
 
     # -----------------------------
     # Simpson 3/8 Open-chain
     # -----------------------------
     elseif rule == :simpson38_open
-        N % 4 == 0 || error("Simpson38_open requires N divisible by 4")
+        (N % 4 == 0) || error("Open 3-point chained rule requires N divisible by 4, got N = $N")
+        (N >= 4)     || error("Open 3-point chained rule requires N ≥ 4, got N = $N")
 
-        for j in 1:N-1
-            push!(xs, aa + j*h)
-            if j%4==2
-                push!(ws, 2.0)
-            else
-                push!(ws, 3.0)
-            end
+        # Panels of width 4h:
+        # per panel k: j1=4k+1, j2=4k+2, j3=4k+3
+        # coefficient times h:
+        #   (8/3) f(x_{j1}) + (-4/3) f(x_{j2}) + (8/3) f(x_{j3})
+
+        M = N ÷ 4
+        for k in 0:(M-1)
+            j1 = 4k + 1
+            j2 = 4k + 2
+            j3 = 4k + 3
+
+            push!(xs, aa + j1*h);     push!(ws,  8.0/3.0)
+            push!(xs, aa + j2*h);     push!(ws, -4.0/3.0)
+            push!(xs, aa + j3*h);     push!(ws,  8.0/3.0)
         end
-        ws .*= (3h/8)
+
+        ws .*= h
 
     # -----------------------------
     # Bode Open-chain
     # -----------------------------
     elseif rule == :bode_open
-        N % 4 == 0 || error("Bode_open requires N divisible by 4")
+        (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
+        (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
 
-        for j in 1:N-1
-            push!(xs, aa + j*h)
-            if j%4==0
-                push!(ws, 14.0)
-            elseif j%2==0
-                push!(ws, 12.0)
+        # Closed interior weights by j mod 4 (endpoints excluded)
+        w_mod13 = 64.0 / 45.0
+        w_mod2  =  8.0 / 15.0
+        w_mod0  = 28.0 / 45.0
+
+        w_end = 14.0 / 45.0
+        c1, c2, c3, c4, c5, c6 = 6.0, -15.0, 20.0, -15.0, 6.0, -1.0
+
+        @inline function w_closed(j::Int)::Float64
+            r = j % 4
+            if r == 0
+                return w_mod0
+            elseif r == 2
+                return w_mod2
             else
-                push!(ws, 32.0)
+                return w_mod13
             end
         end
-        ws .*= (2h/45)
+
+        # Modified left-end weights for j=1..6: w'_j = w_closed(j) + w_end*cj
+        wL = Vector{Float64}(undef, 6)
+        wL[1] = w_closed(1) + w_end*c1
+        wL[2] = w_closed(2) + w_end*c2
+        wL[3] = w_closed(3) + w_end*c3
+        wL[4] = w_closed(4) + w_end*c4
+        wL[5] = w_closed(5) + w_end*c5
+        wL[6] = w_closed(6) + w_end*c6
+
+        # Left stencil: j=1..6
+        @inbounds for j in 1:6
+            push!(xs, aa + j*h)
+            push!(ws, wL[j])
+        end
+
+        # Middle: j=7..N-7
+        @inbounds for j in 7:(N-7)
+            push!(xs, aa + j*h)
+            push!(ws, w_closed(j))
+        end
+
+        # Right stencil: exactly your loop k=6:-1:1, j=N-k, weight=wL[k]
+        @inbounds for k in 6:-1:1
+            j = N - k
+            push!(xs, aa + j*h)
+            push!(ws, wL[k])
+        end
+
+        ws .*= h
 
     else
         error("Unknown rule $rule")
