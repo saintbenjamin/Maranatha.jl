@@ -1,3 +1,13 @@
+# ============================================================================
+# src/error/ErrorEstimator.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 module ErrorEstimator
 
 using ForwardDiff
@@ -7,7 +17,28 @@ using ..BodeRule_MinOpen_MaxOpen
 
 export estimate_error
 
-# n-th derivative of f at x (scalar) via repeated ForwardDiff.derivative
+# ============================================================
+# Internal helpers (must preserve numerical behavior)
+# ============================================================
+
+"""
+    nth_derivative(f::Function, x::Real, n::Int)
+
+Compute the `n`-th derivative of a scalar function `f` at a scalar point `x`
+using repeated `ForwardDiff.derivative`.
+
+# Arguments
+- `f`: Scalar-to-scalar function.
+- `x`: Point at which the derivative is evaluated.
+- `n`: Derivative order (nonnegative integer).
+
+# Returns
+- The `n`-th derivative value `f^(n)(x)`.
+
+# Notes
+- This implementation constructs a nested closure chain of length `n` and then
+  evaluates it at `x`. This intentionally matches the original behavior.
+"""
 function nth_derivative(f::Function, x::Real, n::Int)
     g = f
     for _ in 1:n
@@ -18,26 +49,75 @@ function nth_derivative(f::Function, x::Real, n::Int)
 end
 
 """
-    estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    _rule_params_for_tensor_error(rule::Symbol)
 
-Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`  
-using Newton–Cotes quadrature rules and automatic differentiation.
-
-This function uses centered higher-order derivatives (4th–10th) to  
-approximate the leading error terms for each rule, based on symbolic  
-error expansions.
+Map `rule` to the derivative order `m` and coefficient `C` used by the
+tensor-product derivative-based error heuristics in 2D/3D/4D estimators.
 
 # Arguments
-- `f`: Integrand function `f(x)`
-- `a`, `b`: Integration limits
-- `N`: Number of subintervals (must be divisible by rule-specific block size)
-- `rule`: Integration rule symbol:
-    - `:simpson13_close` → Simpson’s 1/3 rule (4th, 6th, 8th derivative)
-    - `:simpson38_close` → Simpson’s 3/8 rule (4th, 6th, 8th derivative)
-    - `:bode_close`      → Bode’s rule (6th, 8th, 10th derivative)
+- `rule`: Integration rule symbol.
 
 # Returns
-- Approximate total integration error as a sum of leading derivative-based terms.
+- `(m, C)` where:
+  - `m::Int` is the derivative order used in the estimator,
+  - `C` is the rule-dependent coefficient (kept as the same literal type
+    as the original implementation).
+
+If `rule` is not supported, returns `(0, 0.0)`.
+"""
+function _rule_params_for_tensor_error(rule::Symbol)
+    # IMPORTANT: keep the exact literals/types consistent with the original code.
+    if rule == :simpson13_close
+        return (4, -1/180)
+    elseif rule == :simpson38_close
+        return (4, -1/80)
+    elseif rule == :bode_close
+        return (6, -2/945)
+    elseif rule == :simpson13_open
+        return (3, -3/8)
+    elseif rule == :simpson38_open
+        return (4, 14/45)
+    elseif rule == :bode_open
+        return (6, 1.0)
+    else
+        return (0, 0.0)
+    end
+end
+
+# ============================================================
+# 1D error estimator
+# ============================================================
+
+"""
+    estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+
+Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`
+using Newton–Cotes quadrature rules and automatic differentiation.
+
+# Function description
+This function provides rule-specific, derivative-based error models.
+Some rules use a single midpoint derivative (heuristic leading term),
+while others use endpoint differences or panel-wise derivative expansions,
+matching the original implementation.
+
+# Arguments
+- `f`: Integrand function `f(x)`.
+- `a`, `b`: Integration limits (scalars).
+- `N`: Number of subintervals (must satisfy rule-specific divisibility and minimum constraints).
+- `rule`: Integration rule symbol:
+  - `:simpson13_close` → closed composite Simpson 1/3 (midpoint 4th-derivative leading-term heuristic)
+  - `:simpson38_close` → closed composite Simpson 3/8 (midpoint 4th-derivative leading-term heuristic)
+  - `:bode_close`      → closed composite Bode (midpoint 6th-derivative leading-term heuristic)
+  - `:simpson13_open`  → open-chain Simpson 1/3 (endpoint 3rd-derivative difference model)
+  - `:simpson38_open`  → open chained 3-point Newton–Cotes (panel-wise 4th/6th/8th derivative expansion)
+  - `:bode_open`       → open-chain Bode (delegates to `BodeRule_MinOpen_MaxOpen`)
+
+# Returns
+- A `Float64` estimate of the total integration error (as returned by the original rule-specific formula).
+  If `rule` is not recognized, returns `0.0`.
+
+# Errors
+- Throws an error if `N` violates rule-specific constraints.
 """
 function estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     aa = float(a)
@@ -112,7 +192,7 @@ function estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
         (N % 4 == 0) || error("Bode open-chain (open composite Boole) requires N divisible by 4, got N = $N")
         (N >= 16)    || error("Bode open-chain (open composite Boole) requires N ≥ 16, got N = $N")
 
-        err = BodeRule_MinOpen_MaxOpen.bode_open_chain_error6(f, aa, bb, N; nth_derivative=nth_derivative)
+        err = BodeRule_MinOpen_MaxOpen.bode_rule_min_open_max_open_error(f, aa, bb, N; nth_derivative=nth_derivative)
 
         return err
 
@@ -121,24 +201,34 @@ function estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     end
 end
 
+# ============================================================
+# 2D derivative-based tensor-product error (leading terms)
+# ============================================================
+
 """
     estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
-Estimate integration error for a 2D integral using the trace of the Hessian  
-(for Simpson rules) or an approximate 6th derivative (for Bode rule).
+Estimate integration error for a 2D integral over a square domain `[a,b] × [a,b]`
+using a derivative-based tensor-product heuristic.
+
+# Function description
+For supported rules, this estimator:
+1) Builds the 1D quadrature nodes/weights for the given `rule`.
+2) Approximates the axis-wise contribution by integrating the `m`-th derivative
+   along one axis while fixing the other axis at the midpoint, and sums both axes.
+
+This matches the original implementation exactly, including loop ordering and
+floating-point accumulation order.
 
 # Arguments
-- `f`: 2D integrand `f(x, y)`
-- `a`, `b`: Square domain bounds
-- `N`: Number of subdivisions per axis
-- `rule`: Integration rule symbol
+- `f`: 2D integrand `f(x, y)`.
+- `a`, `b`: Square domain bounds.
+- `N`: Number of subdivisions per axis.
+- `rule`: Integration rule symbol (same set as in `estimate_error_1d`).
 
 # Returns
-- Estimated numerical integration error based on local curvature or higher derivatives
+- A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
 """
-# ============================================================
-# 2D derivative-based tensor-product error
-# ============================================================
 function estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
@@ -148,22 +238,8 @@ function estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     x̄ = (aa+bb)/2
     ȳ = (aa+bb)/2
 
-    # map rule → derivative order and constant
-    if rule == :simpson13_close
-        m = 4; C = -1/180
-    elseif rule == :simpson38_close
-        m = 4; C = -1/80
-    elseif rule == :bode_close
-        m = 6; C = -2/945
-    elseif rule == :simpson13_open
-        m = 3; C = -3/8
-    elseif rule == :simpson38_open
-        m = 4; C = 14/45
-    elseif rule == :bode_open
-        m = 6; C = 1.0
-    else
-        return 0.0
-    end
+    m, C = _rule_params_for_tensor_error(rule)
+    m == 0 && return 0.0
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
 
@@ -186,24 +262,35 @@ function estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     return C*(bb-aa)*h^m*(I1 + I2)
 end
 
-"""
-    estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
-
-Estimate integration error for a 3D integrand over a cube domain using  
-2nd-order Hessian trace (for Simpson) or nested 6th derivative (for Bode).
-
-# Arguments
-- `f`: 3D integrand `f(x, y, z)`
-- `a`, `b`: Cube bounds
-- `N`: Grid resolution
-- `rule`: Integration rule symbol
-
-# Returns
-- Numerical estimate of leading-order integration error
-"""
 # ============================================================
 # 3D derivative-based tensor-product error (leading terms)
 # ============================================================
+
+"""
+    estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+
+Estimate integration error for a 3D integral over a cube domain `[a,b]^3`
+using a derivative-based tensor-product heuristic.
+
+# Function description
+For supported rules, this estimator:
+1) Builds the 1D quadrature nodes/weights for the given `rule`.
+2) For each axis, integrates the `m`-th derivative along that axis while fixing
+   the other two coordinates at quadrature nodes.
+3) Sums the three axis-wise contributions.
+
+This matches the original implementation exactly, including loop ordering and
+floating-point accumulation order.
+
+# Arguments
+- `f`: 3D integrand `f(x, y, z)`.
+- `a`, `b`: Cube domain bounds.
+- `N`: Number of subdivisions per axis.
+- `rule`: Integration rule symbol.
+
+# Returns
+- A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
+"""
 function estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
@@ -214,22 +301,8 @@ function estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     ȳ = (aa+bb)/2
     z̄ = (aa+bb)/2
 
-    # rule → derivative order m and constant C
-    if rule == :simpson13_close
-        m = 4; C = -1/180
-    elseif rule == :simpson38_close
-        m = 4; C = -1/80
-    elseif rule == :bode_close
-        m = 6; C = -2/945
-    elseif rule == :simpson13_open
-        m = 3; C = -3/8
-    elseif rule == :simpson38_open
-        m = 4; C = 14/45
-    elseif rule == :bode_open
-        m = 6; C = 1.0
-    else
-        return 0.0
-    end
+    m, C = _rule_params_for_tensor_error(rule)
+    m == 0 && return 0.0
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
     ys, wy = xs, wx
@@ -274,24 +347,35 @@ function estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     return C*(bb-aa)*h^m*(I1 + I2 + I3)
 end
 
-"""
-    estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
-
-Estimate error for 4D numerical integration using trace of Hessian  
-or approximated 6th derivative with ForwardDiff.
-
-# Arguments
-- `f`: 4D integrand `f(x, y, z, t)`
-- `a`, `b`: Hypercube bounds
-- `N`: Resolution per axis
-- `rule`: Integration rule symbol
-
-# Returns
-- Estimated quadrature error using local curvature or higher-order terms
-"""
 # ============================================================
 # 4D derivative-based tensor-product error (leading terms)
 # ============================================================
+
+"""
+    estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+
+Estimate integration error for a 4D integral over a hypercube domain `[a,b]^4`
+using a derivative-based tensor-product heuristic.
+
+# Function description
+For supported rules, this estimator:
+1) Builds the 1D quadrature nodes/weights for the given `rule`.
+2) For each axis, integrates the `m`-th derivative along that axis while fixing
+   the other three coordinates at quadrature nodes.
+3) Sums the four axis-wise contributions.
+
+This matches the original implementation exactly, including loop ordering and
+floating-point accumulation order.
+
+# Arguments
+- `f`: 4D integrand `f(x, y, z, t)`.
+- `a`, `b`: Hypercube domain bounds.
+- `N`: Number of subdivisions per axis.
+- `rule`: Integration rule symbol.
+
+# Returns
+- A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
+"""
 function estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
@@ -303,22 +387,8 @@ function estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     z̄ = (aa+bb)/2
     t̄ = (aa+bb)/2
 
-    # rule → derivative order m and constant C
-    if rule == :simpson13_close
-        m = 4; C = -1/180
-    elseif rule == :simpson38_close
-        m = 4; C = -1/80
-    elseif rule == :bode_close
-        m = 6; C = -2/945
-    elseif rule == :simpson13_open
-        m = 3; C = -3/8
-    elseif rule == :simpson38_open
-        m = 4; C = 14/45
-    elseif rule == :bode_open
-        m = 6; C = 1.0
-    else
-        return 0.0
-    end
+    m, C = _rule_params_for_tensor_error(rule)
+    m == 0 && return 0.0
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
     ys, wy = xs, wx
@@ -392,20 +462,32 @@ function estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
     return C*(bb-aa)*h^m*(I1 + I2 + I3 + I4)
 end
 
+# ============================================================
+# Unified public API
+# ============================================================
+
 """
     estimate_error(f, a, b, N, dim, rule) -> Float64
 
 Unified interface for estimating integration error in 1–4 dimensions.
 
+# Function description
+Dispatches to the corresponding dimension-specific estimator:
+- `dim == 1` → `estimate_error_1d`
+- `dim == 2` → `estimate_error_2d`
+- `dim == 3` → `estimate_error_3d`
+- `dim == 4` → `estimate_error_4d`
+
 # Arguments
-- `f`: Integrand function (1–4 variables)
-- `a`, `b`: Bounds for each dimension
-- `N`: Number of subdivisions
-- `dim`: Number of dimensions
-- `rule`: Integration rule symbol
+- `f`: Integrand function (expects `dim` positional arguments).
+- `a`, `b`: Bounds for each dimension (interpreted as scalar bounds for a hypercube `[a,b]^dim`).
+- `N`: Number of subdivisions per axis (subject to rule constraints in 1D; higher-D estimators reuse the same rule nodes/weights).
+- `dim`: Number of dimensions (`Int`).
+- `rule`: Integration rule symbol.
 
 # Returns
-- Approximate error based on rule-dependent derivative estimates
+- A `Float64` error estimate. If `dim` is outside 1–4 or `rule` is not recognized
+  by the selected estimator, returns `0.0`.
 """
 function estimate_error(f, a, b, N, dim, rule)
     if dim == 1
@@ -421,4 +503,4 @@ function estimate_error(f, a, b, N, dim, rule)
     end
 end
 
-end  # module
+end  # module ErrorEstimator

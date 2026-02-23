@@ -1,3 +1,13 @@
+# ============================================================================
+# src/controller/Runner.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 module Runner
 
 using ..Integrate
@@ -8,34 +18,74 @@ using ..FitConvergence
 export run_Maranatha
 
 """
-    run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13_close)
+    run_Maranatha(
+        integrand, 
+        a, 
+        b; 
+        dim=1, 
+        nsamples=[4,8,16], 
+        rule=:simpson13_close, 
+        err_method::Symbol=:derivative
+    )
 
-Evaluate a definite integral in 1–4 dimensions using Newton–Cotes quadrature  
-rules and extrapolate to zero step size via least χ² fitting.
+Evaluate a definite integral in 1–4 dimensions using a Newton–Cotes quadrature
+rule at multiple resolutions, estimate the integration error at each resolution,
+and extrapolate the integral to the zero-step limit (`h → 0`) via least-χ² fitting.
+
+# Function description
+This function computes a sequence of integral estimates `I(N)` for each `N` in
+`nsamples`, along with a corresponding error estimate `err(N)` using the chosen
+error method. It then fits a convergence model (rule-dependent) to extrapolate
+the integral value as the step size approaches zero.
 
 # Arguments
-- `integrand::Function`: Function of 1 to 4 variables depending on `dim`.
-- `a::Real`, `b::Real`: Integration bounds (applied identically across all dimensions).
-- `dim::Int`: Dimensionality of the integral (1 ≤ dim ≤ 4).
-- `nsamples::Vector{Int}`: List of sample sizes `N` to use, e.g., `[4, 8, 16]`.
-- `rule::Symbol`: Integration rule; one of `:simpson13_close`, `:simpson38_close`, or `:bode_close`.
+- `integrand::Function`: Integrand function. It must accept `dim` positional arguments.
+  - `dim == 1` → `integrand(x)`
+  - `dim == 2` → `integrand(x, y)`
+  - `dim == 3` → `integrand(x, y, z)`
+  - `dim == 4` → `integrand(x, y, z, t)`
+- `a::Real`: Lower bound (used for every dimension, i.e., the domain is `[a,b]^dim`).
+- `b::Real`: Upper bound (used for every dimension, i.e., the domain is `[a,b]^dim`).
+
+# Keyword arguments
+- `dim::Int=1`: Dimensionality of the integral (expected range: `1 ≤ dim ≤ 4`).
+- `nsamples=[4, 8, 16]`: List of integer resolutions `N` (number of subintervals per axis)
+  used to evaluate the integral and error model.
+- `rule::Symbol=:simpson13_close`: Quadrature rule symbol forwarded to `integrate_nd`.
+- `err_method::Symbol=:derivative`: Error estimation method:
+  - `:derivative`  → uses `ErrorEstimator.estimate_error`
+  - `:richardson`  → uses `RichardsonError.estimate_error_richardson`
 
 # Returns
 A 3-tuple:
-- `final_estimate::Float64`: Extrapolated integral value as `h → 0`.
-- `fit_result::LsqFit.LsqFitResult`: Full result of the χ² fitting.
-- `NamedTuple`: Data used in fitting: `(h, avg, err)` where
-    - `h`: Vector of step sizes,
-    - `avg`: Vector of raw integral estimates,
-    - `err`: Vector of estimated integration errors.
+- `final_estimate::Float64`: Extrapolated integral value (the fitted estimate at `h = 0`).
+- `fit_result`: Fit object returned by `fit_convergence` (forwarded unchanged).
+- `data::NamedTuple`: Data used for fitting:
+  - `data.h::Vector{Float64}`: Step sizes `h = (b-a)/N` for each `N` in `nsamples`.
+  - `data.avg::Vector{Float64}`: Raw integral estimates `I(N)`.
+  - `data.err::Vector{Float64}`: Error estimates corresponding to each `I(N)`.
 
 # Example
 ```julia
 f(x) = sin(x)
-I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4, 8, 16, 32], rule=:simpson13_close)
+I0, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4, 8, 16, 32], rule=:simpson13_close)
 ```
+
+# Errors
+
+* Throws an error if `err_method` is not `:derivative` or `:richardson`.
+* Any rule-specific constraints on `N` are enforced by `integrate_nd` and/or the
+  chosen error estimator.
 """
-function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13_close, err_method::Symbol = :derivative)
+function run_Maranatha(
+    integrand,
+    a,
+    b;
+    dim=1,
+    nsamples=[4,8,16],
+    rule=:simpson13_close,
+    err_method::Symbol = :derivative,
+)
 
     estimates = Float64[]     # List of integral results
     errors = Float64[]        # List of estimated errors
@@ -68,4 +118,4 @@ function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson1
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
 end
 
-end
+end  # module Runner

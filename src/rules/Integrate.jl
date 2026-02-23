@@ -1,3 +1,13 @@
+# ============================================================================
+# src/rules/Integrate.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 module Integrate
 
 using ..Simpson13Rule, ..Simpson38Rule, ..BodeRule
@@ -8,17 +18,32 @@ export integrate_nd, quadrature_1d_nodes_weights
 """
     integrate_nd(integrand, a, b, N, dim, rule)
 
-Dispatch integration method by dimension and rule.
+Dispatch an integration routine by dimension and quadrature rule.
+
+# Function description
+This function selects a tensor-product quadrature implementation for `dim = 2, 3, 4`,
+and a direct 1D rule implementation for `dim = 1`. The integration bounds `[a, b]`
+are applied identically along every axis, i.e. the domain is `[a, b]^dim`.
 
 # Arguments
-- `integrand`: function of 1 to 4 variables
-- `a`, `b`: integration bounds (same for all dimensions)
-- `N`: number of intervals
-- `dim`: dimensionality (1, 2, 3, or 4)
-- `rule`: integration rule symbol (e.g. `:simpson13_close`, `:simpson38_close`, `:bode_close`)
+- `integrand`: Integrand function of `dim` variables:
+  - `dim == 1` → `integrand(x)`
+  - `dim == 2` → `integrand(x, y)`
+  - `dim == 3` → `integrand(x, y, z)`
+  - `dim == 4` → `integrand(x, y, z, t)`
+- `a`, `b`: Integration bounds (applied to every dimension).
+- `N`: Number of intervals per axis (must satisfy rule-specific constraints).
+- `dim`: Dimensionality (`1`, `2`, `3`, or `4`).
+- `rule`: Integration rule symbol (e.g. `:simpson13_close`, `:simpson38_close`, `:bode_close`,
+  and the corresponding `*_open` variants).
 
 # Returns
-- Estimated integral value (Float64)
+- Estimated integral value as a `Float64`.
+
+# Errors
+- Throws an error if `dim` is not in `{1,2,3,4}`.
+- Throws an error if `rule` is not supported by the underlying implementation
+  for the selected dimension.
 """
 function integrate_nd(integrand, a, b, N, dim, rule)
     if dim == 1
@@ -34,7 +59,27 @@ function integrate_nd(integrand, a, b, N, dim, rule)
     end
 end
 
-# 1D integration
+"""
+    integrate_1d(f, a, b, N, rule) -> Float64
+
+Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
+
+# Function description
+This function dispatches to the dedicated 1D implementations for each supported
+Newton–Cotes rule. Both closed and open-chain variants are supported.
+
+# Arguments
+- `f`: Integrand function `f(x)`.
+- `a`, `b`: Integration bounds.
+- `N`: Number of intervals (rule-specific divisibility/minimum constraints apply).
+- `rule`: Integration rule symbol.
+
+# Returns
+- Estimated integral value as a `Float64`.
+
+# Errors
+- Throws an error if `rule` is not recognized.
+"""
 function integrate_1d(f, a, b, N, rule)
     if rule == :simpson13_close
         return simpson13_rule(f, a, b, N)
@@ -62,6 +107,29 @@ end
 # ============================================================
 # 2D tensor-product quadrature
 # ============================================================
+
+"""
+    integrate_2d(f, a, b, N, rule) -> Float64
+
+Evaluate a 2D integral of `f(x, y)` over the square domain `[a, b] × [a, b]`
+using a tensor-product quadrature constructed from 1D nodes and weights.
+
+# Function description
+This routine generates 1D quadrature nodes and weights using
+`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
+`Σ_i Σ_j w_i w_j f(x_i, y_j)`.
+
+Loop ordering and accumulation are preserved exactly as implemented.
+
+# Arguments
+- `f`: 2D integrand function `f(x, y)`.
+- `a`, `b`: Square domain bounds (used for both axes).
+- `N`: Number of intervals per axis.
+- `rule`: Integration rule symbol.
+
+# Returns
+- Estimated integral value as a `Float64`.
+"""
 function integrate_2d(f, a, b, N, rule)
 
     xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
@@ -83,6 +151,29 @@ end
 # ============================================================
 # 3D tensor-product quadrature
 # ============================================================
+
+"""
+    integrate_3d(f, a, b, N, rule) -> Float64
+
+Evaluate a 3D integral of `f(x, y, z)` over the cube domain `[a, b]^3`
+using a tensor-product quadrature constructed from 1D nodes and weights.
+
+# Function description
+This routine generates 1D quadrature nodes and weights using
+`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
+`Σ_i Σ_j Σ_k w_i w_j w_k f(x_i, y_j, z_k)`.
+
+Loop ordering and accumulation are preserved exactly as implemented.
+
+# Arguments
+- `f`: 3D integrand function `f(x, y, z)`.
+- `a`, `b`: Cube domain bounds (used for all axes).
+- `N`: Number of intervals per axis.
+- `rule`: Integration rule symbol.
+
+# Returns
+- Estimated integral value as a `Float64`.
+"""
 function integrate_3d(f, a, b, N, rule)
 
     xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
@@ -109,6 +200,29 @@ end
 # ============================================================
 # 4D tensor-product quadrature
 # ============================================================
+
+"""
+    integrate_4d(f, a, b, N, rule) -> Float64
+
+Evaluate a 4D integral of `f(x, y, z, t)` over the hypercube domain `[a, b]^4`
+using a tensor-product quadrature constructed from 1D nodes and weights.
+
+# Function description
+This routine generates 1D quadrature nodes and weights using
+`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
+`Σ_i Σ_j Σ_k Σ_l w_i w_j w_k w_l f(x_i, y_j, z_k, t_l)`.
+
+Loop ordering and accumulation are preserved exactly as implemented.
+
+# Arguments
+- `f`: 4D integrand function `f(x, y, z, t)`.
+- `a`, `b`: Hypercube domain bounds (used for all axes).
+- `N`: Number of intervals per axis.
+- `rule`: Integration rule symbol.
+
+# Returns
+- Estimated integral value as a `Float64`.
+"""
 function integrate_4d(f, a, b, N, rule)
 
     xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
@@ -141,6 +255,38 @@ end
 # Tensor-product foundation: generate nodes & weights
 # (Supports BOTH close and open rules)
 # ============================================================
+
+"""
+    quadrature_1d_nodes_weights(a::Real, b::Real, N::Int, rule::Symbol) -> Tuple{Vector{Float64}, Vector{Float64}}
+
+Generate 1D quadrature nodes and weights for a Newton–Cotes rule on `[a, b]`.
+
+# Function description
+This function constructs the node vector `xs` and weight vector `ws` for the
+specified `rule` over the interval `[a, b]` using a uniform step size
+`h = (b-a)/N`. The returned `(xs, ws)` pair is suitable for building
+tensor-product quadrature rules in higher dimensions.
+
+Both closed rules (including endpoints) and the custom open-chain rules
+(excluding endpoints) are supported. The implementation preserves the exact
+node ordering and weight construction used by the original code.
+
+# Arguments
+- `a`, `b`: Integration bounds.
+- `N`: Number of intervals defining the uniform grid spacing `h = (b-a)/N`.
+- `rule`: Quadrature rule symbol:
+  - Closed rules: `:simpson13_close`, `:simpson38_close`, `:bode_close`
+  - Open-chain rules: `:simpson13_open`, `:simpson38_open`, `:bode_open`
+
+# Returns
+- `xs::Vector{Float64}`: Quadrature nodes (in the exact order they are pushed).
+- `ws::Vector{Float64}`: Corresponding quadrature weights (already scaled by `h`
+  and any rule-specific prefactors).
+
+# Errors
+- Throws an error if `rule` is not recognized.
+- Throws an error if `N` violates rule-specific constraints (divisibility and/or minimum `N`).
+"""
 function quadrature_1d_nodes_weights(a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
@@ -325,4 +471,4 @@ function quadrature_1d_nodes_weights(a::Real, b::Real, N::Int, rule::Symbol)
     return xs, ws
 end
 
-end
+end  # module Integrate

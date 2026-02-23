@@ -1,4 +1,12 @@
+# ============================================================================
 # src/rules/BodeRule.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
 
 module BodeRule
 
@@ -8,21 +16,37 @@ export bode_rule
     bode_rule(f::Function, a::Real, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using the composite
-Bode’s rule (closed Newton–Cotes on 5 points, i.e., 4 subintervals per block).
+Bode’s rule (closed 5-point Newton–Cotes; 4 subintervals per block).
+
+# Function description
+This function applies the composite Bode’s rule by partitioning the interval
+`[a, b]` into `N` uniform subintervals with spacing `h = (b-a)/N`, where `N` must
+be divisible by 4. The integral is computed as a sum over `N/4` non-overlapping
+blocks, each spanning 4 subintervals (5 grid points) with weights:
+
+`[7, 32, 12, 32, 7]`.
+
+The implementation preserves the original evaluation order and arithmetic.
 
 # Arguments
-- `f`: Function of a single variable, `f(x)`
-- `a`, `b`: Integration bounds
-- `N`: Number of subintervals (must be divisible by 4)
+- `f`: Integrand function of one variable, `f(x)`.
+- `a::Real`: Lower integration limit.
+- `b::Real`: Upper integration limit.
+- `N::Int`: Number of subintervals (must be divisible by 4).
 
 # Returns
-- Estimated value of the definite integral of `f(x)` over `[a, b]`
+- Estimated value of the definite integral of `f(x)` over `[a, b]` as a `Float64`.
 
 # Notes
-- Requires `N % 4 == 0`
-- Per 4-subinterval block (5 points): weights `[7, 32, 12, 32, 7]`
-- Step size: `h = (b - a) / N`
-- Final scaling: `(2h/45) * Σ block_sum`
+- Step size: `h = (b - a) / N`.
+- Number of blocks: `nblocks = N ÷ 4`.
+- Each block contributes:
+  `7 f(x0) + 32 f(x1) + 12 f(x2) + 32 f(x3) + 7 f(x4)`,
+  with `xj = a + (4k + j) h` for `j = 0..4`.
+- Composite scaling factor: `(2h/45)`.
+
+# Errors
+- Throws an error if `N` is not divisible by 4.
 """
 function bode_rule(f::Function, a::Real, b::Real, N::Int)::Float64
     if N % 4 != 0
@@ -49,4 +73,4 @@ function bode_rule(f::Function, a::Real, b::Real, N::Int)::Float64
     return (2.0 * h / 45.0) * total
 end
 
-end # module BodeRule
+end  # module BodeRule

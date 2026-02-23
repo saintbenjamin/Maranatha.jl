@@ -1,4 +1,12 @@
+# ============================================================================
 # src/rules/Simpson13Rule_MinOpen_MaxOpen.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
 
 module Simpson13Rule_MinOpen_MaxOpen
 
@@ -7,26 +15,51 @@ export simpson13_rule_min_open_max_open
 """
     simpson13_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int) -> Float64
 
-Globally-open (endpoint-free) composite Simpson 1/3 "open-chain" rule.
+Numerically integrate a 1D function `f(x)` over `[a, b]` using a globally-open
+(endpoint-free) composite Simpson 1/3 "open-chain" rule.
 
-Grid:
-  h  = (b-a)/N
-  xj = a + j*h, j = 0,1,...,N
+# Function description
+This rule approximates the definite integral over `[a, b]` using only interior
+grid samples and never evaluates the integrand at the endpoints `x0 = a` or
+`xN = b`. The grid is defined by
 
-This rule approximates ∫_{x0}^{xN} f(x) dx using ONLY interior samples
-f(x1),...,f(x_{N-1}) (no f(x0), no f(xN)).
+- `h  = (b - a)/N`
+- `xj = a + j*h`, for `j = 0,1,...,N`.
 
-Quadrature (degree-3 exact):
-  ∫ f ≈ h * [
-      (9/4)   f(x1)   + (13/12) f(x3)
-    + (4/3)   Σ f(xj) for even j = 4,6,...,N-4
-    + (2/3)   Σ f(xj) for odd  j = 5,7,...,N-5
-    + (13/12) f(x_{N-3}) + (9/4) f(x_{N-1})
+The quadrature is exact for polynomials up to degree 3 and uses the stencil
+
+```
+∫ f(x) dx ≈ h * [
+(9/4)   f(x1)   + (13/12) f(x3)
+
+* (4/3)   Σ f(xj) for even j = 4,6,...,N-4
+* (2/3)   Σ f(xj) for odd  j = 5,7,...,N-5
+* (13/12) f(x_{N-3}) + (9/4) f(x_{N-1})
   ]
+```
 
-Constraints:
-- N must be even
-- N must be ≥ 8  (smallest N where the pattern is well-defined)
+The implementation preserves the original evaluation order and arithmetic.
+
+# Arguments
+- `f`: Integrand function of one variable, `f(x)`.
+- `a::Real`: Lower integration bound.
+- `b::Real`: Upper integration bound.
+- `N::Int`: Number of subintervals (must satisfy the constraints below).
+
+# Returns
+- Estimated value of the definite integral over `[a, b]` as a `Float64`.
+
+# Constraints
+- `N` must be even.
+- `N ≥ 8` (smallest size where the open-chain pattern is well-defined).
+
+# Notes
+- Endpoint values `f(a)` and `f(b)` are never evaluated.
+- The rule uses asymmetric weights near the boundaries to maintain global
+  degree-3 exactness while remaining endpoint-free.
+
+# Errors
+- Throws an error if `N` is not even or if `N < 8`.
 """
 function simpson13_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Float64
     (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
@@ -57,4 +90,4 @@ function simpson13_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)
     return h * s
 end
 
-end # module
+end  # module Simpson13Rule_MinOpen_MaxOpen

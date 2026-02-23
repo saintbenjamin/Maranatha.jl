@@ -1,32 +1,68 @@
+# ============================================================================
 # src/rules/BodeRule_MinOpen_MaxOpen.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
 
 module BodeRule_MinOpen_MaxOpen
 
-export bode_rule_min_open_max_open, bode_open_chain_error6
+export bode_rule_min_open_max_open, bode_rule_min_open_max_open_error
 
 """
     bode_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int) -> Float64
 
-Globally-open (endpoint-free) composite Boole (a.k.a. Bode/Boole) rule.
+Numerically integrate a 1D function `f(x)` over `[a, b]` using a globally-open
+(endpoint-free) composite Boole rule (a.k.a. Bode/Boole) on a uniform grid.
+
+# Function description
+This rule approximates the definite integral on `[a, b]` using only interior
+samples `f(x1), ..., f(x_{N-1})`, i.e. it never evaluates the integrand at the
+endpoints `x0 = a` or `xN = b`.
 
 Grid convention:
-  h  = (b-a)/N
-  xj = a + j*h,  j = 0,1,...,N
+- `h  = (b - a)/N`
+- `xj = a + j*h`, for `j = 0,1,...,N`.
 
-This rule approximates:
-  ∫_{x0}^{xN} f(x) dx
-using ONLY interior samples f(x1),...,f(x_{N-1}) (no f(x0), no f(xN)).
+Construction summary (degree-5 exactness):
+- Start from the standard composite closed Boole rule, which is exact for
+  polynomials up to degree 5.
+- Eliminate the endpoint samples `f(x0)` and `f(xN)` using 5th-degree Lagrange
+  extrapolation expressed in terms of the first/last six interior nodes:
+  - `f(x0)` from `x1..x6`
+  - `f(xN)` from `x_{N-1}..x_{N-6}`
 
-Construction (mathematically exact for polynomials up to degree 5):
-- Start from the standard composite Boole rule (degree-5 exact).
-- Eliminate endpoint samples f(x0), f(xN) by 5th-degree Lagrange extrapolation:
-    f(x0) =  6 f(x1) - 15 f(x2) + 20 f(x3) - 15 f(x4) +  6 f(x5) - 1 f(x6)
-    f(xN) =  6 f(x_{N-1}) - 15 f(x_{N-2}) + 20 f(x_{N-3})
-           - 15 f(x_{N-4}) +  6 f(x_{N-5}) - 1 f(x_{N-6})
+The resulting endpoint-eliminated rule remains degree-5 exact while being
+globally endpoint-free. The implementation preserves the original evaluation
+order and arithmetic.
 
-Constraints:
-- N must be divisible by 4 (Boole panels are 4 subintervals wide).
-- N must be ≥ 16 so that the left/right 6-point endpoint stencils do not overlap.
+# Arguments
+- `f`: Integrand function of one variable, `f(x)`.
+- `a::Real`: Lower integration bound.
+- `b::Real`: Upper integration bound.
+- `N::Int`: Number of subintervals (must satisfy the constraints below).
+
+# Returns
+- Estimated value of the definite integral over `[a, b]` as a `Float64`.
+
+# Constraints
+- `N` must be divisible by 4 (Boole panels are 4 subintervals wide).
+- `N ≥ 16` so that the left/right 6-point endpoint stencils do not overlap.
+
+# Notes
+- Base interior weights (from the closed composite Boole rule) depend on `j mod 4`:
+  - `j mod 4 == 1 or 3` → `64/45`
+  - `j mod 4 == 2`      → `8/15`
+  - `j mod 4 == 0`      → `28/45`  (interior panel boundaries)
+  - endpoints `j=0,N` would be `14/45`, but they are not sampled here.
+- Endpoint elimination uses coefficients `(6, -15, 20, -15, 6, -1)` applied to
+  the first/last six interior nodes.
+
+# Errors
+- Throws an error if `N` is not divisible by 4 or if `N < 16`.
 """
 function bode_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Float64
     (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
@@ -107,23 +143,46 @@ function bode_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Flo
 end
 
 """
-    bode_open_chain_error6(f::Function, a::Real, b::Real, N::Int; nth_derivative::Function) -> Float64
+    bode_rule_min_open_max_open_error(f::Function, a::Real, b::Real, N::Int; nth_derivative::Function) -> Float64
 
-A practical leading-order error estimate based on a 6th-derivative model.
+Estimate the integration error scale for `bode_rule_min_open_max_open` using a
+6th-derivative leading-order model.
 
-Important note:
-- The quadrature `bode_rule_min_open_max_open` is degree-5 exact by construction.
-- Exact higher-order remainder terms for this *endpoint-eliminated* open rule are more complicated
-  than the textbook single-panel Boole remainder.
-- This function provides a *heuristic* global estimate using f^(6) at the interval midpoint.
+# Function description
+The endpoint-eliminated open Boole rule is degree-5 exact by construction, but
+its exact higher-order remainder terms are more complicated than the textbook
+single-panel Boole remainder. This function therefore provides a practical,
+heuristic global error estimate based on the 6th derivative of `f` evaluated at
+the interval midpoint.
 
 Model:
-  error ≈ - C * (b-a) * h^6 * f^(6)( (a+b)/2 )
+`error ≈ -C * (b - a) * h^6 * f^(6)((a+b)/2)`
 
-We set C = 8/945 to match the standard composite Boole leading constant in the closed case.
-Use this as a sanity/scale indicator, not as a rigorous bound.
+The constant is set to `C = 8/945`, matching the standard composite Boole
+leading constant in the closed case. This is intended as a scale/sanity
+indicator rather than a rigorous bound.
+
+# Arguments
+- `f`: Integrand function of one variable, `f(x)`.
+- `a::Real`: Lower integration bound.
+- `b::Real`: Upper integration bound.
+- `N::Int`: Number of subintervals (must satisfy the constraints below).
+
+# Keyword arguments
+- `nth_derivative::Function`: A function that computes the `n`-th derivative of
+  `f` at a point, called as `nth_derivative(f, x, n)`.
+
+# Returns
+- Estimated error (as `exact - quadrature`) as a `Float64` under the model above.
+
+# Constraints
+- `N` must be divisible by 4.
+- `N ≥ 16` (consistent with the open-chain rule constraints).
+
+# Errors
+- Throws an error if `N` violates the constraints.
 """
-function bode_open_chain_error6(
+function bode_rule_min_open_max_open_error(
     f::Function, a::Real, b::Real, N::Int;
     nth_derivative::Function
 )::Float64
@@ -141,4 +200,4 @@ function bode_open_chain_error6(
     return -(C * (bb - aa)) * h^6 * d6
 end
 
-end # module
+end  # module BodeRule_MinOpen_MaxOpen

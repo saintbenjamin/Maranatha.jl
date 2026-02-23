@@ -1,27 +1,63 @@
+# ============================================================================
 # src/rules/Simpson38Rule_MinOpen_MaxOpen.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
 
 module Simpson38Rule_MinOpen_MaxOpen
 
-export simpson38_rule_min_open_max_open, simpson38_rule_min_open_max_open_with_asymptotic_correction
+export simpson38_rule_min_open_max_open
 
 """
     simpson38_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int) -> Float64
 
-Endpoint-free ("open") chained 3-point Newton–Cotes composite rule on a uniform grid.
+Numerically integrate a 1D function `f(x)` over `[a, b]` using an endpoint-free
+("open") chained 3-point Newton–Cotes composite rule on a uniform grid.
 
-This is the *true* endpoint-free open rule that tiles the interval by panels of width 4h:
-  panel k integrates [x_{4k}, x_{4k+4}] using only interior nodes x_{4k+1}, x_{4k+2}, x_{4k+3}.
+# Function description
+This is a truly endpoint-free open Newton–Cotes rule that tiles the full interval
+by panels of width `4h`. Each panel `k` approximates the integral on
+`[x_{4k}, x_{4k+4}]` using only the interior nodes
+`x_{4k+1}, x_{4k+2}, x_{4k+3}` (no endpoint evaluations on panel boundaries).
 
-Grid:
-  x_j = a + j*h,  h = (b-a)/N
+The uniform grid is defined by:
+- `h = (b - a)/N`
+- `x_j = a + j*h`, for `j = 0,1,...,N`.
 
-Quadrature:
-  ∫_{x0}^{xN} f(x) dx ≈ h * Σ_{k=0..M-1} [ (8/3) f(x_{4k+1}) - (4/3) f(x_{4k+2}) + (8/3) f(x_{4k+3}) ]
-where N = 4M.
+The quadrature is:
+```
+∫*{x0}^{xN} f(x) dx ≈ h * Σ*{k=0..M-1} [
+(8/3) f(x_{4k+1}) - (4/3) f(x_{4k+2}) + (8/3) f(x_{4k+3})
+]
+```
+with `N = 4M`.
+
+The implementation preserves the original evaluation order and arithmetic.
+
+# Arguments
+- `f`: Integrand function of one variable, `f(x)`.
+- `a::Real`: Lower integration bound.
+- `b::Real`: Upper integration bound.
+- `N::Int`: Number of subintervals (must satisfy the constraints below).
+
+# Returns
+- Estimated value of the definite integral over `[a, b]` as a `Float64`.
 
 # Constraints
-- N must be divisible by 4
-- N must be at least 4
+- `N` must be divisible by 4.
+- `N ≥ 4`.
+
+# Notes
+- The rule is endpoint-free: it does not evaluate `f(a)` or `f(b)`, and also does
+  not evaluate the panel boundary nodes `x_{4k}` and `x_{4k+4}`.
+- The panel width is exactly `4h`, so the number of panels is `M = N ÷ 4`.
+
+# Errors
+- Throws an error if `N` is not divisible by 4 or if `N < 4`.
 """
 function simpson38_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Float64
     if N % 4 != 0
@@ -50,44 +86,4 @@ function simpson38_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)
     return h * s
 end
 
-
-"""
-    simpson38_rule_min_open_max_open_with_asymptotic_correction(f, a, b, N; nth_derivative) -> (Iquad, correction)
-
-Returns:
-- Iquad: quadrature value from `simpson38_rule_min_open_max_open`
-- correction: asymptotic correction term (to be ADDED to Iquad) using derivatives at panel centers.
-
-Asymptotic expansion per panel (center at x_{4k+2}):
-  ∫ f - Q  =  + (14/45) h^5 f^(4)(x_{4k+2})
-            + (41/945) h^7 f^(6)(x_{4k+2})
-            + (61/22680) h^9 f^(8)(x_{4k+2})
-            + O(h^11)
-
-So the *correction to add to Q* is exactly that RHS summed over panels.
-
-You must pass `nth_derivative(f, x, n)` as a callable keyword argument.
-"""
-function simpson38_rule_min_open_max_open_with_asymptotic_correction(
-    f::Function, a::Real, b::Real, N::Int;
-    nth_derivative::Function
-)
-    Iquad = simpson38_rule_min_open_max_open(f, a, b, N)
-
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
-    M  = N ÷ 4
-
-    c = 0.0
-    for k in 0:(M-1)
-        xc = aa + (4k + 2)*h
-        c += (14.0/45.0)    * h^5 * nth_derivative(f, xc, 4)
-        c += (41.0/945.0)   * h^7 * nth_derivative(f, xc, 6)
-        c += (61.0/22680.0) * h^9 * nth_derivative(f, xc, 8)
-    end
-
-    return Iquad, c
-end
-
-end # module
+end  # module Simpson38Rule_MinOpen_MaxOpen

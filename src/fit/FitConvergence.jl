@@ -1,3 +1,13 @@
+# ============================================================================
+# src/fit/FitConvergence.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 module FitConvergence
 
 using LinearAlgebra
@@ -10,23 +20,53 @@ export fit_convergence, print_fit_result
 """
     fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
 
-Perform weighted linear least-χ² extrapolation for I(h → 0).
+Perform a weighted linear least-χ² extrapolation for the integral estimate
+in the zero-step limit (`h → 0`).
 
-The model is linear in parameters:
+# Function description
+This routine constructs a convergence model that is linear in its parameters and
+solves it using weighted least squares (WLS). The rule-dependent leading power
+`p` is inferred from `rule`. The step size is taken as `h = (b-a)/N` (provided
+by the caller via `hs`).
 
-    I(h) = I0 + C1*h^p + C2*h^(p+2)     (1D case)
+- For `dim == 1`, the default design matrix includes multiple powers:
+  `I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4)`.
+- For `dim != 1`, a reduced model is used:
+  `I(h) = I0 + C1*h^p`.
 
-This allows a stable weighted linear least squares solve
-instead of nonlinear curve_fit.
+The implementation preserves the original solve order and arithmetic. In
+particular:
+- the weights are constructed as `W = Diagonal(1 ./ σ)`,
+- the WLS system is solved via `params = (W*X) \\ (W*y)`,
+- the covariance is computed as `Cov = inv(X' * (W^2) * X)`.
 
-Returns:
-    NamedTuple(
-        estimate = extrapolated I0,
-        params   = fitted parameter vector,
-        chisq    = chi-square,
-        redchisq = reduced chi-square,
-        dof      = degrees of freedom
-    )
+# Arguments
+- `hs`: Vector-like collection of step sizes `h`.
+- `estimates`: Vector-like collection of raw integral estimates `I(h)`.
+- `errors`: Vector-like collection of error estimates associated with `I(h)`.
+  Non-positive entries are replaced by `1e-8` in the internal `σ` vector.
+- `rule`: Quadrature rule symbol used to select the leading convergence power `p`.
+
+# Keyword arguments
+- `dim::Int=1`: Dimensionality selector for the convergence model:
+  - `dim == 1` uses a higher-order polynomial-in-`h` basis,
+  - otherwise a reduced basis is used.
+
+# Returns
+A `NamedTuple` with the following fields:
+- `estimate::Float64`: Extrapolated value `I0 = I(h→0)`.
+- `estimate_error::Float64`: One-sigma uncertainty for `I0`, taken from the
+  covariance diagonal.
+- `params`: Fitted parameter vector `[I0, C1, C2, ...]`.
+- `param_errors`: One-sigma uncertainties for `params`.
+- `cov`: Parameter covariance matrix.
+- `chisq::Float64`: χ² value, `Σ (resid/σ)^2`.
+- `redchisq::Float64`: Reduced χ², `chisq / dof`.
+- `dof::Int`: Degrees of freedom, `length(y) - length(params)`.
+
+# Errors
+- Throws an error if `rule` is not recognized.
+- Note: If `dof == 0`, `redchisq` will be `Inf`/`NaN` depending on `chisq`.
 """
 function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
 
@@ -44,9 +84,9 @@ function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
     σ = map(e -> e > 0 ? float(e) : 1e-8, errors)
 
     if dim == 1
-        # X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4)) # [FIXME] friendly for basic functions
+        X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4)) # [FIXME] friendly for basic functions
         # X = hcat(ones(length(h)), h.^p, h.^(p+2))
-        X = hcat(ones(length(h)), h.^p) # [FIXME] F0000 - gammaE + 1 friendly
+        # X = hcat(ones(length(h)), h.^p) # [FIXME] F0000 - gammaE + 1 friendly
     else
         X = hcat(ones(length(h)), h.^p)
     end
@@ -87,41 +127,50 @@ function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
 end
 
 """
-    print_fit_result(fit)
+    print_fit_result(fit) -> Nothing
 
-Pretty formatted output similar to legacy least-χ² C routine.
+Print a formatted summary of a convergence fit result.
+
+# Function description
+This routine prints each fitted parameter `λ_k` with its one-sigma uncertainty
+using `AvgErrFormatter.avgerr_e2d_from_float`, followed by χ² diagnostics and the
+extrapolated result `I(h→0)`.
+
+The output formatting and ordering are intentionally kept identical to the
+original implementation.
+
+# Arguments
+- `fit`: Fit result object (typically the `NamedTuple` returned by `fit_convergence`)
+  that provides the fields:
+  - `params`
+  - `param_errors`
+  - `chisq`
+  - `dof`
+  - `redchisq`
+  - `estimate`
+  - `estimate_error`
+
+# Returns
+- `nothing`.
 """
 function print_fit_result(fit)
-
-    # println("\nFitting parameters (float)")
-    # println("--------------------")
-
-    # for i in eachindex(fit.params)
-    #     @printf("λ_%-2d = % .12e (± %.12e)\n",
-    #             i-1,
-    #             fit.params[i],
-    #             fit.param_errors[i])
-    # end
-    
-    # println()
 
     for i in eachindex(fit.params)
         tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.params[i], fit.param_errors[i])
         println("           λ_$(i-1) = $(tmp_str)")
     end
-    
+
     println()
 
     @printf("Chi^2 / d.o.f. = %.12e / %d = %.12e\n",
             fit.chisq,
             fit.dof,
             fit.redchisq)
-    # @printf("Result (h→0)   = %.12e\n", fit.estimate)
-    # @printf("Error  (h→0)   = %.12e\n", fit.estimate_error)
+
     tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.estimate, fit.estimate_error)
     println("Result (h→0)   = $(tmp_str)")
 
     println()
 end
 
-end # module
+end  # module FitConvergence
