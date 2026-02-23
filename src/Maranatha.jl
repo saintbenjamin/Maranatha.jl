@@ -25,10 +25,12 @@ using .Integrate
 
 # === Include error estimation and fitting tools ===
 include("error/ErrorEstimator.jl")
+include("error/RichardsonError.jl")
 include("fit/AvgErrFormatter.jl")
 include("fit/FitConvergence.jl")
 
 using .ErrorEstimator
+using .RichardsonError
 using .AvgErrFormatter
 using .FitConvergence
 

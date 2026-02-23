@@ -2,6 +2,7 @@ module Runner
 
 using ..Integrate
 using ..ErrorEstimator
+using ..RichardsonError
 using ..FitConvergence
 
 export run_Maranatha
@@ -34,7 +35,7 @@ f(x) = sin(x)
 I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4, 8, 16, 32], rule=:simpson13_close)
 ```
 """
-function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13_close)
+function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson13_close, err_method::Symbol = :derivative)
 
     estimates = Float64[]     # List of integral results
     errors = Float64[]        # List of estimated errors
@@ -48,7 +49,13 @@ function run_Maranatha(integrand, a, b; dim=1, nsamples=[4,8,16], rule=:simpson1
         I = integrate_nd(integrand, a, b, N, dim, rule)
 
         # Step 2: Estimate integration error
-        err = estimate_error(integrand, a, b, N, dim, rule)
+        err = if err_method == :derivative
+            estimate_error(integrand, a, b, N, dim, rule)
+        elseif err_method == :richardson
+            estimate_error_richardson(integrand, a, b, N, dim, rule)
+        else
+            error("Unknown err_method = $err_method (use :derivative or :richardson)")
+        end
 
         push!(estimates, I)
         push!(errors, err)
