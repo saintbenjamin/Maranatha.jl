@@ -99,12 +99,61 @@ F0000Preset.__register_F0000_integrand__()
 # ============================================================
 # Controller / execution layer
 #
-# The Runner module acts as the orchestration layer that
-# combines integration rules, error estimation, and fitting
-# logic into a single workflow entry point.
+# The Runner module provides the high-level orchestration layer
+# that connects the quadrature rules, error estimators, and
+# convergence fitting logic into a single workflow entry point.
+#
+# Users are NOT expected to interact with Runner directly.
+# Instead, selected functions are re-exported at the top level
+# of the Maranatha namespace for convenience and API clarity.
+#
+# Design principle:
+#   - Internal modules remain modular and independent.
+#   - The top-level Maranatha API exposes a minimal, stable
+#     surface consisting of user-facing entry points only.
 # ============================================================
-include("controller/Runner.jl")
 
+include("controller/Runner.jl")
 using .Runner
+
+# ============================================================
+# Plotting utilities
+#
+# PlotTools contains visualization helpers used for convergence
+# diagnostics and presentation-quality output. These tools are
+# kept separate from the numerical core so that plotting can
+# evolve independently without affecting the integration logic.
+# ============================================================
+
+include("figs/PlotTools.jl")
+using .PlotTools
+
+# ============================================================
+# Public API re-exports
+#
+# The following aliases expose selected internal functionality
+# as part of the public Maranatha interface.
+#
+# This avoids requiring users to call:
+#     Maranatha.Runner.run_Maranatha(...)
+# or:
+#     Maranatha.PlotTools.plot_convergence_result(...)
+#
+# Instead, users can simply write:
+#     using Maranatha
+#     run_Maranatha(...)
+#     plot_convergence_result(...)
+#
+# The `const` alias preserves performance and ensures that the
+# binding remains stable across the module lifetime.
+# ============================================================
+
+# Main execution entry point
+const run_Maranatha = Runner.run_Maranatha
+export run_Maranatha
+
+# Convergence plotting helper
+const plot_convergence_result = PlotTools.plot_convergence_result
+export plot_convergence_result
 
 end  # module Maranatha
