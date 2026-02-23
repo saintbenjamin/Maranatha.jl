@@ -59,20 +59,13 @@ end
 @testset "Maranatha regression suite" begin
     announce("Maranatha regression suite")
 
-    # ==============================================================
-    # use one fit function term in fit_convergence()
-    # ==============================================================
-
     @testset "F0000GammaEminus1 1D (single-term fit)" begin
         announce("F0000GammaEminus1 1D (single-term fit)")
-
-        # Your "f1d" integrand for Maranatha: y ↦ g(y)
-        f1d(x)  = gtilde_F0000(x; p=3)
-        f1d4(x) = gtilde_F0000(x; p=4)
 
         ns_3 = [30, 33, 36, 39, 42, 45, 48]
         ns_4 = [40, 44, 48, 52, 56, 60, 64]
 
+        f1d(x)  = gtilde_F0000(x; p=3)
         bounds = (0.0, 1.0)
 
         @testset "1D Simpson 1/3 Close" begin
@@ -83,8 +76,11 @@ end
             )
             assert_result_sane(res1)
             @test isfinite(est1)
-            maybe_plot("1D", res1.h, res1.avg, res1.err, fit1; rule=:simpson13_close)
+            maybe_plot("F0000", res1.h, res1.avg, res1.err, fit1; rule=:simpson13_close)
         end
+
+        f1d(x)  = gtilde_F0000(x; p=3)
+        bounds = (0.0, 1.0)
 
         @testset "1D Simpson 3/8 Close" begin
             announce("1D Simpson 3/8 Close")
@@ -94,8 +90,11 @@ end
             )
             assert_result_sane(res2)
             @test isfinite(est2)
-            maybe_plot("1D", res2.h, res2.avg, res2.err, fit2; rule=:simpson38_close)
+            maybe_plot("F0000", res2.h, res2.avg, res2.err, fit2; rule=:simpson38_close)
         end
+
+        f1d4(x) = gtilde_F0000(x; p=4)
+        bounds = (0.0, 1.0)
 
         @testset "1D Bode Close" begin
             announce("1D Bode Close")
@@ -105,24 +104,12 @@ end
             )
             assert_result_sane(res3)
             @test isfinite(est3)
-            maybe_plot("1D", res3.h, res3.avg, res3.err, fit3; rule=:bode_close)
+            maybe_plot("F0000", res3.h, res3.avg, res3.err, fit3; rule=:bode_close)
         end
     end
 
-    # ==============================================================
-    # use three fit function terms in fit_convergence()
-    # ==============================================================
-
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
         announce("Canonical integrands (multi-dim, multi-rule)")
-
-        f1d(x) = sin(x)
-        f2d(x, y) = exp(-x^2 - y^2)
-        f3d(x, y, z) = exp(-x^2 - y^2 - z^2)
-        f4d(x, y, z, t) = x * y * z * t
-
-        bounds = (0.0, 1.0)
-        # bounds = (0.0, π)
 
         ns   = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns_3 = [3, 6, 9, 12, 15, 18, 21, 24, 27, 30]
@@ -133,6 +120,10 @@ end
         # ----------------------------
         # 1D
         # ----------------------------
+
+        f1d(x) = sin(x)
+        bounds = (0.0, π)
+
         @testset "1D rules" begin
             announce("1D rules")
 
@@ -200,6 +191,10 @@ end
         # ----------------------------
         # 2D
         # ----------------------------
+
+        f2d(x, y) = exp(-x^2 - y^2)
+        bounds = (0.0, 1.0)
+
         @testset "2D rules" begin
             announce("2D rules")
 
@@ -267,6 +262,10 @@ end
         # ----------------------------
         # 3D
         # ----------------------------
+
+        f3d(x, y, z) = exp(-x^2 - y^2 - z^2)
+        bounds = (0.0, 1.0)
+
         @testset "3D rules" begin
             announce("3D rules")
 
@@ -334,6 +333,10 @@ end
         # ----------------------------
         # 4D
         # ----------------------------
+
+        f4d(x, y, z, t) = x * y * z * t
+        bounds = (0.0, 1.0)
+
         @testset "4D rules" begin
             announce("4D rules")
 
