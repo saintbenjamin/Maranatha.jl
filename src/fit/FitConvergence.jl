@@ -43,11 +43,13 @@ function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
     y = collect(float.(estimates))
     σ = map(e -> e > 0 ? float(e) : 1e-8, errors)
 
-    # if dim == 1
-        X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4))
-    # else
-    #     X = hcat(ones(length(h)), h.^p)
-    # end
+    if dim == 1
+        # X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4)) # [FIXME] friendly for basic functions
+        # X = hcat(ones(length(h)), h.^p, h.^(p+2))
+        X = hcat(ones(length(h)), h.^p) # [FIXME] F0000 - gammaE + 1 friendly
+    else
+        X = hcat(ones(length(h)), h.^p)
+    end
 
     # weights
     W = Diagonal(1.0 ./ σ)

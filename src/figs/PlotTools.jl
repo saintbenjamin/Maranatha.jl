@@ -96,7 +96,17 @@ function plot_convergence_result(
     h2min = minimum(h2p)
     h2max = maximum(h2p)
 
-    h2_range = 10 .^ range(log10(h2min), log10(h2max); length=200)
+    # h2_range = 10 .^ range(log10(h2min), log10(h2max); length=200)
+    # h_range  = sqrt.(h2_range)
+    # y_fit    = model_fit.(h_range)
+
+    # --- Smooth curve including extrapolated point at h^2 = 0 ---
+    h2_range_log = 10 .^ range(log10(h2min), log10(h2max); length=200)
+
+    # prepend zero explicitly
+    h2_range = vcat(0.0, h2_range_log)
+
+    # model needs h, not h^2
     h_range  = sqrt.(h2_range)
     y_fit    = model_fit.(h_range)
 
