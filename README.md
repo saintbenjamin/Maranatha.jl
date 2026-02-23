@@ -16,7 +16,7 @@ the structure and clarity of numerical methods rather than production-level accu
 **A**utomatic differentiation supports higher-order error control,  
 **N**umerical values of the integrand are computed at each node,  
 **A**pproximation errors are analyzed and minimized,  
-**T**otal values are extrapolated via least-squares fitting,  
+**T**otal values are extrapolated via weighted least-squares fitting,  
 **H**igher-dimensional extensions are made possible,  
 and **A**nalysis-ready results are provided for interpretation.
 
@@ -25,9 +25,11 @@ and **A**nalysis-ready results are provided for interpretation.
 ## ✅ Current Features
 
 - 1D to 4D numerical integration over hypercubes `[a, b]^d`
-- Newton–Cotes rules: Simpson’s 1/3, Simpson’s 3/8, and Bode’s rule
+- Simpson’s 1/3, Simpson’s 3/8, and Bode rules  
+  - closed variants
+  - endpoint-free (open-chain) variants
 - Automatic error estimation using [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)
-- Least-squares extrapolation as `h → 0` via [LsqFit.jl](https://github.com/JuliaNLSolvers/LsqFit.jl)
+- Weighted linear least-squares extrapolation as `h → 0`
 - Convergence plots with error bars and fit curves
 - Modular structure: `rules/`, `error/`, `fit/`, and `Maranatha` interface
 
@@ -35,18 +37,21 @@ and **A**nalysis-ready results are provided for interpretation.
 
 ## ⚠️ Limitations
 
-- Only works on **hypercube domains** with **uniform grids**
-- Integration rules require strict conditions:  
-  - Simpson’s 1/3: `N % 2 == 0`  
-  - Simpson’s 3/8: `N % 3 == 0`  
+- Currently supports **uniform tensor-product grids** on hypercube domains `[a,b]^d`.
+- Both closed and endpoint-free (open-chain) rules are available, but
+  grid sizes must still satisfy rule-specific structural constraints:
+  - Simpson’s 1/3: `N % 2 == 0`
+  - Simpson’s 3/8: `N % 3 == 0`
   - Bode: `N % 4 == 0`
-- Error estimates are heuristic and based on **centered local derivatives only**
-- Fit extrapolation uses only the **leading-order convergence model** (`I(h) ≈ I₀ + C h^p`)
+- Error estimates are heuristic and based on local derivative models;
+  they should be interpreted as **scale indicators**, not strict bounds.
+- Convergence extrapolation assumes a leading-order power-law behavior
+  (`I(h) ≈ I₀ + C h^p`) and may be unstable for poorly behaved integrands.
 - No support yet for:
-  - Adaptive mesh refinement  
-  - Non-uniform quadrature nodes  
-  - Singular or discontinuous integrands  
-  - Variable integration bounds per dimension
+  - Adaptive mesh refinement
+  - Non-uniform or sparse quadrature nodes
+  - Integrands with strong singularities or discontinuities
+  - General domains beyond tensor-product intervals
 
 ---
 
@@ -95,10 +100,9 @@ MIT License
 
 This project uses:
 
-- [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) for automatic differentiation
-- [`LsqFit.jl`](https://github.com/JuliaNLSolvers/LsqFit.jl) for nonlinear least squares fitting
-- [`Plots.jl`](https://github.com/JuliaPlots/Plots.jl) for visualization
+* [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) for automatic differentiation
+* [`Plots.jl`](https://github.com/JuliaPlots/Plots.jl) for visualization
 
 ---
 
-_Maranatha_ means “Come, O Lord” — a reminder to pursue truth and beauty in every equation.
+*Maranatha* means “Come, O Lord” — a reminder to pursue truth and beauty in every equation.
