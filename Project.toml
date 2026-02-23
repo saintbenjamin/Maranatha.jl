@@ -1,8 +1,12 @@
 name = "Maranatha"
 uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
-authors = ["Benjamin J. Choi <benchoi@ccs.tsukuba.ac.jp>"]
 version = "0.1.0"
+authors = ["Benjamin J. Choi <benchoi@ccs.tsukuba.ac.jp>"]
 
 [deps]
 ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
+
+[compat]
+SpecialFunctions = "2.7.1"
