@@ -18,7 +18,7 @@ using ..AvgErrFormatter
 export fit_convergence, print_fit_result
 
 """
-    fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
+    fit_convergence(hs, estimates, errors, rule::Symbol; nterms::Int=2)
 
 Perform a weighted linear least-χ² extrapolation for the integral estimate
 in the zero-step limit (`h → 0`).
@@ -29,10 +29,15 @@ solves it using weighted least squares (WLS). The rule-dependent leading power
 `p` is inferred from `rule`. The step size is taken as `h = (b-a)/N` (provided
 by the caller via `hs`).
 
-- For `dim == 1`, the default design matrix includes multiple powers:
-  `I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4)`.
-- For `dim != 1`, a reduced model is used:
-  `I(h) = I0 + C1*h^p`.
+The convergence model is selected by the number of basis terms `nterms`
+(including the constant term). The design matrix is constructed as:
+
+- column 1: `h^0` (constant term)
+- columns 2..nterms: `h^(p), h^(p+2), h^(p+4), ...`
+
+Equivalently, the fitted form is:
+
+`I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4) + ...`
 
 The implementation preserves the original solve order and arithmetic. In
 particular:
@@ -48,9 +53,8 @@ particular:
 - `rule`: Quadrature rule symbol used to select the leading convergence power `p`.
 
 # Keyword arguments
-- `dim::Int=1`: Dimensionality selector for the convergence model:
-  - `dim == 1` uses a higher-order polynomial-in-`h` basis,
-  - otherwise a reduced basis is used.
+- `nterms::Int=2`: Number of basis terms in the convergence model (including the
+  constant term). Must satisfy `nterms ≥ 2`.
 
 # Returns
 A `NamedTuple` with the following fields:
@@ -66,9 +70,10 @@ A `NamedTuple` with the following fields:
 
 # Errors
 - Throws an error if `rule` is not recognized.
+- Throws an error if `nterms < 2`.
 - Note: If `dof == 0`, `redchisq` will be `Inf`/`NaN` depending on `chisq`.
 """
-function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
+function fit_convergence(hs, estimates, errors, rule::Symbol; nterms::Int=2)
 
     p =
         rule == :simpson13_close ? 4 :
@@ -83,13 +88,21 @@ function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
     y = collect(float.(estimates))
     σ = map(e -> e > 0 ? float(e) : 1e-8, errors)
 
-    if dim == 1
-        X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4)) # [FIXME] friendly for basic functions
-        # X = hcat(ones(length(h)), h.^p, h.^(p+2))
-        # X = hcat(ones(length(h)), h.^p) # [FIXME] F0000 - gammaE + 1 friendly
-    else
-        X = hcat(ones(length(h)), h.^p)
+    N = length(h)
+
+    if nterms < 2
+        error("nterms must be >= 2 (got $nterms)")
     end
+
+    # Design matrix:
+    #   col 1: 1
+    #   col k (k>=2): h^(p + 2*(k-2))  => h^p, h^(p+2), h^(p+4), ...
+    cols = Vector{Vector{Float64}}(undef, nterms)
+    cols[1] = ones(N)
+    for k in 2:nterms
+        cols[k] = h .^ (p + 2*(k - 2))
+    end
+    X = hcat(cols...)
 
     # weights
     W = Diagonal(1.0 ./ σ)

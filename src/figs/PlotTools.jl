@@ -32,8 +32,11 @@ sizes, line widths, and figure size.
 - `nothing`.
 """
 function set_pyplot_latex_style(scale::Float64=0.5)
-    rcParams = PyPlot.matplotlib["rcParams"]
-    rcParams.update(PyPlot.matplotlib["rcParamsDefault"])
+    mpl = PyPlot.matplotlib
+
+    rcParams = mpl."rcParams"
+    rcParams.update(mpl."rcParamsDefault")
+
     rcParams.update(Dict(
         "figure.figsize" => (16 * scale, 12 * scale),
         "font.size" => 24 * scale,

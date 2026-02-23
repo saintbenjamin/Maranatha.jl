@@ -19,13 +19,14 @@ export run_Maranatha
 
 """
     run_Maranatha(
-        integrand, 
-        a, 
-        b; 
-        dim=1, 
-        nsamples=[4,8,16], 
-        rule=:simpson13_close, 
-        err_method::Symbol=:derivative
+        integrand,
+        a,
+        b;
+        dim=1,
+        nsamples=[4,8,16],
+        rule=:simpson13_close,
+        err_method::Symbol=:derivative,
+        fit_terms::Int=2
     )
 
 Evaluate a definite integral in 1–4 dimensions using a Newton–Cotes quadrature
@@ -37,6 +38,14 @@ This function computes a sequence of integral estimates `I(N)` for each `N` in
 `nsamples`, along with a corresponding error estimate `err(N)` using the chosen
 error method. It then fits a convergence model (rule-dependent) to extrapolate
 the integral value as the step size approaches zero.
+
+The convergence fit uses a polynomial-in-`h` basis whose length is controlled by
+`fit_terms` (including the constant term). The design matrix used by the fit is:
+
+- column 1: `h^0` (constant term)
+- columns 2..fit_terms: `h^(p), h^(p+2), h^(p+4), ...`
+
+where the leading power `p` is determined from `rule`.
 
 # Arguments
 - `integrand::Function`: Integrand function. It must accept `dim` positional arguments.
@@ -55,6 +64,8 @@ the integral value as the step size approaches zero.
 - `err_method::Symbol=:derivative`: Error estimation method:
   - `:derivative`  → uses `ErrorEstimator.estimate_error`
   - `:richardson`  → uses `RichardsonError.estimate_error_richardson`
+- `fit_terms::Int=2`: Number of basis terms used in the convergence fit (including the
+  constant term) forwarded to `fit_convergence` as `nterms`.
 
 # Returns
 A 3-tuple:
@@ -68,14 +79,20 @@ A 3-tuple:
 # Example
 ```julia
 f(x) = sin(x)
-I0, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4, 8, 16, 32], rule=:simpson13_close)
+I0, fit, data = run_Maranatha(
+    f, 0.0, π;
+    dim=1,
+    nsamples=[4, 8, 16, 32],
+    rule=:simpson13_close,
+    fit_terms=4
+)
 ```
 
 # Errors
 
-* Throws an error if `err_method` is not `:derivative` or `:richardson`.
-* Any rule-specific constraints on `N` are enforced by `integrate_nd` and/or the
-  chosen error estimator.
+* Throws an error if err_method is not :derivative or :richardson.
+* Any rule-specific constraints on N are enforced by integrate_nd and/or the
+chosen error estimator.
 """
 function run_Maranatha(
     integrand,
@@ -85,6 +102,7 @@ function run_Maranatha(
     nsamples=[4,8,16],
     rule=:simpson13_close,
     err_method::Symbol = :derivative,
+    fit_terms::Int = 2,
 )
 
     estimates = Float64[]     # List of integral results
@@ -112,7 +130,7 @@ function run_Maranatha(
     end
 
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
-    fit_result = fit_convergence(hs, estimates, errors, rule; dim=dim)
+    fit_result = fit_convergence(hs, estimates, errors, rule; nterms=fit_terms)
     print_fit_result(fit_result)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
