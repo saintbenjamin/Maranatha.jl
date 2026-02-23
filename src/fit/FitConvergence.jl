@@ -31,11 +31,11 @@ Returns:
 function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
 
     p =
-        rule == :simpson13_close            ? 4 :
+        rule == :simpson13_close ? 4 :
         rule == :simpson13_open  ? 4 :
-        rule == :simpson38_close            ? 4 :
+        rule == :simpson38_close ? 4 :
         rule == :simpson38_open  ? 4 :
-        rule == :bode_close                 ? 6 :
+        rule == :bode_close      ? 6 :
         rule == :bode_open       ? 6 :
         error("Unknown rule")
 
@@ -43,11 +43,11 @@ function fit_convergence(hs, estimates, errors, rule::Symbol; dim::Int=1)
     y = collect(float.(estimates))
     σ = map(e -> e > 0 ? float(e) : 1e-8, errors)
 
-    if dim == 1
+    # if dim == 1
         X = hcat(ones(length(h)), h.^p, h.^(p+2), h.^(p+4))
-    else
-        X = hcat(ones(length(h)), h.^p)
-    end
+    # else
+    #     X = hcat(ones(length(h)), h.^p)
+    # end
 
     # weights
     W = Diagonal(1.0 ./ σ)

@@ -2,7 +2,8 @@ module ErrorEstimator
 
 using ForwardDiff
 using LinearAlgebra
-import ..BodeRule_MinOpen_MaxOpen
+using ..Integrate
+using ..BodeRule_MinOpen_MaxOpen
 
 export estimate_error
 
@@ -135,29 +136,54 @@ Estimate integration error for a 2D integral using the trace of the Hessian
 # Returns
 - Estimated numerical integration error based on local curvature or higher derivatives
 """
+# ============================================================
+# 2D derivative-based tensor-product error
+# ============================================================
 function estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
-    h = (b - a) / N
-    x = (a + b) / 2
-    y = (a + b) / 2
 
-    f2(v) = f(v[1], v[2])  # convert to vector-input form
+    aa = float(a)
+    bb = float(b)
+    h  = (bb-aa)/N
 
-    if rule == :simpson13_close || rule == :simpson38_close
-        # Use Hessian to get 4th mixed partial derivative estimate
-        H = ForwardDiff.hessian(f2, [x, y])
-        est = H[1,1] + H[2,2]  # ∂²f/∂x² + ∂²f/∂y² (simplified proxy)
-        return -(h^4 / 36) * est
+    x̄ = (aa+bb)/2
+    ȳ = (aa+bb)/2
 
+    # map rule → derivative order and constant
+    if rule == :simpson13_close
+        m = 4; C = -1/180
+    elseif rule == :simpson38_close
+        m = 4; C = -1/80
     elseif rule == :bode_close
-        H = ForwardDiff.hessian(f2, [x, y])
-        # Approximate 6th derivative using the cube of 2nd derivatives (∂²f/∂x² and ∂²f/∂y²)
-        # This is a heuristic proxy, not an exact sixth derivative
-        est = H[1,1]^3 + H[2,2]^3
-        return -(h^6 / 100.0) * est
-
+        m = 6; C = -2/945
+    elseif rule == :simpson13_open
+        m = 3; C = -3/8
+    elseif rule == :simpson38_open
+        m = 4; C = 14/45
+    elseif rule == :bode_open
+        m = 6; C = 1.0
     else
         return 0.0
     end
+
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+
+    # ---- term 1 : integrate ∂^m/∂x^m f(x̄,y) dy
+    I1 = 0.0
+    for j in eachindex(xs)
+        y = xs[j]
+        gx(x) = f(x,y)
+        I1 += wx[j]*nth_derivative(gx, x̄, m)
+    end
+
+    # ---- term 2 : integrate ∂^m/∂y^m f(x,ȳ) dx
+    I2 = 0.0
+    for i in eachindex(xs)
+        x = xs[i]
+        gy(y) = f(x,y)
+        I2 += wx[i]*nth_derivative(gy, ȳ, m)
+    end
+
+    return C*(bb-aa)*h^m*(I1 + I2)
 end
 
 """
@@ -175,29 +201,77 @@ Estimate integration error for a 3D integrand over a cube domain using
 # Returns
 - Numerical estimate of leading-order integration error
 """
+# ============================================================
+# 3D derivative-based tensor-product error (leading terms)
+# ============================================================
 function estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
-    h = (b - a) / N
-    x = (a + b) / 2
-    y = (a + b) / 2
-    z = (a + b) / 2
 
-    f3(v) = f(v[1], v[2], v[3])  # convert to vector-input form
+    aa = float(a)
+    bb = float(b)
+    h  = (bb-aa)/N
 
-    if rule == :simpson13_close || rule == :simpson38_close
-        H = ForwardDiff.hessian(f3, [x, y, z])
-        # Use trace of Hessian (sum of ∂²f/∂x², ∂²f/∂y², ∂²f/∂z²) as a second-derivative proxy
-        return -(h^4 / 64) * tr(H)
+    x̄ = (aa+bb)/2
+    ȳ = (aa+bb)/2
+    z̄ = (aa+bb)/2
 
+    # rule → derivative order m and constant C
+    if rule == :simpson13_close
+        m = 4; C = -1/180
+    elseif rule == :simpson38_close
+        m = 4; C = -1/80
     elseif rule == :bode_close
-        H = ForwardDiff.hessian(f3, [x, y, z])
-        # Approximate sixth derivative using cube of diagonal Hessian terms
-        # Heuristic: ∂²f/∂x²³ + ∂²f/∂y²³ + ∂²f/∂z²³
-        est = H[1,1]^3 + H[2,2]^3 + H[3,3]^3
-        return -(h^6 / 1000.0) * est
-
+        m = 6; C = -2/945
+    elseif rule == :simpson13_open
+        m = 3; C = -3/8
+    elseif rule == :simpson38_open
+        m = 4; C = 14/45
+    elseif rule == :bode_open
+        m = 6; C = 1.0
     else
         return 0.0
     end
+
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+    ys, wy = xs, wx
+    zs, wz = xs, wx
+
+    # term X: ∬ ∂_x^m f(x̄,y,z) dy dz
+    I1 = 0.0
+    @inbounds for j in eachindex(ys)
+        y = ys[j]
+        wyj = wy[j]
+        for k in eachindex(zs)
+            z = zs[k]
+            gx(x) = f(x, y, z)
+            I1 += wyj * wz[k] * nth_derivative(gx, x̄, m)
+        end
+    end
+
+    # term Y: ∬ ∂_y^m f(x,ȳ,z) dx dz
+    I2 = 0.0
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for k in eachindex(zs)
+            z = zs[k]
+            gy(y) = f(x, y, z)
+            I2 += wxi * wz[k] * nth_derivative(gy, ȳ, m)
+        end
+    end
+
+    # term Z: ∬ ∂_z^m f(x,y,z̄) dx dy
+    I3 = 0.0
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for j in eachindex(ys)
+            y = ys[j]
+            gz(z) = f(x, y, z)
+            I3 += wxi * wy[j] * nth_derivative(gz, z̄, m)
+        end
+    end
+
+    return C*(bb-aa)*h^m*(I1 + I2 + I3)
 end
 
 """
@@ -215,29 +289,107 @@ or approximated 6th derivative with ForwardDiff.
 # Returns
 - Estimated quadrature error using local curvature or higher-order terms
 """
+# ============================================================
+# 4D derivative-based tensor-product error (leading terms)
+# ============================================================
 function estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
-    h = (b - a) / N
-    x = (a + b) / 2
-    y = (a + b) / 2
-    z = (a + b) / 2
-    t = (a + b) / 2
 
-    f4(v) = f(v[1], v[2], v[3], v[4])  # convert to vector-input form
+    aa = float(a)
+    bb = float(b)
+    h  = (bb-aa)/N
 
-    if rule == :simpson13_close || rule == :simpson38_close
-        H = ForwardDiff.hessian(f4, [x, y, z, t])
-        # Use trace of Hessian (sum of ∂²f/∂x², ∂²f/∂y², ∂²f/∂z², ∂²f/∂t²)
-        return -(h^4 / 100) * tr(H)
+    x̄ = (aa+bb)/2
+    ȳ = (aa+bb)/2
+    z̄ = (aa+bb)/2
+    t̄ = (aa+bb)/2
 
+    # rule → derivative order m and constant C
+    if rule == :simpson13_close
+        m = 4; C = -1/180
+    elseif rule == :simpson38_close
+        m = 4; C = -1/80
     elseif rule == :bode_close
-        H = ForwardDiff.hessian(f4, [x, y, z, t])
-        # Approximate sixth derivative using cube of diagonal Hessian terms
-        est = H[1,1]^3 + H[2,2]^3 + H[3,3]^3 + H[4,4]^3
-        return -(h^6 / 5000.0) * est
-
+        m = 6; C = -2/945
+    elseif rule == :simpson13_open
+        m = 3; C = -3/8
+    elseif rule == :simpson38_open
+        m = 4; C = 14/45
+    elseif rule == :bode_open
+        m = 6; C = 1.0
     else
         return 0.0
     end
+
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+    ys, wy = xs, wx
+    zs, wz = xs, wx
+    ts, wt = xs, wx
+
+    # term X: ∭ ∂_x^m f(x̄,y,z,t) dy dz dt
+    I1 = 0.0
+    @inbounds for j in eachindex(ys)
+        y = ys[j]
+        wyj = wy[j]
+        for k in eachindex(zs)
+            z = zs[k]
+            wyj_wzk = wyj * wz[k]
+            for l in eachindex(ts)
+                t = ts[l]
+                gx(x) = f(x, y, z, t)
+                I1 += wyj_wzk * wt[l] * nth_derivative(gx, x̄, m)
+            end
+        end
+    end
+
+    # term Y: ∭ ∂_y^m f(x,ȳ,z,t) dx dz dt
+    I2 = 0.0
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for k in eachindex(zs)
+            z = zs[k]
+            wxi_wzk = wxi * wz[k]
+            for l in eachindex(ts)
+                t = ts[l]
+                gy(y) = f(x, y, z, t)
+                I2 += wxi_wzk * wt[l] * nth_derivative(gy, ȳ, m)
+            end
+        end
+    end
+
+    # term Z: ∭ ∂_z^m f(x,y,z̄,t) dx dy dt
+    I3 = 0.0
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for j in eachindex(ys)
+            y = ys[j]
+            wxi_wyj = wxi * wy[j]
+            for l in eachindex(ts)
+                t = ts[l]
+                gz(z) = f(x, y, z, t)
+                I3 += wxi_wyj * wt[l] * nth_derivative(gz, z̄, m)
+            end
+        end
+    end
+
+    # term T: ∭ ∂_t^m f(x,y,z,t̄) dx dy dz
+    I4 = 0.0
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for j in eachindex(ys)
+            y = ys[j]
+            wxi_wyj = wxi * wy[j]
+            for k in eachindex(zs)
+                z = zs[k]
+                gt(t) = f(x, y, z, t)
+                I4 += wxi_wyj * wz[k] * nth_derivative(gt, t̄, m)
+            end
+        end
+    end
+
+    return C*(bb-aa)*h^m*(I1 + I2 + I3 + I4)
 end
 
 """
