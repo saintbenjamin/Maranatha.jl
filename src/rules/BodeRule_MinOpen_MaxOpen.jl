@@ -13,7 +13,7 @@ module BodeRule_MinOpen_MaxOpen
 export bode_rule_min_open_max_open, bode_rule_min_open_max_open_error
 
 """
-    bode_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int) -> Float64
+    bode_rule_min_open_max_open(f, a::Real, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using a globally-open
 (endpoint-free) composite Boole rule (a.k.a. Bode/Boole) on a uniform grid.
@@ -40,7 +40,7 @@ globally endpoint-free. The implementation preserves the original evaluation
 order and arithmetic.
 
 # Arguments
-- `f`: Integrand function of one variable, `f(x)`.
+- `f`: Integrand callable of one variable `f(x)` (function, closure, or callable struct).
 - `a::Real`: Lower integration bound.
 - `b::Real`: Upper integration bound.
 - `N::Int`: Number of subintervals (must satisfy the constraints below).
@@ -64,7 +64,7 @@ order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 4 or if `N < 16`.
 """
-function bode_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Float64
+function bode_rule_min_open_max_open(f, a::Real, b::Real, N::Int)::Float64
     (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
     (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping 6-point end stencils), got N = $N")
 

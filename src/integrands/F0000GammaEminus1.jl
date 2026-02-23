@@ -1,5 +1,5 @@
 # ============================================================================
-# src/functions/F0000GammaEminus1.jl
+# src/integrands/F0000GammaEminus1.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

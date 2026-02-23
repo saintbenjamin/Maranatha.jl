@@ -69,6 +69,34 @@ using .AvgErrFormatter
 using .FitConvergence
 
 # ============================================================
+# Integrand system
+#
+# The integrand registry allows complex integrands to be exposed
+# as user-friendly presets, while still supporting plain Julia
+# functions entered directly in the REPL.
+#
+# Order matters:
+#   1) Integrands registry
+#   2) Raw integrand implementations (e.g. F0000GammaEminus1)
+#   3) Preset wrappers that depend on them
+# ============================================================
+
+# --- Integrand registry core ---
+include("integrands/Integrands.jl")
+using .Integrands
+
+# --- Raw integrand implementation (dependency of presets) ---
+include("integrands/F0000GammaEminus1.jl")
+using .F0000GammaEminus1
+
+# --- Preset wrappers (user-facing integrands) ---
+include("integrands/F0000.jl")
+using .F0000Preset
+
+# Register built-in presets
+F0000Preset.__register_F0000_integrand__()
+
+# ============================================================
 # Controller / execution layer
 #
 # The Runner module acts as the orchestration layer that

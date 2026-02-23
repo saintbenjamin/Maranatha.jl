@@ -13,7 +13,7 @@ module Simpson13Rule_MinOpen_MaxOpen
 export simpson13_rule_min_open_max_open
 
 """
-    simpson13_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int) -> Float64
+    simpson13_rule_min_open_max_open(f, a::Real, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using a globally-open
 (endpoint-free) composite Simpson 1/3 "open-chain" rule.
@@ -41,7 +41,7 @@ The quadrature is exact for polynomials up to degree 3 and uses the stencil
 The implementation preserves the original evaluation order and arithmetic.
 
 # Arguments
-- `f`: Integrand function of one variable, `f(x)`.
+- `f`: Integrand callable of one variable `f(x)` (function, closure, or callable struct).
 - `a::Real`: Lower integration bound.
 - `b::Real`: Upper integration bound.
 - `N::Int`: Number of subintervals (must satisfy the constraints below).
@@ -61,7 +61,7 @@ The implementation preserves the original evaluation order and arithmetic.
 # Errors
 - Throws an error if `N` is not even or if `N < 8`.
 """
-function simpson13_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Float64
+function simpson13_rule_min_open_max_open(f, a::Real, b::Real, N::Int)::Float64
     (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
     (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
 

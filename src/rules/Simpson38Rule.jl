@@ -13,7 +13,7 @@ module Simpson38Rule
 export simpson38_rule
 
 """
-    simpson38_rule(f::Function, a::Real, b::Real, N::Int) -> Float64
+    simpson38_rule(f, a::Real, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using the composite
 Simpson’s 3/8 rule (closed Newton–Cotes with a repeated 4-point stencil).
@@ -28,7 +28,7 @@ divisible by 3 and uses weights:
 The implementation preserves the original evaluation order and arithmetic.
 
 # Arguments
-- `f`: Integrand function of one variable, `f(x)`.
+- `f`: Integrand callable of one variable `f(x)` (function, closure, or callable struct).
 - `a::Real`: Lower integration limit.
 - `b::Real`: Upper integration limit.
 - `N::Int`: Number of subintervals (must be divisible by 3).
@@ -45,7 +45,7 @@ The implementation preserves the original evaluation order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 3.
 """
-function simpson38_rule(f::Function, a::Real, b::Real, N::Int)::Float64
+function simpson38_rule(f, a::Real, b::Real, N::Int)::Float64
     if N % 3 != 0
         error("Simpson 3/8 rule requires N divisible by 3, got N = $N")
     end

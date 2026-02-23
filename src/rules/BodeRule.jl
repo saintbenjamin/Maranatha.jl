@@ -13,7 +13,7 @@ module BodeRule
 export bode_rule
 
 """
-    bode_rule(f::Function, a::Real, b::Real, N::Int) -> Float64
+    bode_rule(f, a::Real, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using the composite
 Bode’s rule (closed 5-point Newton–Cotes; 4 subintervals per block).
@@ -29,7 +29,7 @@ blocks, each spanning 4 subintervals (5 grid points) with weights:
 The implementation preserves the original evaluation order and arithmetic.
 
 # Arguments
-- `f`: Integrand function of one variable, `f(x)`.
+- `f`: Integrand callable of one variable `f(x)` (function, closure, or callable struct).
 - `a::Real`: Lower integration limit.
 - `b::Real`: Upper integration limit.
 - `N::Int`: Number of subintervals (must be divisible by 4).
@@ -48,7 +48,7 @@ The implementation preserves the original evaluation order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 4.
 """
-function bode_rule(f::Function, a::Real, b::Real, N::Int)::Float64
+function bode_rule(f, a::Real, b::Real, N::Int)::Float64
     if N % 4 != 0
         error("Bode's rule requires N divisible by 4, got N = $N")
     end

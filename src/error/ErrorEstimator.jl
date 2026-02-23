@@ -22,15 +22,25 @@ export estimate_error
 # ============================================================
 
 """
-    nth_derivative(f::Function, x::Real, n::Int)
+    nth_derivative(f, x::Real, n::Int)
 
-Compute the `n`-th derivative of a scalar function `f` at a scalar point `x`
+Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
 using repeated `ForwardDiff.derivative`.
 
+# Function description
+This routine is intentionally written to accept any **callable** object `f`,
+not only subtypes of `Function`. This includes:
+- ordinary functions,
+- anonymous closures,
+- callable structs (functors) such as preset integrands.
+
+This design is required for compatibility with the integrand registry and
+preset-style callable wrappers while preserving ForwardDiff-based behavior.
+
 # Arguments
-- `f`: Scalar-to-scalar function.
-- `x`: Point at which the derivative is evaluated.
-- `n`: Derivative order (nonnegative integer).
+- `f`: Scalar-to-scalar callable (e.g., `f(x)::Number`).
+- `x::Real`: Point at which the derivative is evaluated.
+- `n::Int`: Derivative order (nonnegative integer).
 
 # Returns
 - The `n`-th derivative value `f^(n)(x)`.
@@ -38,8 +48,10 @@ using repeated `ForwardDiff.derivative`.
 # Notes
 - This implementation constructs a nested closure chain of length `n` and then
   evaluates it at `x`. This intentionally matches the original behavior.
+- Type restriction `f::Function` is intentionally avoided because callable
+  structs are not subtypes of `Function`, but must be supported.
 """
-function nth_derivative(f::Function, x::Real, n::Int)
+function nth_derivative(f, x::Real, n::Int)
     g = f
     for _ in 1:n
         prev = g
@@ -89,7 +101,7 @@ end
 # ============================================================
 
 """
-    estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
 Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`
 using Newton–Cotes quadrature rules and automatic differentiation.
@@ -101,7 +113,7 @@ while others use endpoint differences or panel-wise derivative expansions,
 matching the original implementation.
 
 # Arguments
-- `f`: Integrand function `f(x)`.
+- `f`: Integrand callable `f(x)` (function, closure, or callable struct).
 - `a`, `b`: Integration limits (scalars).
 - `N`: Number of subintervals (must satisfy rule-specific divisibility and minimum constraints).
 - `rule`: Integration rule symbol:
@@ -119,7 +131,7 @@ matching the original implementation.
 # Errors
 - Throws an error if `N` violates rule-specific constraints.
 """
-function estimate_error_1d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol)
     aa = float(a)
     bb = float(b)
     h  = (bb - aa) / N
@@ -206,7 +218,7 @@ end
 # ============================================================
 
 """
-    estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
 Estimate integration error for a 2D integral over a square domain `[a,b] × [a,b]`
 using a derivative-based tensor-product heuristic.
@@ -221,7 +233,7 @@ This matches the original implementation exactly, including loop ordering and
 floating-point accumulation order.
 
 # Arguments
-- `f`: 2D integrand `f(x, y)`.
+- `f`: 2D integrand callable `f(x, y)` (function, closure, or callable struct).
 - `a`, `b`: Square domain bounds.
 - `N`: Number of subdivisions per axis.
 - `rule`: Integration rule symbol (same set as in `estimate_error_1d`).
@@ -229,7 +241,7 @@ floating-point accumulation order.
 # Returns
 - A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
 """
-function estimate_error_2d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
     bb = float(b)
@@ -267,7 +279,7 @@ end
 # ============================================================
 
 """
-    estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
 Estimate integration error for a 3D integral over a cube domain `[a,b]^3`
 using a derivative-based tensor-product heuristic.
@@ -283,7 +295,7 @@ This matches the original implementation exactly, including loop ordering and
 floating-point accumulation order.
 
 # Arguments
-- `f`: 3D integrand `f(x, y, z)`.
+- `f`: 3D integrand callable `f(x, y, z)` (function, closure, or callable struct).
 - `a`, `b`: Cube domain bounds.
 - `N`: Number of subdivisions per axis.
 - `rule`: Integration rule symbol.
@@ -291,7 +303,7 @@ floating-point accumulation order.
 # Returns
 - A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
 """
-function estimate_error_3d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
     bb = float(b)
@@ -352,7 +364,7 @@ end
 # ============================================================
 
 """
-    estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
 Estimate integration error for a 4D integral over a hypercube domain `[a,b]^4`
 using a derivative-based tensor-product heuristic.
@@ -368,7 +380,7 @@ This matches the original implementation exactly, including loop ordering and
 floating-point accumulation order.
 
 # Arguments
-- `f`: 4D integrand `f(x, y, z, t)`.
+- `f`: 4D integrand callable `f(x, y, z, t)` (function, closure, or callable struct).
 - `a`, `b`: Hypercube domain bounds.
 - `N`: Number of subdivisions per axis.
 - `rule`: Integration rule symbol.
@@ -376,7 +388,7 @@ floating-point accumulation order.
 # Returns
 - A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
 """
-function estimate_error_4d(f::Function, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol)
 
     aa = float(a)
     bb = float(b)

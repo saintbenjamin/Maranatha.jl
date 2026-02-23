@@ -13,7 +13,7 @@ module Simpson38Rule_MinOpen_MaxOpen
 export simpson38_rule_min_open_max_open
 
 """
-    simpson38_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int) -> Float64
+    simpson38_rule_min_open_max_open(f, a::Real, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using an endpoint-free
 ("open") chained 3-point Newton–Cotes composite rule on a uniform grid.
@@ -39,7 +39,7 @@ with `N = 4M`.
 The implementation preserves the original evaluation order and arithmetic.
 
 # Arguments
-- `f`: Integrand function of one variable, `f(x)`.
+- `f`: Integrand callable of one variable `f(x)` (function, closure, or callable struct).
 - `a::Real`: Lower integration bound.
 - `b::Real`: Upper integration bound.
 - `N::Int`: Number of subintervals (must satisfy the constraints below).
@@ -59,7 +59,7 @@ The implementation preserves the original evaluation order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 4 or if `N < 4`.
 """
-function simpson38_rule_min_open_max_open(f::Function, a::Real, b::Real, N::Int)::Float64
+function simpson38_rule_min_open_max_open(f, a::Real, b::Real, N::Int)::Float64
     if N % 4 != 0
         error("Open 3-point chained rule requires N divisible by 4 (panel width = 4h), got N = $N")
     end

@@ -13,7 +13,7 @@ module Simpson13Rule
 export simpson13_rule
 
 """
-    simpson13_rule(f::Function, a::Float64, b::Real, N::Int) -> Float64
+    simpson13_rule(f, a::Float64, b::Real, N::Int) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using the composite
 Simpson’s 1/3 rule.
@@ -29,7 +29,7 @@ by 2:
 The implementation preserves the original evaluation order and arithmetic.
 
 # Arguments
-- `f`: Integrand function of one variable, `f(x)`.
+- `f`: Integrand callable of one variable `f(x)` (function, closure, or callable struct).
 - `a::Float64`: Lower integration limit.
 - `b::Real`: Upper integration limit.
 - `N::Int`: Number of subintervals (must be divisible by 2).
@@ -46,7 +46,7 @@ The implementation preserves the original evaluation order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 2.
 """
-function simpson13_rule(f::Function, a::Float64, b::Real, N::Int)
+function simpson13_rule(f, a::Float64, b::Real, N::Int)
     if N % 2 != 0
         error("Simpson's 1/3 rule requires N divisible by 2, got N = $N")
     end

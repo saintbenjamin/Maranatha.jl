@@ -17,8 +17,7 @@ using .Maranatha
 include(joinpath(@__DIR__, "..", "src", "figs", "PlotTools.jl"))
 using .PlotTools
 
-include(joinpath(@__DIR__, "..", "src", "functions", "F0000GammaEminus1.jl"))
-using .F0000GammaEminus1
+using .Maranatha.F0000GammaEminus1
 
 # ----------------------------------------------------------------------------
 # Optional plotting switch:
@@ -59,8 +58,8 @@ end
 @testset "Maranatha regression suite" begin
     announce("Maranatha regression suite")
 
-    @testset "F0000GammaEminus1 1D (single-term fit)" begin
-        announce("F0000GammaEminus1 1D (single-term fit)")
+    @testset "F0000GammaEminus1 1D" begin
+        announce("F0000GammaEminus1 1D")
 
         ns_3 = [30, 33, 36, 39, 42, 45, 48]
         ns_4 = [40, 44, 48, 52, 56, 60, 64]
@@ -106,6 +105,43 @@ end
             @test isfinite(est3)
             maybe_plot("F0000", res3.h, res3.avg, res3.err, fit3; rule=:bode_close)
         end
+    end
+
+    @testset "Integrand preset API (F0000)" begin
+        announce("Integrand preset API (F0000)")
+
+        # Registry sanity
+        @test :F0000 in Maranatha.Integrands.available_integrands()
+
+        # Construct preset integrand via registry
+        f = Maranatha.Integrands.integrand(:F0000; p=3, eps=1e-15)
+        bounds = (0.0, 1.0)
+        ns_4 = [40, 44, 48, 52, 56, 60, 64]
+
+        @testset "1D Simpson 1/3 Close (preset)" begin
+            announce("1D Simpson 1/3 Close (preset)")
+            est, fit, res = Maranatha.Runner.run_Maranatha(
+                f, bounds...; dim=1, nsamples=ns_4,
+                rule=:simpson13_close, err_method=:derivative, fit_terms=2
+            )
+            assert_result_sane(res)
+            @test isfinite(est)
+            maybe_plot("F0000_preset", res.h, res.avg, res.err, fit; rule=:simpson13_close)
+        end
+    end
+
+    @testset "Preset vs raw integrand consistency (spot-check)" begin
+        announce("Preset vs raw integrand consistency (spot-check)")
+
+        t = 0.37
+        f_raw = t -> gtilde_F0000(t; p=3, eps=1e-15)
+        f_pre = Maranatha.Integrands.integrand(:F0000; p=3, eps=1e-15)
+
+        @test isfinite(f_raw(t))
+        @test isfinite(f_pre(t))
+
+        # Same underlying formula expected (exact match in current design)
+        @test f_raw(t) == f_pre(t)
     end
 
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
