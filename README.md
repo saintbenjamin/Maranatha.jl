@@ -77,18 +77,46 @@ We are actively improving stability, error modeling, and generalization capabili
 
 ## 📂 Getting Started
 
-To run a simple example:
+A minimal 1D example:
 
 ```julia
 using Maranatha
+using Maranatha.PlotTools
 
-f(x) = sin(x)
-I, fit, data = run_Maranatha(f, 0.0, π; dim=1, nsamples=[4,8,16,32], rule=:simpson13_close)
+f1d(x) = sin(x)
+
+bounds = (0.0, π)
+ns = [4, 8, 16, 32]
+
+I, fit, data = run_Maranatha(f1d, bounds...; dim=1, nsamples=ns, rule=:simpson13_close, err_method=:derivative)
+
+plot_convergence_result("1D_sin", data.h, data.avg, data.err, fit; rule=:simpson13_close)
 ```
 
-See the `plot_convergence_result()` function for convergence visualization.
+A more “batch-style” test setup (1D–4D) is also possible:
 
----
+```julia
+using Maranatha
+using Maranatha.PlotTools
+
+f1d(x) = sin(x)
+f2d(x, y) = exp(-x^2 - y^2)
+f3d(x, y, z) = exp(-x^2 - y^2 - z^2)
+f4d(x, y, z, t) = x * y * z * t
+
+bounds = (0.0, 1.0)
+
+ns         = [4, 8, 12, 16, 20, 24, 28, 32, 36, 40]
+ns_13_open = [8, 12, 16, 20, 24, 28, 32, 36, 40]
+
+println("▶ 1D Test Simpson 1/3 (closed)")
+I, fit, data = run_Maranatha(f1d, bounds...; dim=1, nsamples=ns, rule=:simpson13_close, err_method=:derivative)
+plot_convergence_result("1D_simpson13_close", data.h, data.avg, data.err, fit; rule=:simpson13_close)
+
+println("▶ 1D Test Simpson 1/3 (open-chain)")
+I, fit, data = run_Maranatha(f1d, bounds...; dim=1, nsamples=ns_13_open, rule=:simpson13_open, err_method=:derivative)
+plot_convergence_result("1D_simpson13_open", data.h, data.avg, data.err, fit; rule=:simpson13_open)
+```
 
 ## 📎 License
 
@@ -101,7 +129,7 @@ MIT License
 This project uses:
 
 * [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) for automatic differentiation
-* [`Plots.jl`](https://github.com/JuliaPlots/Plots.jl) for visualization
+* [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) for visualization
 
 ---
 
