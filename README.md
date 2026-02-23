@@ -1,27 +1,33 @@
 # Maranatha.jl: A Framework for Precise Numerical Integration
 
 **Maranatha.jl** is a prototype numerical integration engine designed
-for\
-flexible, multi-dimensional quadrature with error estimation and
+for flexible, multi-dimensional quadrature with error estimation and
 convergence extrapolation.
 
 This framework is intended for research and educational use, focusing
-on\
-the structure and clarity of numerical methods rather than
+on the structure and clarity of numerical methods rather than
 production-level accuracy.
 
 ------------------------------------------------------------------------
 
 ## 🔤 Name Philosophy
 
-**M**eshes are generated over the interval,\
-**A**daptively refined based on error estimates,\
-**R**ules like Simpson's and Bode's are applied to evaluate,\
-**A**utomatic differentiation supports higher-order error control,\
-**N**umerical values of the integrand are computed at each node,\
-**A**pproximation errors are analyzed and minimized,\
-**T**otal values are extrapolated via weighted least-squares fitting,\
-**H**igher-dimensional extensions are made possible,\
+**M**eshes are generated over the interval,
+
+**A**daptively refined based on error estimates,
+
+**R**ules like Simpson's and Bode's are applied to evaluate,
+
+**A**utomatic differentiation supports higher-order error control,
+
+**N**umerical values of the integrand are computed at each node,
+
+**A**pproximation errors are analyzed and minimized,
+
+**T**otal values are extrapolated via weighted least-squares fitting,
+
+**H**igher-dimensional extensions are made possible,
+
 and **A**nalysis-ready results are provided for interpretation.
 
 ------------------------------------------------------------------------
@@ -32,7 +38,7 @@ and **A**nalysis-ready results are provided for interpretation.
 -   Simpson's 1/3, Simpson's 3/8, and Bode rules
     -   closed variants
     -   endpoint-free (open-chain) variants
--   Automatic error estimation using ForwardDiff.jl
+-   Automatic error estimation using [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)
 -   Weighted linear least-squares extrapolation as `h → 0`
 -   Convergence plots with error bars and fit curves
 -   Modular structure: `rules/`, `error/`, `fit/`, and `Maranatha`
@@ -67,11 +73,13 @@ and **A**nalysis-ready results are provided for interpretation.
 
 ## 🚧 Development Status
 
-This project is currently at the **skeleton stage**.\
+This project is currently at the **skeleton stage**.
+
 Some results may be **numerically unstable or inaccurate**, especially
 in higher dimensions or under tight quadrature constraints.
 
-The internal structure is designed for clarity and extensibility.\
+The internal structure is designed for clarity and extensibility.
+
 We are actively improving stability, error modeling, and generalization
 capabilities.
 
@@ -206,8 +214,8 @@ MIT License
 
 This project uses:
 
--   ForwardDiff.jl for automatic differentiation
--   PyPlot.jl for visualization
+* [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl) for automatic differentiation
+* [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) for visualization
 
 ------------------------------------------------------------------------
 
