@@ -97,6 +97,35 @@ function _rule_params_for_tensor_error(rule::Symbol)
 end
 
 # ============================================================
+# Boundary-difference models for open-chain rules (1D–4D)
+# ============================================================
+
+@inline function _has_boundary_error_model(rule::Symbol)::Bool
+    return (rule == :simpson13_open) || (rule == :bode_open)
+end
+
+"""
+    _boundary_error_params(rule::Symbol)
+
+Return parameters for the boundary-difference leading-term model:
+- p     : leading power of h (h^p)
+- K     : prefactor
+- dord  : derivative order used in boundary difference
+- off   : xL = a + off*h, xR = a + (N-off)*h
+"""
+function _boundary_error_params(rule::Symbol)
+    if rule == :simpson13_open
+        # E ≈ -(3/8) h^4 [ f'''(a+1.5h) - f'''(a+(N-1.5)h) ]
+        return (4, -(3.0/8.0), 3, 1.5)
+    elseif rule == :bode_open
+        # E ≈ -(95/288) h^6 [ f^(5)(a+2.5h) - f^(5)(a+(N-2.5)h) ]
+        return (6, -(95.0/288.0), 5, 2.5)
+    else
+        return (0, 0.0, 0, 0.0)
+    end
+end
+
+# ============================================================
 # 1D error estimator legacy (leading terms)
 # ============================================================
 
@@ -172,10 +201,6 @@ function estimate_error_1d_legacy(f, a::Real, b::Real, N::Int, rule::Symbol)
         x̄ = (aa + bb) / 2
         d6 = nth_derivative(f, x̄, 6)
         return -((2.0 / 945.0) * (bb - aa)) * h^6 * d6
-
-    # ----------------------------
-    # Open-chain (your definitions)
-    # ----------------------------
 
     elseif rule == :simpson13_open
         (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
@@ -290,15 +315,33 @@ function estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol)
     bb = float(b)
     h  = (bb-aa)/N
 
+    # ---- special boundary-difference models ----
+    if _has_boundary_error_model(rule)
+        if rule == :simpson13_open
+            (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
+            (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+        elseif rule == :bode_open
+            (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
+            (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+        end
+
+        p, K, dord, off = _boundary_error_params(rule)
+        xL = aa + off*h
+        xR = aa + (N-off)*h
+
+        dL = nth_derivative(f, xL, dord)
+        dR = nth_derivative(f, xR, dord)
+
+        return K * h^p * (dL - dR)
+    end
+
+    # ---- default tensor-style midpoint model ----
     x̄ = (aa+bb)/2
 
     m, C = _rule_params_for_tensor_error(rule)
     m == 0 && return 0.0
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
-
-    # ---- SAME STYLE AS 2D/3D/4D ----
-    # integrate ∂^m f(x̄) dx  (midpoint derivative only)
 
     d = nth_derivative(f, x̄, m)
 
@@ -347,12 +390,47 @@ function estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol)
     x̄ = (aa+bb)/2
     ȳ = (aa+bb)/2
 
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+
+    # ---- special boundary-difference models ----
+    if _has_boundary_error_model(rule)
+        if rule == :simpson13_open
+            (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
+            (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+        elseif rule == :bode_open
+            (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
+            (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+        end
+
+        p, K, dord, off = _boundary_error_params(rule)
+        xL = aa + off*h
+        xR = aa + (N-off)*h
+        yL = xL
+        yR = xR
+
+        # X-axis boundary difference, integrated over y
+        I1 = 0.0
+        @inbounds for j in eachindex(xs)
+            y = xs[j]
+            gx(x) = f(x, y)
+            I1 += wx[j] * (nth_derivative(gx, xL, dord) - nth_derivative(gx, xR, dord))
+        end
+
+        # Y-axis boundary difference, integrated over x
+        I2 = 0.0
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            gy(y) = f(x, y)
+            I2 += wx[i] * (nth_derivative(gy, yL, dord) - nth_derivative(gy, yR, dord))
+        end
+
+        return K * h^p * (I1 + I2)
+    end
+
+    # ---- default tensor-style midpoint model ----
     m, C = _rule_params_for_tensor_error(rule)
     m == 0 && return 0.0
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
-
-    # ---- term 1 : integrate ∂^m/∂x^m f(x̄,y) dy
     I1 = 0.0
     @inbounds for j in eachindex(xs)
         y = xs[j]
@@ -360,7 +438,6 @@ function estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol)
         I1 += wx[j]*nth_derivative(gx, x̄, m)
     end
 
-    # ---- term 2 : integrate ∂^m/∂y^m f(x,ȳ) dx
     I2 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -410,14 +487,69 @@ function estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol)
     ȳ = (aa+bb)/2
     z̄ = (aa+bb)/2
 
-    m, C = _rule_params_for_tensor_error(rule)
-    m == 0 && return 0.0
-
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    # term X: ∬ ∂_x^m f(x̄,y,z) dy dz
+    # ---- special boundary-difference models ----
+    if _has_boundary_error_model(rule)
+        if rule == :simpson13_open
+            (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
+            (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+        elseif rule == :bode_open
+            (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
+            (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+        end
+
+        p, K, dord, off = _boundary_error_params(rule)
+        xL = aa + off*h
+        xR = aa + (N-off)*h
+        yL = xL; yR = xR
+        zL = xL; zR = xR
+
+        # X-axis: ∬ [∂_x^(dord) f(xL,y,z) - ∂_x^(dord) f(xR,y,z)] dy dz
+        I1 = 0.0
+        @inbounds for j in eachindex(ys)
+            y = ys[j]
+            wyj = wy[j]
+            for k in eachindex(zs)
+                z = zs[k]
+                gx(x) = f(x, y, z)
+                I1 += wyj * wz[k] * (nth_derivative(gx, xL, dord) - nth_derivative(gx, xR, dord))
+            end
+        end
+
+        # Y-axis
+        I2 = 0.0
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            wxi = wx[i]
+            for k in eachindex(zs)
+                z = zs[k]
+                gy(y) = f(x, y, z)
+                I2 += wxi * wz[k] * (nth_derivative(gy, yL, dord) - nth_derivative(gy, yR, dord))
+            end
+        end
+
+        # Z-axis
+        I3 = 0.0
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            wxi = wx[i]
+            for j in eachindex(ys)
+                y = ys[j]
+                gz(z) = f(x, y, z)
+                I3 += wxi * wy[j] * (nth_derivative(gz, zL, dord) - nth_derivative(gz, zR, dord))
+            end
+        end
+
+        return K * h^p * (I1 + I2 + I3)
+    end
+
+    # ---- default tensor-style midpoint model ----
+    m, C = _rule_params_for_tensor_error(rule)
+    m == 0 && return 0.0
+
     I1 = 0.0
     @inbounds for j in eachindex(ys)
         y = ys[j]
@@ -429,7 +561,6 @@ function estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol)
         end
     end
 
-    # term Y: ∬ ∂_y^m f(x,ȳ,z) dx dz
     I2 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -441,7 +572,6 @@ function estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol)
         end
     end
 
-    # term Z: ∬ ∂_z^m f(x,y,z̄) dx dy
     I3 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -496,15 +626,99 @@ function estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol)
     z̄ = (aa+bb)/2
     t̄ = (aa+bb)/2
 
-    m, C = _rule_params_for_tensor_error(rule)
-    m == 0 && return 0.0
-
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    # term X: ∭ ∂_x^m f(x̄,y,z,t) dy dz dt
+    # ---- special boundary-difference models ----
+    if _has_boundary_error_model(rule)
+        if rule == :simpson13_open
+            (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
+            (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+        elseif rule == :bode_open
+            (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
+            (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+        end
+
+        p, K, dord, off = _boundary_error_params(rule)
+        xL = aa + off*h
+        xR = aa + (N-off)*h
+        yL = xL; yR = xR
+        zL = xL; zR = xR
+        tL = xL; tR = xR
+
+        # X-axis
+        I1 = 0.0
+        @inbounds for j in eachindex(ys)
+            y = ys[j]
+            wyj = wy[j]
+            for k in eachindex(zs)
+                z = zs[k]
+                wyj_wzk = wyj * wz[k]
+                for l in eachindex(ts)
+                    t = ts[l]
+                    gx(x) = f(x, y, z, t)
+                    I1 += wyj_wzk * wt[l] * (nth_derivative(gx, xL, dord) - nth_derivative(gx, xR, dord))
+                end
+            end
+        end
+
+        # Y-axis
+        I2 = 0.0
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            wxi = wx[i]
+            for k in eachindex(zs)
+                z = zs[k]
+                wxi_wzk = wxi * wz[k]
+                for l in eachindex(ts)
+                    t = ts[l]
+                    gy(y) = f(x, y, z, t)
+                    I2 += wxi_wzk * wt[l] * (nth_derivative(gy, yL, dord) - nth_derivative(gy, yR, dord))
+                end
+            end
+        end
+
+        # Z-axis
+        I3 = 0.0
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            wxi = wx[i]
+            for j in eachindex(ys)
+                y = ys[j]
+                wxi_wyj = wxi * wy[j]
+                for l in eachindex(ts)
+                    t = ts[l]
+                    gz(z) = f(x, y, z, t)
+                    I3 += wxi_wyj * wt[l] * (nth_derivative(gz, zL, dord) - nth_derivative(gz, zR, dord))
+                end
+            end
+        end
+
+        # T-axis
+        I4 = 0.0
+        @inbounds for i in eachindex(xs)
+            x = xs[i]
+            wxi = wx[i]
+            for j in eachindex(ys)
+                y = ys[j]
+                wxi_wyj = wxi * wy[j]
+                for k in eachindex(zs)
+                    z = zs[k]
+                    gt(t) = f(x, y, z, t)
+                    I4 += wxi_wyj * wz[k] * (nth_derivative(gt, tL, dord) - nth_derivative(gt, tR, dord))
+                end
+            end
+        end
+
+        return K * h^p * (I1 + I2 + I3 + I4)
+    end
+
+    # ---- default tensor-style midpoint model ----
+    m, C = _rule_params_for_tensor_error(rule)
+    m == 0 && return 0.0
+
     I1 = 0.0
     @inbounds for j in eachindex(ys)
         y = ys[j]
@@ -520,7 +734,6 @@ function estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol)
         end
     end
 
-    # term Y: ∭ ∂_y^m f(x,ȳ,z,t) dx dz dt
     I2 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -536,7 +749,6 @@ function estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol)
         end
     end
 
-    # term Z: ∭ ∂_z^m f(x,y,z̄,t) dx dy dt
     I3 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -552,7 +764,6 @@ function estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol)
         end
     end
 
-    # term T: ∭ ∂_t^m f(x,y,z,t̄) dx dy dz
     I4 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
