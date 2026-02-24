@@ -96,6 +96,9 @@ using .F0000Preset
 # Register built-in presets
 F0000Preset.__register_F0000_integrand__()
 
+include("integrands/Z_q.jl")
+using .Z_q
+
 # ============================================================
 # Controller / execution layer
 #
