@@ -404,7 +404,7 @@ end
         # 4D
         # ----------------------------
 
-        f4d(x, y, z, t) = x * y * z * t
+        f4d(x, y, z, t) = sin(x * y * z * t)
         bounds = (0.0, 1.0)
 
         @testset "4D rules" begin
