@@ -404,7 +404,10 @@ end
         # 4D
         # ----------------------------
 
-        f4d(x, y, z, t) = sin(x * y * z * t)
+        ns_3 = [30, 33, 36, 39, 42, 45, 48]
+        ns_4 = [40, 44, 48, 52, 56, 60, 64]
+
+        f4d(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
         bounds = (0.0, 1.0)
 
         @testset "4D rules" begin
@@ -413,7 +416,7 @@ end
             @testset "Simpson 1/3 Close" begin
                 announce("4D rules :: Simpson 1/3 Close")
                 est, fit, res = Maranatha.Runner.run_Maranatha(
-                    f4d, bounds...; dim=4, nsamples=ns,
+                    f4d, bounds...; dim=4, nsamples=ns_4,
                     rule=:simpson13_close, err_method=:derivative, fit_terms=4
                 )
                 assert_result_sane(res); @test isfinite(est)
@@ -423,7 +426,7 @@ end
             @testset "Simpson 1/3 Open" begin
                 announce("4D rules :: Simpson 1/3 Open")
                 est, fit, res = Maranatha.Runner.run_Maranatha(
-                    f4d, bounds...; dim=4, nsamples=ns_13_open,
+                    f4d, bounds...; dim=4, nsamples=ns_4,
                     rule=:simpson13_open, err_method=:derivative, fit_terms=4
                 )
                 assert_result_sane(res); @test isfinite(est)
@@ -443,7 +446,7 @@ end
             @testset "Simpson 3/8 Open" begin
                 announce("4D rules :: Simpson 3/8 Open")
                 est, fit, res = Maranatha.Runner.run_Maranatha(
-                    f4d, bounds...; dim=4, nsamples=ns,
+                    f4d, bounds...; dim=4, nsamples=ns_4,
                     rule=:simpson38_open, err_method=:derivative, fit_terms=4
                 )
                 assert_result_sane(res); @test isfinite(est)
@@ -453,7 +456,7 @@ end
             @testset "Bode Close" begin
                 announce("4D rules :: Bode Close")
                 est, fit, res = Maranatha.Runner.run_Maranatha(
-                    f4d, bounds...; dim=4, nsamples=ns,
+                    f4d, bounds...; dim=4, nsamples=ns_4,
                     rule=:bode_close, err_method=:derivative, fit_terms=4
                 )
                 assert_result_sane(res); @test isfinite(est)
@@ -463,7 +466,7 @@ end
             @testset "Bode Open" begin
                 announce("4D rules :: Bode Open")
                 est, fit, res = Maranatha.Runner.run_Maranatha(
-                    f4d, bounds...; dim=4, nsamples=ns_bode_open,
+                    f4d, bounds...; dim=4, nsamples=ns_4,
                     rule=:bode_open, err_method=:derivative, fit_terms=4
                 )
                 assert_result_sane(res); @test isfinite(est)
