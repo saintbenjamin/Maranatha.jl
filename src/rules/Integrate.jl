@@ -16,7 +16,14 @@ using ..Simpson13Rule_MinOpen_MaxOpen, ..Simpson38Rule_MinOpen_MaxOpen, ..BodeRu
 export integrate_nd, quadrature_1d_nodes_weights
 
 """
-    integrate_nd(integrand, a, b, N, dim, rule)
+    integrate_nd(
+        integrand, 
+        a, 
+        b, 
+        N, 
+        dim, 
+        rule
+    )
 
 Dispatch an integration routine by dimension and quadrature rule.
 
@@ -45,7 +52,14 @@ are applied identically along every axis, i.e. the domain is `[a, b]^dim`.
 - Throws an error if `rule` is not supported by the underlying implementation
   for the selected dimension.
 """
-function integrate_nd(integrand, a, b, N, dim, rule)
+function integrate_nd(
+    integrand, 
+    a, 
+    b, 
+    N, 
+    dim, 
+    rule
+)
     if dim == 1
         return integrate_1d(integrand, a, b, N, rule)
     elseif dim == 2
@@ -64,7 +78,13 @@ end
 # ============================================================
 
 """
-    integrate_1d_legacy(f, a, b, N, rule) -> Float64
+    integrate_1d_legacy(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule
+    ) -> Float64
 
 Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
 
@@ -84,7 +104,13 @@ Newton–Cotes rule. Both closed and open-chain variants are supported.
 # Errors
 - Throws an error if `rule` is not recognized.
 """
-function integrate_1d_legacy(f, a, b, N, rule)
+function integrate_1d_legacy(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule
+)
     if rule == :simpson13_close
         return simpson13_rule(f, a, b, N)
 
@@ -113,7 +139,13 @@ end
 # ============================================================
 
 """
-    integrate_1d(f, a, b, N, rule) -> Float64
+    integrate_1d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule
+    ) -> Float64
 
 Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
 
@@ -133,7 +165,13 @@ rule-specific constraints/behavior centralized in `quadrature_1d_nodes_weights`.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_1d(f, a, b, N, rule)
+function integrate_1d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule
+)
     xs, ws = quadrature_1d_nodes_weights(a, b, N, rule)
 
     total = 0.0
@@ -148,7 +186,13 @@ end
 # ============================================================
 
 """
-    integrate_2d(f, a, b, N, rule) -> Float64
+    integrate_2d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule
+    ) -> Float64
 
 Evaluate a 2D integral of `f(x, y)` over the square domain `[a, b] × [a, b]`
 using a tensor-product quadrature constructed from 1D nodes and weights.
@@ -169,7 +213,13 @@ Loop ordering and accumulation are preserved exactly as implemented.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_2d(f, a, b, N, rule)
+function integrate_2d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule
+)
 
     xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
     ys, wy = xs, wx   # same bounds
@@ -192,7 +242,13 @@ end
 # ============================================================
 
 """
-    integrate_3d(f, a, b, N, rule) -> Float64
+    integrate_3d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule
+    ) -> Float64
 
 Evaluate a 3D integral of `f(x, y, z)` over the cube domain `[a, b]^3`
 using a tensor-product quadrature constructed from 1D nodes and weights.
@@ -213,7 +269,13 @@ Loop ordering and accumulation are preserved exactly as implemented.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_3d(f, a, b, N, rule)
+function integrate_3d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule
+)
 
     xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
     ys, wy = xs, wx
@@ -241,7 +303,13 @@ end
 # ============================================================
 
 """
-    integrate_4d(f, a, b, N, rule) -> Float64
+    integrate_4d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule
+    ) -> Float64
 
 Evaluate a 4D integral of `f(x, y, z, t)` over the hypercube domain `[a, b]^4`
 using a tensor-product quadrature constructed from 1D nodes and weights.
@@ -262,7 +330,13 @@ Loop ordering and accumulation are preserved exactly as implemented.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_4d(f, a, b, N, rule)
+function integrate_4d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule
+)
 
     xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
     ys, wy = xs, wx
@@ -296,7 +370,12 @@ end
 # ============================================================
 
 """
-    quadrature_1d_nodes_weights(a::Real, b::Real, N::Int, rule::Symbol) -> Tuple{Vector{Float64}, Vector{Float64}}
+    quadrature_1d_nodes_weights(
+        a::Real, 
+        b::Real, 
+        N::Int, 
+        rule::Symbol
+    ) -> Tuple{Vector{Float64}, Vector{Float64}}
 
 Generate 1D quadrature nodes and weights for a Newton–Cotes rule on `[a, b]`.
 
@@ -326,7 +405,12 @@ node ordering and weight construction used by the original code.
 - Throws an error if `rule` is not recognized.
 - Throws an error if `N` violates rule-specific constraints (divisibility and/or minimum `N`).
 """
-function quadrature_1d_nodes_weights(a::Real, b::Real, N::Int, rule::Symbol)
+function quadrature_1d_nodes_weights(
+    a::Real, 
+    b::Real, 
+    N::Int, 
+    rule::Symbol
+)
 
     aa = float(a)
     bb = float(b)

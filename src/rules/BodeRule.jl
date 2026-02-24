@@ -13,7 +13,12 @@ module BodeRule
 export bode_rule
 
 """
-    bode_rule(f, a::Real, b::Real, N::Int) -> Float64
+    bode_rule(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int
+    ) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using the composite
 Bode’s rule (closed 5-point Newton–Cotes; 4 subintervals per block).
@@ -48,7 +53,12 @@ The implementation preserves the original evaluation order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 4.
 """
-function bode_rule(f, a::Real, b::Real, N::Int)::Float64
+function bode_rule(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int
+)::Float64
     if N % 4 != 0
         error("Bode's rule requires N divisible by 4, got N = $N")
     end

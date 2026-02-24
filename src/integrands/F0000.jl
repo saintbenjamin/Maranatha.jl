@@ -20,11 +20,11 @@ export __register_F0000_integrand__
 # ============================================================
 
 """
-    F0000Integrand(p::Int, eps::Float64)
+  struct F0000Integrand
 
 Callable wrapper integrand for the F0000 computation on `t ∈ [0, 1]`.
 
-# Function description
+# struct description
 This struct provides a user-friendly, callable integrand object that can be
 passed directly to `Maranatha.Runner.run_Maranatha`. Internally, it delegates to
 
@@ -76,7 +76,10 @@ end
 # ============================================================
 
 """
-    factory_F0000(; p::Int=2, eps::Float64=1e-15)
+    factory_F0000(; 
+      p::Int=2, 
+      eps::Float64=1e-15
+    )
 
 Factory for constructing the registered F0000 integrand.
 
@@ -97,7 +100,10 @@ integrand function.
   integrand. This makes the preset safe under `ForwardDiff` while keeping the
   default behavior deterministic for typical `Float64` runs.
 """
-function factory_F0000(; p::Int=2, eps::Float64=1e-15)
+function factory_F0000(; 
+  p::Int=2, 
+  eps::Float64=1e-15
+)
     return F0000Integrand(p, eps)
 end
 

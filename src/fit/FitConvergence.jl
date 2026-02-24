@@ -18,7 +18,13 @@ using ..AvgErrFormatter
 export fit_convergence, print_fit_result
 
 """
-    fit_convergence(hs, estimates, errors, rule::Symbol; nterms::Int=2)
+    fit_convergence(
+        hs, 
+        estimates, 
+        errors, 
+        rule::Symbol; 
+        nterms::Int=2
+    )
 
 Perform a weighted linear least-χ² extrapolation for the integral estimate
 in the zero-step limit (`h → 0`).
@@ -73,7 +79,13 @@ A `NamedTuple` with the following fields:
 - Throws an error if `nterms < 2`.
 - Note: If `dof == 0`, `redchisq` will be `Inf`/`NaN` depending on `chisq`.
 """
-function fit_convergence(hs, estimates, errors, rule::Symbol; nterms::Int=2)
+function fit_convergence(
+    hs, 
+    estimates, 
+    errors, 
+    rule::Symbol; 
+    nterms::Int=2
+)
 
     p =
         rule == :simpson13_close ? 4 :
@@ -140,7 +152,9 @@ function fit_convergence(hs, estimates, errors, rule::Symbol; nterms::Int=2)
 end
 
 """
-    print_fit_result(fit) -> Nothing
+    print_fit_result(
+        fit
+    ) -> Nothing
 
 Print a formatted summary of a convergence fit result.
 
@@ -166,7 +180,9 @@ original implementation.
 # Returns
 - `nothing`.
 """
-function print_fit_result(fit)
+function print_fit_result(
+    fit
+)
 
     for i in eachindex(fit.params)
         tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.params[i], fit.param_errors[i])

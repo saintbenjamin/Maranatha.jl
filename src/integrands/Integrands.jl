@@ -22,7 +22,10 @@ export integrand, register_integrand!, available_integrands
 const INTEGRAND_REGISTRY = Dict{Symbol, Function}()
 
 """
-    register_integrand!(name::Symbol, factory::Function)
+    register_integrand!(
+        name::Symbol, 
+        factory::Function
+    )
 
 Register a new integrand factory into the Maranatha integrand registry.
 
@@ -48,13 +51,19 @@ Once registered, the integrand can be constructed via:
 - The registry is stored as a module-level constant dictionary to keep
   lookup/dispatch lightweight.
 """
-function register_integrand!(name::Symbol, factory::Function)
+function register_integrand!(
+    name::Symbol, 
+    factory::Function
+)
     INTEGRAND_REGISTRY[name] = factory
     return nothing
 end
 
 """
-    integrand(name::Symbol; kwargs...)
+    integrand(
+        name::Symbol; 
+        kwargs...
+    )
 
 Construct a callable integrand from the registry.
 
@@ -75,7 +84,10 @@ callable object that can be passed directly into `Maranatha.Runner.run_Maranatha
 # Errors
 - Throws an error if `name` is not registered.
 """
-function integrand(name::Symbol; kwargs...)
+function integrand(
+    name::Symbol; 
+    kwargs...
+)
     haskey(INTEGRAND_REGISTRY, name) ||
         error("Unknown integrand: $(name). Available: $(collect(keys(INTEGRAND_REGISTRY)))")
 

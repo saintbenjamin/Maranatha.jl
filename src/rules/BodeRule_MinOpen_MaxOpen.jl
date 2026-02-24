@@ -10,10 +10,15 @@
 
 module BodeRule_MinOpen_MaxOpen
 
-export bode_rule_min_open_max_open, bode_rule_min_open_max_open_error
+export bode_rule_min_open_max_open
 
 """
-    bode_rule_min_open_max_open(f, a::Real, b::Real, N::Int) -> Float64
+    bode_rule_min_open_max_open(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int
+    ) -> Float64
 
 Numerically integrate a 1D function `f(x)` over `[a, b]` using a globally-open
 (endpoint-free) composite Boole rule (a.k.a. Bode/Boole) on a uniform grid.
@@ -64,7 +69,12 @@ order and arithmetic.
 # Errors
 - Throws an error if `N` is not divisible by 4 or if `N < 16`.
 """
-function bode_rule_min_open_max_open(f, a::Real, b::Real, N::Int)::Float64
+function bode_rule_min_open_max_open(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int
+)::Float64
     (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
     (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping 6-point end stencils), got N = $N")
 
@@ -140,64 +150,6 @@ function bode_rule_min_open_max_open(f, a::Real, b::Real, N::Int)::Float64
     end
 
     return h * s
-end
-
-"""
-    bode_rule_min_open_max_open_error(f::Function, a::Real, b::Real, N::Int; nth_derivative::Function) -> Float64
-
-Estimate the integration error scale for `bode_rule_min_open_max_open` using a
-6th-derivative leading-order model.
-
-# Function description
-The endpoint-eliminated open Boole rule is degree-5 exact by construction, but
-its exact higher-order remainder terms are more complicated than the textbook
-single-panel Boole remainder. This function therefore provides a practical,
-heuristic global error estimate based on the 6th derivative of `f` evaluated at
-the interval midpoint.
-
-Model:
-`error ≈ -C * (b - a) * h^6 * f^(6)((a+b)/2)`
-
-The constant is set to `C = 8/945`, matching the standard composite Boole
-leading constant in the closed case. This is intended as a scale/sanity
-indicator rather than a rigorous bound.
-
-# Arguments
-- `f`: Integrand function of one variable, `f(x)`.
-- `a::Real`: Lower integration bound.
-- `b::Real`: Upper integration bound.
-- `N::Int`: Number of subintervals (must satisfy the constraints below).
-
-# Keyword arguments
-- `nth_derivative::Function`: A function that computes the `n`-th derivative of
-  `f` at a point, called as `nth_derivative(f, x, n)`.
-
-# Returns
-- Estimated error (as `exact - quadrature`) as a `Float64` under the model above.
-
-# Constraints
-- `N` must be divisible by 4.
-- `N ≥ 16` (consistent with the open-chain rule constraints).
-
-# Errors
-- Throws an error if `N` violates the constraints.
-"""
-function bode_rule_min_open_max_open_error(
-    f::Function, a::Real, b::Real, N::Int;
-    nth_derivative::Function
-)::Float64
-    (N % 4 == 0) || error("Open composite Boole error6 requires N divisible by 4, got N = $N")
-    (N >= 16)    || error("Open composite Boole error6 requires N ≥ 16, got N = $N")
-
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
-
-    xmid = (aa + bb) / 2
-    d6   = nth_derivative(f, xmid, 6)
-
-    C = 8.0 / 945.0
-    return -(C * (bb - aa)) * h^6 * d6
 end
 
 end  # module BodeRule_MinOpen_MaxOpen

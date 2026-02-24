@@ -15,7 +15,9 @@ using PyPlot
 export plot_convergence_result, set_pyplot_latex_style
 
 """
-    set_pyplot_latex_style(scale::Float64=0.5) -> Nothing
+    set_pyplot_latex_style(
+        scale::Float64=0.5
+    ) -> Nothing
 
 Set a consistent PyPlot/Matplotlib style using LaTeX (lmodern), similar to the
 Deborah.jl plotting style.
@@ -31,7 +33,10 @@ sizes, line widths, and figure size.
 # Returns
 - `nothing`.
 """
-function set_pyplot_latex_style(scale::Float64=0.5)
+function set_pyplot_latex_style(
+    scale::Float64=0.5
+)
+
     mpl = PyPlot.matplotlib
 
     rcParams = mpl."rcParams"
@@ -54,8 +59,14 @@ function set_pyplot_latex_style(scale::Float64=0.5)
 end
 
 """
-    plot_convergence_result(name::String, hs::Vector{Float64}, estimates::Vector{Float64},
-                            errors::Vector{Float64}, fit_result; rule::Symbol=:simpson13_close) -> Nothing
+    plot_convergence_result(
+        name::String, 
+        hs::Vector{Float64}, 
+        estimates::Vector{Float64},
+        errors::Vector{Float64}, 
+        fit_result; 
+        rule::Symbol=:simpson13_close
+    ) -> Nothing
 
 Plot the convergence of a sequence of integral estimates and a fitted convergence
 model, and save the figure as a PNG file.

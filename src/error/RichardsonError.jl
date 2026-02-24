@@ -15,7 +15,9 @@ using ..Integrate
 export estimate_error_richardson
 
 """
-    rule_order(rule::Symbol) -> Int
+    rule_order(
+        rule::Symbol
+    ) -> Int
 
 Return the leading convergence order `p` of the specified Newton–Cotes rule,
 assuming an asymptotic error scaling of `O(h^p)`.
@@ -43,7 +45,9 @@ remains unchanged.
 # Errors
 - Throws an error if `rule` is not supported.
 """
-function rule_order(rule::Symbol)
+function rule_order(
+    rule::Symbol
+)
     if rule == :simpson13_close || rule == :simpson38_close
         return 4
     elseif rule == :bode_close
@@ -60,7 +64,14 @@ function rule_order(rule::Symbol)
 end
 
 """
-    estimate_error_richardson(integrand, a, b, N::Int, dim::Int, rule::Symbol) -> Float64
+    estimate_error_richardson(
+        integrand, 
+        a, 
+        b, 
+        N::Int, 
+        dim::Int, 
+        rule::Symbol
+    ) -> Float64
 
 Estimate the integration error using a Richardson-based scale comparison
 between resolutions `N` and `2N`.
@@ -95,7 +106,14 @@ floating-point behavior of the original version.
 - Any rule-specific constraints on `N` (e.g., divisibility) must be satisfied
   by both `N` and `2N`.
 """
-function estimate_error_richardson(integrand, a, b, N::Int, dim::Int, rule::Symbol)
+function estimate_error_richardson(
+    integrand, 
+    a, 
+    b, 
+    N::Int, 
+    dim::Int, 
+    rule::Symbol
+)
     p   = rule_order(rule)
     I_N  = integrate_nd(integrand, a, b, N,  dim, rule)
     I_2N = integrate_nd(integrand, a, b, 2N, dim, rule)

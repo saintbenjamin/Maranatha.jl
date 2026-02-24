@@ -19,7 +19,9 @@ using SpecialFunctions
 export gtilde_F0000
 
 """
-    exI0_safe(x::T) where {T<:Real}
+    exI0_safe(
+        x::T
+    ) where {T<:Real}
 
 Compute `exp(-x) * I0(x)` (modified Bessel I0) in an overflow-safe manner.
 
@@ -43,7 +45,9 @@ behavior.
 - The asymptotic series used is:
   `exp(-x) I0(x) ≈ 1/sqrt(2πx) * (1 + 1/(8x) + 9/(128x^2) + 225/(3072x^3) + 11025/(98304x^4))`.
 """
-@inline function exI0_safe(x::T) where {T<:Real}
+@inline function exI0_safe(
+    x::T
+) where {T<:Real}
     if x ≤ T(50)  # threshold: safe zone for besseli(0,x) in Float64
         return exp(-x) * besseli(0, x)
     else
@@ -60,7 +64,9 @@ behavior.
 end
 
 """
-    g_F0000_raw(y::T) where {T<:Real}
+    g_F0000_raw(
+        y::T
+    ) where {T<:Real}
 
 Evaluate the raw integrand `g_F0000_raw(y)` used in the F0000 computation
 for `y ∈ (0, 1)`.
@@ -84,7 +90,9 @@ The expression is preserved exactly from the original implementation.
   for use away from the endpoints. Endpoint handling is implemented in
   `gtilde_F0000`.
 """
-function g_F0000_raw(y::T) where {T<:Real}
+function g_F0000_raw(
+    y::T
+) where {T<:Real}
     x = (one(T) - y) / y  # x>0
 
     exI0 = exI0_safe(x)
@@ -99,7 +107,11 @@ function g_F0000_raw(y::T) where {T<:Real}
 end
 
 """
-    gtilde_F0000(t::T; p::Int=2, eps::T=T(1e-15)) where {T<:Real}
+    gtilde_F0000(
+        t::T; 
+        p::Int=2, 
+        eps::T=T(1e-15)
+    ) where {T<:Real}
 
 Return the transformed integrand `g̃(t)` for the F0000 integral after the
 variable substitution `y = t^p` on the interval `t ∈ [0, 1]`.
@@ -128,7 +140,11 @@ To avoid singular behavior at the endpoints, it returns zero when `t` is within
 - Endpoint suppression is implemented exactly as in the original code to keep
   numerical behavior unchanged.
 """
-function gtilde_F0000(t::T; p::Int=2, eps::T=T(1e-15)) where {T<:Real}
+function gtilde_F0000(
+    t::T; 
+    p::Int=2, 
+    eps::T=T(1e-15)
+) where {T<:Real}
     if t ≤ eps
         return zero(T)
     elseif (one(T) - t) ≤ eps

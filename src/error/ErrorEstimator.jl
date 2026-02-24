@@ -22,7 +22,11 @@ export estimate_error
 # ============================================================
 
 """
-    nth_derivative(f, x::Real, n::Int)
+    nth_derivative(
+        f, 
+        x::Real, 
+        n::Int
+    )
 
 Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
 using repeated `ForwardDiff.derivative`.
@@ -51,7 +55,11 @@ preset-style callable wrappers while preserving ForwardDiff-based behavior.
 - Type restriction `f::Function` is intentionally avoided because callable
   structs are not subtypes of `Function`, but must be supported.
 """
-function nth_derivative(f, x::Real, n::Int)
+function nth_derivative(
+    f, 
+    x::Real, 
+    n::Int
+)
     g = f
     for _ in 1:n
         prev = g
@@ -61,7 +69,9 @@ function nth_derivative(f, x::Real, n::Int)
 end
 
 """
-    _rule_params_for_tensor_error(rule::Symbol)
+    _rule_params_for_tensor_error(
+        rule::Symbol
+    )
 
 Map `rule` to the derivative order `m` and coefficient `C` used by the
 tensor-product derivative-based error heuristics in 2D/3D/4D estimators.
@@ -77,7 +87,9 @@ tensor-product derivative-based error heuristics in 2D/3D/4D estimators.
 
 If `rule` is not supported, returns `(0, 0.0)`.
 """
-function _rule_params_for_tensor_error(rule::Symbol)
+function _rule_params_for_tensor_error(
+    rule::Symbol
+)
     # IMPORTANT: keep the exact literals/types consistent with the original code.
     if rule == :simpson13_close
         return (4, -1/180)
@@ -100,20 +112,96 @@ end
 # Boundary-difference models for open-chain rules (1D–4D)
 # ============================================================
 
-@inline function _has_boundary_error_model(rule::Symbol)::Bool
+"""
+    _has_boundary_error_model(
+        rule::Symbol
+    ) -> Bool
+
+Return `true` if `rule` uses a boundary-difference leading-term error model.
+
+# Function description
+For some endpoint-free (“open-chain”) rules, the dominant truncation behavior is
+often controlled by **boundary corrections** rather than a purely interior
+(midpoint) derivative sample.
+%
+This helper identifies the rule symbols for which the error estimators
+(`estimate_error_1d/2d/3d/4d`) should switch from the default midpoint-based
+tensor heuristic to a boundary-difference model.
+
+# Arguments
+- `rule::Symbol`: Integration rule symbol.
+
+# Returns
+- `Bool`: `true` if a boundary-difference model is defined for `rule`,
+  otherwise `false`.
+
+# Notes
+- Currently enabled rules:
+  - `:simpson13_open`
+  - `:bode_open`
+- All other rules fall back to `_rule_params_for_tensor_error(rule)`-based
+  midpoint/tensor heuristics.
+"""
+@inline function _has_boundary_error_model(
+    rule::Symbol
+)::Bool
     return (rule == :simpson13_open) || (rule == :bode_open)
 end
 
 """
-    _boundary_error_params(rule::Symbol)
+    _boundary_error_params(
+        rule::Symbol
+    ) -> (p, K, dord, off)
 
-Return parameters for the boundary-difference leading-term model:
-- p     : leading power of h (h^p)
-- K     : prefactor
-- dord  : derivative order used in boundary difference
-- off   : xL = a + off*h, xR = a + (N-off)*h
+Return parameters for the boundary-difference **leading-term** error model
+associated with `rule`.
+
+# Function description
+This routine provides a compact parameterization for boundary-difference error
+heuristics used by open-chain rules in 1D–4D estimators.
+
+The model is expressed in the form
+
+`E ≈ K * h^p * ( D_left - D_right )`,
+
+where
+- `h = (b-a)/N`,
+- `D_left  = f^(dord)(xL)` (or an axis-wise derivative in higher dimensions),
+- `D_right = f^(dord)(xR)`,
+
+and the evaluation points are placed symmetrically near both ends:
+
+- `xL = a + off*h`
+- `xR = a + (N-off)*h`
+
+This parameterization allows 2D/3D/4D estimators to reuse the same boundary logic
+by applying the axis-wise boundary difference while integrating over the other
+coordinates via the quadrature weights.
+
+# Arguments
+- `rule::Symbol`: Integration rule symbol.
+
+# Returns
+- `(p, K, dord, off)` where:
+  - `p::Int`      : leading power of `h` (i.e., the model scales as `h^p`),
+  - `K::Float64`  : prefactor multiplying the boundary difference,
+  - `dord::Int`   : derivative order used in the boundary difference,
+  - `off::Float64`: offset (in units of `h`) used to define boundary sample points
+    `xL = a + off*h` and `xR = a + (N-off)*h`.
+
+If `rule` is not supported, returns `(0, 0.0, 0, 0.0)`.
+
+# Notes
+- This is a **heuristic leading-term model** used to set a stable error *scale*
+  for fitting/extrapolation. It is not a rigorous truncation bound.
+- The numerical constants are chosen to match the open-chain rule expansions
+  used in this project:
+  - `:simpson13_open` uses a third-derivative boundary difference with `h^4`.
+  - `:bode_open`     uses a fifth-derivative boundary difference with `h^6`.
 """
-function _boundary_error_params(rule::Symbol)
+function _boundary_error_params(
+    rule::Symbol
+)
     if rule == :simpson13_open
         # E ≈ -(3/8) h^4 [ f'''(a+1.5h) - f'''(a+(N-1.5)h) ]
         return (4, -(3.0/8.0), 3, 1.5)
@@ -130,7 +218,13 @@ end
 # ============================================================
 
 """
-    estimate_error_1d_legacy(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_1d_legacy(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int, 
+        rule::Symbol
+    ) -> Float64
 
 Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`
 using rule-dependent, derivative-based *heuristics* designed to match the
@@ -174,7 +268,13 @@ rigorous bounds.
 # Errors
 - Throws an error if `N` violates rule-specific constraints.
 """
-function estimate_error_1d_legacy(f, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_1d_legacy(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int, 
+    rule::Symbol
+)
     aa = float(a)
     bb = float(b)
     h  = (bb - aa) / N
@@ -260,56 +360,88 @@ end
 # ============================================================
 
 """
-    estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_1d(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int, 
+        rule::Symbol
+    ) -> Float64
 
-Estimate a 1D integration error *scale* for `∫_a^b f(x) dx` using a lightweight,
+Estimate a 1D integration error *scale* for `∫_a^b f(x) dx` using a lightweight
 derivative-based heuristic consistent with the tensor-product philosophy used in
-`estimate_error_2d/3d/4d`.
+`estimate_error_2d/3d/4d`, with optional boundary-difference handling for
+selected open-chain rules.
 
 # Function description
-This routine is a **fast scale model** (for fitting/extrapolation), not a rigorous
-bound and not a full composite-rule truncation expansion.
+This routine returns a **fast error scale model** intended for:
+- stabilizing least-χ² fits in convergence extrapolation, and
+- providing a consistent `h`-scaling proxy across 1D–4D.
 
-It follows the same structural pattern as the higher-dimensional estimators:
-1. Select a derivative order `m` and coefficient `C` via `_rule_params_for_tensor_error(rule)`.
+It is **not** a rigorous truncation bound and does not attempt to reproduce the
+full composite-rule error expansion.
+
+Two regimes are supported:
+
+## (A) Boundary-difference model (selected open-chain rules)
+For rules flagged by `_has_boundary_error_model(rule)`, the estimator uses a
+boundary-difference leading-term model:
+
+`E ≈ K * h^p * ( f^(dord)(xL) - f^(dord)(xR) )`,
+
+with
+- `h = (b-a)/N`,
+- `xL = a + off*h`,
+- `xR = a + (N-off)*h`,
+- `(p, K, dord, off) = _boundary_error_params(rule)`.
+
+This is designed to reflect the boundary-dominant leading behavior of certain
+endpoint-free chained formulas, and empirically improves stability in χ²-based
+fits for those rules.
+
+## (B) Default midpoint tensor-style model (all other supported rules)
+Otherwise, this routine follows the “single-sample midpoint derivative” pattern
+shared with the higher-dimensional estimators:
+
+1. Select derivative order `m` and coefficient `C` via `_rule_params_for_tensor_error(rule)`.
 2. Build 1D quadrature nodes/weights `(xs, ws)` via `quadrature_1d_nodes_weights(a, b, N, rule)`.
-3. Evaluate the `m`-th derivative **once** at the midpoint `x̄ = (a+b)/2`.
-4. Form the 1D weight-sum `I = Σ ws[j] * f^(m)(x̄)` (this preserves loop/accumulation style).
-5. Return the scale model
-   `E ≈ C * (b-a) * h^m * I`, where `h = (b-a)/N`.
-
-Because `f^(m)` is held fixed at the midpoint, this reproduces the “single-sample”
-behavior of the legacy 1D heuristic while keeping the **quadrature-weight loop**
-style aligned with `estimate_error_2d/3d/4d`.
+3. Evaluate `f^(m)` **once** at the midpoint `x̄ = (a+b)/2`.
+4. Accumulate `I = Σ ws[j] * f^(m)(x̄)` (preserving loop/accumulation style).
+5. Return the scale model `E ≈ C * (b-a) * h^m * I`.
 
 # Arguments
 - `f`: Scalar-to-scalar callable integrand `f(x)` (function, closure, or callable struct).
 - `a`, `b`: Integration limits.
-- `N`: Number of subintervals used to define `h = (b-a)/N` and the rule grid.
-- `rule`: Integration rule symbol. Must be supported by both:
-  - `_rule_params_for_tensor_error(rule)` (to supply `(m, C)`), and
-  - `quadrature_1d_nodes_weights(a, b, N, rule)` (to supply `(xs, ws)`).
+- `N`: Number of subintervals defining `h = (b-a)/N` and the rule grid.
+- `rule`: Integration rule symbol.
 
 Supported rule symbols (current mapping):
 - `:simpson13_close`, `:simpson38_close`, `:bode_close`
 - `:simpson13_open`,  `:simpson38_open`,  `:bode_open`
 
 # Returns
-- A `Float64` heuristic error estimate (signed). If `rule` is not supported by
-  `_rule_params_for_tensor_error`, returns `0.0`.
+- `Float64`: heuristic signed error estimate (scale model).
+  If `rule` is not recognized by `_rule_params_for_tensor_error` (and no boundary
+  model is defined), returns `0.0`.
 
 # Notes
-- The quadrature weights for some open-chain rules may include **negative**
-  coefficients; therefore the weight-sum `Σ ws[j]` may not equal `1.0` depending
-  on normalization. This function intentionally preserves the exact accumulation
-  implied by `quadrature_1d_nodes_weights`.
-- Any rule-specific constraints on `N` (divisibility, minimum size, etc.) are
-  enforced inside `quadrature_1d_nodes_weights`.
+- Some open-chain rules may involve **negative** weights in their quadrature
+  formulas. This estimator intentionally preserves the weight-loop accumulation
+  style, rather than enforcing normalization.
+- Any rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
+  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path, and
+  - enforced explicitly in the boundary-model branch for the supported open rules.
 
 # Errors
-- Throws an error if `quadrature_1d_nodes_weights` rejects `(N, rule)`.
+- Throws an error if `(N, rule)` violates the rule constraints.
 """
-function estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_1d(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int, 
+    rule::Symbol
+)
 
     aa = float(a)
     bb = float(b)
@@ -358,30 +490,83 @@ end
 # ============================================================
 
 """
-    estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_2d(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int, 
+        rule::Symbol
+    ) -> Float64
 
-Estimate integration error for a 2D integral over a square domain `[a,b] × [a,b]`
-using a derivative-based tensor-product heuristic.
+Estimate a 2D integration error *scale* over the square domain `[a,b] × [a,b]`
+using a derivative-based tensor-product heuristic, with optional boundary-
+difference handling for selected open-chain rules.
 
 # Function description
-For supported rules, this estimator:
-1) Builds the 1D quadrature nodes/weights for the given `rule`.
-2) Approximates the axis-wise contribution by integrating the `m`-th derivative
-   along one axis while fixing the other axis at the midpoint, and sums both axes.
+This routine returns a **fast error scale model** intended for stabilizing
+convergence fits / extrapolation, not a rigorous truncation bound.
 
-This matches the original implementation exactly, including loop ordering and
-floating-point accumulation order.
+Two regimes are supported:
+
+## (A) Boundary-difference model (selected open-chain rules)
+For rules flagged by `_has_boundary_error_model(rule)`, the estimator applies
+a boundary-difference leading-term model **axis by axis**:
+
+- Along the `x`-axis, integrate over `y`:
+  `I_x = ∫ [∂_x^{dord} f(xL, y) - ∂_x^{dord} f(xR, y)] dy`
+- Along the `y`-axis, integrate over `x`:
+  `I_y = ∫ [∂_y^{dord} f(x, yL) - ∂_y^{dord} f(x, yR)] dx`
+
+The final model is
+
+`E ≈ K * h^p * (I_x + I_y)`,
+
+where
+- `h = (b-a)/N`,
+- `xL = a + off*h`, `xR = a + (N-off)*h` (and similarly for `yL, yR`),
+- `(p, K, dord, off) = _boundary_error_params(rule)`.
+
+This reflects the boundary-dominant leading behavior of certain endpoint-free
+chained rules, and is used to improve stability in χ²-based convergence fits.
+
+## (B) Default midpoint tensor-style model (all other supported rules)
+Otherwise, this routine uses the same tensor-product “single-sample midpoint”
+structure as the legacy estimator:
+
+- Build 1D quadrature nodes/weights `(xs, wx)` for the selected `rule`.
+- Approximate two axis-wise contributions:
+  1) `I_x = ∫ ∂_x^m f(x̄, y) dy` by sampling `∂_x^m` at `x̄` and integrating over `y`.
+  2) `I_y = ∫ ∂_y^m f(x, ȳ) dx` by sampling `∂_y^m` at `ȳ` and integrating over `x`.
+- Return the scale model
+
+`E ≈ C * (b-a) * h^m * (I_x + I_y)`,
+
+where `(m, C) = _rule_params_for_tensor_error(rule)`.
 
 # Arguments
 - `f`: 2D integrand callable `f(x, y)` (function, closure, or callable struct).
 - `a`, `b`: Square domain bounds.
-- `N`: Number of subdivisions per axis.
-- `rule`: Integration rule symbol (same set as in `estimate_error_1d`).
+- `N`: Number of subdivisions per axis defining `h = (b-a)/N`.
+- `rule`: Integration rule symbol (same family as in `estimate_error_1d`).
 
 # Returns
-- A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
+- `Float64`: heuristic signed error estimate (scale model). If `rule` is not
+  recognized (and no boundary model is defined), returns `0.0`.
+
+# Notes
+- This estimator intentionally matches the loop structure and accumulation style
+  of the original implementation for reproducibility.
+- Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
+  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path, and
+  - enforced explicitly in the boundary-model branch for supported open rules.
 """
-function estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_2d(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int, 
+    rule::Symbol
+)
 
     aa = float(a)
     bb = float(b)
@@ -453,31 +638,89 @@ end
 # ============================================================
 
 """
-    estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_3d(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int, 
+        rule::Symbol
+    ) -> Float64
 
-Estimate integration error for a 3D integral over a cube domain `[a,b]^3`
-using a derivative-based tensor-product heuristic.
+Estimate a 3D integration error *scale* over the cube domain `[a,b]^3`
+using a derivative-based tensor-product heuristic, with optional boundary-
+difference handling for selected open-chain rules.
 
 # Function description
-For supported rules, this estimator:
-1) Builds the 1D quadrature nodes/weights for the given `rule`.
-2) For each axis, integrates the `m`-th derivative along that axis while fixing
-   the other two coordinates at quadrature nodes.
-3) Sums the three axis-wise contributions.
+This routine returns a **fast error scale model** intended for stabilizing
+convergence fits / extrapolation, not a rigorous truncation bound.
 
-This matches the original implementation exactly, including loop ordering and
-floating-point accumulation order.
+Two regimes are supported:
+
+## (A) Boundary-difference model (selected open-chain rules)
+For rules flagged by `_has_boundary_error_model(rule)`, the estimator applies
+a boundary-difference leading-term model **axis by axis**.
+
+For each axis, take a boundary difference of the corresponding axis-wise
+derivative and integrate over the remaining coordinates:
+
+- X-axis:
+  `I_x = ∬ [∂_x^{dord} f(xL, y, z) - ∂_x^{dord} f(xR, y, z)] dy dz`
+- Y-axis:
+  `I_y = ∬ [∂_y^{dord} f(x, yL, z) - ∂_y^{dord} f(x, yR, z)] dx dz`
+- Z-axis:
+  `I_z = ∬ [∂_z^{dord} f(x, y, zL) - ∂_z^{dord} f(x, y, zR)] dx dy`
+
+The final model is
+
+`E ≈ K * h^p * (I_x + I_y + I_z)`,
+
+where
+- `h = (b-a)/N`,
+- `xL = a + off*h`, `xR = a + (N-off)*h` (and similarly for `y`, `z`),
+- `(p, K, dord, off) = _boundary_error_params(rule)`.
+
+This boundary-difference structure is designed to reflect the leading behavior
+of certain endpoint-free chained formulas and improve χ² stability.
+
+## (B) Default midpoint tensor-style model (all other supported rules)
+Otherwise, this routine follows the legacy midpoint tensor heuristic:
+
+- Build 1D quadrature nodes/weights `(xs, wx)` for the selected `rule`.
+- Approximate three axis-wise contributions by integrating the `m`-th derivative
+  along one axis while fixing the remaining coordinates at quadrature nodes:
+  - `I_x = ∬ ∂_x^m f(x̄, y, z) dy dz`
+  - `I_y = ∬ ∂_y^m f(x, ȳ, z) dx dz`
+  - `I_z = ∬ ∂_z^m f(x, y, z̄) dx dy`
+- Return the scale model
+
+`E ≈ C * (b-a) * h^m * (I_x + I_y + I_z)`,
+
+where `(m, C) = _rule_params_for_tensor_error(rule)`.
 
 # Arguments
 - `f`: 3D integrand callable `f(x, y, z)` (function, closure, or callable struct).
 - `a`, `b`: Cube domain bounds.
-- `N`: Number of subdivisions per axis.
+- `N`: Number of subdivisions per axis defining `h = (b-a)/N`.
 - `rule`: Integration rule symbol.
 
 # Returns
-- A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
+- `Float64`: heuristic signed error estimate (scale model). If `rule` is not
+  recognized (and no boundary model is defined), returns `0.0`.
+
+# Notes
+- This estimator intentionally matches the loop structure and accumulation style
+  of the original implementation for reproducibility.
+- Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
+  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path, and
+  - enforced explicitly in the boundary-model branch for supported open rules.
 """
-function estimate_error_3d(f, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_3d(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int, 
+    rule::Symbol
+)
 
     aa = float(a)
     bb = float(b)
@@ -591,31 +834,92 @@ end
 # ============================================================
 
 """
-    estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_4d(
+        f, 
+        a::Real, 
+        b::Real, 
+        N::Int, 
+        rule::Symbol
+    ) -> Float64
 
-Estimate integration error for a 4D integral over a hypercube domain `[a,b]^4`
-using a derivative-based tensor-product heuristic.
+Estimate a 4D integration error *scale* over the hypercube domain `[a,b]^4`
+using a derivative-based tensor-product heuristic, with optional boundary-
+difference handling for selected open-chain rules.
 
 # Function description
-For supported rules, this estimator:
-1) Builds the 1D quadrature nodes/weights for the given `rule`.
-2) For each axis, integrates the `m`-th derivative along that axis while fixing
-   the other three coordinates at quadrature nodes.
-3) Sums the four axis-wise contributions.
+This routine returns a **fast error scale model** intended for stabilizing
+convergence fits / extrapolation, not a rigorous truncation bound.
 
-This matches the original implementation exactly, including loop ordering and
-floating-point accumulation order.
+Two regimes are supported:
+
+## (A) Boundary-difference model (selected open-chain rules)
+For rules flagged by `_has_boundary_error_model(rule)`, the estimator applies
+a boundary-difference leading-term model **axis by axis**.
+
+For each axis, take a boundary difference of the corresponding axis-wise
+derivative and integrate over the remaining three coordinates:
+
+- X-axis:
+  `I_x = ∭ [∂_x^{dord} f(xL, y, z, t) - ∂_x^{dord} f(xR, y, z, t)] dy dz dt`
+- Y-axis:
+  `I_y = ∭ [∂_y^{dord} f(x, yL, z, t) - ∂_y^{dord} f(x, yR, z, t)] dx dz dt`
+- Z-axis:
+  `I_z = ∭ [∂_z^{dord} f(x, y, zL, t) - ∂_z^{dord} f(x, y, zR, t)] dx dy dt`
+- T-axis:
+  `I_t = ∭ [∂_t^{dord} f(x, y, z, tL) - ∂_t^{dord} f(x, y, z, tR)] dx dy dz`
+
+The final model is
+
+`E ≈ K * h^p * (I_x + I_y + I_z + I_t)`,
+
+where
+- `h = (b-a)/N`,
+- `xL = a + off*h`, `xR = a + (N-off)*h` (and similarly for `y`, `z`, `t`),
+- `(p, K, dord, off) = _boundary_error_params(rule)`.
+
+This boundary-difference structure is designed to reflect the leading behavior
+of certain endpoint-free chained formulas and improve χ² stability.
+
+## (B) Default midpoint tensor-style model (all other supported rules)
+Otherwise, this routine follows the legacy midpoint tensor heuristic:
+
+- Build 1D quadrature nodes/weights `(xs, wx)` for the selected `rule`.
+- Approximate four axis-wise contributions by integrating the `m`-th derivative
+  along one axis while fixing the remaining coordinates at quadrature nodes:
+  - `I_x = ∭ ∂_x^m f(x̄, y, z, t) dy dz dt`
+  - `I_y = ∭ ∂_y^m f(x, ȳ, z, t) dx dz dt`
+  - `I_z = ∭ ∂_z^m f(x, y, z̄, t) dx dy dt`
+  - `I_t = ∭ ∂_t^m f(x, y, z, t̄) dx dy dz`
+- Return the scale model
+
+`E ≈ C * (b-a) * h^m * (I_x + I_y + I_z + I_t)`,
+
+where `(m, C) = _rule_params_for_tensor_error(rule)`.
 
 # Arguments
 - `f`: 4D integrand callable `f(x, y, z, t)` (function, closure, or callable struct).
 - `a`, `b`: Hypercube domain bounds.
-- `N`: Number of subdivisions per axis.
+- `N`: Number of subdivisions per axis defining `h = (b-a)/N`.
 - `rule`: Integration rule symbol.
 
 # Returns
-- A `Float64` error estimate. If `rule` is not recognized, returns `0.0`.
+- `Float64`: heuristic signed error estimate (scale model). If `rule` is not
+  recognized (and no boundary model is defined), returns `0.0`.
+
+# Notes
+- This estimator intentionally matches the loop structure and accumulation style
+  of the original implementation for reproducibility.
+- Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
+  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path, and
+  - enforced explicitly in the boundary-model branch for supported open rules.
 """
-function estimate_error_4d(f, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_4d(
+    f, 
+    a::Real, 
+    b::Real, 
+    N::Int, 
+    rule::Symbol
+)
 
     aa = float(a)
     bb = float(b)
@@ -787,7 +1091,14 @@ end
 # ============================================================
 
 """
-    estimate_error(f, a, b, N, dim, rule) -> Float64
+    estimate_error(
+        f, 
+        a, 
+        b, 
+        N, 
+        dim, 
+        rule
+    ) -> Float64
 
 Unified interface for estimating integration error in 1–4 dimensions.
 
@@ -809,7 +1120,14 @@ Dispatches to the corresponding dimension-specific estimator:
 - A `Float64` error estimate. If `dim` is outside 1–4 or `rule` is not recognized
   by the selected estimator, returns `0.0`.
 """
-function estimate_error(f, a, b, N, dim, rule)
+function estimate_error(
+    f, 
+    a, 
+    b, 
+    N, 
+    dim, 
+    rule
+)
     if dim == 1
         return estimate_error_1d(f, a, b, N, rule)
     elseif dim == 2
