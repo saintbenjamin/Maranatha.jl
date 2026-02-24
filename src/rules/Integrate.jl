@@ -59,8 +59,12 @@ function integrate_nd(integrand, a, b, N, dim, rule)
     end
 end
 
+# ============================================================
+# 1D quadrature legacy
+# ============================================================
+
 """
-    integrate_1d(f, a, b, N, rule) -> Float64
+    integrate_1d_legacy(f, a, b, N, rule) -> Float64
 
 Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
 
@@ -80,7 +84,7 @@ Newton–Cotes rule. Both closed and open-chain variants are supported.
 # Errors
 - Throws an error if `rule` is not recognized.
 """
-function integrate_1d(f, a, b, N, rule)
+function integrate_1d_legacy(f, a, b, N, rule)
     if rule == :simpson13_close
         return simpson13_rule(f, a, b, N)
 
@@ -102,6 +106,41 @@ function integrate_1d(f, a, b, N, rule)
     else
         error("Unknown integration rule: $rule")
     end
+end
+
+# ============================================================
+# 1D quadrature current version
+# ============================================================
+
+"""
+    integrate_1d(f, a, b, N, rule) -> Float64
+
+Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
+
+# Function description
+This routine uses `quadrature_1d_nodes_weights(a, b, N, rule)` and computes:
+`Σ_j w_j f(x_j)`.
+
+This matches the tensor-product style used in `integrate_2d/3d/...` and keeps all
+rule-specific constraints/behavior centralized in `quadrature_1d_nodes_weights`.
+
+# Arguments
+- `f`: Integrand callable `f(x)`.
+- `a`, `b`: Integration bounds.
+- `N`: Number of intervals (rule-specific constraints are enforced by `quadrature_1d_nodes_weights`).
+- `rule`: Integration rule symbol.
+
+# Returns
+- Estimated integral value as a `Float64`.
+"""
+function integrate_1d(f, a, b, N, rule)
+    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule)
+
+    total = 0.0
+    @inbounds for j in eachindex(xs)
+        total += ws[j] * f(xs[j])
+    end
+    return total
 end
 
 # ============================================================

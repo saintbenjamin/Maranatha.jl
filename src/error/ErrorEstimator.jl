@@ -97,41 +97,55 @@ function _rule_params_for_tensor_error(rule::Symbol)
 end
 
 # ============================================================
-# 1D error estimator
+# 1D error estimator legacy (leading terms)
 # ============================================================
 
 """
-    estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+    estimate_error_1d_legacy(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
 
 Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`
-using Newton–Cotes quadrature rules and automatic differentiation.
+using rule-dependent, derivative-based *heuristics* designed to match the
+lightweight, unified tensor-error philosophy used in higher dimensions.
 
 # Function description
-This function provides rule-specific, derivative-based error models.
-Some rules use a single midpoint derivative (heuristic leading term),
-while others use endpoint differences or panel-wise derivative expansions,
-matching the original implementation.
+This estimator intentionally prioritizes:
+- **speed** (few derivative evaluations),
+- **stable scaling** with step size `h = (b-a)/N`,
+- **consistent behavior across dimensions** (1D/2D/3D/4D),
+
+rather than reproducing the full composite-rule truncation expansions.
+
+In particular:
+- The **closed** rules use a single midpoint derivative as a leading-term model.
+- The **open-chain** rules use lightweight leading-term models:
+  - some are **boundary-difference dominated** (endpoint stencil effect),
+  - some use a **single midpoint derivative** with the tensor-error coefficient.
+
+These estimates are used as error scales for fitting/extrapolation, not as
+rigorous bounds.
 
 # Arguments
-- `f`: Integrand callable `f(x)` (function, closure, or callable struct).
+- `f`: Scalar-to-scalar integrand callable `f(x)` (function, closure, or callable struct).
 - `a`, `b`: Integration limits (scalars).
-- `N`: Number of subintervals (must satisfy rule-specific divisibility and minimum constraints).
+- `N`: Number of subintervals (must satisfy rule-specific constraints).
 - `rule`: Integration rule symbol:
-  - `:simpson13_close` → closed composite Simpson 1/3 (midpoint 4th-derivative leading-term heuristic)
-  - `:simpson38_close` → closed composite Simpson 3/8 (midpoint 4th-derivative leading-term heuristic)
-  - `:bode_close`      → closed composite Bode (midpoint 6th-derivative leading-term heuristic)
-  - `:simpson13_open`  → open-chain Simpson 1/3 (endpoint 3rd-derivative difference model)
-  - `:simpson38_open`  → open chained 3-point Newton–Cotes (panel-wise 4th/6th/8th derivative expansion)
-  - `:bode_open`       → open-chain Bode (delegates to `BodeRule_MinOpen_MaxOpen`)
+  - `:simpson13_close` → closed composite Simpson 1/3 (midpoint 4th-derivative heuristic)
+  - `:simpson38_close` → closed composite Simpson 3/8 (midpoint 4th-derivative heuristic)
+  - `:bode_close`      → closed composite Bode/Boole (midpoint 6th-derivative heuristic)
+  - `:simpson13_open`  → open-chain Simpson 1/3 (boundary 3rd-derivative difference heuristic)
+  - `:simpson38_open`  → open 3-point chained rule, panels of width `4h`
+                          (midpoint 4th-derivative heuristic with coefficient `14/45`)
+  - `:bode_open`       → open-chain Boole-type rule (boundary 5th-derivative difference heuristic)
 
 # Returns
-- A `Float64` estimate of the total integration error (as returned by the original rule-specific formula).
+- A `Float64` heuristic error estimate (signed), interpreted as an estimate of
+  `(exact - quadrature)` in the same sign convention as the implemented formula.
   If `rule` is not recognized, returns `0.0`.
 
 # Errors
 - Throws an error if `N` violates rule-specific constraints.
 """
-function estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol)
+function estimate_error_1d_legacy(f, a::Real, b::Real, N::Int, rule::Symbol)
     aa = float(a)
     bb = float(b)
     h  = (bb - aa) / N
@@ -184,33 +198,116 @@ function estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol)
         # IMPORTANT:
         # This is NOT the classical Simpson 3/8 composite rule.
         # This is the endpoint-free open 3-point Newton–Cotes chained rule (panel width = 4h).
+        #
+        # Lightweight heuristic (consistent with the "rollback" philosophy):
+        # use a single midpoint 4th-derivative leading term (order h^4 scaling),
+        # matching the tensor-error coefficient mapping (C = 14/45, m = 4).
         N % 4 == 0 || error("Open 3-point chained rule requires N divisible by 4, got N = $N")
         N >= 4     || error("Open 3-point chained rule requires N ≥ 4, got N = $N")
 
-        # Panel centers: x_{4k+2}, k = 0..N/4-1
-        err = 0.0
-        M = N ÷ 4
+        x̄ = (aa + bb) / 2
+        d4 = nth_derivative(f, x̄, 4)
 
-        for k in 0:(M-1)
-            xc = xj(4k + 2)
-            err += (14.0 / 45.0)    * h^5 * nth_derivative(f, xc, 4)
-            err += (41.0 / 945.0)   * h^7 * nth_derivative(f, xc, 6)
-            err += (61.0 / 22680.0) * h^9 * nth_derivative(f, xc, 8)
-        end
-
-        return err
+        return (14.0 / 45.0) * (bb - aa) * h^4 * d4
 
     elseif rule == :bode_open
         (N % 4 == 0) || error("Bode open-chain (open composite Boole) requires N divisible by 4, got N = $N")
         (N >= 16)    || error("Bode open-chain (open composite Boole) requires N ≥ 16, got N = $N")
 
-        err = BodeRule_MinOpen_MaxOpen.bode_rule_min_open_max_open_error(f, aa, bb, N; nth_derivative=nth_derivative)
+        # Boundary-dominant leading-term model (Simpson 1/3 open-chain style):
+        #   E_lead ≈ -(95/288) h^6 [ f^(5)((x2+x3)/2) - f^(5)((x_{N-3}+x_{N-2})/2) ]
 
-        return err
+        xL = (xj(2) + xj(3)) / 2
+        xR = (xj(N-3) + xj(N-2)) / 2
+
+        d5L = nth_derivative(f, xL, 5)
+        d5R = nth_derivative(f, xR, 5)
+
+        return -(95.0 / 288.0) * h^6 * (d5L - d5R)
 
     else
         return 0.0
     end
+end
+
+# ============================================================
+# 1D error estimator (leading terms)
+# ============================================================
+
+"""
+    estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol) -> Float64
+
+Estimate a 1D integration error *scale* for `∫_a^b f(x) dx` using a lightweight,
+derivative-based heuristic consistent with the tensor-product philosophy used in
+`estimate_error_2d/3d/4d`.
+
+# Function description
+This routine is a **fast scale model** (for fitting/extrapolation), not a rigorous
+bound and not a full composite-rule truncation expansion.
+
+It follows the same structural pattern as the higher-dimensional estimators:
+1. Select a derivative order `m` and coefficient `C` via `_rule_params_for_tensor_error(rule)`.
+2. Build 1D quadrature nodes/weights `(xs, ws)` via `quadrature_1d_nodes_weights(a, b, N, rule)`.
+3. Evaluate the `m`-th derivative **once** at the midpoint `x̄ = (a+b)/2`.
+4. Form the 1D weight-sum `I = Σ ws[j] * f^(m)(x̄)` (this preserves loop/accumulation style).
+5. Return the scale model
+   `E ≈ C * (b-a) * h^m * I`, where `h = (b-a)/N`.
+
+Because `f^(m)` is held fixed at the midpoint, this reproduces the “single-sample”
+behavior of the legacy 1D heuristic while keeping the **quadrature-weight loop**
+style aligned with `estimate_error_2d/3d/4d`.
+
+# Arguments
+- `f`: Scalar-to-scalar callable integrand `f(x)` (function, closure, or callable struct).
+- `a`, `b`: Integration limits.
+- `N`: Number of subintervals used to define `h = (b-a)/N` and the rule grid.
+- `rule`: Integration rule symbol. Must be supported by both:
+  - `_rule_params_for_tensor_error(rule)` (to supply `(m, C)`), and
+  - `quadrature_1d_nodes_weights(a, b, N, rule)` (to supply `(xs, ws)`).
+
+Supported rule symbols (current mapping):
+- `:simpson13_close`, `:simpson38_close`, `:bode_close`
+- `:simpson13_open`,  `:simpson38_open`,  `:bode_open`
+
+# Returns
+- A `Float64` heuristic error estimate (signed). If `rule` is not supported by
+  `_rule_params_for_tensor_error`, returns `0.0`.
+
+# Notes
+- The quadrature weights for some open-chain rules may include **negative**
+  coefficients; therefore the weight-sum `Σ ws[j]` may not equal `1.0` depending
+  on normalization. This function intentionally preserves the exact accumulation
+  implied by `quadrature_1d_nodes_weights`.
+- Any rule-specific constraints on `N` (divisibility, minimum size, etc.) are
+  enforced inside `quadrature_1d_nodes_weights`.
+
+# Errors
+- Throws an error if `quadrature_1d_nodes_weights` rejects `(N, rule)`.
+"""
+function estimate_error_1d(f, a::Real, b::Real, N::Int, rule::Symbol)
+
+    aa = float(a)
+    bb = float(b)
+    h  = (bb-aa)/N
+
+    x̄ = (aa+bb)/2
+
+    m, C = _rule_params_for_tensor_error(rule)
+    m == 0 && return 0.0
+
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+
+    # ---- SAME STYLE AS 2D/3D/4D ----
+    # integrate ∂^m f(x̄) dx  (midpoint derivative only)
+
+    d = nth_derivative(f, x̄, m)
+
+    I = 0.0
+    @inbounds for j in eachindex(xs)
+        I += wx[j] * d
+    end
+
+    return C*(bb-aa)*h^m*I
 end
 
 # ============================================================
@@ -257,7 +354,7 @@ function estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol)
 
     # ---- term 1 : integrate ∂^m/∂x^m f(x̄,y) dy
     I1 = 0.0
-    for j in eachindex(xs)
+    @inbounds for j in eachindex(xs)
         y = xs[j]
         gx(x) = f(x,y)
         I1 += wx[j]*nth_derivative(gx, x̄, m)
@@ -265,7 +362,7 @@ function estimate_error_2d(f, a::Real, b::Real, N::Int, rule::Symbol)
 
     # ---- term 2 : integrate ∂^m/∂y^m f(x,ȳ) dx
     I2 = 0.0
-    for i in eachindex(xs)
+    @inbounds for i in eachindex(xs)
         x = xs[i]
         gy(y) = f(x,y)
         I2 += wx[i]*nth_derivative(gy, ȳ, m)

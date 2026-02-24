@@ -14,10 +14,11 @@ using Test
 include(joinpath(@__DIR__, "..", "src", "Maranatha.jl"))
 using .Maranatha
 
-include(joinpath(@__DIR__, "..", "src", "figs", "PlotTools.jl"))
-using .PlotTools
+# include(joinpath(@__DIR__, "..", "src", "figs", "PlotTools.jl"))
+# using .PlotTools
 
 using .Maranatha.F0000GammaEminus1
+using .Maranatha.PlotTools
 
 # ----------------------------------------------------------------------------
 # Optional plotting switch:
@@ -78,8 +79,8 @@ end
             maybe_plot("F0000", res1.h, res1.avg, res1.err, fit1; rule=:simpson13_close)
         end
 
-        f1d(x)  = gtilde_F0000(x; p=3)
-        bounds = (0.0, 1.0)
+        # f1d(x)  = gtilde_F0000(x; p=3)
+        # bounds = (0.0, 1.0)
 
         @testset "1D Simpson 3/8 Close" begin
             announce("1D Simpson 3/8 Close")
