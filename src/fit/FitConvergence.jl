@@ -14,6 +14,7 @@ using LinearAlgebra
 using Statistics
 using Printf
 using ..AvgErrFormatter
+using ..JobLoggerTools
 
 export fit_convergence, print_fit_result
 
@@ -183,23 +184,28 @@ original implementation.
 function print_fit_result(
     fit
 )
+    jobid = nothing
 
     for i in eachindex(fit.params)
         tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.params[i], fit.param_errors[i])
-        println("           λ_$(i-1) = $(tmp_str)")
+        JobLoggerTools.println_benji("           λ_$(i-1) = $(tmp_str)", jobid)
     end
 
-    println()
+    JobLoggerTools.println_benji("",jobid)
 
-    @printf("Chi^2 / d.o.f. = %.12e / %d = %.12e\n",
+    JobLoggerTools.println_benji(
+        @sprintf(
+            "Chi^2 / d.o.f. = %.12e / %d = %.12e",
             fit.chisq,
             fit.dof,
-            fit.redchisq)
+            fit.redchisq
+        ), jobid
+    )
 
     tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.estimate, fit.estimate_error)
-    println("Result (h→0)   = $(tmp_str)")
+    JobLoggerTools.println_benji("Result (h→0)   = $(tmp_str)", jobid)
 
-    println()
+    JobLoggerTools.println_benji("",jobid)
 end
 
 end  # module FitConvergence

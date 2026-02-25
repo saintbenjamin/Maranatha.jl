@@ -20,21 +20,22 @@ ns_3 = [30, 33, 36, 39, 42, 45, 48]
 # ns_4 = [16, 20, 24, 28, 32, 36, 40, 44, 48, 56, 60, 64, 68, 72]
 # ns_4 = [40, 44, 48, 56, 60, 64, 68, 72, 76, 80]
 # ns_4 = [12, 24, 36, 48, 60, 72, 84, 96, 108, 120, 132, 144, 158, 168]
-ns_4 = [12, 24, 36, 48, 60]
+# ns_4 = [12, 24, 36, 48, 60]
 # ns_4 = [16, 32, 48, 64, 80]
-# ns_4 = [8, 12, 16, 20, 24]
+ns_4 = [8, 12, 16, 20, 24]
+# ns_4 = [16, 20, 24, 28, 32, 36, 40]
 
 ff(x1,x2,x3,x4) = integrand_Z_q((x1,x2,x3,x4))
 # bounds=(-π,π)
 bounds=(0.0,π)
-rule_here=:simpson38_open
+rule_here=:simpson13_open
 
 @time est1, fit1, res1 = run_Maranatha(
     ff, bounds...; dim=4, nsamples=ns_4,
     rule=rule_here, 
     err_method=:derivative, 
     # err_method=:richardson, 
-    fit_terms=2
+    fit_terms=4
 )
 
 plot_convergence_result("Z_q", res1.h, res1.avg, res1.err, fit1; rule=rule_here)

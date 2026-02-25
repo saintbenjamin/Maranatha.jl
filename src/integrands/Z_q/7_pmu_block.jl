@@ -70,21 +70,18 @@
     sum_s6_pmu_feyn = _s16t*pmu_feyn_1 + _s26t*pmu_feyn_2 + _s36t*pmu_feyn_3 + _s46t*pmu_feyn_4
     sum_s8_pmu_feyn = _s18t*pmu_feyn_1 + _s28t*pmu_feyn_2 + _s38t*pmu_feyn_3 + _s48t*pmu_feyn_4
 
-    sum_pmu_land = pmu_land_1 + pmu_land_2 + pmu_land_3 + pmu_land_4
+    # sum_pmu_land = pmu_land_1 + pmu_land_2 + pmu_land_3 + pmu_land_4
 
-    sum_s2_pmu_land = _s1sq*pmu_land_1 + _s2sq*pmu_land_2 + _s3sq*pmu_land_3 + _s4sq*pmu_land_4
-    sum_s4_pmu_land = _s14t*pmu_land_1 + _s24t*pmu_land_2 + _s34t*pmu_land_3 + _s44t*pmu_land_4
-    sum_s6_pmu_land = _s16t*pmu_land_1 + _s26t*pmu_land_2 + _s36t*pmu_land_3 + _s46t*pmu_land_4
-    sum_s8_pmu_land = _s18t*pmu_land_1 + _s28t*pmu_land_2 + _s38t*pmu_land_3 + _s48t*pmu_land_4
+    # sum_s2_pmu_land = _s1sq*pmu_land_1 + _s2sq*pmu_land_2 + _s3sq*pmu_land_3 + _s4sq*pmu_land_4
+    # sum_s4_pmu_land = _s14t*pmu_land_1 + _s24t*pmu_land_2 + _s34t*pmu_land_3 + _s44t*pmu_land_4
+    # sum_s6_pmu_land = _s16t*pmu_land_1 + _s26t*pmu_land_2 + _s36t*pmu_land_3 + _s46t*pmu_land_4
+    # sum_s8_pmu_land = _s18t*pmu_land_1 + _s28t*pmu_land_2 + _s38t*pmu_land_3 + _s48t*pmu_land_4
 
     return (
-        pmu_feyn_1, pmu_feyn_2, pmu_feyn_3, pmu_feyn_4,
-        pmu_land_1, pmu_land_2, pmu_land_3, pmu_land_4,
-
         sum_pmu_feyn,
         sum_s2_pmu_feyn, sum_s4_pmu_feyn, sum_s6_pmu_feyn, sum_s8_pmu_feyn,
 
-        sum_pmu_land,
-        sum_s2_pmu_land, sum_s4_pmu_land, sum_s6_pmu_land, sum_s8_pmu_land
+        # sum_pmu_land,
+        # sum_s2_pmu_land, sum_s4_pmu_land, sum_s6_pmu_land, sum_s8_pmu_land
     )
 end

@@ -33,15 +33,8 @@
     deno_smzk_prop = 1.0/(deno_smzk_prop)
 
     return (
-        c_smzk_prop,
-        f_smzk_prop,
-        inv_f_smzk_prop,
         c_tilde_smzk_prop,
         c_tilde_smzk_prop_sq,
-        c_tilde_smzk_prop_3t,
-        x1_smzk_prop,
-        x2_smzk_prop,
-        x3_smzk_prop,
         smzk_block_01,
         smzk_block_02,
         deno_smzk_prop

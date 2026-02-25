@@ -10,6 +10,7 @@
 
 module Runner
 
+using ..JobLoggerTools
 using ..Integrate
 using ..ErrorEstimator
 using ..RichardsonError
@@ -104,33 +105,42 @@ function run_Maranatha(
     err_method::Symbol = :derivative,
     fit_terms::Int = 2,
 )
+    jobid = nothing
 
     estimates = Float64[]     # List of integral results
     errors = Float64[]        # List of estimated errors
     hs = Float64[]            # List of step sizes
 
     for N in nsamples
+        JobLoggerTools.log_stage_benji("N = $N in $nsamples", jobid)
         h = (b - a) / N
         push!(hs, h)
 
         # Step 1: Evaluate integral using selected rule
-        I = integrate_nd(integrand, a, b, N, dim, rule)
-
-        # Step 2: Estimate integration error
-        err = if err_method == :derivative
-            estimate_error(integrand, a, b, N, dim, rule)
-        elseif err_method == :richardson
-            estimate_error_richardson(integrand, a, b, N, dim, rule)
-        else
-            error("Unknown err_method = $err_method (use :derivative or :richardson)")
+        JobLoggerTools.log_stage_sub1_benji("integrate_nd() ::", jobid)
+        JobLoggerTools.@logtime_benji jobid begin
+            I = integrate_nd(integrand, a, b, N, dim, rule)
         end
-
+        # Step 2: Estimate integration error
+        JobLoggerTools.log_stage_sub1_benji("estimate_error() ::", jobid)
+        JobLoggerTools.@logtime_benji jobid begin
+            err = if err_method == :derivative
+                estimate_error(integrand, a, b, N, dim, rule)
+            elseif err_method == :richardson
+                estimate_error_richardson(integrand, a, b, N, dim, rule)
+            else
+                error("Unknown err_method = $err_method (use :derivative or :richardson)")
+            end
+        end
         push!(estimates, I)
         push!(errors, err)
     end
 
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
-    fit_result = fit_convergence(hs, estimates, errors, rule; nterms=fit_terms)
+    JobLoggerTools.log_stage_benji("fit_convergence() ::", jobid)
+    JobLoggerTools.@logtime_benji jobid begin
+        fit_result = fit_convergence(hs, estimates, errors, rule; nterms=fit_terms)
+    end
     print_fit_result(fit_result)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)

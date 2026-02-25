@@ -10,6 +10,9 @@
 
 module Maranatha
 
+include("log/JobLoggerTools.jl")
+using .JobLoggerTools
+
 # ============================================================
 # Numerical integration rules (Newton–Cotes family)
 #
