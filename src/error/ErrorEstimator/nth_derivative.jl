@@ -1,0 +1,166 @@
+# ============================================================================
+# src/error/ErrorEstimator/nth_derivative.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
+"""
+    nth_derivative_taylor(
+        f,
+        x::Real,
+        n::Int
+    )
+
+Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
+using a Taylor expansion via `TaylorSeries.jl`.
+
+# Function description
+This routine evaluates the Taylor expansion of `f(x + t)` around `x`
+up to order `n` using a `Taylor1` expansion variable.  
+The `n`-th derivative is obtained from the `n`-th Taylor coefficient
+multiplied by `n!`.
+
+Unlike the ForwardDiff implementation, this method performs **higher-order
+differentiation in a single pass** rather than recursively applying
+first derivatives. It is useful for benchmarking alternative AD strategies
+and for testing high-order derivative extraction based on truncated
+power-series arithmetic.
+
+This function accepts any callable object `f`, including:
+- ordinary functions,
+- anonymous closures,
+- callable structs (functors).
+
+# Arguments
+- `f`: Scalar-to-scalar callable (`f(x)::Number` expected).
+- `x::Real`: Evaluation point.
+- `n::Int`: Derivative order (must be nonnegative).
+
+# Returns
+- The `n`-th derivative value `f^(n)(x)`.
+
+# Notes
+- Internally converts `x` to `Float64` to match the surrounding numeric policy.
+- This method may allocate significantly more memory than ForwardDiff,
+  especially when used inside large loops or with high expansion orders.
+- Intended primarily for **benchmarking and experimental comparison**, not
+  necessarily for production performance in the current workflow.
+"""
+@inline function nth_derivative_taylor(f, x::Real, n::Int)
+    n < 0 && throw(ArgumentError("n must be nonnegative"))
+    xx = Float64(x)
+
+    n == 0 && return f(xx)
+
+    t = Taylor1(Float64, n)     # expansion variable (order n)
+    y = f(xx + t)               # y is Taylor1 (or compatible)
+    return y[n] * factorial(n)  # nth derivative at x
+end
+
+"""
+    nth_derivative_enzyme(
+        f,
+        x::Real,
+        n::Int
+    )
+
+Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
+using repeated reverse-mode differentiation via `Enzyme.jl`.
+
+# Function description
+This routine constructs a nested closure chain of length `n`, where each step
+applies `Enzyme.gradient` in reverse mode to obtain a first derivative.
+The resulting callable is then evaluated at `x`.
+
+This mirrors the structure of the ForwardDiff-based implementation but replaces
+forward-mode differentiation with Enzyme's reverse-mode AD. It is intended
+primarily for benchmarking and experimentation with Enzyme in scalar
+high-order differentiation contexts.
+
+Supported callable types include:
+- ordinary functions,
+- anonymous closures,
+- callable structs (functors).
+
+# Arguments
+- `f`: Scalar-to-scalar callable (`f(x)::Number` expected).
+- `x::Real`: Evaluation point.
+- `n::Int`: Derivative order (must be nonnegative).
+
+# Returns
+- The `n`-th derivative value `f^(n)(x)`.
+
+# Notes
+- Reverse-mode AD is typically advantageous for many-input/one-output problems.
+  For repeated scalar higher-order derivatives, performance may be worse than
+  ForwardDiff due to closure nesting and gradient reconstruction overhead.
+- This implementation intentionally preserves the closure-based structure
+  for fair benchmarking against other approaches.
+- Inputs are converted to `Float64` to match surrounding numeric conventions.
+- Provided as a **benchmarking reference implementation**, not as the
+  recommended production path in the current codebase.
+"""
+function nth_derivative_enzyme(
+    f,
+    x::Real,
+    n::Int
+)
+    g = f
+    for _ in 1:n
+        prev = g
+        g = t -> only(Enzyme.gradient(Enzyme.Reverse, prev, float(t)))
+        # or: g = t -> first(Enzyme.gradient(Enzyme.Reverse, prev, float(t)))
+    end
+    return g(float(x))
+end
+
+"""
+    nth_derivative(
+        f, 
+        x::Real, 
+        n::Int
+    )
+
+Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
+using repeated `ForwardDiff.derivative`.
+
+# Function description
+This routine is intentionally written to accept any **callable** object `f`,
+not only subtypes of `Function`. This includes:
+- ordinary functions,
+- anonymous closures,
+- callable structs (functors) such as preset integrands.
+
+This design is required for compatibility with the integrand registry and
+preset-style callable wrappers while preserving ForwardDiff-based behavior.
+
+# Arguments
+- `f`: Scalar-to-scalar callable (e.g., `f(x)::Number`).
+- `x::Real`: Point at which the derivative is evaluated.
+- `n::Int`: Derivative order (nonnegative integer).
+
+# Returns
+- The `n`-th derivative value `f^(n)(x)`.
+
+# Notes
+- This implementation constructs a nested closure chain of length `n` and then
+  evaluates it at `x`. This intentionally matches the original behavior.
+- Type restriction `f::Function` is intentionally avoided because callable
+  structs are not subtypes of `Function`, but must be supported.
+"""
+function nth_derivative(
+    f, 
+    x::Real, 
+    n::Int
+)
+    g = f
+    for _ in 1:n
+        prev = g
+        g = t -> ForwardDiff.derivative(prev, t)
+    end
+    return g(x)
+end

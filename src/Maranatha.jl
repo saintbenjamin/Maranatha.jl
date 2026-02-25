@@ -22,9 +22,9 @@ using .JobLoggerTools
 # ============================================================
 
 # --- Closed rules (endpoint-evaluating) ---
-include("rules/Simpson13Rule.jl")   # Composite Simpson 1/3 rule
-include("rules/Simpson38Rule.jl")   # Composite Simpson 3/8 rule
-include("rules/BodeRule.jl")        # Composite Bode/Boole rule (5-point closed NC)
+include("rules/legacy/Simpson13Rule.jl")   # Composite Simpson 1/3 rule
+include("rules/legacy/Simpson38Rule.jl")   # Composite Simpson 3/8 rule
+include("rules/legacy/BodeRule.jl")        # Composite Bode/Boole rule (5-point closed NC)
 
 using .Simpson13Rule
 using .Simpson38Rule
@@ -33,9 +33,9 @@ using .BodeRule
 # --- Globally-open rules (endpoint-free variants) ---
 # These versions avoid evaluating f(a) and f(b), typically via
 # interior stencils or endpoint elimination constructions.
-include("rules/Simpson13Rule_MinOpen_MaxOpen.jl")
-include("rules/Simpson38Rule_MinOpen_MaxOpen.jl")
-include("rules/BodeRule_MinOpen_MaxOpen.jl")
+include("rules/legacy/Simpson13Rule_MinOpen_MaxOpen.jl")
+include("rules/legacy/Simpson38Rule_MinOpen_MaxOpen.jl")
+include("rules/legacy/BodeRule_MinOpen_MaxOpen.jl")
 
 using .Simpson13Rule_MinOpen_MaxOpen
 using .Simpson38Rule_MinOpen_MaxOpen

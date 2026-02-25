@@ -13,10 +13,16 @@ module Integrate
 using ..Simpson13Rule, ..Simpson38Rule, ..BodeRule
 using ..Simpson13Rule_MinOpen_MaxOpen, ..Simpson38Rule_MinOpen_MaxOpen, ..BodeRule_MinOpen_MaxOpen
 
-export integrate_nd, quadrature_1d_nodes_weights
+export integrate, quadrature_1d_nodes_weights
+
+include("Integrate/integrate_1d.jl")
+include("Integrate/integrate_2d.jl")
+include("Integrate/integrate_3d.jl")
+include("Integrate/integrate_4d.jl")
+include("Integrate/integrate_nd.jl")
 
 """
-    integrate_nd(
+    integrate(
         integrand, 
         a, 
         b, 
@@ -52,7 +58,7 @@ are applied identically along every axis, i.e. the domain is `[a, b]^dim`.
 - Throws an error if `rule` is not supported by the underlying implementation
   for the selected dimension.
 """
-function integrate_nd(
+function integrate(
     integrand, 
     a, 
     b, 
@@ -69,299 +75,8 @@ function integrate_nd(
     elseif dim == 4
         return integrate_4d(integrand, a, b, N, rule)
     else
-        error("Dimension $dim not supported. Use dim = 1, 2, 3, or 4.")
+        return integrate_nd(integrand, a, b, N, rule; dim=dim)
     end
-end
-
-# ============================================================
-# 1D quadrature legacy
-# ============================================================
-
-"""
-    integrate_1d_legacy(
-        f, 
-        a, 
-        b, 
-        N, 
-        rule
-    ) -> Float64
-
-Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
-
-# Function description
-This function dispatches to the dedicated 1D implementations for each supported
-Newton–Cotes rule. Both closed and open-chain variants are supported.
-
-# Arguments
-- `f`: Integrand function `f(x)`.
-- `a`, `b`: Integration bounds.
-- `N`: Number of intervals (rule-specific divisibility/minimum constraints apply).
-- `rule`: Integration rule symbol.
-
-# Returns
-- Estimated integral value as a `Float64`.
-
-# Errors
-- Throws an error if `rule` is not recognized.
-"""
-function integrate_1d_legacy(
-    f, 
-    a, 
-    b, 
-    N, 
-    rule
-)
-    if rule == :simpson13_close
-        return simpson13_rule(f, a, b, N)
-
-    elseif rule == :simpson13_open
-        return simpson13_rule_min_open_max_open(f, a, b, N)
-
-    elseif rule == :simpson38_close
-        return simpson38_rule(f, a, b, N)
-
-    elseif rule == :simpson38_open
-        return simpson38_rule_min_open_max_open(f, a, b, N)
-
-    elseif rule == :bode_close
-        return bode_rule(f, a, b, N)
-
-    elseif rule == :bode_open
-        return bode_rule_min_open_max_open(f, a, b, N)
-
-    else
-        error("Unknown integration rule: $rule")
-    end
-end
-
-# ============================================================
-# 1D quadrature current version
-# ============================================================
-
-"""
-    integrate_1d(
-        f, 
-        a, 
-        b, 
-        N, 
-        rule
-    ) -> Float64
-
-Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
-
-# Function description
-This routine uses `quadrature_1d_nodes_weights(a, b, N, rule)` and computes:
-`Σ_j w_j f(x_j)`.
-
-This matches the tensor-product style used in `integrate_2d/3d/...` and keeps all
-rule-specific constraints/behavior centralized in `quadrature_1d_nodes_weights`.
-
-# Arguments
-- `f`: Integrand callable `f(x)`.
-- `a`, `b`: Integration bounds.
-- `N`: Number of intervals (rule-specific constraints are enforced by `quadrature_1d_nodes_weights`).
-- `rule`: Integration rule symbol.
-
-# Returns
-- Estimated integral value as a `Float64`.
-"""
-function integrate_1d(
-    f, 
-    a, 
-    b, 
-    N, 
-    rule
-)
-    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule)
-
-    total = 0.0
-    @inbounds for j in eachindex(xs)
-        total += ws[j] * f(xs[j])
-    end
-    return total
-end
-
-# ============================================================
-# 2D tensor-product quadrature
-# ============================================================
-
-"""
-    integrate_2d(
-        f, 
-        a, 
-        b, 
-        N, 
-        rule
-    ) -> Float64
-
-Evaluate a 2D integral of `f(x, y)` over the square domain `[a, b] × [a, b]`
-using a tensor-product quadrature constructed from 1D nodes and weights.
-
-# Function description
-This routine generates 1D quadrature nodes and weights using
-`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
-`Σ_i Σ_j w_i w_j f(x_i, y_j)`.
-
-Loop ordering and accumulation are preserved exactly as implemented.
-
-# Arguments
-- `f`: 2D integrand function `f(x, y)`.
-- `a`, `b`: Square domain bounds (used for both axes).
-- `N`: Number of intervals per axis.
-- `rule`: Integration rule symbol.
-
-# Returns
-- Estimated integral value as a `Float64`.
-"""
-function integrate_2d(
-    f, 
-    a, 
-    b, 
-    N, 
-    rule
-)
-
-    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
-    ys, wy = xs, wx   # same bounds
-
-    total = 0.0
-
-    @inbounds for i in eachindex(xs)
-        xi = xs[i]
-        wi = wx[i]
-        for j in eachindex(ys)
-            total += wi * wy[j] * f(xi, ys[j])
-        end
-    end
-
-    return total
-end
-
-# ============================================================
-# 3D tensor-product quadrature
-# ============================================================
-
-"""
-    integrate_3d(
-        f, 
-        a, 
-        b, 
-        N, 
-        rule
-    ) -> Float64
-
-Evaluate a 3D integral of `f(x, y, z)` over the cube domain `[a, b]^3`
-using a tensor-product quadrature constructed from 1D nodes and weights.
-
-# Function description
-This routine generates 1D quadrature nodes and weights using
-`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
-`Σ_i Σ_j Σ_k w_i w_j w_k f(x_i, y_j, z_k)`.
-
-Loop ordering and accumulation are preserved exactly as implemented.
-
-# Arguments
-- `f`: 3D integrand function `f(x, y, z)`.
-- `a`, `b`: Cube domain bounds (used for all axes).
-- `N`: Number of intervals per axis.
-- `rule`: Integration rule symbol.
-
-# Returns
-- Estimated integral value as a `Float64`.
-"""
-function integrate_3d(
-    f, 
-    a, 
-    b, 
-    N, 
-    rule
-)
-
-    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
-    ys, wy = xs, wx
-    zs, wz = xs, wx
-
-    total = 0.0
-
-    @inbounds for i in eachindex(xs)
-        xi = xs[i]
-        wi = wx[i]
-        for j in eachindex(ys)
-            yj = ys[j]
-            wij = wi * wy[j]
-            for k in eachindex(zs)
-                total += wij * wz[k] * f(xi, yj, zs[k])
-            end
-        end
-    end
-
-    return total
-end
-
-# ============================================================
-# 4D tensor-product quadrature
-# ============================================================
-
-"""
-    integrate_4d(
-        f, 
-        a, 
-        b, 
-        N, 
-        rule
-    ) -> Float64
-
-Evaluate a 4D integral of `f(x, y, z, t)` over the hypercube domain `[a, b]^4`
-using a tensor-product quadrature constructed from 1D nodes and weights.
-
-# Function description
-This routine generates 1D quadrature nodes and weights using
-`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
-`Σ_i Σ_j Σ_k Σ_l w_i w_j w_k w_l f(x_i, y_j, z_k, t_l)`.
-
-Loop ordering and accumulation are preserved exactly as implemented.
-
-# Arguments
-- `f`: 4D integrand function `f(x, y, z, t)`.
-- `a`, `b`: Hypercube domain bounds (used for all axes).
-- `N`: Number of intervals per axis.
-- `rule`: Integration rule symbol.
-
-# Returns
-- Estimated integral value as a `Float64`.
-"""
-function integrate_4d(
-    f, 
-    a, 
-    b, 
-    N, 
-    rule
-)
-
-    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
-    ys, wy = xs, wx
-    zs, wz = xs, wx
-    ts, wt = xs, wx
-
-    total = 0.0
-
-    @inbounds for i in eachindex(xs)
-        xi = xs[i]
-        wi = wx[i]
-        for j in eachindex(ys)
-            yj = ys[j]
-            wij = wi * wy[j]
-            for k in eachindex(zs)
-                zk = zs[k]
-                wijk = wij * wz[k]
-                for l in eachindex(ts)
-                    total += wijk * wt[l] * f(xi, yj, zk, ts[l])
-                end
-            end
-        end
-    end
-
-    return total
 end
 
 # ============================================================

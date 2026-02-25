@@ -115,8 +115,8 @@ function estimate_error_richardson(
     rule::Symbol
 )
     p   = rule_order(rule)
-    I_N  = integrate_nd(integrand, a, b, N,  dim, rule)
-    I_2N = integrate_nd(integrand, a, b, 2N, dim, rule)
+    I_N  = integrate(integrand, a, b, N,  dim, rule)
+    I_2N = integrate(integrand, a, b, 2N, dim, rule)
     return abs(I_2N - I_N) / (2.0^p - 1.0)
 end
 

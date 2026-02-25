@@ -117,9 +117,9 @@ function run_Maranatha(
         push!(hs, h)
 
         # Step 1: Evaluate integral using selected rule
-        JobLoggerTools.log_stage_sub1_benji("integrate_nd() ::", jobid)
+        JobLoggerTools.log_stage_sub1_benji("integrate() ::", jobid)
         JobLoggerTools.@logtime_benji jobid begin
-            I = integrate_nd(integrand, a, b, N, dim, rule)
+            I = integrate(integrand, a, b, N, dim, rule)
         end
         # Step 2: Estimate integration error
         JobLoggerTools.log_stage_sub1_benji("estimate_error() ::", jobid)
