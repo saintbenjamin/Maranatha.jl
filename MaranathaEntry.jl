@@ -22,13 +22,13 @@ ns_3 = [30, 33, 36, 39, 42, 45, 48]
 # ns_4 = [12, 24, 36, 48, 60, 72, 84, 96, 108, 120, 132, 144, 158, 168]
 # ns_4 = [12, 24, 36, 48, 60]
 # ns_4 = [16, 32, 48, 64, 80]
-ns_4 = [8, 12, 16, 20, 24]
-# ns_4 = [16, 20, 24, 28, 32, 36, 40]
+# ns_4 = [8, 12, 16, 20, 24]
+ns_4 = [16, 20, 24, 28, 32, 36, 40]
 
 ff(x1,x2,x3,x4) = integrand_Z_q((x1,x2,x3,x4))
 # bounds=(-π,π)
 bounds=(0.0,π)
-rule_here=:simpson13_open
+rule_here=:simpson38_open
 
 @time est1, fit1, res1 = run_Maranatha(
     ff, bounds...; dim=4, nsamples=ns_4,
