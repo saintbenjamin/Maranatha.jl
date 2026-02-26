@@ -11,6 +11,7 @@
 module PlotTools
 
 using PyPlot
+using LinearAlgebra
 
 export plot_convergence_result, set_pyplot_latex_style
 
@@ -60,46 +61,75 @@ end
 
 """
     plot_convergence_result(
-        name::String, 
-        hs::Vector{Float64}, 
+        name::String,
+        hs::Vector{Float64},
         estimates::Vector{Float64},
-        errors::Vector{Float64}, 
-        fit_result; 
-        rule::Symbol=:simpson13_close
+        errors::Vector{Float64},
+        fit_result;
+        rule::Symbol = :simpson13_close
     ) -> Nothing
 
-Plot the convergence of a sequence of integral estimates and a fitted convergence
-model, and save the figure as a PNG file.
+Plot convergence data `I(h)` against `h^2`, overlay the fitted extrapolation curve,
+and visualize the **fit uncertainty band** propagated from the parameter covariance.
 
 # Function description
-This function:
-1) Determines the leading convergence power `p` from `rule`.
-2) Converts the step sizes `h` into `h^2` for the x-axis.
-3) Filters invalid data points (non-finite values, non-positive `h^2`).
-4) Builds a convergence model from `fit_result.params` assuming:
-   `I(h) = I0 + C1*h^p + C2*h^(p+2) + ...`, where `I0` is taken from
-   `fit_result.estimate`.
-5) Plots:
-   - the fitted curve,
-   - the data points with error bars,
-   - the extrapolated point at `h^2 = 0` with uncertainty `fit_result.estimate_error`.
-6) Saves the plot as `convergence_<name>_<rule>.png`.
+This routine is a visualization companion to `fit_convergence`. It produces a
+publication-style convergence plot and saves it as a PNG file.
 
-This implementation preserves the original plotting logic and file-naming
-convention.
+The x-axis is `h^2` (with `h = (b-a)/N` supplied via `hs`), and the y-axis is the
+raw integral estimate `I(h)` with its pointwise error bar.
+
+A convergence model is reconstructed from the fit parameters under the rule-dependent
+leading power `p`:
+
+`I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4) + ...`
+
+where `I0` is the extrapolated `h → 0` limit.
+
+## Fit curve and uncertainty band
+This function does **not** refit anything. It uses the stored fit output:
+
+- `pvec = fit_result.params`
+- `Cov  = fit_result.cov`
+
+For each point on a dense grid in `h`, it builds the basis vector
+
+`φ(h) = [1, h^p, h^(p+2), ...]`
+
+and evaluates:
+- fit curve: `I_fit(h) = pvec ⋅ φ(h)`
+- one-sigma fit uncertainty (full covariance propagation):
+
+`σ_fit(h)^2 = φ(h)' * Cov * φ(h)`
+
+The plotted shaded band corresponds to `I_fit(h) ± σ_fit(h)`, and therefore includes
+parameter correlations.
+
+## Plot elements
+The resulting figure contains:
+- the fitted curve `I_fit(h)` (line),
+- the fit uncertainty band `±1σ` (shaded region),
+- the measured points with error bars,
+- the extrapolated point at `h^2 = 0` with uncertainty `fit_result.estimate_error`.
+
+The output file is saved as:
+
+`convergence_<name>_<rule>.png`
 
 # Arguments
-- `name`: String label used in the output filename.
-- `hs`: Vector of step sizes `h = (b-a)/N`.
-- `estimates`: Vector of raw integral estimates corresponding to `hs`.
-- `errors`: Vector of error estimates corresponding to `hs` (absolute values are used for plotting).
+- `name`: Label used in the output filename.
+- `hs`: Step sizes `h` (typically `h = (b-a)/N`).
+- `estimates`: Raw estimates `I(h)` corresponding to `hs`.
+- `errors`: Error estimates for `I(h)` (absolute values are used for plotting).
 - `fit_result`: Fit object expected to provide:
   - `fit_result.params`
+  - `fit_result.cov`
   - `fit_result.estimate`
   - `fit_result.estimate_error`
 
 # Keyword arguments
-- `rule`: Quadrature rule symbol used to select the leading power `p` and to label the output filename.
+- `rule`: Quadrature rule symbol used to determine the leading power `p` and
+  to label the output filename.
 
 # Returns
 - `nothing`.
@@ -153,13 +183,23 @@ function plot_convergence_result(
 
     # --- Build model automatically from params ---
     # Model: I(h) = I0 + C1*h^p + C2*h^(p+2) + ...
-    function model_fit(h)
-        s = I0
+    Cov = fit_result.cov
+
+    function basis_vec(h)
+        v = Vector{Float64}(undef, length(pvec))
+        v[1] = 1.0
         for i in 2:length(pvec)
             power = p + 2*(i-2)
-            s += pvec[i] * h^power
+            v[i] = h^power
         end
-        return s
+        return v
+    end
+
+    function model_and_err(h)
+        φ = basis_vec(h)
+        y = dot(pvec, φ)
+        σ = sqrt(abs(dot(φ, Cov * φ)))
+        return y, σ
     end
 
     # --- Smooth curve including extrapolated point at h^2 = 0 ---
@@ -173,7 +213,13 @@ function plot_convergence_result(
 
     # model needs h, not h^2
     h_range  = sqrt.(h2_range)
-    y_fit    = model_fit.(h_range)
+    y_fit = similar(h_range)
+    y_err = similar(h_range)
+
+    for i in eachindex(h_range)
+        y_fit[i], y_err[i] = model_and_err(h_range[i])
+    end
+
 
     # Style
     set_pyplot_latex_style(0.5)
@@ -182,6 +228,16 @@ function plot_convergence_result(
 
     # Fit curve
     ax.plot(h2_range, y_fit; color="black", linewidth=2.5)
+
+    # --- Fit error band ---
+    ax.fill_between(
+        h2_range,
+        y_fit .- y_err,
+        y_fit .+ y_err;
+        alpha=0.25,
+        linewidth=0,
+        color="black"
+    )
 
     # Data points
     ax.errorbar(

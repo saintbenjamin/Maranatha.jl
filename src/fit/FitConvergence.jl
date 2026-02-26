@@ -20,37 +20,62 @@ export fit_convergence, print_fit_result
 
 """
     fit_convergence(
-        hs, 
-        estimates, 
-        errors, 
-        rule::Symbol; 
-        nterms::Int=2
+        hs,
+        estimates,
+        errors,
+        rule::Symbol;
+        nterms::Int = 2
     )
 
 Perform a weighted linear least-χ² extrapolation for the integral estimate
-in the zero-step limit (`h → 0`).
+in the zero-step limit (`h → 0`), and return both best-fit parameters and
+their uncertainties.
 
 # Function description
-This routine constructs a convergence model that is linear in its parameters and
-solves it using weighted least squares (WLS). The rule-dependent leading power
-`p` is inferred from `rule`. The step size is taken as `h = (b-a)/N` (provided
-by the caller via `hs`).
+This routine fits a rule-dependent convergence ansatz that is **linear in its
+parameters**, using weighted least squares (WLS). The step size is provided by
+the caller as `h = (b-a)/N` (via `hs`), and the leading convergence power `p`
+is inferred from the chosen quadrature `rule`.
 
 The convergence model is selected by the number of basis terms `nterms`
 (including the constant term). The design matrix is constructed as:
 
 - column 1: `h^0` (constant term)
-- columns 2..nterms: `h^(p), h^(p+2), h^(p+4), ...`
+- columns 2..nterms: `h^p, h^(p+2), h^(p+4), ...`
 
 Equivalently, the fitted form is:
 
 `I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4) + ...`
 
-The implementation preserves the original solve order and arithmetic. In
-particular:
-- the weights are constructed as `W = Diagonal(1 ./ σ)`,
-- the WLS system is solved via `params = (W*X) \\ (W*y)`,
-- the covariance is computed as `Cov = inv(X' * (W^2) * X)`.
+## Solve (WLS)
+Let `X` be the design matrix, `y` the estimates, and `σ` the pointwise errors.
+Weights are constructed as `W = Diagonal(1 ./ σ)`, and the WLS normal equations
+are solved in the numerically stable form:
+
+`params = (W*X) \\ (W*y)`,
+
+yielding `params = [I0, C1, C2, ...]`.
+
+## Parameter covariance and errors
+This implementation computes **parameter uncertainties in the same way as the
+legacy C implementation** (Hessian-based propagation):
+
+1) Build the normal matrix
+   `A = X' * (W^2) * X`.
+2) Define the χ² Hessian as
+   `H = 2A`.
+3) Let `H^{-1}` be the inverse Hessian.
+4) The parameter covariance is then taken as
+
+   `Cov = Δ = 4 * H^{-1} * A * H^{-1}`,
+
+and the one-sigma parameter errors are `sqrt.(diag(Cov))`.
+
+Notes:
+- If you prefer the standard WLS covariance, you can instead use
+  `Cov = inv(X' * (W^2) * X)`.
+- The returned `cov` is intended to be used downstream (e.g. to draw a fit-band
+  on a convergence plot via `σ_fit(h)^2 = φ(h)' * Cov * φ(h)`).
 
 # Arguments
 - `hs`: Vector-like collection of step sizes `h`.
@@ -65,12 +90,12 @@ particular:
 
 # Returns
 A `NamedTuple` with the following fields:
-- `estimate::Float64`: Extrapolated value `I0 = I(h→0)`.
+- `estimate::Float64`: Extrapolated value `I0 = I(h→0)` (i.e. `params[1]`).
 - `estimate_error::Float64`: One-sigma uncertainty for `I0`, taken from the
   covariance diagonal.
-- `params`: Fitted parameter vector `[I0, C1, C2, ...]`.
-- `param_errors`: One-sigma uncertainties for `params`.
-- `cov`: Parameter covariance matrix.
+- `params::Vector{Float64}`: Fitted parameter vector `[I0, C1, C2, ...]`.
+- `param_errors::Vector{Float64}`: One-sigma uncertainties for `params`.
+- `cov::Matrix{Float64}`: Parameter covariance matrix.
 - `chisq::Float64`: χ² value, `Σ (resid/σ)^2`.
 - `redchisq::Float64`: Reduced χ², `chisq / dof`.
 - `dof::Int`: Degrees of freedom, `length(y) - length(params)`.
@@ -126,11 +151,25 @@ function fit_convergence(
     # --- WLS solve ---
     params = Xw \ yw
 
-    # --- covariance (Toussaint style) ---
-    # (Xᵀ W² X)^(-1)
-    Cov = inv(transpose(X) * (W^2) * X)
+    # # --- covariance (Method 1) ---
+    # # (Xᵀ W² X)^(-1)
+    # Cov = inv(transpose(X) * (W^2) * X)
 
-    param_errors = sqrt.(diag(Cov))
+    # param_errors = sqrt.(diag(Cov))
+
+    # --- covariance (Method 2) ---
+    # Build A = Xᵀ W² X  (same as C code)
+    A = transpose(X) * (W^2) * X
+
+    # Hessian = 2 * A
+    Hess = 2.0 .* A
+    inv_Hess = inv(Hess)
+
+    # Delta = 4 * inv_Hess * A * inv_Hess
+    Delta = 4.0 .* inv_Hess * A * inv_Hess
+
+    Cov = Delta
+    param_errors = sqrt.(diag(Delta))
 
     # diagnostics
     yhat  = X * params
