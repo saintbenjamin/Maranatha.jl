@@ -117,7 +117,7 @@ if "pdf" in ARGS
 
 else
     deploydocs(
-        repo   = "github.com/saintbenjamin/Maranatha.git",
+        repo   = "github.com/saintbenjamin/Maranatha.jl.git",
         branch = "gh-pages",
         devbranch = "main",
         target    = "build",
