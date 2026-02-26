@@ -24,40 +24,43 @@ include("Integrate/integrate_nd.jl")
 
 """
     integrate(
-        integrand, 
-        a, 
-        b, 
-        N, 
-        dim, 
+        integrand,
+        a,
+        b,
+        N,
+        dim,
         rule
-    )
+    ) -> Float64
 
-Dispatch an integration routine by dimension and quadrature rule.
+Evaluate a tensor-product Newton-Cotes quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
 
 # Function description
-This function selects a tensor-product quadrature implementation for `dim = 2, 3, 4`,
-and a direct 1D rule implementation for `dim = 1`. The integration bounds `[a, b]`
-are applied identically along every axis, i.e. the domain is `[a, b]^dim`.
+This function serves as the unified integration dispatcher within the `Maranatha.jl` pipeline.
+
+1) It builds the **1D nodes and weights** for the selected Newton-Cotes `rule`
+   on ``[a,b]`` with resolution `N`.
+2) It evaluates the **tensor-product quadrature** in `dim` dimensions by
+   enumerating the multi-index over the 1D nodes and accumulating the weighted
+   sum of ``\\texttt{integrand}(x_1,\\,\\ldots,\\,x_{\\texttt{dim}})``.
+
+The same bounds ``[a,b]`` are applied along every axis, i.e. the integration domain
+is ``[a,b]^{\\texttt{dim}}``.
 
 # Arguments
-- `integrand`: Integrand function of `dim` variables:
-  - `dim == 1` → `integrand(x)`
-  - `dim == 2` → `integrand(x, y)`
-  - `dim == 3` → `integrand(x, y, z)`
-  - `dim == 4` → `integrand(x, y, z, t)`
-- `a`, `b`: Integration bounds (applied to every dimension).
-- `N`: Number of intervals per axis (must satisfy rule-specific constraints).
-- `dim`: Dimensionality (`1`, `2`, `3`, or `4`).
-- `rule`: Integration rule symbol (e.g. `:simpson13_close`, `:simpson38_close`, `:bode_close`,
-  and the corresponding `*_open` variants).
+- `integrand`: A callable that accepts exactly `dim` positional arguments
+  (function, closure, or callable struct).
+- `a`, `b`: Lower/upper bounds applied to every axis.
+- `N`: Number of subintervals per axis (rule-specific constraints apply).
+- `dim`: Dimensionality (must satisfy `dim ≥ 1`).
+- `rule`: Quadrature rule symbol (e.g. `:simpson13_close`, `:simpson38_open`, `:bode_close`, ...).
 
 # Returns
-- Estimated integral value as a `Float64`.
+- `Float64`: Estimated integral value.
 
 # Errors
-- Throws an error if `dim` is not in `{1,2,3,4}`.
-- Throws an error if `rule` is not supported by the underlying implementation
-  for the selected dimension.
+- Throws an error if `dim < 1`.
+- Throws an error if `rule` is unknown or if `N` violates rule-specific constraints.
+- Any error thrown by `integrand` during evaluation is propagated.
 """
 function integrate(
     integrand, 
@@ -93,24 +96,24 @@ end
         rule::Symbol
     ) -> Tuple{Vector{Float64}, Vector{Float64}}
 
-Generate 1D quadrature nodes and weights for a Newton–Cotes rule on `[a, b]`.
+Generate 1D quadrature nodes and weights for a Newton-Cotes rule on ``[a, b]``.
 
 # Function description
 This function constructs the node vector `xs` and weight vector `ws` for the
-specified `rule` over the interval `[a, b]` using a uniform step size
-`h = (b-a)/N`. The returned `(xs, ws)` pair is suitable for building
+specified `rule` over the interval ``[a, b]`` using a uniform step size
+``\\displaystyle{h = \\frac{b-a}{N}}``. The returned `(xs, ws)` pair is suitable for building
 tensor-product quadrature rules in higher dimensions.
 
-Both closed rules (including endpoints) and the custom open-chain rules
+Both closed rules (including endpoints) and the opened rules
 (excluding endpoints) are supported. The implementation preserves the exact
 node ordering and weight construction used by the original code.
 
 # Arguments
 - `a`, `b`: Integration bounds.
-- `N`: Number of intervals defining the uniform grid spacing `h = (b-a)/N`.
+- `N`: Number of intervals defining the uniform grid spacing ``\\displaystyle{h = \\frac{b-a}{N}}``.
 - `rule`: Quadrature rule symbol:
-  - Closed rules: `:simpson13_close`, `:simpson38_close`, `:bode_close`
-  - Open-chain rules: `:simpson13_open`, `:simpson38_open`, `:bode_open`
+  - Closed composite rules: `:simpson13_close`, `:simpson38_close`, `:bode_close`
+  - Opened composite rules: `:simpson13_open`, `:simpson38_open`, `:bode_open`
 
 # Returns
 - `xs::Vector{Float64}`: Quadrature nodes (in the exact order they are pushed).

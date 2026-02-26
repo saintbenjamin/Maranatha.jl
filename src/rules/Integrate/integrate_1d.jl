@@ -21,14 +21,14 @@
         rule
     ) -> Float64
 
-Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
+Evaluate a ``1``-dimensional integral of ``f(x)`` over ``[a, b]`` using the specified quadrature rule.
 
 # Function description
 This function dispatches to the dedicated 1D implementations for each supported
-Newton–Cotes rule. Both closed and open-chain variants are supported.
+Newton-Cotes rule. Both closed and open-chain variants are supported.
 
 # Arguments
-- `f`: Integrand function `f(x)`.
+- `f`: Integrand function ``f(x)``.
 - `a`, `b`: Integration bounds.
 - `N`: Number of intervals (rule-specific divisibility/minimum constraints apply).
 - `rule`: Integration rule symbol.
@@ -82,19 +82,20 @@ end
         rule
     ) -> Float64
 
-Evaluate a 1D integral of `f(x)` over `[a, b]` using the specified quadrature rule.
+Evaluate the ``1``-dimensional integral of ``f(x)`` over ``[a, b]`` using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
-This routine uses `quadrature_1d_nodes_weights(a, b, N, rule)` and computes:
-`Σ_j w_j f(x_j)`.
-
-This matches the tensor-product style used in `integrate_2d/3d/...` and keeps all
-rule-specific constraints/behavior centralized in `quadrature_1d_nodes_weights`.
+This routine generates 1D quadrature nodes and weights using [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)` and computes:
+```math
+\\sum_i w_i \\, f(x_i) \\,.
+```
+This keeps all rule-specific constraints and behaviour centralized in
+[`quadrature_1d_nodes_weights`](@ref).
 
 # Arguments
 - `f`: Integrand callable `f(x)`.
 - `a`, `b`: Integration bounds.
-- `N`: Number of intervals (rule-specific constraints are enforced by `quadrature_1d_nodes_weights`).
+- `N`: Number of intervals (rule-specific constraints are enforced by [`quadrature_1d_nodes_weights`](@ref)).
 - `rule`: Integration rule symbol.
 
 # Returns

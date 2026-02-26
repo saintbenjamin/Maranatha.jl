@@ -163,61 +163,67 @@ end
         rule::Symbol
     ) -> Float64
 
-Return a fast 1D integration error *scale* for `∫_a^b f(x) dx` using a lightweight
-derivative-based heuristic. For selected open-chain rules, a boundary-difference
-proxy is used. Derivatives are attempted with ForwardDiff first, with an automatic
-TaylorSeries fallback when non-finite (`Inf`/`NaN`) values occur.
+Return a fast ``1``-dimensional quadrature error *scale* for 
+```math
+\\int\\limits_{a}^{b} \\; dx \\; f(x)
+```
+using a lightweight derivative-based heuristic. 
+
+For selected opened composite rules, a boundary-difference
+proxy is used. 
+Derivatives are attempted with [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) first, 
+with an automatic
+[`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback when non-finite (`Inf`/`NaN`) values occur.
 
 # Function description
 This routine provides a **cheap, consistent error scale proxy** intended to:
-- supply per-point weights `σ(h)` for χ²-based convergence fits (`fit_convergence`), and
-- match the same `h`-scaling convention used by the higher-dimensional tensor-product
+- supply per-point weights ``\\sigma(h)`` for least-``\\chi^2``-fitting ([`Maranatha.FitConvergence.fit_convergence`](@ref)), and
+- match the same ``h``-scaling convention used by the multidimensional error
   estimators in this package.
 
-It is **not** a rigorous truncation bound and does not attempt to reproduce the
+It is *not* a rigorous truncation bound and does not attempt to reproduce the
 full composite-rule error expansion.
 
 Two regimes are supported:
 
-## (A) Boundary-difference model (selected open-chain rules)
-For rules flagged by `_has_boundary_error_model(rule)`, the estimator uses a leading
+## (A) Boundary-difference model (for selected opened composite rules)
+For rules flagged by [`_has_boundary_error_model`](@ref)`(rule)`, the estimator uses a leading
 boundary-difference proxy of the form
-
-`E ≈ K * h^p * ( f^(dord)(xL) - f^(dord)(xR) )`,
+```math
+E \\approx \\texttt{K} \\, h^\\texttt{p} \\, ( D_L - D_R ) \\,
+```
 
 where
-- `h = (b-a)/N`,
-- `xL = a + off*h`,
-- `xR = a + (N-off)*h`,
-- `(p, K, dord, off) = _boundary_error_params(rule)`.
+- ``\\displaystyle{h = \\frac{b-a}{N}}``,
+- ``x_L = a + \\texttt{z} \\, h``,
+- ``x_R = a + ( N - \\texttt{z} ) \\, h``,
+- `(p, K, m, z) =`[`_boundary_error_params`](@ref)`(rule)`.
 
-This branch is designed for endpoint-free chained formulas whose leading error
-behavior can be boundary-dominant, and often improves χ² stability for those rules.
+This branch is designed for (endpoint-free) opened composite rule formulas whose leading error
+behavior can be boundary-dominant, and often improves least ``\\chi^2`` fitting stability for those rules.
 
-### Derivative evaluation and Taylor fallback
+### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
 All derivatives in this routine are evaluated via the internal helper `_nth_deriv_safe`:
-1) compute using `nth_derivative` (ForwardDiff-based),
-2) if non-finite, emit a `warn_benji` and retry with `nth_derivative_taylor` (TaylorSeries-based),
-3) throw an error only if the Taylor fallback is also non-finite.
+1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
+2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
+3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
 
 ## (B) Default midpoint tensor-style model (all other supported rules)
-Otherwise, the estimator follows the same “single-sample midpoint derivative” pattern
-used in the higher-dimensional tensor-product estimators:
+Otherwise, the estimator follows the same *single-sample midpoint derivative* pattern
+used in the multidimensional error estimators:
 
-1) Obtain `(m, C)` via `_rule_params_for_tensor_error(rule)`.
-2) Build 1D nodes/weights `(xs, wx)` via `quadrature_1d_nodes_weights(a, b, N, rule)`.
-3) Evaluate `f^(m)(x̄)` once at the midpoint `x̄ = (a+b)/2` (with the same fallback logic).
-4) Form the weight-sum proxy `I = (Σ wx[j]) * f^(m)(x̄)`.
+1) Obtain `(m, C)` via [`_rule_params_for_tensor_error`](@ref)`(rule)`.
+2) Build `1`-dimensional nodes/weights `(xs, wx)` via [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)`.
+3) Evaluate ``f^{(m)}(\\bar{x})`` once at the midpoint ``\\displaystyle{\\bar{x} = \\frac{a+b}{2}}`` (with the same fallback logic).
+4) Form the weight-sum prox ``\\displaystyle{I = \\left( \\sum_j \\texttt{wx[j]} \\right) \\ast f^{(m)}\\left( \\bar{x} \\right)}``.
    (Since the derivative sample is constant across nodes, this is equivalent to
-   accumulating `Σ wx[j] * f^(m)(x̄)`.)
-5) Return
-
-`E ≈ C * (b-a) * h^m * I`.
+   accumulating ``\\displaystyle{\\left( \\sum_j \\texttt{wx[j]} \\right) \\ast f^{(m)}\\left( \\bar{x} \\right)}``.)
+5) Return ``E = C \\; (b - a) \\; h^m \\; I``.
 
 # Arguments
 - `f`: Scalar callable integrand `f(x)` (function, closure, or callable struct).
 - `a`, `b`: Integration limits.
-- `N`: Number of subintervals defining `h = (b-a)/N`.
+- `N`: Number of subintervals defining ``\\displaystyle{h = \\frac{b-a}{N}}``.
 - `rule`: Quadrature rule symbol.
 
 # Returns
@@ -225,19 +231,19 @@ used in the higher-dimensional tensor-product estimators:
   `rule`, returns `0.0`.
 
 # Notes
-- Some open-chain rules may have **negative quadrature weights**. This estimator
-  intentionally preserves the rule-defined weight sum `Σ wx`, rather than enforcing
+- Some rules may have **negative quadrature weights**. This estimator
+  intentionally preserves the rule-defined weight sum ``\\displaystyle{\\sum_j \\texttt{wx[j]}}``, rather than enforcing
   any normalization.
 - Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
   - enforced explicitly in the boundary-model branch for supported open rules, and
-  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path.
-- The Taylor fallback requires the integrand to accept generic number types
+  - enforced in [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref) for the default midpoint path.
+- The [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback requires the integrand to accept generic number types
   (e.g. `Taylor1`). If the integrand dispatch is restricted to `Real` only, the fallback
   may raise a `MethodError`.
 
 # Errors
 - Throws an error if `(N, rule)` violates rule constraints.
-- Throws an error if both ForwardDiff and Taylor derivatives are non-finite in the
+- Throws an error if both [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) derivatives are non-finite in the
   selected estimator branch.
 """
 function estimate_error_1d(

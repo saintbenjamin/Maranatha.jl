@@ -21,19 +21,17 @@ export plot_convergence_result, set_pyplot_latex_style
         scale::Float64=0.5
     ) -> Nothing
 
-Set a consistent PyPlot/Matplotlib style using LaTeX (lmodern), similar to the
-Deborah.jl plotting style.
+Configure [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) with [``\\LaTeX``](https://www.latex-project.org/) rendering and appropriate font settings for publications.
 
-# Function description
-This function resets Matplotlib rcParams to the defaults and then applies a
-LaTeX-enabled style configuration. The `scale` parameter controls overall font
-sizes, line widths, and figure size.
+This function modifies [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams) to enable [``\\LaTeX``](https://www.latex-project.org/)-based text rendering and adjust 
+font sizes, marker sizes, and line widths for consistent visual output.  
+Useful for generating high-quality plots for papers or presentations.
 
 # Arguments
-- `scale`: Overall scaling factor for font sizes and figure size.
+- `scale::Float64`: Scaling factor for font sizes and figure dimensions. Default is `0.5`.
 
-# Returns
-- `nothing`.
+# Side Effects
+- Modifies [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)'s global rendering configuration via [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams).
 """
 function set_pyplot_latex_style(
     scale::Float64=0.5
@@ -70,22 +68,22 @@ end
         rule::Symbol = :simpson13_close
     ) -> Nothing
 
-Plot convergence data `I(h)` against `h^2`, overlay the fitted extrapolation curve,
+Plot convergence data ``I(h)`` against ``h^2``, overlay the fitted extrapolation curve,
 and visualize the **fit uncertainty band** propagated from the parameter covariance.
 
 # Function description
-This routine is a visualization companion to `fit_convergence`. It produces a
+This routine is a visualization companion to [`Maranatha.FitConvergence.fit_convergence`](@ref). It produces a
 publication-style convergence plot and saves it as a PNG file.
 
-The x-axis is `h^2` (with `h = (b-a)/N` supplied via `hs`), and the y-axis is the
-raw integral estimate `I(h)` with its pointwise error bar.
+The ``x``-axis is ``h^2`` (with ``\\displaystyle{h = \\frac{b-a}{N}}`` supplied via `hs`), and the ``y``-axis is the
+raw integral estimate ``I(h)`` with its pointwise error bar.
 
 A convergence model is reconstructed from the fit parameters under the rule-dependent
 leading power `p`:
-
-`I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4) + ...`
-
-where `I0` is the extrapolated `h → 0` limit.
+```math
+I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + C_3 \\, h^{p+4} + \\ldots
+```
+where ``I_0`` is the extrapolated ``h \\to 0`` limit.
 
 ## Fit curve and uncertainty band
 This function does **not** refit anything. It uses the stored fit output:
@@ -93,25 +91,29 @@ This function does **not** refit anything. It uses the stored fit output:
 - `pvec = fit_result.params`
 - `Cov  = fit_result.cov`
 
-For each point on a dense grid in `h`, it builds the basis vector
-
-`φ(h) = [1, h^p, h^(p+2), ...]`
-
+For each point on a dense grid in ``h``, it builds the basis vector
+```math
+\\varphi(h) =
+\\begin{bmatrix}
+1 & h^p & h^{p+2} & \\cdots
+\\end{bmatrix}^{\\mathsf{T}}
+```
 and evaluates:
-- fit curve: `I_fit(h) = pvec ⋅ φ(h)`
-- one-sigma fit uncertainty (full covariance propagation):
+- fit curve: ``I_{\\text{fit}}(h) = \\bm{\\lambda} \\cdot \\bm{\\varphi}(h)``
+- ``1 \\, \\sigma`` fit uncertainty (where ``V`` is covariance matrix):
+```math
+\\sigma_{\\text{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} \\, V \\, \\varphi(h)
+```
 
-`σ_fit(h)^2 = φ(h)' * Cov * φ(h)`
-
-The plotted shaded band corresponds to `I_fit(h) ± σ_fit(h)`, and therefore includes
+The plotted shaded band corresponds to ``I_{\\text{fit}}(h) \\pm \\sigma_{\\text{fit}}(h)``, and therefore includes
 parameter correlations.
 
 ## Plot elements
 The resulting figure contains:
-- the fitted curve `I_fit(h)` (line),
-- the fit uncertainty band `±1σ` (shaded region),
+- the fitted curve ``I_{\\text{fit}}(h)`` (line),
+- the fit uncertainty band ``\\pm \\sigma`` (shaded region),
 - the measured points with error bars,
-- the extrapolated point at `h^2 = 0` with uncertainty `fit_result.estimate_error`.
+- the extrapolated point at ``h^2 = 0`` with uncertainty `fit_result.estimate_error`.
 
 The output file is saved as:
 
@@ -119,9 +121,9 @@ The output file is saved as:
 
 # Arguments
 - `name`: Label used in the output filename.
-- `hs`: Step sizes `h` (typically `h = (b-a)/N`).
-- `estimates`: Raw estimates `I(h)` corresponding to `hs`.
-- `errors`: Error estimates for `I(h)` (absolute values are used for plotting).
+- `hs`: Step sizes `h` (typically ``\\displaystyle{h = \\frac{b-a}{N}}``).
+- `estimates`: Quadrature estimates ``I(h)`` corresponding to `hs`.
+- `errors`: Error estimates for ``I(h)`` (absolute values are used for plotting).
 - `fit_result`: Fit object expected to provide:
   - `fit_result.params`
   - `fit_result.cov`

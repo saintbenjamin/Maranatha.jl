@@ -29,7 +29,7 @@ const INTEGRAND_REGISTRY = Dict{Symbol, Function}()
         factory::Function
     )
 
-Register a new integrand factory into the Maranatha integrand registry.
+Register a new integrand factory into the `Maranatha.jl` integrand registry.
 
 # Function description
 This function associates an integrand name `name` with a factory function
@@ -72,10 +72,10 @@ Construct a callable integrand from the registry.
 # Function description
 This function looks up `name` in the integrand registry and invokes the
 corresponding factory with the provided keyword arguments. The result is a
-callable object that can be passed directly into `Maranatha.Runner.run_Maranatha`.
+callable object that can be passed directly into [`Maranatha.Runner.run_Maranatha`](@ref).
 
 # Arguments
-- `name::Symbol`: Integrand identifier registered via `register_integrand!`.
+- `name::Symbol`: Integrand identifier registered via [`register_integrand!`](@ref).
 
 # Keyword arguments
 - `kwargs...`: Keyword arguments forwarded to the registered factory.

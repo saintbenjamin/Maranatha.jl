@@ -32,14 +32,14 @@ include("ErrorEstimator/nth_derivative.jl")
     )
 
 Map `rule` to the derivative order `m` and coefficient `C` used by the
-tensor-product derivative-based error heuristics in 2D/3D/4D estimators.
+tensor-product derivative-based error heuristics in multidimensional error estimators.
 
 # Arguments
 - `rule`: Integration rule symbol.
 
 # Returns
 - `(m, C)` where:
-  - `m::Int` is the derivative order used in the estimator,
+  - `m::Int` is the derivative order used in the error estimator,
   - `C` is the rule-dependent coefficient (kept as the same literal type
     as the original implementation).
 
@@ -78,12 +78,11 @@ end
 Return `true` if `rule` uses a boundary-difference leading-term error model.
 
 # Function description
-For some endpoint-free (“open-chain”) rules, the dominant truncation behavior is
+For some opened composite (endpoint-free) rules, the dominant truncation behavior is
 often controlled by **boundary corrections** rather than a purely interior
 (midpoint) derivative sample.
-%
-This helper identifies the rule symbols for which the error estimators
-(`estimate_error_1d/2d/3d/4d`) should switch from the default midpoint-based
+
+This helper identifies the rule symbols for which the error estimators should switch from the default midpoint-based
 tensor heuristic to a boundary-difference model.
 
 # Arguments
@@ -97,7 +96,7 @@ tensor heuristic to a boundary-difference model.
 - Currently enabled rules:
   - `:simpson13_open`
   - `:bode_open`
-- All other rules fall back to `_rule_params_for_tensor_error(rule)`-based
+- All other rules fall back to [`_rule_params_for_tensor_error`](@ref)`(rule)`-based
   midpoint/tensor heuristics.
 """
 @inline function _has_boundary_error_model(
@@ -116,23 +115,22 @@ associated with `rule`.
 
 # Function description
 This routine provides a compact parameterization for boundary-difference error
-heuristics used by open-chain rules in 1D–4D estimators.
+heuristics used by opened composite rules in error estimators.
 
 The model is expressed in the form
-
-`E ≈ K * h^p * ( D_left - D_right )`,
-
+```math
+E \\approx \\texttt{K} \\, h^\\texttt{p} \\, ( D_L - D_R ) \\,
+```
 where
-- `h = (b-a)/N`,
-- `D_left  = f^(dord)(xL)` (or an axis-wise derivative in higher dimensions),
-- `D_right = f^(dord)(xR)`,
+- ``\\displaystyle{h = \\frac{b-a}{N}}``,
+- ``D_L  = f^{(\\texttt{m})}(x_L)`` (or an axis-wise derivative in higher dimensions),
+- ``D_R = f^{(\\texttt{m})}(x_R)``,
 
 and the evaluation points are placed symmetrically near both ends:
+- ``x_L = a + \\texttt{z} \\, h``
+- ``x_R = a + ( N - \\texttt{z} ) \\, h``
 
-- `xL = a + off*h`
-- `xR = a + (N-off)*h`
-
-This parameterization allows 2D/3D/4D estimators to reuse the same boundary logic
+This parameterization allows multidimensional error estimators to reuse the same boundary logic
 by applying the axis-wise boundary difference while integrating over the other
 coordinates via the quadrature weights.
 
@@ -140,22 +138,22 @@ coordinates via the quadrature weights.
 - `rule::Symbol`: Integration rule symbol.
 
 # Returns
-- `(p, K, dord, off)` where:
-  - `p::Int`      : leading power of `h` (i.e., the model scales as `h^p`),
+- `(p, K, m, z)` where:
+  - `p::Int`      : leading power of `h` (i.e., the model scales as ``h^\\texttt{p}``),
   - `K::Float64`  : prefactor multiplying the boundary difference,
-  - `dord::Int`   : derivative order used in the boundary difference,
-  - `off::Float64`: offset (in units of `h`) used to define boundary sample points
-    `xL = a + off*h` and `xR = a + (N-off)*h`.
+  - `m::Int`   : derivative order used in the boundary difference,
+  - `z::Float64`: offset (in units of `h`) used to define boundary sample points
+    ``x_L = a + \\texttt{z} \\, h`` and ``x_R = a + ( N - \\texttt{z} ) \\, h``.
 
 If `rule` is not supported, returns `(0, 0.0, 0, 0.0)`.
 
 # Notes
 - This is a **heuristic leading-term model** used to set a stable error *scale*
   for fitting/extrapolation. It is not a rigorous truncation bound.
-- The numerical constants are chosen to match the open-chain rule expansions
+- The numerical constants are chosen to match the opened composite rule expansions
   used in this project:
-  - `:simpson13_open` uses a third-derivative boundary difference with `h^4`.
-  - `:bode_open`     uses a fifth-derivative boundary difference with `h^6`.
+  - `:simpson13_open` uses a third-derivative boundary difference with ``h^4``.
+  - `:bode_open`     uses a fifth-derivative boundary difference with ``h^6``.
 """
 function _boundary_error_params(
     rule::Symbol
@@ -191,25 +189,25 @@ include("ErrorEstimator/estimate_error_nd.jl")
         rule
     ) -> Float64
 
-Unified interface for estimating integration error in 1–4 dimensions.
+Unified interface for estimating integration error in arbitrary dimensions.
 
 # Function description
 Dispatches to the corresponding dimension-specific estimator:
-- `dim == 1` → `estimate_error_1d`
-- `dim == 2` → `estimate_error_2d`
-- `dim == 3` → `estimate_error_3d`
-- `dim == 4` → `estimate_error_4d`
+- `dim == 1` ``\\rightarrow`` [`estimate_error_1d`](@ref)
+- `dim == 2` ``\\rightarrow`` [`estimate_error_2d`](@ref)
+- `dim == 3` ``\\rightarrow`` [`estimate_error_3d`](@ref)
+- `dim == 4` ``\\rightarrow`` [`estimate_error_4d`](@ref)
+- `dim >= 5` ``\\rightarrow`` [`estimate_error_nd`](@ref)
 
 # Arguments
 - `f`: Integrand function (expects `dim` positional arguments).
-- `a`, `b`: Bounds for each dimension (interpreted as scalar bounds for a hypercube `[a,b]^dim`).
-- `N`: Number of subdivisions per axis (subject to rule constraints in 1D; higher-D estimators reuse the same rule nodes/weights).
+- `a`, `b`: Bounds for each dimension (interpreted as scalar bounds for a hypercube ``[a,b]^\\texttt{dim}``).
+- `N`: Number of subdivisions per axis (subject to rule constraints in ``1``-dimensional case; higher-dimensional error estimators reuse the same rule nodes/weights).
 - `dim`: Number of dimensions (`Int`).
 - `rule`: Integration rule symbol.
 
 # Returns
-- A `Float64` error estimate. If `dim` is outside 1–4 or `rule` is not recognized
-  by the selected estimator, returns `0.0`.
+- A `Float64` multidimensional error estimate.
 """
 function estimate_error(
     f, 

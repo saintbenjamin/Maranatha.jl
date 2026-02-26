@@ -21,18 +21,19 @@
         rule
     ) -> Float64
 
-Evaluate a 2D integral of `f(x, y)` over the square domain `[a, b] × [a, b]`
+Evaluate a ``2``-dimensional integral of ``f(x, y)`` over the square domain ``[a, b] \\times [a, b]``
 using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
 This routine generates 1D quadrature nodes and weights using
-`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
-`Σ_i Σ_j w_i w_j f(x_i, y_j)`.
-
+[`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)` and forms the tensor product:
+```math
+\\sum_i \\sum_j w_i w_j \\, f(x_i, y_j) \\,.
+```
 Loop ordering and accumulation are preserved exactly as implemented.
 
 # Arguments
-- `f`: 2D integrand function `f(x, y)`.
+- `f`: Integrand callable `f(x, y)`.
 - `a`, `b`: Square domain bounds (used for both axes).
 - `N`: Number of intervals per axis.
 - `rule`: Integration rule symbol.

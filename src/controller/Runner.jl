@@ -30,70 +30,129 @@ export run_Maranatha
         fit_terms::Int=2
     )
 
-Evaluate a definite integral in 1–4 dimensions using a Newton–Cotes quadrature
-rule at multiple resolutions, estimate the integration error at each resolution,
-and extrapolate the integral to the zero-step limit (`h → 0`) via least-χ² fitting.
+High-level execution pipeline for ``n``-dimensional quadrature,
+error modeling, and convergence extrapolation.
 
 # Function description
-This function computes a sequence of integral estimates `I(N)` for each `N` in
-`nsamples`, along with a corresponding error estimate `err(N)` using the chosen
-error method. It then fits a convergence model (rule-dependent) to extrapolate
-the integral value as the step size approaches zero.
+`run_Maranatha` is the orchestration entry point that combines the core
+subsystems of Maranatha:
 
-The convergence fit uses a polynomial-in-`h` basis whose length is controlled by
-`fit_terms` (including the constant term). The design matrix used by the fit is:
+- [`Maranatha.Integrate`](@ref)      : tensor-product Newton-Cotes quadrature in **arbitrary** dimension
+- [`Maranatha.ErrorEstimator`](@ref) : derivative-based error scale models
+- [`Maranatha.FitConvergence`](@ref) : least-χ² fitting for ``h \\to 0`` extrapolation
 
-- column 1: `h^0` (constant term)
-- columns 2..fit_terms: `h^(p), h^(p+2), h^(p+4), ...`
+For each resolution `N` in `nsamples`, the runner performs:
 
-where the leading power `p` is determined from `rule`.
+1. Compute step size
+   ```math
+   h = \\frac{b-a}{N} \\, .
+   ```
+
+2. Evaluate the integral using the selected rule via [`Maranatha.Integrate.integrate`](@ref).
+
+3. Estimate the integration error according to `err_method`.
+
+4. Accumulate `(h, estimate, error)` triplets.
+
+After processing all resolutions, a weighted convergence fit is performed:
+```math
+I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + ...
+```
+where the leading power ``p`` is determined from `rule`.
+
+The final extrapolated estimate ``I_0`` is returned together with the full
+fit object and the raw data vectors used in the fit.
 
 # Arguments
-- `integrand::Function`: Integrand function. It must accept `dim` positional arguments.
-  - `dim == 1` → `integrand(x)`
-  - `dim == 2` → `integrand(x, y)`
-  - `dim == 3` → `integrand(x, y, z)`
-  - `dim == 4` → `integrand(x, y, z, t)`
-- `a::Real`: Lower bound (used for every dimension, i.e., the domain is `[a,b]^dim`).
-- `b::Real`: Upper bound (used for every dimension, i.e., the domain is `[a,b]^dim`).
+- `integrand`: Callable integrand. May be a function, closure, or callable struct.
+  Must accept `dim` scalar positional arguments.
+- `a`, `b`: Scalar bounds defining the hypercube domain ``[a,b]^n`` where ``n`` is (spacetime) dimensionality.
 
 # Keyword arguments
-- `dim::Int=1`: Dimensionality of the integral (expected range: `1 ≤ dim ≤ 4`).
-- `nsamples=[4, 8, 16]`: List of integer resolutions `N` (number of subintervals per axis)
-  used to evaluate the integral and error model.
-- `rule::Symbol=:simpson13_close`: Quadrature rule symbol forwarded to `integrate_nd`.
-- `err_method::Symbol=:derivative`: Error estimation method:
-  - `:derivative`  → uses `ErrorEstimator.estimate_error`
-  - `:richardson`  → uses `RichardsonError.estimate_error_richardson`
-- `fit_terms::Int=2`: Number of basis terms used in the convergence fit (including the
-  constant term) forwarded to `fit_convergence` as `nterms`.
+- `dim::Int=1`:
+  Dimensionality of the tensor-product quadrature.
+  Internally dispatched through [`Maranatha.Integrate.integrate`](@ref), 
+  which supports specialized implementations (from ``1``-dimensional to ``4``-dimensional quadrature) and a general ``n``-dimensional quadrature fallback.
+
+- `nsamples=[4,8,16]`:
+  Vector of subdivision counts `N`. Each value defines a different grid
+  resolution used in the convergence study.
+
+- `rule::Symbol=:simpson13_close`:
+  Newton-Cotes rule identifier forwarded to both integration and error
+  estimation modules.
+
+- `err_method::Symbol=:derivative`:
+  Error estimation strategy.
+  Supported values:
+
+  - `:derivative`  → [`Maranatha.ErrorEstimator.estimate_error`](@ref)
+  - `:richardson`  → [`Maranatha.RichardsonError.estimate_error_richardson`](@ref)
+
+- `fit_terms::Int=2`:
+  Number of basis terms used in the convergence model
+  (including the constant extrapolated value).
 
 # Returns
 A 3-tuple:
-- `final_estimate::Float64`: Extrapolated integral value (the fitted estimate at `h = 0`).
-- `fit_result`: Fit object returned by `fit_convergence` (forwarded unchanged).
-- `data::NamedTuple`: Data used for fitting:
-  - `data.h::Vector{Float64}`: Step sizes `h = (b-a)/N` for each `N` in `nsamples`.
-  - `data.avg::Vector{Float64}`: Raw integral estimates `I(N)`.
-  - `data.err::Vector{Float64}`: Error estimates corresponding to each `I(N)`.
+
+- `final_estimate::Float64`:
+  Convenience alias for `fit_result.estimate`.
+
+- `fit_result::NamedTuple`:
+  Fit object returned by [`Maranatha.FitConvergence.fit_convergence`](@ref).  
+  Fields:
+  - `estimate::Float64` :
+    Extrapolated integral estimate ``I_0`` (the ``h \\to 0`` limit), equal to `params[1]`.
+  - `estimate_error::Float64` :
+    ``1 \\, \\sigma`` uncertainty of `estimate`, taken as `param_errors[1]` from the covariance diagonal.
+  - `params::Vector{Float64}` :
+    Fitted parameter vector ``[I_0, C_1, C_2, \\ldots]`` for the model
+    ``I(h) = I_0 + C_1 h^p + C_2 h^{p+2} + \\cdots``.
+  - `param_errors::Vector{Float64}` :
+    ``1 \\, \\sigma`` uncertainties for `params` (square roots of `diag(cov)`).
+  - `cov::Matrix{Float64}` :
+    Parameter covariance matrix, suitable for uncertainty propagation
+    (e.g. ``\\sigma_{\\mathrm{fit}}(h)^2 = \\phi(h)^{\\top}\\,V\\,\\phi(h)`` where ``V`` is covariance matrix).
+  - `chisq::Float64` :
+    Total chi-square value 
+    ```math
+    \\chi^2 = \\sum_i \\left(\\frac{y_i - \\hat y_i}{\\sigma_i}\\right)^2 \\,.
+    ```
+  - `redchisq::Float64` :
+    Reduced chi-square ``\\chi^2/\\mathrm{d.o.f.}``.
+    (If `dof == 0`, this may be `Inf`/`NaN` depending on `chisq`.)
+  - `dof::Int` :
+    Degrees of freedom `length(estimates) - length(params)`.
+
+- `data::NamedTuple`:
+  Raw convergence data:
+  - `h`   : step sizes
+  - `avg` : integral estimates
+  - `err` : error estimates
+
+# Design notes
+- The runner is **dimension-agnostic**: the tensor-product implementation
+  allows arbitrary ``n \\ge 1`` (``n``: dimension), subject only to computational cost.
+- Error estimators provide a *scale model* rather than a strict truncation bound,
+  enabling stable weighted fits across dimensions.
+- Logging and timing are fully centralized through [`Maranatha.JobLoggerTools`](@ref).
 
 # Example
 ```julia
-f(x) = sin(x)
+f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
+
 I0, fit, data = run_Maranatha(
-    f, 0.0, π;
-    dim=1,
-    nsamples=[4, 8, 16, 32],
-    rule=:simpson13_close,
+    f, 
+    0.0, 1.0;
+    dim=4,
+    nsamples=[40, 44, 48, 52, 56, 60, 64],
+    rule=:bode_close,
+    err_method=:derivative
     fit_terms=4
 )
 ```
 
-# Errors
-
-* Throws an error if err_method is not :derivative or :richardson.
-* Any rule-specific constraints on N are enforced by integrate_nd and/or the
-chosen error estimator.
 """
 function run_Maranatha(
     integrand,

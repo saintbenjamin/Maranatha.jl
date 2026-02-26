@@ -1,0 +1,8 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Maranatha = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
+
+[project]
+name = "MaranathaDocumenter"
+version = "0.1.0"
+authors = ["Benjamin J. Choi <benchoi@het.ph.tsukuba.ac.jp>"]

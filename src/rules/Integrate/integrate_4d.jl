@@ -21,18 +21,19 @@
         rule
     ) -> Float64
 
-Evaluate a 4D integral of `f(x, y, z, t)` over the hypercube domain `[a, b]^4`
+Evaluate a ``4``-dimensional integral of ``f(x, y, z, t)`` over the hypercube domain `[a, b]^4`
 using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
 This routine generates 1D quadrature nodes and weights using
-`quadrature_1d_nodes_weights(a, b, N, rule)` and forms the tensor product:
-`Σ_i Σ_j Σ_k Σ_l w_i w_j w_k w_l f(x_i, y_j, z_k, t_l)`.
-
+[`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)` and forms the tensor product:
+```math
+\\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell \\, f(x_i, y_j, z_k, t_\\ell) \\,.
+```
 Loop ordering and accumulation are preserved exactly as implemented.
 
 # Arguments
-- `f`: 4D integrand function `f(x, y, z, t)`.
+- `f`: Integrand callable `f(x, y, z, t)`.
 - `a`, `b`: Hypercube domain bounds (used for all axes).
 - `N`: Number of intervals per axis.
 - `rule`: Integration rule symbol.

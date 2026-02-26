@@ -27,87 +27,83 @@ export fit_convergence, print_fit_result
         nterms::Int = 2
     )
 
-Perform a weighted linear least-χ² extrapolation for the integral estimate
-in the zero-step limit (`h → 0`), and return both best-fit parameters and
+Perform a ``h \\to 0`` (zero step-size limit) extrapolation using least-``\\chi^2`` fitting for the quadrature estimate, and return both best-fit parameters and
 their uncertainties.
 
 # Function description
 This routine fits a rule-dependent convergence ansatz that is **linear in its
 parameters**, using weighted least squares (WLS). The step size is provided by
-the caller as `h = (b-a)/N` (via `hs`), and the leading convergence power `p`
+the caller as ``\\displaystyle{h = \\frac{b-a}{N}}`` (via `hs`), and the leading convergence power ``p``
 is inferred from the chosen quadrature `rule`.
 
 The convergence model is selected by the number of basis terms `nterms`
 (including the constant term). The design matrix is constructed as:
 
-- column 1: `h^0` (constant term)
-- columns 2..nterms: `h^p, h^(p+2), h^(p+4), ...`
+- column 1: ``h^0`` (constant term)
+- columns 2..nterms: ``h^p``, ``h^{(p+2)}``, ``h^{(p+4)}``, ...
 
 Equivalently, the fitted form is:
-
-`I(h) = I0 + C1*h^p + C2*h^(p+2) + C3*h^(p+4) + ...`
+```math
+I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + C_3 \\, h^{p+4} + \\ldots
+```
 
 ## Solve (WLS)
-Let `X` be the design matrix, `y` the estimates, and `σ` the pointwise errors.
-Weights are constructed as `W = Diagonal(1 ./ σ)`, and the WLS normal equations
+Let ``X`` be the design matrix, ``y`` the estimates, and ``\\sigma`` the pointwise errors.
+Weights are constructed as ``W = \\sigma_{ii}^{-1}``, and the WLS normal equations
 are solved in the numerically stable form:
-
-`params = (W*X) \\ (W*y)`,
-
-yielding `params = [I0, C1, C2, ...]`.
+```math
+\\left( W \\,X \\right) \\; \\bm{\\lambda} = \\left( W \\, y \\right) \\,,
+```
+yielding ``\\displaystyle{\\bm{\\lambda} =
+\\begin{bmatrix}
+I_0 & C_1 & C_2 & \\cdots
+\\end{bmatrix}^{\\mathsf{T}}}``.
 
 ## Parameter covariance and errors
-This implementation computes **parameter uncertainties in the same way as the
-legacy C implementation** (Hessian-based propagation), but evaluates the needed
+This implementation computes Hessian-based propagation, but evaluates the needed
 inverse-Hessian actions via a Cholesky factorization rather than forming `inv(H)`
 explicitly.
 
-1) Build the normal matrix
-   `A = X' * (W^2) * X`.
-2) Define the χ² Hessian as
-   `H = 2A`.
-3) Factorize the Hessian
-   `H = L*L'` via `cholesky(Symmetric(H))` (requires SPD).
-4) Define `H^{-1}` implicitly through linear solves with the Cholesky factor.
-5) The parameter covariance is then taken as
+1) Build the normal matrix ``A = X^{\\mathsf{T}} \\; W^2 \\; X``.
+2) Define the χ² Hessian as ``H = 2\\,A``.
+3) Factorize the Hessian ``H = L \\, L^{\\mathsf{T}}`` via `cholesky(Symmetric(H))` (requires *Symmetric Positive Definite (SPD)*).
+4) Define ``H^{-1}`` implicitly through linear solves with the Cholesky factor.
+5) The parameter covariance matrix ``V`` is then taken as
+```math
+V = \\Delta = 4 \\, H^{-1} \\, A \\, H^{-1} \\,,
+```
+and the ``1 \\, \\sigma`` errors of fitting parameters are ``\\sqrt{\\diag(V)}``.
 
-   `Cov = Δ = 4 * H^{-1} * A * H^{-1}`,
+### Why ``H = 2 \\, A``?
+For the WLS objective ``\\chi^{2}(\\bm{\\lambda}) = \\left\\lvert W \\left( X \\, \\bm{\\lambda} - \\mathbf{y} \\right) \\right\\rvert^2``,
+the gradient is ``\\nabla \\chi^2 = 2 X^{\\mathsf{T}} \\, W^2 \\, \\left( X \\, \\bm{\\lambda} - \\mathbf{y} \\right)`` and the Hessian is ``\\nabla^2 \\chi^2 = 2 X^{\\mathsf{T}} \\, W^2 \\, X = 2 \\, A``. So this factor of 2 is exact for this model.
 
-and the one-sigma parameter errors are `sqrt.(diag(Cov))`.
-
-### Why `H = 2A`?
-For the WLS objective `χ²(θ) = ‖W (Xθ - y)‖²`,
-the gradient is `∇χ² = 2 X' W² (Xθ - y)` and the Hessian is
-`∇²χ² = 2 X' W² X = 2A`. So this factor of 2 is exact for this model.
-
-Notes:
-- If you prefer the standard WLS covariance (Gauss–Markov for linear models),
-  you can instead use `Cov = inv(X' * (W^2) * X)` (optionally scaled by an
-  estimate of residual variance).
+### Notes:
+- If you prefer the standard WLS covariance (Gauss-Markov for linear models),
+  you can instead use ``V = \\left( X^{\\mathsf{T}} \\, W^2 \\, X \\right)^{-1}``.
 - The returned `cov` is intended for downstream use (e.g. to draw a fit-band
-  via `σ_fit(h)^2 = φ(h)' * Cov * φ(h)`).
+  via ``\\sigma_{\\text{fit}}^2(h) = \\varphi(h)^{\\mathsf{T}} \\, V \\, \\varphi(h)``).
 
 # Arguments
-- `hs`: Vector-like collection of step sizes `h`.
-- `estimates`: Vector-like collection of raw integral estimates `I(h)`.
-- `errors`: Vector-like collection of error estimates associated with `I(h)`.
-  Non-positive entries are replaced by `1e-8` in the internal `σ` vector.
+- `hs`: Vector-like collection of step sizes ``\\displaystyle{h = \\frac{b-a}{N}}``.
+- `estimates`: Vector-like collection of quadrature estimates ``I(h)``.
+- `errors`: Vector-like collection of error estimates associated with ``I(h)``.
 - `rule`: Quadrature rule symbol used to select the leading convergence power `p`.
 
 # Keyword arguments
 - `nterms::Int=2`: Number of basis terms in the convergence model (including the
-  constant term). Must satisfy `nterms ≥ 2`.
+  constant term). Must satisfy `nterms```\\ge 2``.
 
 # Returns
 A `NamedTuple` with the following fields:
-- `estimate::Float64`: Extrapolated value `I0 = I(h→0)` (i.e. `params[1]`).
-- `estimate_error::Float64`: One-sigma uncertainty for `I0`, taken from the
+- `estimate::Float64`: Extrapolated value ``I_0 = I(h \\to 0)`` (i.e. `params[1]`).
+- `estimate_error::Float64`: One-sigma uncertainty for ``I_0``, taken from the
   covariance diagonal.
 - `params::Vector{Float64}`: Fitted parameter vector `[I0, C1, C2, ...]`.
-- `param_errors::Vector{Float64}`: One-sigma uncertainties for `params`.
+- `param_errors::Vector{Float64}`: ``1 \\, \\sigma`` uncertainties for `params`.
 - `cov::Matrix{Float64}`: Parameter covariance matrix.
-- `chisq::Float64`: χ² value, `Σ (resid/σ)^2`.
-- `redchisq::Float64`: Reduced χ², `chisq / dof`.
+- `chisq::Float64`: ``\\chi^2`` value.
+- `redchisq::Float64`: ``\\chi^2/\\text{d.o.f.}``.
 - `dof::Int`: Degrees of freedom, `length(y) - length(params)`.
 
 # Errors

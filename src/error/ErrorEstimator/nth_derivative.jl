@@ -16,16 +16,16 @@
     )
 
 Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using a Taylor expansion via `TaylorSeries.jl`.
+using a Taylor expansion via [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/).
 
 # Function description
-This routine evaluates the Taylor expansion of `f(x + t)` around `x`
-up to order `n` using a `Taylor1` expansion variable.  
+This routine evaluates the Taylor expansion of ``f(x + t)`` around ``x``
+up to order `n` using a [`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1) expansion variable.  
 The `n`-th derivative is obtained from the `n`-th Taylor coefficient
-multiplied by `n!`.
+multiplied by ``n!``.
 
-Unlike the ForwardDiff implementation, this method performs **higher-order
-differentiation in a single pass** rather than recursively applying
+Unlike the [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) implementation, this method performs *higher-order
+differentiation in a single pass* rather than recursively applying
 first derivatives. It is useful for benchmarking alternative AD strategies
 and for testing high-order derivative extraction based on truncated
 power-series arithmetic.
@@ -41,14 +41,12 @@ This function accepts any callable object `f`, including:
 - `n::Int`: Derivative order (must be nonnegative).
 
 # Returns
-- The `n`-th derivative value `f^(n)(x)`.
+- The `n`-th derivative value ``f^{(n)}(x)``.
 
 # Notes
 - Internally converts `x` to `Float64` to match the surrounding numeric policy.
-- This method may allocate significantly more memory than ForwardDiff,
+- This method may allocate significantly more memory than [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/),
   especially when used inside large loops or with high expansion orders.
-- Intended primarily for **benchmarking and experimental comparison**, not
-  necessarily for production performance in the current workflow.
 """
 @inline function nth_derivative_taylor(f, x::Real, n::Int)
     n < 0 && throw(ArgumentError("n must be nonnegative"))
@@ -69,16 +67,16 @@ end
     )
 
 Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using repeated reverse-mode differentiation via `Enzyme.jl`.
+using repeated reverse-mode differentiation via [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/).
 
 # Function description
 This routine constructs a nested closure chain of length `n`, where each step
-applies `Enzyme.gradient` in reverse mode to obtain a first derivative.
+applies [`Enzyme.gradient`](https://enzyme.mit.edu/index.fcgi/julia/stable/api/#Enzyme.gradient-Union{Tuple{N},%20Tuple{ty_0},%20Tuple{ST},%20Tuple{CS},%20Tuple{StrongZero},%20Tuple{RuntimeActivity},%20Tuple{ErrIfFuncWritten},%20Tuple{ABI},%20Tuple{ReturnPrimal},%20Tuple{F},%20Tuple{ForwardMode{ReturnPrimal,%20ABI,%20ErrIfFuncWritten,%20RuntimeActivity,%20StrongZero},%20F,%20ty_0,%20Vararg{Any,%20N}}}%20where%20{F,%20ReturnPrimal,%20ABI,%20ErrIfFuncWritten,%20RuntimeActivity,%20StrongZero,%20CS,%20ST,%20ty_0,%20N}) in reverse mode to obtain a first derivative.
 The resulting callable is then evaluated at `x`.
 
-This mirrors the structure of the ForwardDiff-based implementation but replaces
-forward-mode differentiation with Enzyme's reverse-mode AD. It is intended
-primarily for benchmarking and experimentation with Enzyme in scalar
+This mirrors the structure of the [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based implementation but replaces
+forward-mode differentiation with [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/)'s reverse-mode AD. It is intended
+primarily for benchmarking and experimentation with [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/) in scalar
 high-order differentiation contexts.
 
 Supported callable types include:
@@ -92,12 +90,12 @@ Supported callable types include:
 - `n::Int`: Derivative order (must be nonnegative).
 
 # Returns
-- The `n`-th derivative value `f^(n)(x)`.
+- The `n`-th derivative value ``f^{(n)}(x)``.
 
 # Notes
 - Reverse-mode AD is typically advantageous for many-input/one-output problems.
   For repeated scalar higher-order derivatives, performance may be worse than
-  ForwardDiff due to closure nesting and gradient reconstruction overhead.
+  [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) due to closure nesting and gradient reconstruction overhead.
 - This implementation intentionally preserves the closure-based structure
   for fair benchmarking against other approaches.
 - Inputs are converted to `Float64` to match surrounding numeric conventions.
@@ -126,7 +124,7 @@ end
     )
 
 Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using repeated `ForwardDiff.derivative`.
+using repeated [`ForwardDiff.derivative`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative).
 
 # Function description
 This routine is intentionally written to accept any **callable** object `f`,
@@ -136,7 +134,7 @@ not only subtypes of `Function`. This includes:
 - callable structs (functors) such as preset integrands.
 
 This design is required for compatibility with the integrand registry and
-preset-style callable wrappers while preserving ForwardDiff-based behavior.
+preset-style callable wrappers while preserving [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based behavior.
 
 # Arguments
 - `f`: Scalar-to-scalar callable (e.g., `f(x)::Number`).
@@ -144,7 +142,7 @@ preset-style callable wrappers while preserving ForwardDiff-based behavior.
 - `n::Int`: Derivative order (nonnegative integer).
 
 # Returns
-- The `n`-th derivative value `f^(n)(x)`.
+- The `n`-th derivative value ``f^{(n)}(x)``.
 
 # Notes
 - This implementation constructs a nested closure chain of length `n` and then
