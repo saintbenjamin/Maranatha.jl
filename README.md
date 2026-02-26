@@ -12,22 +12,14 @@ production-level accuracy.
 
 ## 🔤 Name Philosophy
 
-**M**eshes are generated over the interval,
-
-**A**daptively refined based on error estimates,
-
-**R**ules like Simpson's and Bode's are applied to evaluate,
-
-**A**utomatic differentiation supports higher-order error control,
-
-**N**umerical values of the integrand are computed at each node,
-
-**A**pproximation errors are analyzed and minimized,
-
-**T**otal values are extrapolated via weighted least-squares fitting,
-
-**H**igher-dimensional extensions are made possible,
-
+**M**eshes are generated over the interval,\
+**A**daptively refined based on error estimates,\
+**R**ules like Simpson's and Bode's are applied to evaluate,\
+**A**utomatic differentiation supports higher-order error control,\
+**N**umerical values of the integrand are computed at each node,\
+**A**pproximation errors are analyzed and minimized,\
+**T**otal values are extrapolated via weighted least-chi-square-squares fitting,\
+**H**igher-dimensional extensions are made possible,\
 and **A**nalysis-ready results are provided for interpretation.
 
 ------------------------------------------------------------------------
