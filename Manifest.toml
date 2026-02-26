@@ -283,7 +283,7 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.Maranatha]]
-deps = ["Dates", "Enzyme", "ForwardDiff", "LinearAlgebra", "Printf", "PyPlot", "SpecialFunctions", "Statistics"]
+deps = ["Dates", "Enzyme", "ForwardDiff", "LinearAlgebra", "Printf", "PyPlot", "SpecialFunctions", "Statistics", "TaylorSeries"]
 path = "."
 uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
 version = "0.1.0"
