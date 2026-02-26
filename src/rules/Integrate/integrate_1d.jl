@@ -65,7 +65,7 @@ function integrate_1d_legacy(
         return bode_rule_min_open_max_open(f, a, b, N)
 
     else
-        error("Unknown integration rule: $rule")
+        JobLoggerTools.error_benji("Unknown integration rule: $rule")
     end
 end
 

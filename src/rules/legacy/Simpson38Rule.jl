@@ -57,7 +57,7 @@ function simpson38_rule(
     N::Int
 )::Float64
     if N % 3 != 0
-        error("Simpson 3/8 rule requires N divisible by 3, got N = $N")
+        JobLoggerTools.error_benji("Close composite Simpson 3/8 rule requires N divisible by 3, got N = $N")
     end
 
     aa = float(a)

@@ -129,7 +129,7 @@ function run_Maranatha(
             elseif err_method == :richardson
                 estimate_error_richardson(integrand, a, b, N, dim, rule)
             else
-                error("Unknown err_method = $err_method (use :derivative or :richardson)")
+                JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative or :richardson)")
             end
         end
         push!(estimates, I)

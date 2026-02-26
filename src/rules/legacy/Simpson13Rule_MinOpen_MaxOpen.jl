@@ -10,6 +10,8 @@
 
 module Simpson13Rule_MinOpen_MaxOpen
 
+using ..JobLoggerTools
+
 export simpson13_rule_min_open_max_open
 
 """
@@ -72,8 +74,8 @@ function simpson13_rule_min_open_max_open(
     b::Real, 
     N::Int
 )::Float64
-    (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
-    (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+    (N % 2 == 0) || JobLoggerTools.error_benji("Open composite Simpson 1/3 rule requires N even, got N = $N")
+    (N >= 8)     || JobLoggerTools.error_benji("Open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
 
     aa = float(a)
     bb = float(b)

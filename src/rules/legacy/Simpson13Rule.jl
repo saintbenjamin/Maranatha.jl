@@ -58,7 +58,7 @@ function simpson13_rule(
     N::Int
 )
     if N % 2 != 0
-        error("Simpson's 1/3 rule requires N divisible by 2, got N = $N")
+        JobLoggerTools.error_benji("Close composite Simpson 1/3 rule requires N divisible by 2, got N = $N")
     end
 
     h = (b - a) / N

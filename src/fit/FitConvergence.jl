@@ -58,24 +58,34 @@ yielding `params = [I0, C1, C2, ...]`.
 
 ## Parameter covariance and errors
 This implementation computes **parameter uncertainties in the same way as the
-legacy C implementation** (Hessian-based propagation):
+legacy C implementation** (Hessian-based propagation), but evaluates the needed
+inverse-Hessian actions via a Cholesky factorization rather than forming `inv(H)`
+explicitly.
 
 1) Build the normal matrix
    `A = X' * (W^2) * X`.
 2) Define the χ² Hessian as
    `H = 2A`.
-3) Let `H^{-1}` be the inverse Hessian.
-4) The parameter covariance is then taken as
+3) Factorize the Hessian
+   `H = L*L'` via `cholesky(Symmetric(H))` (requires SPD).
+4) Define `H^{-1}` implicitly through linear solves with the Cholesky factor.
+5) The parameter covariance is then taken as
 
    `Cov = Δ = 4 * H^{-1} * A * H^{-1}`,
 
 and the one-sigma parameter errors are `sqrt.(diag(Cov))`.
 
+### Why `H = 2A`?
+For the WLS objective `χ²(θ) = ‖W (Xθ - y)‖²`,
+the gradient is `∇χ² = 2 X' W² (Xθ - y)` and the Hessian is
+`∇²χ² = 2 X' W² X = 2A`. So this factor of 2 is exact for this model.
+
 Notes:
-- If you prefer the standard WLS covariance, you can instead use
-  `Cov = inv(X' * (W^2) * X)`.
-- The returned `cov` is intended to be used downstream (e.g. to draw a fit-band
-  on a convergence plot via `σ_fit(h)^2 = φ(h)' * Cov * φ(h)`).
+- If you prefer the standard WLS covariance (Gauss–Markov for linear models),
+  you can instead use `Cov = inv(X' * (W^2) * X)` (optionally scaled by an
+  estimate of residual variance).
+- The returned `cov` is intended for downstream use (e.g. to draw a fit-band
+  via `σ_fit(h)^2 = φ(h)' * Cov * φ(h)`).
 
 # Arguments
 - `hs`: Vector-like collection of step sizes `h`.
@@ -103,6 +113,7 @@ A `NamedTuple` with the following fields:
 # Errors
 - Throws an error if `rule` is not recognized.
 - Throws an error if `nterms < 2`.
+- Throws an error if the Hessian is not positive definite (Cholesky fails).
 - Note: If `dof == 0`, `redchisq` will be `Inf`/`NaN` depending on `chisq`.
 """
 function fit_convergence(
@@ -120,16 +131,16 @@ function fit_convergence(
         rule == :simpson38_open  ? 4 :
         rule == :bode_close      ? 6 :
         rule == :bode_open       ? 6 :
-        error("Unknown rule")
+        JobLoggerTools.error_benji("Unknown rule")
 
     h = collect(float.(hs))
     y = collect(float.(estimates))
-    σ = map(e -> e > 0 ? float(e) : 1e-8, errors)
+    σ = abs.(float.(errors))
 
     N = length(h)
 
     if nterms < 2
-        error("nterms must be >= 2 (got $nterms)")
+        JobLoggerTools.error_benji("nterms must be >= 2 (got $nterms)")
     end
 
     # Design matrix:
@@ -153,23 +164,34 @@ function fit_convergence(
 
     # # --- covariance (Method 1) ---
     # # (Xᵀ W² X)^(-1)
+    # # A = transpose(X) * (W^2) * X
+    # # Cov = inv(A)
     # Cov = inv(transpose(X) * (W^2) * X)
 
     # param_errors = sqrt.(diag(Cov))
 
     # --- covariance (Method 2) ---
-    # Build A = Xᵀ W² X  (same as C code)
+    # Build A = Xᵀ W² X
     A = transpose(X) * (W^2) * X
 
-    # Hessian = 2 * A
+    # # Hessian = 2 * A
+    # Hess = 2.0 .* A
+    # inv_Hess = inv(Hess)
+
+    # # Delta = 4 * inv_Hess * A * inv_Hess
+    # Delta = 4.0 .* inv_Hess * A * inv_Hess
+
+    # Cov = Delta
+    # param_errors = sqrt.(diag(Delta))
+
     Hess = 2.0 .* A
-    inv_Hess = inv(Hess)
+    F = cholesky(Symmetric(Hess))          # Hess must be SPD
 
-    # Delta = 4 * inv_Hess * A * inv_Hess
-    Delta = 4.0 .* inv_Hess * A * inv_Hess
+    # Cov = 4 * inv(Hess) * A * inv(Hess)  (computed via solves)
+    M   = F \ A                            # M = inv(Hess) * A
+    Cov = 4.0 .* ((F \ transpose(M))')     # Cov = 4 * M * inv(Hess)
 
-    Cov = Delta
-    param_errors = sqrt.(diag(Delta))
+    param_errors = sqrt.(diag(Cov))
 
     # diagnostics
     yhat  = X * params

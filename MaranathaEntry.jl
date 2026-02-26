@@ -22,8 +22,8 @@ using Maranatha.Z_q
 # # ns_4 = [12, 24, 36, 48, 60, 72, 84, 96, 108, 120, 132, 144, 158, 168]
 # # ns_4 = [12, 24, 36, 48, 60]
 # # ns_4 = [16, 32, 48, 64, 80]
-# # ns_4 = [8, 12, 16, 20, 24]
 # ns_4 = [16, 20, 24, 28, 32, 36, 40]
+# # ns_4 = [16, 20, 24, 28, 32, 36, 40]
 
 # # ns_3 = [120, 123, 126, 129, 132, 135, 138]
 # # ns_4 = [120, 124, 128, 132, 136, 140, 144]
@@ -38,7 +38,7 @@ using Maranatha.Z_q
 #     rule=rule_here, 
 #     err_method=:derivative, 
 #     # err_method=:richardson, 
-#     fit_terms=4
+#     fit_terms=5
 # )
 
 # plot_convergence_result("Z_q", res1.h, res1.avg, res1.err, fit1; rule=rule_here)

@@ -10,6 +10,7 @@
 
 module RichardsonError
 
+using ..JobLoggerTools
 using ..Integrate
 
 export estimate_error_richardson
@@ -59,7 +60,7 @@ function rule_order(
     elseif rule == :bode_open
         return 6
     else
-        error("rule_order: unsupported rule = $rule")
+        JobLoggerTools.error_benji("rule_order: unsupported rule = $rule")
     end
 end
 

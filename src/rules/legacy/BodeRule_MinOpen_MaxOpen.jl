@@ -10,6 +10,8 @@
 
 module BodeRule_MinOpen_MaxOpen
 
+using ..JobLoggerTools
+
 export bode_rule_min_open_max_open
 
 """
@@ -75,8 +77,8 @@ function bode_rule_min_open_max_open(
     b::Real, 
     N::Int
 )::Float64
-    (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
-    (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping 6-point end stencils), got N = $N")
+    (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
+    (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16 (non-overlapping 6-point end stencils), got N = $N")
 
     aa = float(a)
     bb = float(b)

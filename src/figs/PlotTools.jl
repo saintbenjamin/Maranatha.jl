@@ -12,6 +12,7 @@ module PlotTools
 
 using PyPlot
 using LinearAlgebra
+using ..JobLoggerTools
 
 export plot_convergence_result, set_pyplot_latex_style
 
@@ -156,12 +157,12 @@ function plot_convergence_result(
         rule == :simpson38_open  ? 4 :
         rule == :bode_close      ? 6 :
         rule == :bode_open       ? 6 :
-        error("Unknown rule")
+        JobLoggerTools.error_benji("Unknown rule")
 
     # --- Input checks ---
     n = length(hs)
     if length(estimates) != n || length(errors) != n
-        error("Input length mismatch.")
+        JobLoggerTools.error_benji("Input length mismatch.")
     end
 
     # Raw x = h^2
@@ -174,7 +175,7 @@ function plot_convergence_result(
     estp = estimates[mask]
     errp = errors_pos[mask]
 
-    isempty(h2p) && error("No valid points to plot.")
+    isempty(h2p) && JobLoggerTools.error_benji("No valid points to plot.")
 
     # --- New fit result structure ---
     pvec = fit_result.params

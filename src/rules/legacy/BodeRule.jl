@@ -10,6 +10,8 @@
 
 module BodeRule
 
+using ..JobLoggerTools
+
 export bode_rule
 
 """
@@ -60,7 +62,7 @@ function bode_rule(
     N::Int
 )::Float64
     if N % 4 != 0
-        error("Bode's rule requires N divisible by 4, got N = $N")
+        JobLoggerTools.error_benji("Close composite Boole's rule requires N divisible by 4, got N = $N")
     end
 
     aa = float(a)

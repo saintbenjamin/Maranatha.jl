@@ -14,6 +14,7 @@ using TaylorSeries
 using Enzyme
 using ForwardDiff
 using LinearAlgebra
+using ..JobLoggerTools
 using ..Integrate
 using ..BodeRule_MinOpen_MaxOpen
 

@@ -10,6 +10,8 @@
 
 module Integrands
 
+using ..JobLoggerTools
+
 export integrand, register_integrand!, available_integrands
 
 # ============================================================
@@ -89,7 +91,7 @@ function integrand(
     kwargs...
 )
     haskey(INTEGRAND_REGISTRY, name) ||
-        error("Unknown integrand: $(name). Available: $(collect(keys(INTEGRAND_REGISTRY)))")
+        JobLoggerTools.error_benji("Unknown integrand: $(name). Available: $(collect(keys(INTEGRAND_REGISTRY)))")
 
     factory = INTEGRAND_REGISTRY[name]
     return factory(; kwargs...)

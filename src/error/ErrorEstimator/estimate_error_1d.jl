@@ -78,28 +78,28 @@ function estimate_error_1d_legacy(
 
     if rule == :simpson13_close
         # closed composite Simpson 1/3 (leading term heuristic)
-        N % 2 == 0 || error("Simpson 1/3 requires N divisible by 2, got N = $N")
+        N % 2 == 0 || JobLoggerTools.error_benji("Close composite Simpson 1/3 rule requires N divisible by 2, got N = $N")
         x̄ = (aa + bb) / 2
         d4 = nth_derivative(f, x̄, 4)
         return -((bb - aa) / 180.0) * h^4 * d4
 
     elseif rule == :simpson38_close
         # closed composite Simpson 3/8 (leading term heuristic)
-        N % 3 == 0 || error("Simpson 3/8 requires N divisible by 3, got N = $N")
+        N % 3 == 0 || JobLoggerTools.error_benji("Close composite Simpson 3/8 rule requires N divisible by 3, got N = $N")
         x̄ = (aa + bb) / 2
         d4 = nth_derivative(f, x̄, 4)
         return -((bb - aa) / 80.0) * h^4 * d4
 
     elseif rule == :bode_close
         # closed composite Bode (leading term heuristic)
-        N % 4 == 0 || error("Bode's rule requires N divisible by 4, got N = $N")
+        N % 4 == 0 || JobLoggerTools.error_benji("Close composite Boole's rule requires N divisible by 4, got N = $N")
         x̄ = (aa + bb) / 2
         d6 = nth_derivative(f, x̄, 6)
         return -((2.0 / 945.0) * (bb - aa)) * h^6 * d6
 
     elseif rule == :simpson13_open
-        (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
-        (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+        (N % 2 == 0) || JobLoggerTools.error_benji("Open composite Simpson 1/3 rule requires N even, got N = $N")
+        (N >= 8)     || JobLoggerTools.error_benji("Open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
 
         # Leading-term error model consistent with the open-chain expansion:
         #   E ≈ -(3/8) h^4 [ f'''( (x1+x2)/2 ) - f'''( (x_{N-2}+x_{N-1})/2 ) ]
@@ -122,8 +122,8 @@ function estimate_error_1d_legacy(
         # Lightweight heuristic (consistent with the "rollback" philosophy):
         # use a single midpoint 4th-derivative leading term (order h^4 scaling),
         # matching the tensor-error coefficient mapping (C = 14/45, m = 4).
-        N % 4 == 0 || error("Open 3-point chained rule requires N divisible by 4, got N = $N")
-        N >= 4     || error("Open 3-point chained rule requires N ≥ 4, got N = $N")
+        N % 4 == 0 || JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N divisible by 4, got N = $N")
+        N >= 4     || JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N ≥ 4, got N = $N")
 
         x̄ = (aa + bb) / 2
         d4 = nth_derivative(f, x̄, 4)
@@ -131,8 +131,8 @@ function estimate_error_1d_legacy(
         return (14.0 / 45.0) * (bb - aa) * h^4 * d4
 
     elseif rule == :bode_open
-        (N % 4 == 0) || error("Bode open-chain (open composite Boole) requires N divisible by 4, got N = $N")
-        (N >= 16)    || error("Bode open-chain (open composite Boole) requires N ≥ 16, got N = $N")
+        (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
+        (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16, got N = $N")
 
         # Boundary-dominant leading-term model (Simpson 1/3 open-chain style):
         #   E_lead ≈ -(95/288) h^6 [ f^(5)((x2+x3)/2) - f^(5)((x_{N-3}+x_{N-2})/2) ]
@@ -156,22 +156,23 @@ end
 
 """
     estimate_error_1d(
-        f, 
-        a::Real, 
-        b::Real, 
-        N::Int, 
+        f,
+        a::Real,
+        b::Real,
+        N::Int,
         rule::Symbol
     ) -> Float64
 
-Estimate a 1D integration error *scale* for `∫_a^b f(x) dx` using a lightweight
-derivative-based heuristic consistent with the tensor-product philosophy used in
-`estimate_error_2d/3d/4d`, with optional boundary-difference handling for
-selected open-chain rules.
+Return a fast 1D integration error *scale* for `∫_a^b f(x) dx` using a lightweight
+derivative-based heuristic. For selected open-chain rules, a boundary-difference
+proxy is used. Derivatives are attempted with ForwardDiff first, with an automatic
+TaylorSeries fallback when non-finite (`Inf`/`NaN`) values occur.
 
 # Function description
-This routine returns a **fast error scale model** intended for:
-- stabilizing least-χ² fits in convergence extrapolation, and
-- providing a consistent `h`-scaling proxy across 1D–4D.
+This routine provides a **cheap, consistent error scale proxy** intended to:
+- supply per-point weights `σ(h)` for χ²-based convergence fits (`fit_convergence`), and
+- match the same `h`-scaling convention used by the higher-dimensional tensor-product
+  estimators in this package.
 
 It is **not** a rigorous truncation bound and does not attempt to reproduce the
 full composite-rule error expansion.
@@ -179,56 +180,65 @@ full composite-rule error expansion.
 Two regimes are supported:
 
 ## (A) Boundary-difference model (selected open-chain rules)
-For rules flagged by `_has_boundary_error_model(rule)`, the estimator uses a
-boundary-difference leading-term model:
+For rules flagged by `_has_boundary_error_model(rule)`, the estimator uses a leading
+boundary-difference proxy of the form
 
 `E ≈ K * h^p * ( f^(dord)(xL) - f^(dord)(xR) )`,
 
-with
+where
 - `h = (b-a)/N`,
 - `xL = a + off*h`,
 - `xR = a + (N-off)*h`,
 - `(p, K, dord, off) = _boundary_error_params(rule)`.
 
-This is designed to reflect the boundary-dominant leading behavior of certain
-endpoint-free chained formulas, and empirically improves stability in χ²-based
-fits for those rules.
+This branch is designed for endpoint-free chained formulas whose leading error
+behavior can be boundary-dominant, and often improves χ² stability for those rules.
+
+### Derivative evaluation and Taylor fallback
+All derivatives in this routine are evaluated via the internal helper `_nth_deriv_safe`:
+1) compute using `nth_derivative` (ForwardDiff-based),
+2) if non-finite, emit a `warn_benji` and retry with `nth_derivative_taylor` (TaylorSeries-based),
+3) throw an error only if the Taylor fallback is also non-finite.
 
 ## (B) Default midpoint tensor-style model (all other supported rules)
-Otherwise, this routine follows the “single-sample midpoint derivative” pattern
-shared with the higher-dimensional estimators:
+Otherwise, the estimator follows the same “single-sample midpoint derivative” pattern
+used in the higher-dimensional tensor-product estimators:
 
-1. Select derivative order `m` and coefficient `C` via `_rule_params_for_tensor_error(rule)`.
-2. Build 1D quadrature nodes/weights `(xs, ws)` via `quadrature_1d_nodes_weights(a, b, N, rule)`.
-3. Evaluate `f^(m)` **once** at the midpoint `x̄ = (a+b)/2`.
-4. Accumulate `I = Σ ws[j] * f^(m)(x̄)` (preserving loop/accumulation style).
-5. Return the scale model `E ≈ C * (b-a) * h^m * I`.
+1) Obtain `(m, C)` via `_rule_params_for_tensor_error(rule)`.
+2) Build 1D nodes/weights `(xs, wx)` via `quadrature_1d_nodes_weights(a, b, N, rule)`.
+3) Evaluate `f^(m)(x̄)` once at the midpoint `x̄ = (a+b)/2` (with the same fallback logic).
+4) Form the weight-sum proxy `I = (Σ wx[j]) * f^(m)(x̄)`.
+   (Since the derivative sample is constant across nodes, this is equivalent to
+   accumulating `Σ wx[j] * f^(m)(x̄)`.)
+5) Return
+
+`E ≈ C * (b-a) * h^m * I`.
 
 # Arguments
-- `f`: Scalar-to-scalar callable integrand `f(x)` (function, closure, or callable struct).
+- `f`: Scalar callable integrand `f(x)` (function, closure, or callable struct).
 - `a`, `b`: Integration limits.
-- `N`: Number of subintervals defining `h = (b-a)/N` and the rule grid.
-- `rule`: Integration rule symbol.
-
-Supported rule symbols (current mapping):
-- `:simpson13_close`, `:simpson38_close`, `:bode_close`
-- `:simpson13_open`,  `:simpson38_open`,  `:bode_open`
+- `N`: Number of subintervals defining `h = (b-a)/N`.
+- `rule`: Quadrature rule symbol.
 
 # Returns
-- `Float64`: heuristic signed error estimate (scale model).
-  If `rule` is not recognized by `_rule_params_for_tensor_error` (and no boundary
-  model is defined), returns `0.0`.
+- `Float64`: A heuristic (signed) error scale proxy. If `m == 0` for the selected
+  `rule`, returns `0.0`.
 
 # Notes
-- Some open-chain rules may involve **negative** weights in their quadrature
-  formulas. This estimator intentionally preserves the weight-loop accumulation
-  style, rather than enforcing normalization.
-- Any rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
-  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path, and
-  - enforced explicitly in the boundary-model branch for the supported open rules.
+- Some open-chain rules may have **negative quadrature weights**. This estimator
+  intentionally preserves the rule-defined weight sum `Σ wx`, rather than enforcing
+  any normalization.
+- Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
+  - enforced explicitly in the boundary-model branch for supported open rules, and
+  - enforced in `quadrature_1d_nodes_weights` for the default midpoint path.
+- The Taylor fallback requires the integrand to accept generic number types
+  (e.g. `Taylor1`). If the integrand dispatch is restricted to `Real` only, the fallback
+  may raise a `MethodError`.
 
 # Errors
-- Throws an error if `(N, rule)` violates the rule constraints.
+- Throws an error if `(N, rule)` violates rule constraints.
+- Throws an error if both ForwardDiff and Taylor derivatives are non-finite in the
+  selected estimator branch.
 """
 function estimate_error_1d(
     f, 
@@ -242,22 +252,42 @@ function estimate_error_1d(
     bb = float(b)
     h  = (bb-aa)/N
 
+    @inline function _nth_deriv_safe(g, x, n; side::Symbol=:mid)
+        d = nth_derivative(g, x, n)
+        if !isfinite(d)
+            JobLoggerTools.warn_benji(
+                "Non-finite derivative (ForwardDiff); trying Taylor fallback " *
+                "h=$h x=$x n=$n rule=$rule N=$N side=$side"
+            )
+            d = nth_derivative_taylor(g, x, n)
+            if !isfinite(d)
+                JobLoggerTools.error_benji(
+                    "Non-finite in 1D error estimator even after Taylor fallback: " *
+                    "h=$h x=$x deriv=$d n=$n rule=$rule N=$N side=$side"
+                )
+            end
+        end
+        return d
+    end
+
     # ---- special boundary-difference models ----
     if _has_boundary_error_model(rule)
         if rule == :simpson13_open
-            (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
-            (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+            (N % 2 == 0) || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N even, got N = $N")
+            (N >= 8)     || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
         elseif rule == :bode_open
-            (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
-            (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+            (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
+            (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16 (non-overlapping end stencils), got N = $N")
         end
 
         p, K, dord, off = _boundary_error_params(rule)
         xL = aa + off*h
         xR = aa + (N-off)*h
 
-        dL = nth_derivative(f, xL, dord)
-        dR = nth_derivative(f, xR, dord)
+        # dL = nth_derivative(f, xL, dord)
+        # dR = nth_derivative(f, xR, dord)
+        dL = _nth_deriv_safe(f, xL, dord; side=:L)
+        dR = _nth_deriv_safe(f, xR, dord; side=:R)
 
         return K * h^p * (dL - dR)
     end
@@ -270,12 +300,14 @@ function estimate_error_1d(
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
 
-    d = nth_derivative(f, x̄, m)
+    # d = nth_derivative(f, x̄, m)
+    d = _nth_deriv_safe(f, x̄, m; side=:mid)
 
-    I = 0.0
-    @inbounds for j in eachindex(xs)
-        I += wx[j] * d
-    end
+    # I = 0.0
+    # @inbounds for j in eachindex(xs)
+    #     I += wx[j] * d
+    # end
+    I = d * sum(wx)
 
     return C*(bb-aa)*h^m*I
 end

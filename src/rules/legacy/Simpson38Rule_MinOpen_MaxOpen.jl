@@ -71,10 +71,10 @@ function simpson38_rule_min_open_max_open(
     N::Int
 )::Float64
     if N % 4 != 0
-        error("Open 3-point chained rule requires N divisible by 4 (panel width = 4h), got N = $N")
+        JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N divisible by 4 (panel width = 4h), got N = $N")
     end
     if N < 4
-        error("Open 3-point chained rule requires N ≥ 4, got N = $N")
+        JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N ≥ 4, got N = $N")
     end
 
     aa = float(a)

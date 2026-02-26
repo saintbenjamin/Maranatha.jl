@@ -10,6 +10,7 @@
 
 module Integrate
 
+using ..JobLoggerTools
 using ..Simpson13Rule, ..Simpson38Rule, ..BodeRule
 using ..Simpson13Rule_MinOpen_MaxOpen, ..Simpson38Rule_MinOpen_MaxOpen, ..BodeRule_MinOpen_MaxOpen
 
@@ -138,7 +139,7 @@ function quadrature_1d_nodes_weights(
     # Simpson 1/3 Close
     # -----------------------------
     if rule == :simpson13_close
-        N % 2 == 0 || error("Simpson 1/3 requires N divisible by 2")
+        N % 2 == 0 || JobLoggerTools.error_benji("Simpson 1/3 requires N divisible by 2")
 
         for j in 0:N
             push!(xs, aa + j*h)
@@ -156,7 +157,7 @@ function quadrature_1d_nodes_weights(
     # Simpson 3/8 Close
     # -----------------------------
     elseif rule == :simpson38_close
-        N % 3 == 0 || error("Simpson 3/8 requires N divisible by 3")
+        N % 3 == 0 || JobLoggerTools.error_benji("Simpson 3/8 requires N divisible by 3")
 
         for j in 0:N
             push!(xs, aa + j*h)
@@ -174,7 +175,7 @@ function quadrature_1d_nodes_weights(
     # Bode Close
     # -----------------------------
     elseif rule == :bode_close
-        N % 4 == 0 || error("Bode requires N divisible by 4")
+        N % 4 == 0 || JobLoggerTools.error_benji("Bode requires N divisible by 4")
 
         for j in 0:N
             push!(xs, aa + j*h)
@@ -194,8 +195,8 @@ function quadrature_1d_nodes_weights(
     # Simpson 1/3 Open-chain
     # -----------------------------
     elseif rule == :simpson13_open
-        (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
-        (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+        (N % 2 == 0) || JobLoggerTools.error_benji("Simpson 1/3 open-chain requires N even, got N = $N")
+        (N >= 8)     || JobLoggerTools.error_benji("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
 
         # Nodes used:
         #   j = 1, 3, even 4..N-4, odd 5..N-5, N-3, N-1
@@ -225,8 +226,8 @@ function quadrature_1d_nodes_weights(
     # Simpson 3/8 Open-chain
     # -----------------------------
     elseif rule == :simpson38_open
-        (N % 4 == 0) || error("Open 3-point chained rule requires N divisible by 4, got N = $N")
-        (N >= 4)     || error("Open 3-point chained rule requires N ≥ 4, got N = $N")
+        (N % 4 == 0) || JobLoggerTools.error_benji("Open 3-point chained rule requires N divisible by 4, got N = $N")
+        (N >= 4)     || JobLoggerTools.error_benji("Open 3-point chained rule requires N ≥ 4, got N = $N")
 
         # Panels of width 4h:
         # per panel k: j1=4k+1, j2=4k+2, j3=4k+3
@@ -250,8 +251,8 @@ function quadrature_1d_nodes_weights(
     # Bode Open-chain
     # -----------------------------
     elseif rule == :bode_open
-        (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
-        (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+        (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole requires N divisible by 4, got N = $N")
+        (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
 
         # Closed interior weights by j mod 4 (endpoints excluded)
         w_mod13 = 64.0 / 45.0
@@ -303,7 +304,7 @@ function quadrature_1d_nodes_weights(
         ws .*= h
 
     else
-        error("Unknown rule $rule")
+        JobLoggerTools.error_benji("Unknown rule $rule")
     end
 
     return xs, ws

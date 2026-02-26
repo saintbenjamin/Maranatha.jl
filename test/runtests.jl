@@ -85,16 +85,16 @@ end
             maybe_plot("F0000", res1.h, res1.avg, res1.err, fit1; rule=:simpson13_close)
         end
 
-        # @testset "1D Simpson 1/3 Open" begin
-        #     announce("1D Simpson 1/3 Open")
-        #     est1, fit1, res1 = Maranatha.Runner.run_Maranatha(
-        #         f1d, bounds...; dim=1, nsamples=ns_4,
-        #         rule=:simpson13_open, err_method=:derivative, fit_terms=2
-        #     )
-        #     assert_result_sane(res1)
-        #     @test isfinite(est1)
-        #     maybe_plot("F0000", res1.h, res1.avg, res1.err, fit1; rule=:simpson13_close)
-        # end
+        @testset "1D Simpson 1/3 Open" begin
+            announce("1D Simpson 1/3 Open")
+            est1, fit1, res1 = Maranatha.Runner.run_Maranatha(
+                f1d, bounds...; dim=1, nsamples=ns_4,
+                rule=:simpson13_open, err_method=:derivative, fit_terms=2
+            )
+            assert_result_sane(res1)
+            @test isfinite(est1)
+            maybe_plot("F0000", res1.h, res1.avg, res1.err, fit1; rule=:simpson13_open)
+        end
 
         # f1d(x)  = gtilde_F0000(x; p=3)
         # bounds = (0.0, 1.0)
@@ -110,16 +110,16 @@ end
             maybe_plot("F0000", res2.h, res2.avg, res2.err, fit2; rule=:simpson38_close)
         end
 
-        # @testset "1D Simpson 3/8 Open" begin
-        #     announce("1D Simpson 3/8 Open")
-        #     est2, fit2, res2 = Maranatha.Runner.run_Maranatha(
-        #         f1d, bounds...; dim=1, nsamples=ns_4,
-        #         rule=:simpson38_open, err_method=:derivative, fit_terms=2
-        #     )
-        #     assert_result_sane(res2)
-        #     @test isfinite(est2)
-        #     maybe_plot("F0000", res2.h, res2.avg, res2.err, fit2; rule=:simpson38_close)
-        # end
+        @testset "1D Simpson 3/8 Open" begin
+            announce("1D Simpson 3/8 Open")
+            est2, fit2, res2 = Maranatha.Runner.run_Maranatha(
+                f1d, bounds...; dim=1, nsamples=ns_4,
+                rule=:simpson38_open, err_method=:derivative, fit_terms=2
+            )
+            assert_result_sane(res2)
+            @test isfinite(est2)
+            maybe_plot("F0000", res2.h, res2.avg, res2.err, fit2; rule=:simpson38_open)
+        end
 
         f1d4(x) = gtilde_F0000(x; p=4)
         bounds = (0.0, 1.0)
@@ -135,16 +135,16 @@ end
             maybe_plot("F0000", res3.h, res3.avg, res3.err, fit3; rule=:bode_close)
         end
 
-        # @testset "1D Bode Open" begin
-        #     announce("1D Bode Open")
-        #     est3, fit3, res3 = Maranatha.Runner.run_Maranatha(
-        #         f1d4, bounds...; dim=1, nsamples=ns_4,
-        #         rule=:bode_open, err_method=:derivative, fit_terms=2
-        #     )
-        #     assert_result_sane(res3)
-        #     @test isfinite(est3)
-        #     maybe_plot("F0000", res3.h, res3.avg, res3.err, fit3; rule=:bode_close)
-        # end        
+        @testset "1D Bode Open" begin
+            announce("1D Bode Open")
+            est3, fit3, res3 = Maranatha.Runner.run_Maranatha(
+                f1d4, bounds...; dim=1, nsamples=ns_4,
+                rule=:bode_open, err_method=:derivative, fit_terms=2
+            )
+            assert_result_sane(res3)
+            @test isfinite(est3)
+            maybe_plot("F0000", res3.h, res3.avg, res3.err, fit3; rule=:bode_open)
+        end
     end
 
     @testset "Integrand preset API (F0000)" begin

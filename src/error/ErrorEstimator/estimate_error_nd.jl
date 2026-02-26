@@ -18,79 +18,71 @@
         dim::Int
     ) -> Float64
 
-Estimate an **N-dimensional integration error scale** over the hypercube
-domain `[a,b]^dim` using a derivative-based tensor-product heuristic with
-optional boundary-difference handling for selected open-chain rules.
+Return a fast **nD integration error scale** proxy for the hypercube integral
+`∫_{[a,b]^dim} f(x₁, …, x_dim) d^dim x` over `[a,b]^dim`, using a lightweight
+derivative-based tensor-product heuristic.
+
+This routine generalizes the dimension-specific estimators
+`estimate_error_1d/2d/3d/4d` into a single dimension-agnostic model, while
+preserving the same loop ordering and accumulation structure.
+
+For selected endpoint-free (“open-chain”) rules, the estimator switches to an
+axis-wise boundary-difference proxy that is often more stable in χ²-based
+convergence fits. All derivatives are attempted with ForwardDiff first, with an
+automatic Taylor fallback when the ForwardDiff result is non-finite (`Inf`/`NaN`).
 
 # Function description
-This routine generalizes the legacy dimension-specific estimators
-(`estimate_error_1d/2d/3d/4d`) into a single dimension-agnostic model.
+This routine provides a **cheap, consistent error scale model** intended to:
+- supply per-point weights `σ(h)` for χ²-based convergence fits (`fit_convergence`), and
+- keep a consistent `h`-scaling proxy across 1D–nD estimators in this package.
 
-The returned value is a **heuristic signed error scale**, intended mainly
-for stabilizing convergence fits and extrapolation models rather than
-providing a strict truncation bound.
+It is **not** a rigorous truncation bound and does not attempt to reproduce the
+full composite-rule error expansion.
 
 Two regimes are supported:
-
----
 
 ## (A) Boundary-difference model (selected open-chain rules)
 For rules where `_has_boundary_error_model(rule)` is true, a boundary-based
 leading-term model is applied **axis by axis**.
 
-For each axis `μ = 1..dim`, define boundary points
+Define boundary points
 
-`xL = a + off*h`,  
-`xR = a + (N-off)*h`,  
+`xL = a + off*h`,  `xR = a + (N-off)*h`,
 
-where `h = (b-a)/N` and `(p, K, dord, off)` are returned by
-`_boundary_error_params(rule)`.
+where `h = (b-a)/N` and `(p, K, dord, off) = _boundary_error_params(rule)`.
 
-The estimator constructs
+For each axis `μ = 1..dim`, construct
 
-```
-I_μ = ∫_{[a,b]^{dim-1}}
-[ ∂_μ^{dord} f(…, xL, …)
-- ∂_μ^{dord} f(…, xR, …) ]
-d(other axes)
-```
+`I_μ = ∫_{[a,b]^{dim-1}} [ ∂_μ^{dord} f(…, xL, …) - ∂_μ^{dord} f(…, xR, …) ] d(other axes)`,
 
-and returns
+and return
 
 `E ≈ K * h^p * Σ_μ I_μ`.
 
-This boundary-difference structure models the dominant truncation behavior
-of endpoint-free chained Newton–Cotes formulas and typically improves χ²
+This boundary-difference structure models the dominant truncation behavior of
+certain endpoint-free chained Newton–Cotes formulas and typically improves χ²
 stability during extrapolation.
 
-Rule-specific constraints on `N` (such as divisibility or minimum size)
-are enforced explicitly in this branch.
+### Derivative evaluation and Taylor fallback
+All derivatives are evaluated via the internal helper `_nth_deriv_safe`:
+1) compute using `nth_derivative` (ForwardDiff-based),
+2) if non-finite, emit a `warn_benji` and retry with `nth_derivative_taylor` (TaylorSeries-based),
+3) throw an error only if the Taylor fallback is also non-finite.
 
----
+Rule-specific constraints on `N` (divisibility, minimum size, etc.) are enforced
+explicitly in this branch for supported open rules.
 
 ## (B) Default midpoint tensor-style model (all other supported rules)
-Otherwise, the estimator falls back to a midpoint tensor-product heuristic:
+Otherwise, the estimator falls back to the midpoint tensor-product heuristic:
 
-1. Build 1D quadrature nodes and weights `(xs, ws)` via
-   `quadrature_1d_nodes_weights`.
-2. For each axis `μ`, compute an axis-wise contribution
+1) Obtain `(m, C)` via `_rule_params_for_tensor_error(rule)`.
+2) Build 1D quadrature nodes/weights `(xs, ws)` via `quadrature_1d_nodes_weights(a, b, N, rule)`.
+3) For each axis `μ`, integrate the `m`-th axis derivative over the remaining coordinates
+   using tensor-product weights, by sampling `∂_μ^m` at the midpoint along that axis and
+   enumerating quadrature nodes on the other axes (mirroring the legacy loop structure).
+4) Return
 
-```
-I_μ = ∫_{[a,b]^{dim-1}} ∂_μ^m f(x̄_μ) d(other axes),
-```
-
-where `x̄ = (a+b)/2` is the midpoint along the differentiated axis.
-
-3. Return the scale model
-
-`E ≈ C * (b-a) * h^m * Σ_μ I_μ`,
-
-with `(m, C) = _rule_params_for_tensor_error(rule)`.
-
-This reproduces the legacy midpoint tensor-style accumulation used in
-lower-dimensional implementations.
-
----
+`E ≈ C * (b-a) * h^m * Σ_μ I_μ`.
 
 # Arguments
 - `f`: Integrand callable accepting `dim` scalar arguments.
@@ -100,23 +92,29 @@ lower-dimensional implementations.
 - `dim`: Number of spatial dimensions (must satisfy `dim ≥ 1`).
 
 # Returns
-- `Float64`: Heuristic signed error estimate (scale model).
-  If the rule has no tensor parameters (`m == 0`), returns `0.0`.
+- `Float64`: A heuristic (signed) error scale proxy. If `m == 0` for the selected
+  `rule`, returns `0.0`.
 
 # Implementation notes
-- The loop ordering, accumulation structure, and floating-point behavior
-  intentionally mirror the original dimension-specific implementations
-  for reproducibility.
-- The helper `_call_with_axis` dynamically replaces one coordinate while
-  keeping the remaining axes fixed, allowing AD-compatible evaluation.
-- Derivatives are evaluated using `nth_derivative`, and therefore inherit
-  its numerical and AD-related behavior.
+- The loop ordering, accumulation structure, and floating-point behavior intentionally
+  mirror the dimension-specific implementations for reproducibility.
+- The helper `_call_with_axis` dynamically replaces one coordinate while keeping the
+  remaining axes fixed, enabling AD-compatible evaluation along the differentiated axis.
+- Some open-chain rules may have **negative quadrature weights**; this estimator
+  intentionally preserves the rule-defined weights rather than enforcing normalization.
 
 # Limitations
-- This estimator is not a rigorous error bound; it provides only a leading
-  scaling model suitable for convergence fitting.
-- Computational cost scales as `O(dim * length(xs)^(dim-1))`, which grows
-  rapidly with dimension.
+- This estimator is not a rigorous error bound; it provides only a leading scaling model
+  suitable for convergence fitting.
+- Computational cost scales as `O(dim * length(xs)^(dim-1))`, which grows rapidly with `dim`.
+- The Taylor fallback requires that the integrand supports generic number types (e.g. `Taylor1`).
+  If the integrand dispatch is restricted to `Real` only, the fallback may raise a `MethodError`.
+
+# Errors
+- Throws an error if `dim < 1`.
+- Throws an error if `(N, rule)` violates rule constraints.
+- Throws an error if both ForwardDiff and Taylor derivatives are non-finite in the selected
+  estimator branch.
 """
 function estimate_error_nd(
     f,
@@ -134,6 +132,24 @@ function estimate_error_nd(
 
     xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule)
 
+    @inline function _nth_deriv_safe(g, x, n; side::Symbol=:mid, axis::Int=0, stage::Symbol=:mid)
+        d = nth_derivative(g, x, n)
+        if !isfinite(d)
+            JobLoggerTools.warn_benji(
+                "Non-finite derivative (ForwardDiff); trying Taylor fallback " *
+                "h=$h x=$x n=$n rule=$rule N=$N side=$side axis=$axis stage=$stage dim=$dim"
+            )
+            d = nth_derivative_taylor(g, x, n)
+            if !isfinite(d)
+                JobLoggerTools.error_benji(
+                    "Non-finite in nD error estimator even after Taylor fallback: " *
+                    "h=$h x=$x deriv=$d n=$n rule=$rule N=$N side=$side axis=$axis stage=$stage dim=$dim"
+                )
+            end
+        end
+        return d
+    end
+
     # helper: call f with axis value replaced by x (x may be Dual)
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
@@ -142,11 +158,11 @@ function estimate_error_nd(
     # ---- special boundary-difference models ----
     if _has_boundary_error_model(rule)
         if rule == :simpson13_open
-            (N % 2 == 0) || error("Simpson 1/3 open-chain requires N even, got N = $N")
-            (N >= 8)     || error("Simpson 1/3 open-chain requires N ≥ 8, got N = $N")
+            (N % 2 == 0) || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N even, got N = $N")
+            (N >= 8)     || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
         elseif rule == :bode_open
-            (N % 4 == 0) || error("Open composite Boole requires N divisible by 4, got N = $N")
-            (N >= 16)    || error("Open composite Boole requires N ≥ 16 (non-overlapping end stencils), got N = $N")
+            (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
+            (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16 (non-overlapping end stencils), got N = $N")
         end
 
         p, K, dord, off = _boundary_error_params(rule)
@@ -162,8 +178,11 @@ function estimate_error_nd(
             Iaxis = 0.0
 
             if dim == 1
-                Iaxis = nth_derivative(x -> f(x), xL, dord) -
-                        nth_derivative(x -> f(x), xR, dord)
+                # Iaxis = nth_derivative(x -> f(x), xL, dord) -
+                #         nth_derivative(x -> f(x), xR, dord)
+                Iaxis =
+                    _nth_deriv_safe(x -> f(x), xL, dord; side=:L, axis=axis, stage=:boundary) -
+                    _nth_deriv_safe(x -> f(x), xR, dord; side=:R, axis=axis, stage=:boundary)
             else
                 fill!(idx, 1)
                 while true
@@ -179,9 +198,13 @@ function estimate_error_nd(
                         t += 1
                     end
 
+                    # Iaxis += wprod * (
+                    #     nth_derivative(x -> _call_with_axis(f, fixed, axis, x, dim), xL, dord) -
+                    #     nth_derivative(x -> _call_with_axis(f, fixed, axis, x, dim), xR, dord)
+                    # )
                     Iaxis += wprod * (
-                        nth_derivative(x -> _call_with_axis(f, fixed, axis, x, dim), xL, dord) -
-                        nth_derivative(x -> _call_with_axis(f, fixed, axis, x, dim), xR, dord)
+                        _nth_deriv_safe(x -> _call_with_axis(f, fixed, axis, x, dim), xL, dord; side=:L, axis=axis, stage=:boundary) -
+                        _nth_deriv_safe(x -> _call_with_axis(f, fixed, axis, x, dim), xR, dord; side=:R, axis=axis, stage=:boundary)
                     )
 
                     # increment odometer on idx
@@ -220,7 +243,8 @@ function estimate_error_nd(
         Iaxis = 0.0
 
         if dim == 1
-            Iaxis = nth_derivative(x -> f(x), xmid, m)
+            # Iaxis = nth_derivative(x -> f(x), xmid, m)
+            Iaxis = _nth_deriv_safe(x -> f(x), xmid, m; side=:mid, axis=axis, stage=:midpoint)
         else
             fill!(idx, 1)
             while true
@@ -236,9 +260,14 @@ function estimate_error_nd(
                     t += 1
                 end
 
-                Iaxis += wprod * nth_derivative(
+                # Iaxis += wprod * nth_derivative(
+                #     x -> _call_with_axis(f, fixed, axis, x, dim),
+                #     xmid, m
+                # )
+                Iaxis += wprod * _nth_deriv_safe(
                     x -> _call_with_axis(f, fixed, axis, x, dim),
-                    xmid, m
+                    xmid, m;
+                    side=:mid, axis=axis, stage=:midpoint
                 )
 
                 # increment odometer on idx
