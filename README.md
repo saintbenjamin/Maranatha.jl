@@ -10,6 +10,15 @@ production-level accuracy.
 
 ------------------------------------------------------------------------
 
+
+## 📚 Documentation
+
+The rendered documentation is available here:
+
+**https://saintbenjamin.github.io/Maranatha.jl/**
+
+------------------------------------------------------------------------
+
 ## 🔤 Name Philosophy
 
 **M**eshes are generated over the interval,\
