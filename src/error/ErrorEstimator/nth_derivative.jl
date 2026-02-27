@@ -186,7 +186,7 @@ Safely compute the `n`-th derivative of scalar callable `g` at point `x`.
 # Function description
 This wrapper:
 
-1) Attempts to compute the derivative using [`nth_derivative`](@ref) 
+1) Attempts to compute the derivative using [`nth_derivative_forwarddiff`](@ref) 
    ([`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based).
 2) If the result is non-finite, logs a warning and retries using
    [`nth_derivative_taylor`](@ref).
