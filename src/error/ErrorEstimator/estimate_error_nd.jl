@@ -67,7 +67,7 @@ This boundary-difference structure models the dominant truncation behavior of
 certain opened composite (endpoint-free) rule formulas and typically improves least ``\\chi^2`` fitting stability during ``h \\to 0`` extrapolation.
 
 ### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
-All derivatives in this routine are evaluated via the internal helper `_nth_deriv_safe`:
+All derivatives in this routine are evaluated via the [`nth_derivative`](@ref):
 1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
 2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
 3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
@@ -134,24 +134,6 @@ function estimate_error_nd(
 
     xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule)
 
-    @inline function _nth_deriv_safe(g, x, n; side::Symbol=:mid, axis::Int=0, stage::Symbol=:mid)
-        d = nth_derivative(g, x, n)
-        if !isfinite(d)
-            JobLoggerTools.warn_benji(
-                "Non-finite derivative (ForwardDiff); trying Taylor fallback " *
-                "h=$h x=$x n=$n rule=$rule N=$N side=$side axis=$axis stage=$stage dim=$dim"
-            )
-            d = nth_derivative_taylor(g, x, n)
-            if !isfinite(d)
-                JobLoggerTools.error_benji(
-                    "Non-finite in nD error estimator even after Taylor fallback: " *
-                    "h=$h x=$x deriv=$d n=$n rule=$rule N=$N side=$side axis=$axis stage=$stage dim=$dim"
-                )
-            end
-        end
-        return d
-    end
-
     # helper: call f with axis value replaced by x (x may be Dual)
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
@@ -180,11 +162,18 @@ function estimate_error_nd(
             Iaxis = 0.0
 
             if dim == 1
-                # Iaxis = nth_derivative(x -> f(x), xL, dord) -
-                #         nth_derivative(x -> f(x), xR, dord)
                 Iaxis =
-                    _nth_deriv_safe(x -> f(x), xL, dord; side=:L, axis=axis, stage=:boundary) -
-                    _nth_deriv_safe(x -> f(x), xR, dord; side=:R, axis=axis, stage=:boundary)
+                    nth_derivative(
+                        x -> f(x), 
+                        xL, dord; 
+                        h=h, rule=rule, N=N, dim=dim, 
+                        side=:L, axis=axis, stage=:boundary
+                    ) - nth_derivative(
+                        x -> f(x), 
+                        xR, dord; 
+                        h=h, rule=rule, N=N, dim=dim, 
+                        side=:R, axis=axis, stage=:boundary
+                    )
             else
                 fill!(idx, 1)
                 while true
@@ -200,13 +189,18 @@ function estimate_error_nd(
                         t += 1
                     end
 
-                    # Iaxis += wprod * (
-                    #     nth_derivative(x -> _call_with_axis(f, fixed, axis, x, dim), xL, dord) -
-                    #     nth_derivative(x -> _call_with_axis(f, fixed, axis, x, dim), xR, dord)
-                    # )
                     Iaxis += wprod * (
-                        _nth_deriv_safe(x -> _call_with_axis(f, fixed, axis, x, dim), xL, dord; side=:L, axis=axis, stage=:boundary) -
-                        _nth_deriv_safe(x -> _call_with_axis(f, fixed, axis, x, dim), xR, dord; side=:R, axis=axis, stage=:boundary)
+                        nth_derivative(
+                            x -> _call_with_axis(f, fixed, axis, x, dim), 
+                            xL, dord; 
+                            h=h, rule=rule, N=N, dim=dim, 
+                            side=:L, axis=axis, stage=:boundary
+                        ) - nth_derivative(
+                            x -> _call_with_axis(f, fixed, axis, x, dim), 
+                            xR, dord; 
+                            h=h, rule=rule, N=N, dim=dim, 
+                            side=:R, axis=axis, stage=:boundary
+                        )
                     )
 
                     # increment odometer on idx
@@ -245,8 +239,12 @@ function estimate_error_nd(
         Iaxis = 0.0
 
         if dim == 1
-            # Iaxis = nth_derivative(x -> f(x), xmid, m)
-            Iaxis = _nth_deriv_safe(x -> f(x), xmid, m; side=:mid, axis=axis, stage=:midpoint)
+            Iaxis = nth_derivative(
+                x -> f(x), 
+                xmid, m; 
+                h=h, rule=rule, N=N, dim=dim, 
+                side=:mid, axis=axis, stage=:midpoint
+            )
         else
             fill!(idx, 1)
             while true
@@ -262,13 +260,10 @@ function estimate_error_nd(
                     t += 1
                 end
 
-                # Iaxis += wprod * nth_derivative(
-                #     x -> _call_with_axis(f, fixed, axis, x, dim),
-                #     xmid, m
-                # )
-                Iaxis += wprod * _nth_deriv_safe(
+                Iaxis += wprod * nth_derivative(
                     x -> _call_with_axis(f, fixed, axis, x, dim),
                     xmid, m;
+                    h=h, rule=rule, N=N, dim=dim, 
                     side=:mid, axis=axis, stage=:midpoint
                 )
 

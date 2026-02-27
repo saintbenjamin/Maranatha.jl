@@ -117,7 +117,7 @@ function nth_derivative_enzyme(
 end
 
 """
-    nth_derivative(
+    nth_derivative_forwarddiff(
         f, 
         x::Real, 
         n::Int
@@ -150,7 +150,7 @@ preset-style callable wrappers while preserving [`ForwardDiff.jl`](https://julia
 - Type restriction `f::Function` is intentionally avoided because callable
   structs are not subtypes of `Function`, but must be supported.
 """
-function nth_derivative(
+function nth_derivative_forwarddiff(
     f, 
     x::Real, 
     n::Int
@@ -161,4 +161,89 @@ function nth_derivative(
         g = t -> ForwardDiff.derivative(prev, t)
     end
     return g(x)
+end
+
+# ============================================================
+# Safe derivative wrapper (shared by 1D–nD error estimators)
+# ============================================================
+
+"""
+    nth_derivative(
+        g,
+        x,
+        n;
+        h,
+        rule,
+        N,
+        dim::Int,
+        side::Symbol = :mid,
+        axis = 0,
+        stage::Symbol = :mid
+    ) -> Real
+
+Safely compute the `n`-th derivative of scalar callable `g` at point `x`.
+
+# Function description
+This wrapper:
+
+1) Attempts to compute the derivative using [`nth_derivative`](@ref) 
+   ([`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based).
+2) If the result is non-finite, logs a warning and retries using
+   [`nth_derivative_taylor`](@ref).
+3) If still non-finite, emits a fatal error 
+   via [`Maranatha.JobLoggerTools.error_benji`](@ref).
+
+It is designed to be shared across 1D, 2D, 3D, 4D, and general nD
+error estimators.
+
+# Keyword arguments
+- `h`     : Grid spacing.
+- `rule`  : Quadrature rule symbol.
+- `N`     : Number of subdivisions.
+- `dim`   : Problem dimensionality.
+- `side`  : `:L`, `:R`, or `:mid` (boundary location indicator).
+- `axis`  : Axis index or symbolic name (for logging).
+- `stage` : `:midpoint` or `:boundary` (error-model stage).
+
+# Returns
+- The finite `n`-th derivative value ``f^{(n)}(x)``.
+
+# Notes
+- This function is marked `@inline` so that Julia can inline it into
+  tight quadrature loops without overhead.
+"""
+@inline function nth_derivative(
+    g,
+    x,
+    n;
+    h,
+    rule,
+    N,
+    dim::Int,
+    side::Symbol = :mid,
+    axis = 0,
+    stage::Symbol = :midpoint
+)
+
+    d = nth_derivative_forwarddiff(g, x, n)
+
+    if !isfinite(d)
+        JobLoggerTools.warn_benji(
+            "Non-finite derivative (ForwardDiff.jl); trying TaylorSeries.jl fallback " *
+            "h=$h x=$x n=$n rule=$rule N=$N dim=$dim " *
+            "side=$side axis=$axis stage=$stage"
+        )
+
+        d = nth_derivative_taylor(g, x, n)
+
+        if !isfinite(d)
+            JobLoggerTools.error_benji(
+                "Non-finite derivative after TaylorSeries.jl fallback: " *
+                "h=$h x=$x deriv=$d n=$n rule=$rule N=$N dim=$dim " *
+                "side=$side axis=$axis stage=$stage"
+            )
+        end
+    end
+
+    return d
 end

@@ -69,7 +69,7 @@ This branch is designed for (endpoint-free) opened composite rule formulas whose
 behavior can be boundary-dominant, and often improves least ``\\chi^2`` fitting stability for those rules.
 
 ### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
-All derivatives in this routine are evaluated via the internal helper `_nth_deriv_safe`:
+All derivatives in this routine are evaluated via the [`nth_derivative`](@ref):
 1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
 2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
 3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
@@ -127,24 +127,6 @@ function estimate_error_2d(
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
 
-    @inline function _nth_deriv_safe(g, x, n; side::Symbol=:mid, axis::Symbol=:x)
-        d = nth_derivative(g, x, n)
-        if !isfinite(d)
-            JobLoggerTools.warn_benji(
-                "Non-finite derivative (ForwardDiff); trying Taylor fallback " *
-                "h=$h x=$x n=$n rule=$rule N=$N side=$side axis=$axis"
-            )
-            d = nth_derivative_taylor(g, x, n)
-            if !isfinite(d)
-                JobLoggerTools.error_benji(
-                    "Non-finite in 2D error estimator even after Taylor fallback: " *
-                    "h=$h x=$x deriv=$d n=$n rule=$rule N=$N side=$side axis=$axis"
-                )
-            end
-        end
-        return d
-    end
-
     # ---- special boundary-difference models ----
     if _has_boundary_error_model(rule)
         if rule == :simpson13_open
@@ -166,10 +148,18 @@ function estimate_error_2d(
         @inbounds for j in eachindex(xs)
             y = xs[j]
             gx(x) = f(x, y)
-            # I1 += wx[j] * (nth_derivative(gx, xL, dord) - nth_derivative(gx, xR, dord))
             I1 += wx[j] * (
-                _nth_deriv_safe(gx, xL, dord; side=:L, axis=:x) -
-                _nth_deriv_safe(gx, xR, dord; side=:R, axis=:x)
+                nth_derivative(
+                    gx, 
+                    xL, dord; 
+                    h=h, rule=rule, N=N, dim=2, 
+                    side=:L, axis=:x, stage=:boundary
+                ) - nth_derivative(
+                    gx, 
+                    xR, dord; 
+                    h=h, rule=rule, N=N, dim=2, 
+                    side=:R, axis=:x, stage=:boundary
+                )
             )
         end
 
@@ -178,10 +168,18 @@ function estimate_error_2d(
         @inbounds for i in eachindex(xs)
             x = xs[i]
             gy(y) = f(x, y)
-            # I2 += wx[i] * (nth_derivative(gy, yL, dord) - nth_derivative(gy, yR, dord))
             I2 += wx[i] * (
-                _nth_deriv_safe(gy, yL, dord; side=:L, axis=:y) -
-                _nth_deriv_safe(gy, yR, dord; side=:R, axis=:y)
+                nth_derivative(
+                    gy, 
+                    yL, dord; 
+                    h=h, rule=rule, N=N, dim=2, 
+                    side=:L, axis=:y, stage=:boundary
+                ) - nth_derivative(
+                    gy, 
+                    yR, dord; 
+                    h=h, rule=rule, N=N, dim=2, 
+                    side=:R, axis=:y, stage=:boundary
+                )
             )
         end
 
@@ -196,16 +194,24 @@ function estimate_error_2d(
     @inbounds for j in eachindex(xs)
         y = xs[j]
         gx(x) = f(x,y)
-        # I1 += wx[j]*nth_derivative(gx, x̄, m)
-        I1 += wx[j] * _nth_deriv_safe(gx, x̄, m; side=:mid, axis=:x)
+        I1 += wx[j] * nth_derivative(
+            gx, 
+            x̄, m; 
+            h=h, rule=rule, N=N, dim=2, 
+            side=:mid, axis=:x, stage=:midpoint
+        )
     end
 
     I2 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
         gy(y) = f(x,y)
-        # I2 += wx[i]*nth_derivative(gy, ȳ, m)
-        I2 += wx[i] * _nth_deriv_safe(gy, ȳ, m; side=:mid, axis=:y)
+        I2 += wx[i] * nth_derivative(
+            gy, 
+            ȳ, m; 
+            h=h, rule=rule, N=N, dim=2, 
+            side=:mid, axis=:y, stage=:midpoint
+        )
     end
 
     return C*(bb-aa)*h^m*(I1 + I2)

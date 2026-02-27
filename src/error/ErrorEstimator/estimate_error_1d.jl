@@ -80,21 +80,21 @@ function estimate_error_1d_legacy(
         # closed composite Simpson 1/3 (leading term heuristic)
         N % 2 == 0 || JobLoggerTools.error_benji("Close composite Simpson 1/3 rule requires N divisible by 2, got N = $N")
         x̄ = (aa + bb) / 2
-        d4 = nth_derivative(f, x̄, 4)
+        d4 = nth_derivative_forwarddiff(f, x̄, 4)
         return -((bb - aa) / 180.0) * h^4 * d4
 
     elseif rule == :simpson38_close
         # closed composite Simpson 3/8 (leading term heuristic)
         N % 3 == 0 || JobLoggerTools.error_benji("Close composite Simpson 3/8 rule requires N divisible by 3, got N = $N")
         x̄ = (aa + bb) / 2
-        d4 = nth_derivative(f, x̄, 4)
+        d4 = nth_derivative_forwarddiff(f, x̄, 4)
         return -((bb - aa) / 80.0) * h^4 * d4
 
     elseif rule == :bode_close
         # closed composite Bode (leading term heuristic)
         N % 4 == 0 || JobLoggerTools.error_benji("Close composite Boole's rule requires N divisible by 4, got N = $N")
         x̄ = (aa + bb) / 2
-        d6 = nth_derivative(f, x̄, 6)
+        d6 = nth_derivative_forwarddiff(f, x̄, 6)
         return -((2.0 / 945.0) * (bb - aa)) * h^6 * d6
 
     elseif rule == :simpson13_open
@@ -109,8 +109,8 @@ function estimate_error_1d_legacy(
         xL  = aa + 1.5 * h           # (x1 + x2)/2
         xR  = aa + (N - 1.5) * h     # (x_{N-2} + x_{N-1})/2
 
-        d3L = nth_derivative(f, xL, 3)
-        d3R = nth_derivative(f, xR, 3)
+        d3L = nth_derivative_forwarddiff(f, xL, 3)
+        d3R = nth_derivative_forwarddiff(f, xR, 3)
 
         return -(3.0 / 8.0) * h^4 * (d3L - d3R)
 
@@ -126,7 +126,7 @@ function estimate_error_1d_legacy(
         N >= 4     || JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N ≥ 4, got N = $N")
 
         x̄ = (aa + bb) / 2
-        d4 = nth_derivative(f, x̄, 4)
+        d4 = nth_derivative_forwarddiff(f, x̄, 4)
 
         return (14.0 / 45.0) * (bb - aa) * h^4 * d4
 
@@ -140,8 +140,8 @@ function estimate_error_1d_legacy(
         xL = (xj(2) + xj(3)) / 2
         xR = (xj(N-3) + xj(N-2)) / 2
 
-        d5L = nth_derivative(f, xL, 5)
-        d5R = nth_derivative(f, xR, 5)
+        d5L = nth_derivative_forwarddiff(f, xL, 5)
+        d5R = nth_derivative_forwarddiff(f, xR, 5)
 
         return -(95.0 / 288.0) * h^6 * (d5L - d5R)
 
@@ -203,7 +203,7 @@ This branch is designed for (endpoint-free) opened composite rule formulas whose
 behavior can be boundary-dominant, and often improves least ``\\chi^2`` fitting stability for those rules.
 
 ### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
-All derivatives in this routine are evaluated via the internal helper `_nth_deriv_safe`:
+All derivatives in this routine are evaluated via the [`nth_derivative`](@ref):
 1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
 2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
 3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
@@ -258,24 +258,6 @@ function estimate_error_1d(
     bb = float(b)
     h  = (bb-aa)/N
 
-    @inline function _nth_deriv_safe(g, x, n; side::Symbol=:mid)
-        d = nth_derivative(g, x, n)
-        if !isfinite(d)
-            JobLoggerTools.warn_benji(
-                "Non-finite derivative (ForwardDiff); trying Taylor fallback " *
-                "h=$h x=$x n=$n rule=$rule N=$N side=$side"
-            )
-            d = nth_derivative_taylor(g, x, n)
-            if !isfinite(d)
-                JobLoggerTools.error_benji(
-                    "Non-finite in 1D error estimator even after Taylor fallback: " *
-                    "h=$h x=$x deriv=$d n=$n rule=$rule N=$N side=$side"
-                )
-            end
-        end
-        return d
-    end
-
     # ---- special boundary-difference models ----
     if _has_boundary_error_model(rule)
         if rule == :simpson13_open
@@ -290,10 +272,18 @@ function estimate_error_1d(
         xL = aa + off*h
         xR = aa + (N-off)*h
 
-        # dL = nth_derivative(f, xL, dord)
-        # dR = nth_derivative(f, xR, dord)
-        dL = _nth_deriv_safe(f, xL, dord; side=:L)
-        dR = _nth_deriv_safe(f, xR, dord; side=:R)
+        dL = nth_derivative(
+            f, 
+            xL, dord; 
+            h=h, rule=rule, N=N, dim=1, 
+            side=:L, axis=:x, stage=:boundary
+        )
+        dR = nth_derivative(
+            f, 
+            xR, dord; 
+            h=h, rule=rule, N=N, dim=1, 
+            side=:R, axis=:x, stage=:boundary
+        )
 
         return K * h^p * (dL - dR)
     end
@@ -306,8 +296,12 @@ function estimate_error_1d(
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
 
-    # d = nth_derivative(f, x̄, m)
-    d = _nth_deriv_safe(f, x̄, m; side=:mid)
+    d = nth_derivative(
+        f, 
+        x̄, m; 
+        h=h, rule=rule, N=N, dim=1, 
+        side=:mid, axis=:x, stage=:midpoint
+    )
 
     # I = 0.0
     # @inbounds for j in eachindex(xs)

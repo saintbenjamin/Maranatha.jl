@@ -20,11 +20,11 @@ using ..BodeRule_MinOpen_MaxOpen
 
 export estimate_error
 
+include("ErrorEstimator/nth_derivative.jl")
+
 # ============================================================
 # Internal helpers (must preserve numerical behavior)
 # ============================================================
-
-include("ErrorEstimator/nth_derivative.jl")
 
 """
     _rule_params_for_tensor_error(
