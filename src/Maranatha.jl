@@ -32,24 +32,34 @@ evolve without tightly coupling the codebase.
 ## Integration layer
 [`Maranatha.Integrate`](@ref) module provides a unified front-end for tensor-product Newton-Cotes
 quadrature in arbitrary dimensions. The concrete rule implementations are
-kept internal and are not part of the public API surface.
+kept internal and are not part of the public API surface. The quadrature core uses an exact-moment / Taylor-expansion-based construction to support
+general ``n``-point composite Newton-Cotes rules through a unified implementation (including
+configurable endpoint openness via boundary patterns). Legacy hard-coded rule tables are intentionally removed.
 
 ## Error modeling
 The [`Maranatha.ErrorEstimator`](@ref) module supplies lightweight derivative-based error
 (scale) estimators that follow a tensor-product philosophy across dimensions.
-For selected endpoint-free rules, boundary-difference leading-term models are
-used to improve ``\\chi^2`` stability.
+The estimator uses a lightweight derivative-based *error scale* model whose leading term is
+determined from the composite Newton-Cotes *midpoint residual moments* computed from the exact
+composite weights (assembled rationally and converted to floating-point only at the final stage).
+This provides consistent ``h``-scaling weights for least-``\\chi^2`` fitting across dimensions.
 
-This estimator is **not rigorous truncation bound**; it is designed to
+This estimator is *not a rigorous truncation bound*; it is designed to
 produce consistent scaling weights for least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation.
 
 ## Least ``\\chi^2`` fitting
 [`Maranatha.LeastChiSquareFit`](@ref) submodule performs least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation using
-a rule-dependent model
+a *residual-informed exponent basis* derived from the composite Newton-Cotes midpoint residual expansion.
+
+The fitted model is linear in its parameters:
 ```math
-I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + ...
+I(h) = \\sum_{i=1}^{n} \\lambda_i \\, h^{\\,\\text{powers}[i]}
 ```
-and returns parameter covariance, enabling uncertainty propagation into plots.
+where the exponent vector `powers` is determined during fitting and stored in the fit result
+(e.g. `fit_result.powers`, with `powers[1] = 0` for the constant term).
+
+The routine also returns the parameter covariance matrix, enabling covariance-propagated uncertainty
+bands in convergence plots.
 
 ## Integrand system
 The [`Maranatha.Integrands`](@ref) submodule implements a registry-based preset system that allows
@@ -73,6 +83,8 @@ Users typically interact only with this high-level interface.
 [`Maranatha.PlotTools.plot_convergence_result`](@ref) generates publication-style convergence
 figures using [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) with [``\\LaTeX``](https://www.latex-project.org/) rendering. The shaded band represents the
 full covariance-propagated ``1 \\, \\sigma`` uncertainty of the fitted model.
+The plot reconstruction uses the exact exponent basis stored in the fit result (e.g. `fit_result.powers`)
+together with the parameter covariance (e.g. `fit_result.cov`), ensuring consistency with the fitted model.
 
 ## Logging
 All runtime diagnostics are handled by [`Maranatha.JobLoggerTools`](@ref), which provides
@@ -91,8 +103,9 @@ The top-level Maranatha namespace re-exports a minimal set of entry points:
 Internal submodules remain accessible but are not required for normal usage.
 
 # Dimensionality
-Dimension-specific error estimators exist for low dimensions, along with a
-generalized ``n``-dimensional implementation following the same tensor-product philosophy.
+A generalized ``n``-dimensional implementation is provided following the same
+tensor-product philosophy, with dimension-specific specializations available
+for lower dimensions.
 Because tensor enumeration scales rapidly with dimension, higher-dimensional
 usage is primarily intended for controlled numerical studies.
 
@@ -101,6 +114,7 @@ usage is primarily intended for controlled numerical studies.
 - Strict separation between numerical core, orchestration, and visualization.
 - Reproducible floating-point behavior through preserved loop ordering.
 - Minimal public API surface with extensible internal modules.
+- Unified general ``n``-point Newton–Cotes support via Taylor/moment-based rule construction (no legacy rule tables).
 """
 module Maranatha
 
