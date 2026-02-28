@@ -22,11 +22,12 @@ export run_Maranatha
         integrand,
         a,
         b;
-        dim=1,
-        nsamples=[4,8,16],
-        rule=:simpson13_close,
-        err_method::Symbol=:derivative,
-        fit_terms::Int=2
+        dim::Int = 1,
+        nsamples = [4, 8, 16],
+        rule::Symbol = :ns_p3,
+        boundary::Symbol = :LCRC,
+        err_method::Symbol = :derivative,
+        fit_terms::Int = 2
     )
 
 High-level execution pipeline for ``n``-dimensional quadrature,
@@ -38,7 +39,7 @@ subsystems of Maranatha:
 
 - [`Maranatha.Integrate`](@ref)      : tensor-product Newton-Cotes quadrature in **arbitrary** dimension
 - [`Maranatha.ErrorEstimator`](@ref) : derivative-based error scale models
-- [`Maranatha.LeastChiSquareFit`](@ref) : least-χ² fitting for ``h \\to 0`` extrapolation
+- [`Maranatha.LeastChiSquareFit`](@ref) : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
 
 For each resolution `N` in `nsamples`, the runner performs:
 
@@ -53,13 +54,15 @@ For each resolution `N` in `nsamples`, the runner performs:
 
 4. Accumulate `(h, estimate, error)` triplets.
 
-After processing all resolutions, a weighted convergence fit is performed:
+After processing all resolutions, a weighted convergence fit is performed using a
+**residual-informed exponent basis** (derived from the composite Newton–Cotes midpoint residual model):
 ```math
-I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + ...
+I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}} \\,,
 ```
-where the leading power ``p`` is determined from `rule`.
+where the exponent vector `powers` is determined during fitting and stored in the fit result
+(e.g. `fit_result.powers`, with `powers[1] = 0` for the constant term).
 
-The final extrapolated estimate ``I_0`` is returned together with the full
+The final extrapolated estimate ``\\lambda_0`` is returned together with the full
 fit object and the raw data vectors used in the fit.
 
 # Arguments
@@ -77,9 +80,15 @@ fit object and the raw data vectors used in the fit.
   Vector of subdivision counts `N`. Each value defines a different grid
   resolution used in the convergence study.
 
-- `rule::Symbol=:simpson13_close`:
-  Newton-Cotes rule identifier forwarded to both integration and error
-  estimation modules.
+- `rule::Symbol = :ns_p3`:
+  Newton–Cotes rule identifier. For the Taylor/moment-based general rules, use `:ns_pK`
+  (e.g. `:ns_p3`, `:ns_p4`, `:ns_p5`, ...). This symbol is forwarded to both integration
+  and error-estimation modules.
+
+- `boundary::Symbol = :LCRC`:
+  Boundary pattern for the composite rule assembly. Supported values are:
+  `:LCRC`, `:LORC`, `:LCRO`, `:LORO`.
+  This is forwarded consistently to integration, error estimation, and fitting.
 
 - `err_method::Symbol=:derivative`:
   Error estimation strategy.
@@ -87,9 +96,10 @@ fit object and the raw data vectors used in the fit.
 
   - `:derivative`  → [`Maranatha.ErrorEstimator.estimate_error`](@ref)
   
-- `fit_terms::Int=2`:
-  Number of basis terms used in the convergence model
-  (including the constant extrapolated value).
+- `fit_terms::Int = 2`:
+  Number of basis terms used in the convergence model (including the constant term).
+  This is forwarded as `nterms` to the least-``\\chi^2`` fitter, which determines the
+  first `nterms-1` nonzero residual-derived exponents and stores them in `fit_result.powers`.
 
 # Returns
 A 3-tuple:
@@ -105,13 +115,16 @@ A 3-tuple:
   - `estimate_error::Float64` :
     ``1 \\, \\sigma`` uncertainty of `estimate`, taken as `param_errors[1]` from the covariance diagonal.
   - `params::Vector{Float64}` :
-    Fitted parameter vector ``[I_0, C_1, C_2, \\ldots]`` for the model
-    ``I(h) = I_0 + C_1 h^p + C_2 h^{p+2} + \\cdots``.
+    Fitted parameter vector ``[\\lambda_1, \\lambda_2, \\ldots]`` corresponding to the model
+    ``\\displaystyle{I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}}}`` where the exponent vector is stored in `fit_result.powers`.
   - `param_errors::Vector{Float64}` :
     ``1 \\, \\sigma`` uncertainties for `params` (square roots of `diag(cov)`).
   - `cov::Matrix{Float64}` :
     Parameter covariance matrix, suitable for uncertainty propagation
     (e.g. ``\\sigma_{\\mathrm{fit}}(h)^2 = \\phi(h)^{\\top}\\,V\\,\\phi(h)`` where ``V`` is covariance matrix).
+  - `powers::Vector{Int}` :
+    Exponent vector used in the fit basis (typically with `powers[1] = 0` for the constant term).
+    This ensures plotting and downstream reconstruction use the exact same model as the fit.
   - `chisq::Float64` :
     Total chi-square value 
     ```math
@@ -145,12 +158,12 @@ I0, fit, data = run_Maranatha(
     0.0, 1.0;
     dim=4,
     nsamples=[40, 44, 48, 52, 56, 60, 64],
-    rule=:bode_close,
+    rule = :ns_p5,
+    boundary = :LCRC,
     err_method=:derivative
     fit_terms=4
 )
 ```
-
 """
 function run_Maranatha(
     integrand,

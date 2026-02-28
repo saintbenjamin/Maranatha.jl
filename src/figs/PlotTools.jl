@@ -97,9 +97,8 @@ This function does *not* refit anything. It uses the stored fit output:
 - `I0_err = fit_result.estimate_error`
 
 A convergence model is reconstructed from the fit parameters:
-
 ```math
-I(h) = \\sum_{i=1}^{n} \\lambda_i \\, h^{\\,\\text{powers}[i]}
+I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}}
 ```
 where `powers` is the exponent vector determined during fitting and
 stored in `fit_result.powers`.
@@ -119,7 +118,7 @@ Let `powers` denote the exponent vector stored in `fit_result.powers`
 (with `powers[1] = 0` for the constant term). Then
 ```math
 \\varphi_1(h) = 1, \\qquad
-\\varphi_i(h) = h^{\\,\\text{powers}[i]} \\quad (i = 2, \\ldots, n),
+\\varphi_\\texttt{i}(h) = h^{\\,\\texttt{powers[i]}} \\quad (\\texttt{i} = 2, \\ldots, n),
 ```
 where `n = length(fit_result.params)`.
 
@@ -150,7 +149,7 @@ The output file is saved as:
 - `a`, `b`: Integration bounds used only to derive a representative subdivision count `Nref`
   from the smallest step size in `hs`.
 - `name`: Label used in the output filename.
-- `hs`: Step sizes ``h`` (typically ``h = (b-a)/N``).
+- `hs`: Step sizes ``h`` (typically ``\\displaystyle{h = \\frac{b-a}{N}}``).
 - `estimates`: Quadrature estimates ``I(h)`` corresponding to `hs`.
 - `errors`: Error estimates for ``I(h)`` (absolute values are used for plotting).
 - `fit_result`: Fit object expected to provide:

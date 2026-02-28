@@ -43,9 +43,6 @@ count `Nref` derived from the smallest step size in `hs`.
 The convergence model is selected by the number of basis terms `nterms`
 (including the constant term). The design matrix is constructed as:
 
-- column 1: ``h^0`` (constant term)
-- columns 2..nterms: ``h^p``, ``h^{(p+2)}``, ``h^{(p+4)}``, ...
-
 - column 1: ``h^0``  (constant term)
 - columns 2..nterms: ``h^{p_1}``, ``h^{p_2}``, ..., where the exponents ``p_t`` are obtained
   from the composite Newton-Cotes midpoint residual model (via
@@ -82,7 +79,7 @@ explicitly.
 ```math
 V = \\Delta = 4 \\, H^{-1} \\, A \\, H^{-1} \\,,
 ```
-and the ``1 \\, \\sigma`` errors of fitting parameters are ``\\sqrt{\\diag(V)}``.
+and the ``1 \\, \\sigma`` errors of fitting parameters are ``\\sqrt{\\text{diag}(V)}``.
 
 ### Why ``H = 2 \\, A``?
 For the WLS objective ``\\chi^{2}(\\bm{\\lambda}) = \\left\\lvert W \\left( X \\, \\bm{\\lambda} - \\mathbf{y} \\right) \\right\\rvert^2``,
@@ -235,23 +232,25 @@ end
 Print a formatted summary of a convergence fit result.
 
 # Function description
-This routine prints each fitted parameter `λ_k` with its one-sigma uncertainty
-using `AvgErrFormatter.avgerr_e2d_from_float`, followed by χ² diagnostics and the
-extrapolated result `I(h→0)`.
+This routine prints each fitted parameter ``\\lambda_k`` with its ``1 \\, \\sigma`` uncertainty
+using [`Maranatha.AvgErrFormatter.avgerr_e2d_from_float`](@ref), followed by ``\\chi^2`` diagnostics 
+and the extrapolated result ``I(h \\to 0)``.
 
 The output formatting and ordering are intentionally kept identical to the
 original implementation.
 
 # Arguments
-- `fit`: Fit result object (typically the `NamedTuple` returned by `least_chi_square_fit`)
+- `fit`: Fit result object (typically the `NamedTuple` returned by [`least_chi_square_fit`](@ref))
   that provides the fields:
-  - `params`
-  - `param_errors`
-  - `chisq`
-  - `dof`
-  - `redchisq`
-  - `estimate`
-  - `estimate_error`
+    - `estimate::Float64`: Extrapolated value ``I_0 = I(h \\to 0)`` (i.e. `params[1]`).
+    - `estimate_error::Float64`: One-sigma uncertainty for ``I_0``, taken from the
+    covariance diagonal.
+    - `params::Vector{Float64}`: Fitted parameter vector `[I0, C1, C2, ...]`.
+    - `param_errors::Vector{Float64}`: ``1 \\, \\sigma`` uncertainties for `params`.
+    - `cov::Matrix{Float64}`: Parameter covariance matrix.
+    - `chisq::Float64`: ``\\chi^2`` value.
+    - `redchisq::Float64`: ``\\chi^2/\\text{d.o.f.}``.
+    - `dof::Int`: Degrees of freedom, `length(y) - length(params)`.
 
 # Returns
 - `nothing`.

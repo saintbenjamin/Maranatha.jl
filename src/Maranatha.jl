@@ -11,11 +11,9 @@
 """
     module Maranatha
 
-`Maranatha.jl` is a modular Newton-Cotes-based toolkit for **multi-resolution
-numerical integration**, **error-scale modeling**, and **``\\chi^2``-based convergence
-extrapolation** on hypercube domains ``\\left[ a, b \\right]^n`` where ``n`` is the (spacetime) dimensionality.
+`Maranatha.jl` is a modular Newton-Cotes-based toolkit for **multi-dimensional
+quadrature**, **error-scale modeling**, and **least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation** on hypercube domains ``\\left[ a, b \\right]^n`` where ``n`` is the (spacetime) dimensionality.
 
-Rather than exposing individual quadrature implementations directly,
 `Maranatha.jl` is designed around a **pipeline-oriented workflow**:
 
 1. integration
@@ -23,7 +21,7 @@ Rather than exposing individual quadrature implementations directly,
 3. ``h \\to 0`` extrapolation via least ``\\chi^2`` fitting
 4. visualization using [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl).
 
-The internal structure is intentionally split into small, independent modules
+The internal structure is intentionally split into small, independent submodules
 so that numerical components, logging, plotting, and preset integrands can
 evolve without tightly coupling the codebase.
 
@@ -33,7 +31,7 @@ evolve without tightly coupling the codebase.
 [`Maranatha.Integrate`](@ref) module provides a unified front-end for tensor-product Newton-Cotes
 quadrature in arbitrary dimensions. The concrete rule implementations are
 kept internal and are not part of the public API surface. The quadrature core uses an exact-moment / Taylor-expansion-based construction to support
-general ``n``-point composite Newton-Cotes rules through a unified implementation (including
+general multi-point composite Newton-Cotes rules through a unified implementation (including
 configurable endpoint openness via boundary patterns). Legacy hard-coded rule tables are intentionally removed.
 
 ## Error modeling
@@ -53,7 +51,7 @@ a *residual-informed exponent basis* derived from the composite Newton-Cotes mid
 
 The fitted model is linear in its parameters:
 ```math
-I(h) = \\sum_{i=1}^{n} \\lambda_i \\, h^{\\,\\text{powers}[i]}
+I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}}
 ```
 where the exponent vector `powers` is determined during fitting and stored in the fit result
 (e.g. `fit_result.powers`, with `powers[1] = 0` for the constant term).
