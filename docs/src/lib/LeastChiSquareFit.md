@@ -1,8 +1,8 @@
-# Maranatha.FitConvergence
+# Maranatha.LeastChiSquareFit
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.FitConvergence,
+    Main.Maranatha.LeastChiSquareFit,
 ]
 Private = true
 ```

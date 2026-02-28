@@ -44,7 +44,7 @@ This estimator is **not rigorous truncation bound**; it is designed to
 produce consistent scaling weights for least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation.
 
 ## Least ``\\chi^2`` fitting
-[`Maranatha.FitConvergence`](@ref) submodule performs least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation using
+[`Maranatha.LeastChiSquareFit`](@ref) submodule performs least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation using
 a rule-dependent model
 ```math
 I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + ...
@@ -107,33 +107,8 @@ module Maranatha
 include("log/JobLoggerTools.jl")
 using .JobLoggerTools
 
-# ============================================================
-# Numerical integration rules (Newton–Cotes family)
-#
-# Each rule is implemented as an independent submodule under
-# `rules/`, and is brought into the namespace here so that the
-# top-level Maranatha API can access them uniformly.
-# ============================================================
-
-# --- Closed rules (endpoint-evaluating) ---
-include("rules/legacy/Simpson13Rule.jl")   # Composite Simpson 1/3 rule
-include("rules/legacy/Simpson38Rule.jl")   # Composite Simpson 3/8 rule
-include("rules/legacy/BodeRule.jl")        # Composite Bode/Boole rule (5-point closed NC)
-
-using .Simpson13Rule
-using .Simpson38Rule
-using .BodeRule
-
-# --- Globally-open rules (endpoint-free variants) ---
-# These versions avoid evaluating f(a) and f(b), typically via
-# interior stencils or endpoint elimination constructions.
-include("rules/legacy/Simpson13Rule_MinOpen_MaxOpen.jl")
-include("rules/legacy/Simpson38Rule_MinOpen_MaxOpen.jl")
-include("rules/legacy/BodeRule_MinOpen_MaxOpen.jl")
-
-using .Simpson13Rule_MinOpen_MaxOpen
-using .Simpson38Rule_MinOpen_MaxOpen
-using .BodeRule_MinOpen_MaxOpen
+include("log/AvgErrFormatter.jl")
+using .AvgErrFormatter
 
 # ============================================================
 # Integration dispatcher / high-level interface
@@ -141,8 +116,7 @@ using .BodeRule_MinOpen_MaxOpen
 # `Integrate.jl` typically defines a unified front-end that
 # selects a specific quadrature rule depending on user options.
 # ============================================================
-include("rules/Integrate.jl")
-
+include("generator/Integrate.jl")
 using .Integrate
 
 # ============================================================
@@ -150,20 +124,14 @@ using .Integrate
 #
 # These modules provide:
 #   - analytic / model-based error estimators
-#   - Richardson extrapolation tools
-#   - formatting utilities for averaged error output
 #   - convergence diagnostics for fitting pipelines
 # ============================================================
 
 include("error/ErrorEstimator.jl")
-include("error/RichardsonError.jl")
-include("fit/AvgErrFormatter.jl")
-include("fit/FitConvergence.jl")
-
 using .ErrorEstimator
-using .RichardsonError
-using .AvgErrFormatter
-using .FitConvergence
+
+include("fit/LeastChiSquareFit.jl")
+using .LeastChiSquareFit
 
 # ============================================================
 # Integrand system

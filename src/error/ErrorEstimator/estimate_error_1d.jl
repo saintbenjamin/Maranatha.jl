@@ -8,306 +8,118 @@
 # License: MIT License
 # ============================================================================
 
-# ============================================================
-# 1D error estimator legacy (leading terms)
-# ============================================================
-
-"""
-    estimate_error_1d_legacy(
-        f, 
-        a::Real, 
-        b::Real, 
-        N::Int, 
-        rule::Symbol
-    ) -> Float64
-
-Estimate the integration error for a 1D integral of `f(x)` over `[a, b]`
-using rule-dependent, derivative-based *heuristics* designed to match the
-lightweight, unified tensor-error philosophy used in higher dimensions.
-
-# Function description
-This estimator intentionally prioritizes:
-- **speed** (few derivative evaluations),
-- **stable scaling** with step size `h = (b-a)/N`,
-- **consistent behavior across dimensions** (1D/2D/3D/4D),
-
-rather than reproducing the full composite-rule truncation expansions.
-
-In particular:
-- The **closed** rules use a single midpoint derivative as a leading-term model.
-- The **open-chain** rules use lightweight leading-term models:
-  - some are **boundary-difference dominated** (endpoint stencil effect),
-  - some use a **single midpoint derivative** with the tensor-error coefficient.
-
-These estimates are used as error scales for fitting/extrapolation, not as
-rigorous bounds.
-
-# Arguments
-- `f`: Scalar-to-scalar integrand callable `f(x)` (function, closure, or callable struct).
-- `a`, `b`: Integration limits (scalars).
-- `N`: Number of subintervals (must satisfy rule-specific constraints).
-- `rule`: Integration rule symbol:
-  - `:simpson13_close` → closed composite Simpson 1/3 (midpoint 4th-derivative heuristic)
-  - `:simpson38_close` → closed composite Simpson 3/8 (midpoint 4th-derivative heuristic)
-  - `:bode_close`      → closed composite Bode/Boole (midpoint 6th-derivative heuristic)
-  - `:simpson13_open`  → open-chain Simpson 1/3 (boundary 3rd-derivative difference heuristic)
-  - `:simpson38_open`  → open 3-point chained rule, panels of width `4h`
-                          (midpoint 4th-derivative heuristic with coefficient `14/45`)
-  - `:bode_open`       → open-chain Boole-type rule (boundary 5th-derivative difference heuristic)
-
-# Returns
-- A `Float64` heuristic error estimate (signed), interpreted as an estimate of
-  `(exact - quadrature)` in the same sign convention as the implemented formula.
-  If `rule` is not recognized, returns `0.0`.
-
-# Errors
-- Throws an error if `N` violates rule-specific constraints.
-"""
-function estimate_error_1d_legacy(
-    f, 
-    a::Real, 
-    b::Real, 
-    N::Int, 
-    rule::Symbol
-)
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
-
-    xj(j::Int) = aa + j * h
-
-    if rule == :simpson13_close
-        # closed composite Simpson 1/3 (leading term heuristic)
-        N % 2 == 0 || JobLoggerTools.error_benji("Close composite Simpson 1/3 rule requires N divisible by 2, got N = $N")
-        x̄ = (aa + bb) / 2
-        d4 = nth_derivative_forwarddiff(f, x̄, 4)
-        return -((bb - aa) / 180.0) * h^4 * d4
-
-    elseif rule == :simpson38_close
-        # closed composite Simpson 3/8 (leading term heuristic)
-        N % 3 == 0 || JobLoggerTools.error_benji("Close composite Simpson 3/8 rule requires N divisible by 3, got N = $N")
-        x̄ = (aa + bb) / 2
-        d4 = nth_derivative_forwarddiff(f, x̄, 4)
-        return -((bb - aa) / 80.0) * h^4 * d4
-
-    elseif rule == :bode_close
-        # closed composite Bode (leading term heuristic)
-        N % 4 == 0 || JobLoggerTools.error_benji("Close composite Boole's rule requires N divisible by 4, got N = $N")
-        x̄ = (aa + bb) / 2
-        d6 = nth_derivative_forwarddiff(f, x̄, 6)
-        return -((2.0 / 945.0) * (bb - aa)) * h^6 * d6
-
-    elseif rule == :simpson13_open
-        (N % 2 == 0) || JobLoggerTools.error_benji("Open composite Simpson 1/3 rule requires N even, got N = $N")
-        (N >= 8)     || JobLoggerTools.error_benji("Open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
-
-        # Leading-term error model consistent with the open-chain expansion:
-        #   E ≈ -(3/8) h^4 [ f'''( (x1+x2)/2 ) - f'''( (x_{N-2}+x_{N-1})/2 ) ]
-        #
-        # Here E is an estimate of (exact - quadrature).
-
-        xL  = aa + 1.5 * h           # (x1 + x2)/2
-        xR  = aa + (N - 1.5) * h     # (x_{N-2} + x_{N-1})/2
-
-        d3L = nth_derivative_forwarddiff(f, xL, 3)
-        d3R = nth_derivative_forwarddiff(f, xR, 3)
-
-        return -(3.0 / 8.0) * h^4 * (d3L - d3R)
-
-    elseif rule == :simpson38_open
-        # IMPORTANT:
-        # This is NOT the classical Simpson 3/8 composite rule.
-        # This is the endpoint-free open 3-point Newton–Cotes chained rule (panel width = 4h).
-        #
-        # Lightweight heuristic (consistent with the "rollback" philosophy):
-        # use a single midpoint 4th-derivative leading term (order h^4 scaling),
-        # matching the tensor-error coefficient mapping (C = 14/45, m = 4).
-        N % 4 == 0 || JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N divisible by 4, got N = $N")
-        N >= 4     || JobLoggerTools.error_benji("Open composite Simpson 3/8 rule requires N ≥ 4, got N = $N")
-
-        x̄ = (aa + bb) / 2
-        d4 = nth_derivative_forwarddiff(f, x̄, 4)
-
-        return (14.0 / 45.0) * (bb - aa) * h^4 * d4
-
-    elseif rule == :bode_open
-        (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
-        (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16, got N = $N")
-
-        # Boundary-dominant leading-term model (Simpson 1/3 open-chain style):
-        #   E_lead ≈ -(95/288) h^6 [ f^(5)((x2+x3)/2) - f^(5)((x_{N-3}+x_{N-2})/2) ]
-
-        xL = (xj(2) + xj(3)) / 2
-        xR = (xj(N-3) + xj(N-2)) / 2
-
-        d5L = nth_derivative_forwarddiff(f, xL, 5)
-        d5R = nth_derivative_forwarddiff(f, xR, 5)
-
-        return -(95.0 / 288.0) * h^6 * (d5L - d5R)
-
-    else
-        return 0.0
-    end
-end
-
-# ============================================================
-# 1D error estimator (leading terms)
-# ============================================================
-
 """
     estimate_error_1d(
         f,
         a::Real,
         b::Real,
         N::Int,
-        rule::Symbol
+        rule::Symbol,
+        boundary::Symbol
     ) -> Float64
 
-Return a fast ``1``-dimensional quadrature error *scale* for 
-```math
-\\int\\limits_{a}^{b} \\; dx \\; f(x)
-```
-using a lightweight derivative-based heuristic. 
-
-For selected opened composite rules, a boundary-difference
-proxy is used. 
-Derivatives are attempted with [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) first, 
-with an automatic
-[`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback when non-finite (`Inf`/`NaN`) values occur.
+Estimate the leading truncation error for a ``1``-dimensional composite Newton-Cotes rule
+using the exact midpoint residual expansion derived from rational weight assembly.
 
 # Function description
-This routine provides a **cheap, consistent error scale proxy** intended to:
-- supply per-point weights ``\\sigma(h)`` for least-``\\chi^2``-fitting ([`Maranatha.FitConvergence.fit_convergence`](@ref)), and
-- match the same ``h``-scaling convention used by the multidimensional error
-  estimators in this package.
+This routine computes a *model-based leading truncation term*
+consistent with the exact composite Newton–Cotes construction
+implemented in the `Integrate` module.
 
-It is *not* a rigorous truncation bound and does not attempt to reproduce the
-full composite-rule error expansion.
+The procedure is:
 
-Two regimes are supported:
+1) Let ``\\displaystyle{h = \\frac{b-a}{N}}``.
 
-## (A) Boundary-difference model (for selected opened composite rules)
-For rules flagged by [`_has_boundary_error_model`](@ref)`(rule)`, the estimator uses a leading
-boundary-difference proxy of the form
+2) Using the exact rational composite weights ``\\beta``, determine the
+   first nonzero midpoint residual order ``k`` and its exact coefficient:
 ```math
-E \\approx \\texttt{K} \\, h^\\texttt{p} \\, ( D_L - D_R ) \\,
+\\texttt{diff}_k = \\int\\limits_0^{N_{\\text{sub}}} du \\; \\left( u - c \\right)^k - \\sum_0^{N_{\\text{sub}}} \\beta_j \\, \\left( j - c \\right)^k
+```
+```math
+\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}
+```
+where:
+- ``\\displaystyle{c = \\frac{N}{2}}`` is the midpoint in dimensionless coordinate,
+- ``\\beta_j`` are the exact composite coefficients.
+
+3) Evaluate the ``k``-th derivative of ``f`` at the physical midpoint:
+```math
+\\bar{x} = \\frac{a+b}{2}
 ```
 
-where
-- ``\\displaystyle{h = \\frac{b-a}{N}}``,
-- ``x_L = a + \\texttt{z} \\, h``,
-- ``x_R = a + ( N - \\texttt{z} ) \\, h``,
-- `(p, K, m, z) =`[`_boundary_error_params`](@ref)`(rule)`.
+4) Return the modeled leading error term:
+```math
+E = \\texttt{coeff} \\, h^{k+1} \\, f^{k}\\left(\\bar{x}\\right)
+```
 
-This branch is designed for (endpoint-free) opened composite rule formulas whose leading error
-behavior can be boundary-dominant, and often improves least ``\\chi^2`` fitting stability for those rules.
+This matches the leading term of the Taylor expansion of the composite
+Newton-Cotes rule around the midpoint and is fully consistent with
+the exact rational assembly used in [`Maranatha.Integrate`](@ref).
 
-### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
-All derivatives in this routine are evaluated via the [`nth_derivative`](@ref):
-1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
-2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
-3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
-
-## (B) Default midpoint tensor-style model (all other supported rules)
-Otherwise, the estimator follows the same *single-sample midpoint derivative* pattern
-used in the multidimensional error estimators:
-
-1) Obtain `(m, C)` via [`_rule_params_for_tensor_error`](@ref)`(rule)`.
-2) Build `1`-dimensional nodes/weights `(xs, wx)` via [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)`.
-3) Evaluate ``f^{(m)}(\\bar{x})`` once at the midpoint ``\\displaystyle{\\bar{x} = \\frac{a+b}{2}}`` (with the same fallback logic).
-4) Form the weight-sum prox ``\\displaystyle{I = \\left( \\sum_j \\texttt{wx[j]} \\right) \\ast f^{(m)}\\left( \\bar{x} \\right)}``.
-   (Since the derivative sample is constant across nodes, this is equivalent to
-   accumulating ``\\displaystyle{\\left( \\sum_j \\texttt{wx[j]} \\right) \\ast f^{(m)}\\left( \\bar{x} \\right)}``.)
-5) Return ``E = C \\; (b - a) \\; h^m \\; I``.
+# Mathematical structure
+If the composite rule integrates monomials up to order ``m`` exactly,
+then the first nonzero residual term appears at derivative order ``k > m``,
+and the truncation error behaves like:
+```math
+E = C_k \\, h^{k+1} \\, f^{k}\\left(\\bar{x}\\right) + \\left( \\text{higher-order terms} \\right) \\,.
+```
+This routine returns exactly that leading term.
 
 # Arguments
-- `f`: Scalar callable integrand `f(x)` (function, closure, or callable struct).
-- `a`, `b`: Integration limits.
-- `N`: Number of subintervals defining ``\\displaystyle{h = \\frac{b-a}{N}}``.
-- `rule`: Quadrature rule symbol.
+- `f`:
+    Scalar callable integrand `f(x)` (function, closure, or callable struct).
+- `a`, `b`:
+    Lower and upper bounds of the integration interval.
+- `N`:
+    Number of subintervals.
+    Must satisfy the composite tiling constraint for `(rule, boundary)`.
+- `rule`:
+    Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+- `boundary`:
+    Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
 
 # Returns
-- `Float64`: A heuristic (signed) error scale proxy. If `m == 0` for the selected
-  `rule`, returns `0.0`.
-
-# Notes
-- Some rules may have **negative quadrature weights**. This estimator
-  intentionally preserves the rule-defined weight sum ``\\displaystyle{\\sum_j \\texttt{wx[j]}}``, rather than enforcing
-  any normalization.
-- Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
-  - enforced explicitly in the boundary-model branch for supported open rules, and
-  - enforced in [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref) for the default midpoint path.
-- The [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback requires the integrand to accept generic number types
-  (e.g. `Taylor1`). If the integrand dispatch is restricted to `Real` only, the fallback
-  may raise a `MethodError`.
+- `Float64`:
+    Leading truncation error estimate.
 
 # Errors
-- Throws an error if `(N, rule)` violates rule constraints.
-- Throws an error if both [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) derivatives are non-finite in the
-  selected estimator branch.
+- Propagates any errors from:
+  - composite weight assembly,
+  - midpoint residual extraction,
+  - derivative evaluation ([`nth_derivative`](@ref)).
+- Returns `0.0` only if the detected residual order is `k == 0`
+  (degenerate or pathological case).
+
+# Notes
+- This is a *leading-term asymptotic model*, not a strict upper bound.
+- The coefficient is derived from exact rational arithmetic and
+  converted to `Float64` only at the final stage.
 """
 function estimate_error_1d(
-    f, 
-    a::Real, 
-    b::Real, 
-    N::Int, 
-    rule::Symbol
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
+    rule::Symbol,
+    boundary::Symbol
 )
 
     aa = float(a)
     bb = float(b)
-    h  = (bb-aa)/N
+    h  = (bb - aa) / N
 
-    # ---- special boundary-difference models ----
-    if _has_boundary_error_model(rule)
-        if rule == :simpson13_open
-            (N % 2 == 0) || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N even, got N = $N")
-            (N >= 8)     || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
-        elseif rule == :bode_open
-            (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
-            (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16 (non-overlapping end stencils), got N = $N")
-        end
+    k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=64)
+    k == 0 && return 0.0  # practically shouldn't happen, but safe
 
-        p, K, dord, off = _boundary_error_params(rule)
-        xL = aa + off*h
-        xR = aa + (N-off)*h
-
-        dL = nth_derivative(
-            f, 
-            xL, dord; 
-            h=h, rule=rule, N=N, dim=1, 
-            side=:L, axis=:x, stage=:boundary
-        )
-        dR = nth_derivative(
-            f, 
-            xR, dord; 
-            h=h, rule=rule, N=N, dim=1, 
-            side=:R, axis=:x, stage=:boundary
-        )
-
-        return K * h^p * (dL - dR)
-    end
-
-    # ---- default tensor-style midpoint model ----
-    x̄ = (aa+bb)/2
-
-    m, C = _rule_params_for_tensor_error(rule)
-    m == 0 && return 0.0
-
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+    x̄ = (aa + bb) / 2
 
     d = nth_derivative(
-        f, 
-        x̄, m; 
-        h=h, rule=rule, N=N, dim=1, 
+        f,
+        x̄, k;
+        h=h, rule=rule, N=N, dim=1,
         side=:mid, axis=:x, stage=:midpoint
     )
 
-    # I = 0.0
-    # @inbounds for j in eachindex(xs)
-    #     I += wx[j] * d
-    # end
-    I = d * sum(wx)
+    return Float64(coeffR) * h^(k+1) * d
 
-    return C*(bb-aa)*h^m*I
 end

@@ -14,7 +14,8 @@
         a,
         b,
         N,
-        rule;
+        rule,
+        boundary;
         dim::Int
     ) -> Float64
 
@@ -28,7 +29,7 @@ tensor product of a 1D quadrature rule.
 The algorithm:
 
 1. Builds 1D quadrature nodes and weights `(xs, ws)` via
-   [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)`.
+   [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`.
 2. Iterates over all multi-indices ``(i_1, i_2, \\ldots, i_{\\texttt{dim}})`` using an
    odometer-style index update.
 3. Forms the tensor-product weight
@@ -61,7 +62,9 @@ to ensure reproducibility and consistent floating-point behavior.
 - `a`, `b`: Domain bounds defining the hypercube ``[a,b]^\\texttt{dim}``.
 - `N`: Number of subdivisions per axis used to build the 1D rule.
 - `rule`: Integration rule symbol (e.g., `:simpson13_close`, `:bode_open`, etc.).
-- `dim`: Number of dimensions (must satisfy `dim ≥ 1`).
+- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Required for NS rules.
+- `dim`: Number of dimensions (must satisfy `dim```\\ge 1``).
 
 # Returns
 - `Float64`: Numerical quadrature estimate of the integral.
@@ -71,19 +74,20 @@ to ensure reproducibility and consistent floating-point behavior.
   as ``O(\\texttt{length(xs)}^\\texttt{dim})`` and therefore grows exponentially with `dim`.
 - Rule-specific constraints on `N` are enforced inside
   [`quadrature_1d_nodes_weights`](@ref).
-- The integrand is called as ``f(x_1, x_2, ..., x_\\texttt{dim})`` using splatting.
+- The integrand is called as ``f(x_1, x_2, \\ldots, x_\\texttt{dim})`` using splatting.
 """
 function integrate_nd(
     f, 
     a, 
     b, 
     N, 
-    rule; 
+    rule,
+    boundary;
     dim::Int
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
 
-    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule)
+    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
 
     # Multi-index over axes (1-based)
     idx = ones(Int, dim)
@@ -100,7 +104,7 @@ function integrate_nd(
         end
 
         # Call f(x1, x2, ..., x_dim)
-        total += wprod * f(args...)
+        iszero(wprod) || (total += wprod * f(args...))
 
         # Increment odometer-style index
         d = dim

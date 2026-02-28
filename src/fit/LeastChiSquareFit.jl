@@ -1,5 +1,5 @@
 # ============================================================================
-# src/fit/FitConvergence.jl
+# src/fit/LeastChiSquareFit.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,18 +8,21 @@
 # License: MIT License
 # ============================================================================
 
-module FitConvergence
+module LeastChiSquareFit
 
 using LinearAlgebra
 using Statistics
 using Printf
 using ..AvgErrFormatter
 using ..JobLoggerTools
+using ..ErrorEstimator
 
-export fit_convergence, print_fit_result
+export least_chi_square_fit, print_fit_result
 
 """
-    fit_convergence(
+    least_chi_square_fit(
+        a::Real,
+        b::Real,
         hs,
         estimates,
         errors,
@@ -33,8 +36,9 @@ their uncertainties.
 # Function description
 This routine fits a rule-dependent convergence ansatz that is **linear in its
 parameters**, using weighted least squares (WLS). The step size is provided by
-the caller as ``\\displaystyle{h = \\frac{b-a}{N}}`` (via `hs`), and the leading convergence power ``p``
-is inferred from the chosen quadrature `rule`.
+the caller as ``\\displaystyle{h = \\frac{b-a}{N}}`` (via `hs`), and the convergence exponents are inferred from the composite Newton-Cotes midpoint
+residual model, which depends on `(rule, boundary)` and a representative subdivision
+count `Nref` derived from the smallest step size in `hs`.
 
 The convergence model is selected by the number of basis terms `nterms`
 (including the constant term). The design matrix is constructed as:
@@ -42,9 +46,15 @@ The convergence model is selected by the number of basis terms `nterms`
 - column 1: ``h^0`` (constant term)
 - columns 2..nterms: ``h^p``, ``h^{(p+2)}``, ``h^{(p+4)}``, ...
 
+- column 1: ``h^0``  (constant term)
+- columns 2..nterms: ``h^{p_1}``, ``h^{p_2}``, ..., where the exponents ``p_t`` are obtained
+  from the composite Newton-Cotes midpoint residual model (via
+  [`Maranatha.ErrorEstimator._leading_residual_ks_with_center`](@ref)), and are used as-is
+  to build the design matrix.
+
 Equivalently, the fitted form is:
 ```math
-I(h) = I_0 + C_1 \\, h^p + C_2 \\, h^{p+2} + C_3 \\, h^{p+4} + \\ldots
+I(h) = I_0 + C_1 \\, h^{p_1} + C_2 \\, h^{p_2} + C_3 \\, h^{p_3} + \\ldots
 ```
 
 ## Solve (WLS)
@@ -110,24 +120,33 @@ A `NamedTuple` with the following fields:
 - Throws an error if `rule` is not recognized.
 - Throws an error if `nterms < 2`.
 - Throws an error if the Hessian is not positive definite (Cholesky fails).
-- Note: If `dof == 0`, `redchisq` will be `Inf`/`NaN` depending on `chisq`.
+- Note: If `dof == 0`, the computation of `redchisq = chisq / dof`
+  involves division by zero. Under IEEE floating-point semantics,
+  this results in `Inf` or `NaN` depending on the value of `chisq`.
 """
-function fit_convergence(
+function least_chi_square_fit(
+    a::Real,
+    b::Real,
     hs, 
     estimates, 
     errors, 
-    rule::Symbol; 
+    rule::Symbol,
+    boundary::Symbol; 
     nterms::Int=2
 )
+    # ------------------------------------------------------------
+    # Determine leading convergence power automatically
+    # using composite NC residual model (midpoint expansion)
+    # ------------------------------------------------------------
 
-    p =
-        rule == :simpson13_close ? 4 :
-        rule == :simpson13_open  ? 4 :
-        rule == :simpson38_close ? 4 :
-        rule == :simpson38_open  ? 4 :
-        rule == :bode_close      ? 6 :
-        rule == :bode_open       ? 6 :
-        JobLoggerTools.error_benji("Unknown rule")
+    Nref = round(Int, (b - a) / minimum(float.(hs)))
+
+    ks, _center = ErrorEstimator._leading_residual_ks_with_center(
+        rule, boundary, Nref; nterms=nterms, kmax=256
+    )
+
+    powers = ks
+    JobLoggerTools.println_benji("fit powers (h^p): " * join(string.(powers[1:(nterms-1)]), ", "))
 
     h = collect(float.(hs))
     y = collect(float.(estimates))
@@ -140,13 +159,21 @@ function fit_convergence(
     end
 
     # Design matrix:
-    #   col 1: 1
-    #   col k (k>=2): h^(p + 2*(k-2))  => h^p, h^(p+2), h^(p+4), ...
+    # #   col 1: 1
+    # #   col k (k>=2): h^(p + 2*(k-2))  => h^p, h^(p+2), h^(p+4), ...
+    # cols = Vector{Vector{Float64}}(undef, nterms)
+    # cols[1] = ones(N)
+    # for k in 2:nterms
+    #     cols[k] = h .^ (p + 2*(k - 2))
+    # end
+    # X = hcat(cols...)
     cols = Vector{Vector{Float64}}(undef, nterms)
     cols[1] = ones(N)
-    for k in 2:nterms
-        cols[k] = h .^ (p + 2*(k - 2))
+
+    for t in 1:(nterms-1)
+        cols[t+1] = h .^ powers[t]
     end
+
     X = hcat(cols...)
 
     # weights
@@ -169,16 +196,6 @@ function fit_convergence(
     # --- covariance (Method 2) ---
     # Build A = Xᵀ W² X
     A = transpose(X) * (W^2) * X
-
-    # # Hessian = 2 * A
-    # Hess = 2.0 .* A
-    # inv_Hess = inv(Hess)
-
-    # # Delta = 4 * inv_Hess * A * inv_Hess
-    # Delta = 4.0 .* inv_Hess * A * inv_Hess
-
-    # Cov = Delta
-    # param_errors = sqrt.(diag(Delta))
 
     Hess = 2.0 .* A
     F = cholesky(Symmetric(Hess))          # Hess must be SPD
@@ -203,6 +220,7 @@ function fit_convergence(
         params   = params,
         param_errors = param_errors,
         cov      = Cov,
+        powers   = vcat(0, powers[1:(nterms-1)]), 
         chisq    = chisq,
         redchisq = redchisq,
         dof      = dof
@@ -225,7 +243,7 @@ The output formatting and ordering are intentionally kept identical to the
 original implementation.
 
 # Arguments
-- `fit`: Fit result object (typically the `NamedTuple` returned by `fit_convergence`)
+- `fit`: Fit result object (typically the `NamedTuple` returned by `least_chi_square_fit`)
   that provides the fields:
   - `params`
   - `param_errors`
@@ -244,7 +262,11 @@ function print_fit_result(
     jobid = nothing
 
     for i in eachindex(fit.params)
-        tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.params[i], fit.param_errors[i])
+        if !isfinite(fit.params[i]) || !isfinite(fit.param_errors[i])
+            tmp_str = @sprintf("%.12e (%.12e)", fit.params[i], fit.param_errors[i])
+        else
+            tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.params[i], fit.param_errors[i])
+        end
         JobLoggerTools.println_benji("           λ_$(i-1) = $(tmp_str)", jobid)
     end
 
@@ -259,10 +281,14 @@ function print_fit_result(
         ), jobid
     )
 
-    tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.estimate, fit.estimate_error)
+    if !isfinite(fit.estimate) || !isfinite(fit.estimate_error)
+        tmp_str = @sprintf("%.12e (%.12e)", fit.estimate, fit.estimate_error)
+    else
+        tmp_str = AvgErrFormatter.avgerr_e2d_from_float(fit.estimate, fit.estimate_error)
+    end
     JobLoggerTools.println_benji("Result (h→0)   = $(tmp_str)", jobid)
 
     JobLoggerTools.println_benji("",jobid)
 end
 
-end  # module FitConvergence
+end  # module LeastChiSquareFit

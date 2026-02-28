@@ -8,84 +8,20 @@
 # License: MIT License
 # ============================================================================
 
-# ============================================================
-# 1D quadrature legacy
-# ============================================================
-
-"""
-    integrate_1d_legacy(
-        f, 
-        a, 
-        b, 
-        N, 
-        rule
-    ) -> Float64
-
-Evaluate a ``1``-dimensional integral of ``f(x)`` over ``[a, b]`` using the specified quadrature rule.
-
-# Function description
-This function dispatches to the dedicated 1D implementations for each supported
-Newton-Cotes rule. Both closed and open-chain variants are supported.
-
-# Arguments
-- `f`: Integrand function ``f(x)``.
-- `a`, `b`: Integration bounds.
-- `N`: Number of intervals (rule-specific divisibility/minimum constraints apply).
-- `rule`: Integration rule symbol.
-
-# Returns
-- Estimated integral value as a `Float64`.
-
-# Errors
-- Throws an error if `rule` is not recognized.
-"""
-function integrate_1d_legacy(
-    f, 
-    a, 
-    b, 
-    N, 
-    rule
-)
-    if rule == :simpson13_close
-        return simpson13_rule(f, a, b, N)
-
-    elseif rule == :simpson13_open
-        return simpson13_rule_min_open_max_open(f, a, b, N)
-
-    elseif rule == :simpson38_close
-        return simpson38_rule(f, a, b, N)
-
-    elseif rule == :simpson38_open
-        return simpson38_rule_min_open_max_open(f, a, b, N)
-
-    elseif rule == :bode_close
-        return bode_rule(f, a, b, N)
-
-    elseif rule == :bode_open
-        return bode_rule_min_open_max_open(f, a, b, N)
-
-    else
-        JobLoggerTools.error_benji("Unknown integration rule: $rule")
-    end
-end
-
-# ============================================================
-# 1D quadrature current version
-# ============================================================
-
 """
     integrate_1d(
         f, 
         a, 
         b, 
         N, 
-        rule
+        rule,
+        boundary
     ) -> Float64
 
 Evaluate the ``1``-dimensional integral of ``f(x)`` over ``[a, b]`` using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
-This routine generates 1D quadrature nodes and weights using [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)` and computes:
+This routine generates 1D quadrature nodes and weights using [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
 ```math
 \\sum_i w_i \\, f(x_i) \\,.
 ```
@@ -97,6 +33,8 @@ This keeps all rule-specific constraints and behaviour centralized in
 - `a`, `b`: Integration bounds.
 - `N`: Number of intervals (rule-specific constraints are enforced by [`quadrature_1d_nodes_weights`](@ref)).
 - `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Required for NS rules.
 
 # Returns
 - Estimated integral value as a `Float64`.
@@ -106,13 +44,16 @@ function integrate_1d(
     a, 
     b, 
     N, 
-    rule
+    rule,
+    boundary
 )
-    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule)
+    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
 
     total = 0.0
     @inbounds for j in eachindex(xs)
-        total += ws[j] * f(xs[j])
+        iszero(ws[j]) && continue
+        val = f(xs[j])
+        total += ws[j] * val
     end
     return total
 end

@@ -96,7 +96,8 @@ function avgerr_e2d(
                 return @sprintf("%s(%d) *", cen_round_str, err_round_int)
             end
         else
-            digit0 = parse(Int, split(censtr, "-")[2])
+            # digit0 = parse(Int, split(censtr, "-")[2])
+            digit0 = parse(Int, split(censtr, "-")[end])
             digit = digit0 + 2
 
             cen_round_str = @sprintf("%.*f", digit0, cen)
@@ -125,7 +126,8 @@ function avgerr_e2d(
                 return @sprintf("%d(%d) *", cen_round, err_round_int)
             end
         else
-            digit0 = parse(Int, split(censtr, "-")[2])
+            # digit0 = parse(Int, split(censtr, "-")[2])
+            digit0 = parse(Int, split(censtr, "-")[end])
             digit = digit0 + 2
 
             cen_round_str = @sprintf("%.*f", digit0, cen)

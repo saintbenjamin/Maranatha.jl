@@ -14,116 +14,89 @@
         a::Real,
         b::Real,
         N::Int,
-        rule::Symbol;
+        rule::Symbol,
+        boundary::Symbol;
         dim::Int
     ) -> Float64
 
-Return a fast `d`-dimensional quadrature error *scale* proxy for the hypercube integral, where ``d = \\texttt{dim}``,
-```math
-\\int\\limits_{[a,b]^d} d^d x \\; f(x_1,x_2,\\ldots,x_d)
-```
-using a lightweight derivative-based tensor-product heuristic.
-
-This routine generalizes the dimension-specific error estimators, [`estimate_error_1d`](@ref)/[`estimate_error_2d`](@ref)/[`estimate_error_3d`](@ref)/[`estimate_error_4d`](@ref) into a single dimension-agnostic model, while
-preserving the same loop ordering and accumulation structure.
-
-For selected opened composite rules, a boundary-difference
-proxy is used. 
-Derivatives are attempted with [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) first, 
-with an automatic
-[`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback when non-finite (`Inf`/`NaN`) values occur.
+Estimate the leading tensor-product truncation error for an arbitrary-dimensional
+composite Newton-Cotes rule on the hypercube ``[a,b]^\\texttt{dim}``
+using the exact midpoint residual expansion.
 
 # Function description
-This routine provides a **cheap, consistent error scale proxy** intended to:
-- supply per-point weights ``\\sigma(h)`` for least-``\\chi^2``-fitting ([`Maranatha.FitConvergence.fit_convergence`](@ref)), and
-- match the same ``h``-scaling convention used by the multidimensional error
-  estimators in this package.
+This routine provides a dimension-generic version of the axis-separated midpoint error model.
 
-It is *not* a rigorous truncation bound and does not attempt to reproduce the
-full composite-rule error expansion.
+Let ``\\displaystyle{h = \\frac{b-a}{N}}``.
+From the exact rational composite weight assembly for
+`(rule, boundary, N)`, it determines:
 
-Two regimes are supported:
+- the leading midpoint residual order ``k``, and
+- its exact rational coefficient `coeffR`.
 
-## (A) Boundary-difference model (selected open-chain rules)
-For rules where [`_has_boundary_error_model`](@ref)`(rule)` is true, a boundary-based
-leading-term model is applied **axis by axis**.
-
-Define boundary points
+The model returned is:
 ```math
-- ``x_L = a + \\texttt{z} \\, h``\\,, \\quad ``x_R = a + ( N - \\texttt{z} ) \\, h``\\,,
+E = \\texttt{coeff} \\, h^{k+1} \\, \\sum_{\\mu=1}^{\\texttt{dim}} I_\\mu
 ```
-where ``\\displaystyle{h = \\frac{b-a}{N}}`` and `(p, K, m, z) =`[`_boundary_error_params`](@ref)`(rule)`.
+where `coeff = Float64(coeffR)` and each ``I_\\mu`` is the tensor-product integral
+over the remaining ``\\texttt{dim}-1`` coordinates of the ``k``-th partial derivative along
+the selected axis evaluated at the physical midpoint along that axis:
 
-For each axis ``\\mu = 1, \\ldots , d``, construct
+- midpoint along any axis: ``\\displaystyle{\\bar{x} = \\frac{a+b}{2}}``
+- for each axis ``\\mu``, define:
 ```math
-I_\\mu = \\int\\limits_{[a,b]^{d-1}} d^{d-1} x \\; \\left[ \\partial_\\mu^{\\texttt{m}} f(\\ldots,x_L,\\ldots) - \\partial_\\mu^{\\texttt{m}} f(\\ldots,x_R,\\ldots) \\right]
+I_\\mu = \\int \\cdots \\int \\left( \\prod_{\\nu \\neq \\mu} dx_\\nu \\right) \\; \\frac{\\partial^k f}{\\partial x_\\mu^k} \\left( x_1 , \\ldots , x_\\mu=\\bar{x} , \\ldots , x_{\\texttt{dim}} \\right)
 ```
-and return
-```math
-E \\approx \\texttt{K} \\, h^\\texttt{p} \\, \\sum_\\mu I_\\mu \\,.
-```
-
-This boundary-difference structure models the dominant truncation behavior of
-certain opened composite (endpoint-free) rule formulas and typically improves least ``\\chi^2`` fitting stability during ``h \\to 0`` extrapolation.
-
-### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
-All derivatives in this routine are evaluated via the [`nth_derivative`](@ref):
-1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
-2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
-3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
-
-Rule-specific constraints on `N` (divisibility, minimum size, etc.) are enforced
-explicitly in this branch for supported opened composite rules.
-
-## (B) Default midpoint tensor-style model (all other supported rules)
-Otherwise, the error estimator falls back to the midpoint tensor-product heuristic:
-
-1) Obtain `(m, C)` via [`_rule_params_for_tensor_error`](@ref)`(rule)`.
-2) Build `1`-dimensional nodes/weights `(xs, wx)` via [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)`.
-3) For each axis ``\\mu``, integrate the `m`-th axis derivative over the remaining coordinates
-   using tensor-product weights, by sampling ``\\partial_\\mu^{\\texttt{m}} f`` at the midpoint along that axis and
-   enumerating quadrature nodes on the other axes (mirroring the legacy loop structure).
-4) Return ``E \\approx C \\; (b-a) \\; h^{\\texttt{m}} \\;  \\sum_\\mu I_\\mu``.
-
-# Arguments
-- `f`: Integrand callable accepting `dim` scalar arguments.
-- `a`, `b`: Domain bounds defining the hypercube ``[a,b]^{d}``.
-- `N`: Number of subdivisions per axis (``\\displaystyle{h = \\frac{b-a}{N}}``).
-- `rule`: Integration rule symbol.
-- `dim`: Number of spatial dimensions (must satisfy `dim```\\ge 1``).
-
-# Returns
-- `Float64`: A heuristic (signed) error scale proxy. If `m == 0` for the selected
-  `rule`, returns `0.0`.
+Numerically, the cross-axis integral is computed by enumerating the ``(\\texttt{dim}-1)``-fold
+tensor-product grid over the 1D nodes `xs`, accumulating the product weights, and
+evaluating `nth_derivative` on the resulting 1D slice (with one coordinate left as
+the differentiation variable).
 
 # Implementation notes
-- The loop ordering, accumulation structure, and floating-point behavior intentionally
-  mirror the dimension-specific implementations for reproducibility.
-- The helper `_call_with_axis` dynamically replaces one coordinate while keeping the
-  remaining axes fixed, enabling AD-compatible evaluation along the differentiated axis.
-- Some rules may have **negative quadrature weights**; this estimator
-  intentionally preserves the rule-defined weights rather than enforcing normalization.
+- The helper `_call_with_axis` constructs the argument tuple for `f` by replacing
+  only one coordinate (`axis`) with the differentiation variable `x` (which may be a Dual).
+- The enumeration over the ``(\\texttt{dim}-1)`` indices is implemented in odometer style.
+- For `dim == 1`, the routine falls back to a direct derivative evaluation.
 
-# Limitations
-- This estimator is not a rigorous error bound; it provides only a leading scaling model
-  suitable for convergence fitting.
-- Computational cost scales as ``O(d \\; \\texttt{length(xs)}^{\\texttt{dim}-1} )``, which grows rapidly with `dim`.
-- The [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback requires the integrand to accept generic number types
-  (e.g. `Taylor1`). If the integrand dispatch is restricted to `Real` only, the fallback
-  may raise a `MethodError`.
+# Arguments
+- `f`:
+    Callable integrand expecting exactly `dim` positional arguments.
+- `a`, `b`:
+    Scalar bounds defining the hypercube ``[a,b]^\\texttt{dim}``.
+- `N`:
+    Number of subintervals per axis.
+    Must satisfy the composite tiling constraint for `(rule, boundary)`.
+- `rule`:
+    Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+- `boundary`:
+    Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `dim`:
+    Dimensionality of the integral (must satisfy ``\\texttt{dim} \\ge 1``).
+
+# Returns
+- `Float64`:
+    Leading tensor-product truncation error estimate in `dim` dimensions.
 
 # Errors
-- Throws an error if `dim < 1`.
-- Throws an error if `(N, rule)` violates rule constraints.
-- Throws an error if both [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) derivatives are non-finite in the
-  selected estimator branch.
+- Throws `ArgumentError` if `dim < 1`.
+- Propagates any errors from:
+  - composite weight assembly,
+  - midpoint residual extraction,
+  - derivative evaluation ([`nth_derivative`](@ref)).
+
+# Notes
+- The model is *axis-separated* (sum of single-axis error operators).
+  Mixed-derivative contributions and higher residual orders are omitted.
+- Returns `0.0` if the residual scan reports `k == 0` (degenerate/unexpected case).
+- Complexity grows as ``O(\\texttt{dim} \\, (N+1)^{\\texttt{dim}-1})`` derivative evaluations, so this
+  estimator can be expensive for large `dim` at high resolution.
 """
 function estimate_error_nd(
     f,
     a::Real,
     b::Real,
     N::Int,
-    rule::Symbol;
+    rule::Symbol,
+    boundary::Symbol;
     dim::Int
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
@@ -132,101 +105,18 @@ function estimate_error_nd(
     bb = float(b)
     h  = (bb - aa) / N
 
-    xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule)
+    xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     # helper: call f with axis value replaced by x (x may be Dual)
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
-    # ---- special boundary-difference models ----
-    if _has_boundary_error_model(rule)
-        if rule == :simpson13_open
-            (N % 2 == 0) || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N even, got N = $N")
-            (N >= 8)     || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
-        elseif rule == :bode_open
-            (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
-            (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16 (non-overlapping end stencils), got N = $N")
-        end
+    # ---- default tensor-style midpoint model (β-residual based) ----
 
-        p, K, dord, off = _boundary_error_params(rule)
-        xL = aa + off*h
-        xR = aa + (N-off)*h
-
-        total_axes = 0.0
-
-        fixed = Vector{Float64}(undef, dim)      # stores "other axes" values
-        idx   = ones(Int, dim - 1)               # odometer for other axes
-
-        @inbounds for axis in 1:dim
-            Iaxis = 0.0
-
-            if dim == 1
-                Iaxis =
-                    nth_derivative(
-                        x -> f(x), 
-                        xL, dord; 
-                        h=h, rule=rule, N=N, dim=dim, 
-                        side=:L, axis=axis, stage=:boundary
-                    ) - nth_derivative(
-                        x -> f(x), 
-                        xR, dord; 
-                        h=h, rule=rule, N=N, dim=dim, 
-                        side=:R, axis=axis, stage=:boundary
-                    )
-            else
-                fill!(idx, 1)
-                while true
-                    wprod = 1.0
-                    t = 1
-                    for d in 1:dim
-                        if d == axis
-                            continue
-                        end
-                        i = idx[t]
-                        fixed[d] = xs[i]
-                        wprod *= ws[i]
-                        t += 1
-                    end
-
-                    Iaxis += wprod * (
-                        nth_derivative(
-                            x -> _call_with_axis(f, fixed, axis, x, dim), 
-                            xL, dord; 
-                            h=h, rule=rule, N=N, dim=dim, 
-                            side=:L, axis=axis, stage=:boundary
-                        ) - nth_derivative(
-                            x -> _call_with_axis(f, fixed, axis, x, dim), 
-                            xR, dord; 
-                            h=h, rule=rule, N=N, dim=dim, 
-                            side=:R, axis=axis, stage=:boundary
-                        )
-                    )
-
-                    # increment odometer on idx
-                    q = dim - 1
-                    while q >= 1
-                        idx[q] += 1
-                        if idx[q] <= length(xs)
-                            break
-                        else
-                            idx[q] = 1
-                            q -= 1
-                        end
-                    end
-                    q == 0 && break
-                end
-            end
-
-            total_axes += Iaxis
-        end
-
-        return K * h^p * total_axes
-    end
-
-    # ---- default tensor-style midpoint model ----
-    m, C = _rule_params_for_tensor_error(rule)
-    m == 0 && return 0.0
+    k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=64)
+    k == 0 && return 0.0
+    coeff = Float64(coeffR)
 
     xmid = (aa + bb) / 2
 
@@ -240,9 +130,9 @@ function estimate_error_nd(
 
         if dim == 1
             Iaxis = nth_derivative(
-                x -> f(x), 
-                xmid, m; 
-                h=h, rule=rule, N=N, dim=dim, 
+                x -> f(x),
+                xmid, k;
+                h=h, rule=rule, N=N, dim=dim,
                 side=:mid, axis=axis, stage=:midpoint
             )
         else
@@ -262,12 +152,12 @@ function estimate_error_nd(
 
                 Iaxis += wprod * nth_derivative(
                     x -> _call_with_axis(f, fixed, axis, x, dim),
-                    xmid, m;
-                    h=h, rule=rule, N=N, dim=dim, 
+                    xmid, k;
+                    h=h, rule=rule, N=N, dim=dim,
                     side=:mid, axis=axis, stage=:midpoint
                 )
 
-                # increment odometer on idx
+                # odometer increment
                 q = dim - 1
                 while q >= 1
                     idx[q] += 1
@@ -285,5 +175,5 @@ function estimate_error_nd(
         total_axes += Iaxis
     end
 
-    return C * (bb - aa) * h^m * total_axes
+    return coeff * h^(k+1) * total_axes
 end

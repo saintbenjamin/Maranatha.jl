@@ -8,17 +8,14 @@
 # License: MIT License
 # ============================================================================
 
-# ============================================================
-# 3D tensor-product quadrature
-# ============================================================
-
 """
     integrate_3d(
         f, 
         a, 
         b, 
         N, 
-        rule
+        rule,
+        boundary
     ) -> Float64
 
 Evaluate a ``3``-dimensional integral of ``f(x, y, z)`` over the cube domain `[a, b]^3`
@@ -37,6 +34,8 @@ Loop ordering and accumulation are preserved exactly as implemented.
 - `a`, `b`: Cube domain bounds (used for all axes).
 - `N`: Number of intervals per axis.
 - `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Required for NS rules.
 
 # Returns
 - Estimated integral value as a `Float64`.
@@ -46,10 +45,11 @@ function integrate_3d(
     a, 
     b, 
     N, 
-    rule
+    rule,
+    boundary
 )
 
-    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
+    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
 
@@ -62,7 +62,10 @@ function integrate_3d(
             yj = ys[j]
             wij = wi * wy[j]
             for k in eachindex(zs)
-                total += wij * wz[k] * f(xi, yj, zs[k])
+                w = wij * wz[k]
+                iszero(w) && continue
+                val = f(xi, yj, zs[k])
+                total += w * val
             end
         end
     end

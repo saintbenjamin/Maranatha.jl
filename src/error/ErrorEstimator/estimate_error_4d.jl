@@ -8,126 +8,95 @@
 # License: MIT License
 # ============================================================================
 
-# ============================================================
-# 4D derivative-based tensor-product error (leading terms)
-# ============================================================
-
 """
     estimate_error_4d(
         f,
         a::Real,
         b::Real,
         N::Int,
-        rule::Symbol
+        rule::Symbol,
+        boundary::Symbol
     ) -> Float64
 
-Return a fast ``4``-dimensional quadrature error *scale* proxy for the hypercube integral
-```math
-\\int\\limits_{a}^{b} \\int\\limits_{a}^{b} \\int\\limits_{a}^{b} \\int\\limits_{a}^{b} \\; dx dy dz dt \\; f(x,y,z,t)
-```
-using a lightweight derivative-based tensor-product heuristic.
-
-For selected opened composite rules, a boundary-difference
-proxy is used. 
-Derivatives are attempted with [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) first, 
-with an automatic
-[`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback when non-finite (`Inf`/`NaN`) values occur.
+Estimate the leading tensor-product truncation error for a ``4``-dimensional composite Newton-Cotes rule
+on the hypercube ``[a,b]^4`` using the exact midpoint residual expansion.
 
 # Function description
-This routine provides a **cheap, consistent error scale proxy** intended to:
-- supply per-point weights ``\\sigma(h)`` for least-``\\chi^2``-fitting ([`Maranatha.FitConvergence.fit_convergence`](@ref)), and
-- match the same ``h``-scaling convention used by the multidimensional error
-  estimators in this package.
+This routine extends the ``1``-dimensional midpoint residual model to four dimensions by applying
+the ``1``-dimensional midpoint error operator along each axis and integrating over the remaining
+three axes using tensor-product quadrature.
 
-It is *not* a rigorous truncation bound and does not attempt to reproduce the
-full composite-rule error expansion.
+Let ``\\displaystyle{h = \\frac{b-a}{N}}``.
+The leading midpoint residual order ``k`` and its coefficient
+`coeffR` are extracted from the exact rational composite weights for the ``1``-dimensional rule
+associated with `(rule, boundary, N)`.
 
-Two regimes are supported:
-
-## (A) Boundary-difference model (selected opened composite rules)
-For rules flagged by [`_has_boundary_error_model`](@ref)`(rule)`, the error estimator applies an
-axis-wise boundary-difference proxy. For each axis, it takes a boundary difference
-of the corresponding axis-wise derivative and integrates over the remaining coordinates:
-
-- ``x``-axis:
+The returned model is:
 ```math
-I_x \\approx \\int \\int \\int dy dz dt \\; \\left[ \\partial_x^{\\texttt{m}} f(x_L,y,z,t) - \\partial_x^{\\texttt{m}} f(x_R,y,z,t) \\right]
+E = \\texttt{coeff} \\, h^{k+1} \\, \\left( I_x + I_y + I_z + I_t \\right)
 ```
-- ``y``-axis:
+with `coeff = Float64(coeffR)` and midpoint coordinates:
 ```math
-I_y \\approx \\int \\int \\int dz dt dx \\; \\left[ \\partial_y^{\\texttt{m}} f(x,y_L,z,t) - \\partial_y^{\\texttt{m}} f(x,y_R,z,t) \\right]
+\\bar{x} = \\bar{y} = \\bar{z} = \\bar{t} = \\frac{a+b}{2} \\,.
 ```
-- ``z``-axis:
+The axis contributions are:
+- ``\\displaystyle{I_x = \\int\\int\\int dy dz dt \\; \\frac{\\partial^k f}{\\partial x^k} \\left( \\bar{x} , y , z , t \\right)}``
+- ``\\displaystyle{I_y = \\int\\int\\int dz dt dx \\; \\frac{\\partial^k f}{\\partial y^k} \\left( x , \\bar{y} , z , t \\right)}``
+- ``\\displaystyle{I_z = \\int\\int\\int dt dx dy \\; \\frac{\\partial^k f}{\\partial z^k} \\left( x , y , \\bar{z} , t \\right)}``
+- ``\\displaystyle{I_t = \\int\\int\\int dx dy dz \\; \\frac{\\partial^k f}{\\partial t^k} \\left( x , y , z , \\bar{t} \\right)}``
+Each integral is computed numerically using the same ``1``-dimensional quadrature nodes/weights.
+
+# Mathematical structure
+For tensor-product quadrature on ``[a,b]^4`` the leading separable error model is:
 ```math
-I_z \\approx \\int \\int \\int dt dx dy \\; \\left[ \\partial_z^{\\texttt{m}} f(x,y,z_L,t) - \\partial_z^{\\texttt{m}} f(x,y,z_R,t) \\right]
+E = C_k \\, h^{k+1} \\left[ 
+\\int\\int\\int dy dz dt \\; \\frac{\\partial^k f}{\\partial x^k} \\left( \\bar{x} , y , z , t \\right) 
++  
+\\int\\int\\int dz dt dx \\; \\frac{\\partial^k f}{\\partial y^k} \\left( x , \\bar{y} , z , t \\right) 
++  
+\\int\\int\\int dt dx dy \\; \\frac{\\partial^k f}{\\partial z^k} \\left( x , y , \\bar{z} , t \\right) 
++  
+\\int\\int\\int dx dy dz \\; \\frac{\\partial^k f}{\\partial t^k} \\left( x , y , z , \\bar{t} \\right) 
+\\right] 
++ \\left( \\text{higher-order terms} \\right) \\,.
 ```
-- ``t``-axis:
-```math
-I_t \\approx \\int \\int \\int dx dy dz \\; \\left[ \\partial_t^{\\texttt{m}} f(x,y,z,t_L) - \\partial_t^{\\texttt{m}} f(x,y,z,t_R) \\right]
-```
-and returns
-```math
-E \\approx \\texttt{K} \\, h^\\texttt{p} \\, ( I_x + I_y + I_z + I_t ) \\,
-```
-where
-- ``\\displaystyle{h = \\frac{b-a}{N}}``,
-- ``x_L = a + \\texttt{z} \\, h``, ``x_R = a + ( N - \\texttt{z} ) \\, h`` (and similarly ``y``, ``z``, ``t``),
-- `(p, K, m, z) =`[`_boundary_error_params`](@ref)`(rule)`.
-
-This branch is designed for (endpoint-free) opened composite rule formulas whose leading error
-behavior can be boundary-dominant, and often improves least ``\\chi^2`` fitting stability for those rules.
-
-### Derivative evaluation and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback
-All derivatives in this routine are evaluated via the [`nth_derivative`](@ref):
-1) compute using [`nth_derivative`](@ref) ([`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl)-based),
-2) if non-finite, emit a [`Maranatha.JobLoggerTools.warn_benji`](@ref) and retry with [`nth_derivative_taylor`](@ref) ([`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl)-based),
-3) throw an error only if the [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback is also non-finite.
-
-## (B) Default midpoint tensor-style model (all other supported rules)
-Otherwise, the estimator follows the same *single-sample midpoint derivative* pattern
-used in the multidimensional error estimators:
-
-1) Obtain `(m, C)` via [`_rule_params_for_tensor_error`](@ref)`(rule)`.
-2) Build `1`-dimensional nodes/weights `(xs, wx)` via [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)`.
-3) Approximate four axis-wise contributions by integrating the `m`-th derivative
-   along one axis while holding the remaining coordinates on quadrature nodes:
-   - ``\\displaystyle{I_x = \\int \\int \\int dy dz dt \\; \\partial_x^{\\texttt{m}} f(\\bar{x},y,z,t)}``
-   - ``\\displaystyle{I_y = \\int \\int \\int dz dt dx \\; \\partial_y^{\\texttt{m}} f(x,\\bar{y},z,t)}``
-   - ``\\displaystyle{I_z = \\int \\int \\int dt dx dy \\; \\partial_z^{\\texttt{m}} f(x,y,\\bar{z},t)}``
-   - ``\\displaystyle{I_t = \\int \\int \\int dt dx dy \\; \\partial_t^{\\texttt{m}} f(x,y,z,\\bar{t})}``
-4) Return ``E \\approx C \\; (b-a) \\; h^{\\texttt{m}} \\; (I_x + I_y + I_z + I_t)``.
+Higher-order residual terms and mixed-derivative corrections are omitted.
 
 # Arguments
-- `f`: ``4``-dimensional integrand callable `f(x, y, z, t)` (function, closure, or callable struct).
-- `a`, `b`: Hypercube domain bounds.
-- `N`: Number of subdivisions per axis defining ``\\displaystyle{h = \\frac{b-a}{N}}``.
-- `rule`: Quadrature rule symbol.
+- `f`:
+    Scalar callable integrand ``f(x,y,z,t)`` (function, closure, or callable struct).
+- `a`, `b`:
+    Scalar bounds defining the hypercube ``[a,b]^4``.
+- `N`:
+    Number of subintervals per axis (must satisfy composite constraints for `(rule, boundary)`).
+- `rule`:
+    Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+- `boundary`:
+    Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
 
 # Returns
-- `Float64`: A heuristic (signed) error scale proxy. If `m == 0` for the selected
-  `rule`, returns `0.0`.
-
-# Notes
-- Some rules may have **negative quadrature weights**. This estimator
-  intentionally preserves the rule-defined weights rather than enforcing normalization.
-- Rule-specific constraints on `N` (divisibility, minimum size, etc.) are:
-  - enforced explicitly in the boundary-model branch for supported open rules, and
-  - enforced in [`Maranatha.Integrate.quadrature_1d_nodes_weights`](@ref) for the default midpoint path.
-- The [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) fallback requires the integrand to accept generic number types
-  (e.g. `Taylor1`). If the integrand dispatch is restricted to `Real` only, the fallback
-  may raise a `MethodError`.
+- `Float64`:
+    Leading tensor-product truncation error estimate.
 
 # Errors
-- Throws an error if `(N, rule)` violates rule constraints.
-- Throws an error if both [`ForwardDiff.jl`](https://github.com/JuliaDiff/ForwardDiff.jl) and [`TaylorSeries.jl`](https://github.com/JuliaDiff/TaylorSeries.jl) derivatives are non-finite in the
-  selected estimator branch.
+- Propagates any errors from:
+  - composite weight assembly,
+  - midpoint residual extraction,
+  - derivative evaluation ([`nth_derivative`](@ref)).
+
+# Notes
+- This routine intentionally returns a *leading-term error scale*.
+- Coefficients come from exact rational arithmetic and are converted to `Float64`
+  only at the final stage.
+- Returns `0.0` if the residual scan reports `k == 0` (degenerate/unexpected case).
 """
 function estimate_error_4d(
     f, 
     a::Real, 
     b::Real, 
     N::Int, 
-    rule::Symbol
+    rule::Symbol,
+    boundary::Symbol
 )
 
     aa = float(a)
@@ -139,187 +108,60 @@ function estimate_error_4d(
     z̄ = (aa+bb)/2
     t̄ = (aa+bb)/2
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule)
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    # ---- special boundary-difference models ----
-    if _has_boundary_error_model(rule)
-        if rule == :simpson13_open
-            (N % 2 == 0) || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N even, got N = $N")
-            (N >= 8)     || JobLoggerTools.error_benji("open composite Simpson 1/3 rule requires N ≥ 8, got N = $N")
-        elseif rule == :bode_open
-            (N % 4 == 0) || JobLoggerTools.error_benji("Open composite Boole's rule requires N divisible by 4, got N = $N")
-            (N >= 16)    || JobLoggerTools.error_benji("Open composite Boole's rule requires N ≥ 16 (non-overlapping end stencils), got N = $N")
-        end
+    # ------------------------------------------------------------
+    # Default tensor-style midpoint model (auto from β residual)
+    # ------------------------------------------------------------
 
-        p, K, dord, off = _boundary_error_params(rule)
-        xL = aa + off*h
-        xR = aa + (N-off)*h
-        yL = xL; yR = xR
-        zL = xL; zR = xR
-        tL = xL; tR = xR
+    k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=64)
+    k == 0 && return 0.0
+    coeff = Float64(coeffR)
 
-        # X-axis
-        I1 = 0.0
-        @inbounds for j in eachindex(ys)
-            y = ys[j]
-            wyj = wy[j]
-            for k in eachindex(zs)
-                z = zs[k]
-                wyj_wzk = wyj * wz[k]
-                for l in eachindex(ts)
-                    t = ts[l]
-                    gx(x) = f(x, y, z, t)
-                    I1 += wyj_wzk * wt[l] * (
-                        nth_derivative(
-                            gx, 
-                            xL, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:L, axis=:x, stage=:boundary
-                        ) - nth_derivative(
-                            gx, 
-                            xR, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:R, axis=:x, stage=:boundary
-                        )
-                    )
-                end
-            end
-        end
-
-        # Y-axis
-        I2 = 0.0
-        @inbounds for i in eachindex(xs)
-            x = xs[i]
-            wxi = wx[i]
-            for k in eachindex(zs)
-                z = zs[k]
-                wxi_wzk = wxi * wz[k]
-                for l in eachindex(ts)
-                    t = ts[l]
-                    gy(y) = f(x, y, z, t)
-                    I2 += wxi_wzk * wt[l] * (
-                        nth_derivative(
-                            gy, 
-                            yL, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:L, axis=:y, stage=:boundary
-                        ) - nth_derivative(
-                            gy, 
-                            yR, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:R, axis=:y, stage=:boundary
-                        )
-                    )
-                end
-            end
-        end
-
-        # Z-axis
-        I3 = 0.0
-        @inbounds for i in eachindex(xs)
-            x = xs[i]
-            wxi = wx[i]
-            for j in eachindex(ys)
-                y = ys[j]
-                wxi_wyj = wxi * wy[j]
-                for l in eachindex(ts)
-                    t = ts[l]
-                    gz(z) = f(x, y, z, t)
-                    I3 += wxi_wyj * wt[l] * (
-                        nth_derivative(
-                            gz, 
-                            zL, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:L, axis=:z, stage=:boundary
-                        ) - nth_derivative(
-                            gz, 
-                            zR, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:R, axis=:z, stage=:boundary
-                        )
-                    )
-                end
-            end
-        end
-
-        # T-axis
-        I4 = 0.0
-        @inbounds for i in eachindex(xs)
-            x = xs[i]
-            wxi = wx[i]
-            for j in eachindex(ys)
-                y = ys[j]
-                wxi_wyj = wxi * wy[j]
-                for k in eachindex(zs)
-                    z = zs[k]
-                    gt(t) = f(x, y, z, t)
-                    I4 += wxi_wyj * wz[k] * (
-                        nth_derivative(
-                            gt, 
-                            tL, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:L, axis=:t, stage=:boundary
-                        ) - nth_derivative(
-                            gt, 
-                            tR, dord; 
-                            h=h, rule=rule, N=N, dim=4, 
-                            side=:R, axis=:t, stage=:boundary
-                        )
-                    )
-                end
-            end
-        end
-
-        return K * h^p * (I1 + I2 + I3 + I4)
-    end
-
-    # ---- default tensor-style midpoint model ----
-    m, C = _rule_params_for_tensor_error(rule)
-    m == 0 && return 0.0
-
+    # X-axis
     I1 = 0.0
     @inbounds for j in eachindex(ys)
         y = ys[j]
         wyj = wy[j]
-        for k in eachindex(zs)
-            z = zs[k]
-            wyj_wzk = wyj * wz[k]
+        for k2 in eachindex(zs)
+            z = zs[k2]
+            wyj_wzk = wyj * wz[k2]
             for l in eachindex(ts)
                 t = ts[l]
                 gx(x) = f(x, y, z, t)
                 I1 += wyj_wzk * wt[l] * nth_derivative(
-                    gx, 
-                    x̄, m; 
-                    h=h, rule=rule, N=N, dim=4, 
+                    gx, x̄, k;
+                    h=h, rule=rule, N=N, dim=4,
                     side=:mid, axis=:x, stage=:midpoint
                 )
             end
         end
     end
 
+    # Y-axis
     I2 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
         wxi = wx[i]
-        for k in eachindex(zs)
-            z = zs[k]
-            wxi_wzk = wxi * wz[k]
+        for k2 in eachindex(zs)
+            z = zs[k2]
+            wxi_wzk = wxi * wz[k2]
             for l in eachindex(ts)
                 t = ts[l]
                 gy(y) = f(x, y, z, t)
                 I2 += wxi_wzk * wt[l] * nth_derivative(
-                    gy, 
-                    ȳ, m; 
-                    h=h, rule=rule, N=N, dim=4, 
+                    gy, ȳ, k;
+                    h=h, rule=rule, N=N, dim=4,
                     side=:mid, axis=:y, stage=:midpoint
                 )
             end
         end
     end
 
+    # Z-axis
     I3 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -331,15 +173,15 @@ function estimate_error_4d(
                 t = ts[l]
                 gz(z) = f(x, y, z, t)
                 I3 += wxi_wyj * wt[l] * nth_derivative(
-                    gz, 
-                    z̄, m; 
-                    h=h, rule=rule, N=N, dim=4, 
+                    gz, z̄, k;
+                    h=h, rule=rule, N=N, dim=4,
                     side=:mid, axis=:z, stage=:midpoint
                 )
             end
         end
     end
 
+    # T-axis
     I4 = 0.0
     @inbounds for i in eachindex(xs)
         x = xs[i]
@@ -347,18 +189,17 @@ function estimate_error_4d(
         for j in eachindex(ys)
             y = ys[j]
             wxi_wyj = wxi * wy[j]
-            for k in eachindex(zs)
-                z = zs[k]
+            for k2 in eachindex(zs)
+                z = zs[k2]
                 gt(t) = f(x, y, z, t)
-                I4 += wxi_wyj * wz[k] * nth_derivative(
-                    gt, 
-                    t̄, m; 
-                    h=h, rule=rule, N=N, dim=4, 
+                I4 += wxi_wyj * wz[k2] * nth_derivative(
+                    gt, t̄, k;
+                    h=h, rule=rule, N=N, dim=4,
                     side=:mid, axis=:t, stage=:midpoint
                 )
             end
         end
     end
 
-    return C*(bb-aa)*h^m*(I1 + I2 + I3 + I4)
+    return coeff * h^(k+1) * (I1 + I2 + I3 + I4)
 end

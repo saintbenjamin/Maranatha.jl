@@ -13,8 +13,7 @@ module Runner
 using ..JobLoggerTools
 using ..Integrate
 using ..ErrorEstimator
-using ..RichardsonError
-using ..FitConvergence
+using ..LeastChiSquareFit
 
 export run_Maranatha
 
@@ -39,7 +38,7 @@ subsystems of Maranatha:
 
 - [`Maranatha.Integrate`](@ref)      : tensor-product Newton-Cotes quadrature in **arbitrary** dimension
 - [`Maranatha.ErrorEstimator`](@ref) : derivative-based error scale models
-- [`Maranatha.FitConvergence`](@ref) : least-χ² fitting for ``h \\to 0`` extrapolation
+- [`Maranatha.LeastChiSquareFit`](@ref) : least-χ² fitting for ``h \\to 0`` extrapolation
 
 For each resolution `N` in `nsamples`, the runner performs:
 
@@ -87,8 +86,7 @@ fit object and the raw data vectors used in the fit.
   Supported values:
 
   - `:derivative`  → [`Maranatha.ErrorEstimator.estimate_error`](@ref)
-  - `:richardson`  → [`Maranatha.RichardsonError.estimate_error_richardson`](@ref)
-
+  
 - `fit_terms::Int=2`:
   Number of basis terms used in the convergence model
   (including the constant extrapolated value).
@@ -100,7 +98,7 @@ A 3-tuple:
   Convenience alias for `fit_result.estimate`.
 
 - `fit_result::NamedTuple`:
-  Fit object returned by [`Maranatha.FitConvergence.fit_convergence`](@ref).  
+  Fit object returned by [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).  
   Fields:
   - `estimate::Float64` :
     Extrapolated integral estimate ``I_0`` (the ``h \\to 0`` limit), equal to `params[1]`.
@@ -160,7 +158,8 @@ function run_Maranatha(
     b;
     dim=1,
     nsamples=[4,8,16],
-    rule=:simpson13_close,
+    rule=:ns_p3,
+    boundary=:LCRC,
     err_method::Symbol = :derivative,
     fit_terms::Int = 2,
 )
@@ -171,35 +170,33 @@ function run_Maranatha(
     hs = Float64[]            # List of step sizes
 
     for N in nsamples
-        JobLoggerTools.log_stage_benji("N = $N in $nsamples", jobid)
+        # JobLoggerTools.log_stage_benji("N = $N in $nsamples", jobid)
         h = (b - a) / N
         push!(hs, h)
 
-        # Step 1: Evaluate integral using selected rule
-        JobLoggerTools.log_stage_sub1_benji("integrate() ::", jobid)
-        JobLoggerTools.@logtime_benji jobid begin
-            I = integrate(integrand, a, b, N, dim, rule)
-        end
-        # Step 2: Estimate integration error
-        JobLoggerTools.log_stage_sub1_benji("estimate_error() ::", jobid)
-        JobLoggerTools.@logtime_benji jobid begin
+        # # Step 1: Evaluate integral using selected rule
+        # JobLoggerTools.log_stage_sub1_benji("integrate() ::", jobid)
+        # JobLoggerTools.@logtime_benji jobid begin
+            I = integrate(integrand, a, b, N, dim, rule, boundary)
+        # end
+        # # Step 2: Estimate integration error
+        # JobLoggerTools.log_stage_sub1_benji("estimate_error() ::", jobid)
+        # JobLoggerTools.@logtime_benji jobid begin
             err = if err_method == :derivative
-                estimate_error(integrand, a, b, N, dim, rule)
-            elseif err_method == :richardson
-                estimate_error_richardson(integrand, a, b, N, dim, rule)
+                estimate_error(integrand, a, b, N, dim, rule, boundary)
             else
-                JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative or :richardson)")
+                JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative)")
             end
-        end
+        # end
         push!(estimates, I)
         push!(errors, err)
     end
 
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
-    JobLoggerTools.log_stage_benji("fit_convergence() ::", jobid)
-    JobLoggerTools.@logtime_benji jobid begin
-        fit_result = fit_convergence(hs, estimates, errors, rule; nterms=fit_terms)
-    end
+    # JobLoggerTools.log_stage_benji("least_chi_square_fit() ::", jobid)
+    # JobLoggerTools.@logtime_benji jobid begin
+        fit_result = least_chi_square_fit(a, b, hs, estimates, errors, rule, boundary; nterms=fit_terms)
+    # end
     print_fit_result(fit_result)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)

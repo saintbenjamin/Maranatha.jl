@@ -8,17 +8,14 @@
 # License: MIT License
 # ============================================================================
 
-# ============================================================
-# 4D tensor-product quadrature
-# ============================================================
-
 """
     integrate_4d(
         f, 
         a, 
         b, 
         N, 
-        rule
+        rule,
+        boundary
     ) -> Float64
 
 Evaluate a ``4``-dimensional integral of ``f(x, y, z, t)`` over the hypercube domain `[a, b]^4`
@@ -26,7 +23,7 @@ using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
 This routine generates 1D quadrature nodes and weights using
-[`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule)` and forms the tensor product:
+[`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms the tensor product:
 ```math
 \\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell \\, f(x_i, y_j, z_k, t_\\ell) \\,.
 ```
@@ -37,6 +34,8 @@ Loop ordering and accumulation are preserved exactly as implemented.
 - `a`, `b`: Hypercube domain bounds (used for all axes).
 - `N`: Number of intervals per axis.
 - `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Required for NS rules.
 
 # Returns
 - Estimated integral value as a `Float64`.
@@ -46,16 +45,16 @@ function integrate_4d(
     a, 
     b, 
     N, 
-    rule
+    rule,
+    boundary
 )
 
-    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule)
+    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx
 
     total = 0.0
-
     @inbounds for i in eachindex(xs)
         xi = xs[i]
         wi = wx[i]
@@ -66,11 +65,13 @@ function integrate_4d(
                 zk = zs[k]
                 wijk = wij * wz[k]
                 for l in eachindex(ts)
-                    total += wijk * wt[l] * f(xi, yj, zk, ts[l])
+                    w = wijk * wt[l]
+                    iszero(w) && continue
+                    val = f(xi, yj, zk, ts[l])
+                    total += w * val
                 end
             end
         end
     end
-
     return total
 end
