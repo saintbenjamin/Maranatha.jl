@@ -59,11 +59,11 @@ makedocs(
         "Home" => "index.md",
         "Reference" => Any[
             "Runner"                          => "lib/Runner.md",
-            "Integrands"                      => "lib/Integrands.md",
             "Integrate"                       => "lib/Integrate.md",
             "ErrorEstimator"                  => "lib/ErrorEstimator.md",
             "LeastChiSquareFit"                  => "lib/LeastChiSquareFit.md",
             "PlotTools"                       => "lib/PlotTools.md",
+            "Integrands"                      => "lib/Integrands.md",
             "AvgErrFormatter"                 => "lib/AvgErrFormatter.md",
             "JobLoggerTools"                  => "lib/JobLoggerTools.md",
             "examples" => Any[
