@@ -3,6 +3,7 @@
 
     f2D(x, y) = exp(-x^2 - y^2)
     bounds = (0.0, 1.0)
+    use_threads = true
 
     @testset "Trapezoidal LCRC" begin
         announce("2D rules :: Trapezoidal LCRC")
@@ -16,7 +17,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -34,7 +35,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -52,7 +53,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -70,7 +71,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -88,7 +89,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -106,7 +107,7 @@
         ff_shift = 1
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -124,7 +125,7 @@
         ff_shift = 1
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -142,7 +143,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -160,7 +161,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -178,7 +179,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -196,7 +197,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -214,7 +215,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -232,7 +233,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -250,7 +251,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -268,7 +269,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -286,7 +287,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -304,7 +305,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -322,7 +323,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -340,7 +341,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -358,7 +359,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -376,7 +377,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -394,7 +395,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -412,7 +413,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -430,7 +431,7 @@
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             f2D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)

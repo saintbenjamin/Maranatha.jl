@@ -224,3 +224,168 @@ function error_estimate_nd(
 
     return err_total
 end
+
+"""
+    error_estimate_nd_threads(
+        f,
+        a::Real,
+        b::Real,
+        N::Int,
+        rule::Symbol,
+        boundary::Symbol;
+        dim::Int,
+        nerr_terms::Int = 1,
+        kmax::Int = 128
+    ) -> Float64
+
+Threaded variant of [`error_estimate_nd`](@ref) for nD midpoint-residual truncation-error modeling.
+
+All non-threading details (mathematical definition, coefficient construction, residual-term
+interpretation, and overall intent) are identical to [`error_estimate_nd`](@ref).
+See that function for the full formalism and background.
+
+# Threading implementation
+
+This function parallelizes the axis-wise accumulation using Julia's built-in multithreading:
+
+* For each residual order `k` in `ks`, the total contribution is a sum over axes `axis = 1:dim`.
+* The per-axis contributions are distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over `axis in 1:dim`.
+* Each axis worker performs the full `(dim-1)`-dimensional node-product summation (odometer loop)
+  for its assigned axis, repeatedly evaluating the required `k`-th derivative at the midpoint.
+* Per-axis results are accumulated into a shared `Threads.Atomic{Float64}` (`axis_sum`) via
+  [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!).
+* Thread safety is ensured by allocating `fixed` and `idx` buffers *inside* the threaded loop,
+  avoiding any shared mutable state across threads.
+
+Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+
+# Arguments
+
+Same as [`error_estimate_nd`](@ref), with `dim` selecting the dimensionality.
+
+# Keyword arguments
+
+Same as [`error_estimate_nd`](@ref).
+
+# Returns
+
+Same as [`error_estimate_nd`](@ref).
+
+# Notes
+
+* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
+* For small `dim` or small `nerr_terms`, threading overhead may dominate.
+"""
+function error_estimate_nd_threads(
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
+    rule::Symbol,
+    boundary::Symbol;
+    dim::Int,
+    nerr_terms::Int = 1,
+    kmax::Int = 128
+)
+    dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
+    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+
+    aa = float(a)
+    bb = float(b)
+    h  = (bb - aa) / N
+    x̄ = (aa + bb) / 2
+
+    xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+
+    @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
+        return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
+    end
+
+    ks = Int[]
+    coeffsR = Quadrature.RBig[]
+
+    if nerr_terms == 1
+        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=kmax)
+        k == 0 && return 0.0
+        push!(ks, k)
+        push!(coeffsR, coeffR)
+    else
+        ks, coeffsR = _leading_midpoint_residual_terms(
+            rule, boundary, N;
+            nterms=nerr_terms,
+            kmax=kmax
+        )
+        isempty(ks) && return 0.0
+    end
+
+    err_total = 0.0
+
+    @inbounds for it in eachindex(ks)
+        k = ks[it]
+        k == 0 && continue
+        coeff = Float64(coeffsR[it])
+
+        axis_sum = Threads.Atomic{Float64}(0.0)
+
+        Threads.@threads for axis in 1:dim
+
+            # 스레드별 로컬 버퍼 (중요: 공유 금지)
+            fixed = Vector{Float64}(undef, dim)
+            idx   = ones(Int, dim - 1)
+
+            Iaxis = 0.0
+
+            if dim == 1
+                Iaxis = nth_derivative(
+                    x -> f(x),
+                    x̄, k;
+                    h=h, rule=rule, N=N, dim=dim,
+                    side=:mid, axis=axis, stage=:midpoint
+                )
+            else
+                fill!(idx, 1)
+
+                while true
+                    wprod = 1.0
+                    t = 1
+
+                    for d in 1:dim
+                        if d == axis
+                            continue
+                        end
+                        i = idx[t]
+                        fixed[d] = xs[i]
+                        wprod *= ws[i]
+                        t += 1
+                    end
+
+                    Iaxis += wprod * nth_derivative(
+                        x -> _call_with_axis(f, fixed, axis, x, dim),
+                        x̄, k;
+                        h=h, rule=rule, N=N, dim=dim,
+                        side=:mid, axis=axis, stage=:midpoint
+                    )
+
+                    # odometer
+                    q = dim - 1
+                    while q >= 1
+                        idx[q] += 1
+                        if idx[q] <= length(xs)
+                            break
+                        else
+                            idx[q] = 1
+                            q -= 1
+                        end
+                    end
+                    q == 0 && break
+                end
+            end
+
+            Threads.atomic_add!(axis_sum, Iaxis)
+        end
+
+        err_total += coeff * h^(k+1) * axis_sum[]
+    end
+
+    return err_total
+end

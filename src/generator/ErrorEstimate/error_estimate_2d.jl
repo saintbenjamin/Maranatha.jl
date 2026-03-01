@@ -154,3 +154,134 @@ function error_estimate_2d(
 
     return err
 end
+
+"""
+    error_estimate_2d_threads(
+        f,
+        a::Real,
+        b::Real,
+        N::Int,
+        rule::Symbol,
+        boundary::Symbol;
+        nerr_terms::Int = 1,
+        kmax::Int = 128
+    ) -> Float64
+
+Threaded variant of [`error_estimate_2d`](@ref) for 2D midpoint-residual truncation-error modeling.
+
+All non-threading details (mathematical definition, coefficient construction, residual-term
+interpretation, and overall intent) are identical to [`error_estimate_2d`](@ref).
+See that function for the full formalism and background.
+
+# Threading implementation
+
+This function parallelizes the dominant axis-wise summation loops using Julia's built-in
+multithreading:
+
+* For each residual order `k` in `ks`, the ``x``-axis and ``y``-axis contributions are computed
+  as weighted sums over the 1D quadrature nodes `xs`.
+* Each axis sum is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over the corresponding node loop.
+* Partial contributions are accumulated into shared `Threads.Atomic{Float64}` accumulators
+  (``I_``, ``I_2``) via [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!)
+
+Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+
+# Arguments
+
+Same as [`error_estimate_2d`](@ref).
+
+# Keyword arguments
+
+Same as [`error_estimate_2d`](@ref).
+
+# Returns
+
+Same as [`error_estimate_2d`](@ref).
+
+# Notes
+
+* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
+* For small `length(xs)` or small `nerr_terms`, threading overhead may dominate.
+"""
+function error_estimate_2d_threads(
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
+    rule::Symbol,
+    boundary::Symbol;
+    nerr_terms::Int = 1,
+    kmax::Int = 128
+)
+    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
+
+    aa = float(a)
+    bb = float(b)
+    h  = (bb - aa) / N
+
+    x̄ = (aa + bb) / 2
+    ȳ = x̄
+
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+
+    ks, coeffsR = if nerr_terms == 1
+        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
+        k == 0 && return 0.0
+        ([k], Quadrature.RBig[coeffR])
+    else
+        _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    end
+
+    L = length(xs)
+    err_total = 0.0
+
+    @inbounds for it in eachindex(ks)
+        k = ks[it]
+        k == 0 && continue
+        coeff = Float64(coeffsR[it])
+
+        I1 = Threads.Atomic{Float64}(0.0)
+        I2 = Threads.Atomic{Float64}(0.0)
+
+        # X-axis term
+        Threads.@threads for j in 1:L
+            y = xs[j]
+            w = wx[j]
+
+            gx = let y=y
+                x -> f(x, y)
+            end
+
+            dx = nth_derivative(
+                gx, x̄, k;
+                h=h, rule=rule, N=N, dim=2,
+                side=:mid, axis=:x, stage=:midpoint
+            )
+
+            Threads.atomic_add!(I1, w * dx)
+        end
+
+        # Y-axis term
+        Threads.@threads for i in 1:L
+            x = xs[i]
+            w = wx[i]
+
+            gy = let x=x
+                y -> f(x, y)
+            end
+
+            dy = nth_derivative(
+                gy, ȳ, k;
+                h=h, rule=rule, N=N, dim=2,
+                side=:mid, axis=:y, stage=:midpoint
+            )
+
+            Threads.atomic_add!(I2, w * dy)
+        end
+
+        err_total += coeff * h^(k + 1) * (I1[] + I2[])
+    end
+
+    return err_total
+end

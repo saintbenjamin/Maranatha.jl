@@ -43,6 +43,8 @@ subsystems of `Maranatha.jl`:
 - [`Maranatha.ErrorEstimate`](@ref)      : residual-based derivative error scale models (midpoint expansion)
 - [`Maranatha.LeastChiSquareFit`](@ref)   : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
 
+Optionally, derivative-based error estimation can be executed using threaded dispatch (see `use_threads`).
+
 For each resolution `N` in `nsamples`, the runner performs:
 
 1. Compute step size ``\\displaystyle{h = \\frac{b-a}{N}}``.
@@ -127,6 +129,9 @@ The final extrapolated estimate is returned together with the full fit object an
   If `ff_shift = 1`, the fitter skips the first residual power and fits using the next ones, etc.
   This is forwarded to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref) as `ff_shift`.
 
+* `use_threads::Bool = false`:
+  If `true`, dispatches to the threaded error-estimation backend ([`error_estimate_threads`](@ref)).
+
 # Returns
 
 A 3-tuple:
@@ -166,6 +171,7 @@ A 3-tuple:
 * The runner is **dimension-agnostic** and supports arbitrary ``n \\ge 1`` subject to computational cost.
 * Error estimators provide a *scale model* rather than a strict truncation bound, enabling stable weighted fits.
 * Logging and timing are centralized through [`Maranatha.JobLoggerTools`](@ref).
+* Threaded error estimation is optionally enabled via `use_threads`, without affecting the fitting stage.
 
 # Example
 
@@ -199,6 +205,7 @@ function run_Maranatha(
     fit_terms::Int = 2,
     nerr_terms::Int = 1,
     ff_shift::Int = 0,
+    use_threads::Bool = false,
 )
     jobid = nothing
 
@@ -220,7 +227,11 @@ function run_Maranatha(
         # JobLoggerTools.log_stage_sub1_benji("error_estimate() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
             err = if err_method == :derivative
-                error_estimate(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
+                if use_threads
+                  error_estimate_threads(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
+                else
+                  error_estimate(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
+                end
             else
                 JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative)")
             end

@@ -14,10 +14,11 @@ using TaylorSeries
 using Enzyme
 using ForwardDiff
 using LinearAlgebra
+using Base.Threads
 using ..JobLoggerTools
 using ..Quadrature
 
-export error_estimate
+export error_estimate, error_estimate_threads
 
 include("ErrorEstimate/nth_derivative.jl")
 
@@ -476,6 +477,65 @@ function error_estimate(
         return error_estimate_4d(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
     else
         return error_estimate_nd(f, a, b, N, rule, boundary; dim=dim, nerr_terms=nerr_terms)
+    end
+end
+
+"""
+    error_estimate_threads(
+        f,
+        a,
+        b,
+        N,
+        dim,
+        rule,
+        boundary;
+        nerr_terms::Int = 1
+    ) -> Float64
+
+Threaded dispatcher for the axis-separable midpoint-residual truncation-error *model* in arbitrary dimensions.
+
+# Function description
+Dispatches to the corresponding **threaded** dimension-specific estimator:
+- `dim == 1` ``\\rightarrow`` [`error_estimate_1d_threads`](@ref)
+- `dim == 2` ``\\rightarrow`` [`error_estimate_2d_threads`](@ref)
+- `dim == 3` ``\\rightarrow`` [`error_estimate_3d_threads`](@ref)
+- `dim == 4` ``\\rightarrow`` [`error_estimate_4d_threads`](@ref)
+- `dim >= 5` ``\\rightarrow`` [`error_estimate_nd_threads`](@ref)
+
+All non-threading details (mathematical definition, coefficient construction, residual-term
+interpretation, and overall intent) are identical to [`error_estimate`](@ref).
+See that function for the full formalism and background. Threading strategy details are
+documented in each dimension-specific threaded estimator.
+
+# Arguments
+Same as [`error_estimate`](@ref).
+
+# Keyword arguments
+Same as [`error_estimate`](@ref).
+
+# Returns
+Same as [`error_estimate`](@ref).
+"""
+function error_estimate_threads(
+    f,
+    a,
+    b,
+    N,
+    dim,
+    rule,
+    boundary;
+    nerr_terms::Int = 1
+)
+    if dim == 1
+        return error_estimate_1d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+    elseif dim == 2
+        return error_estimate_2d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+    elseif dim == 3
+        return error_estimate_3d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+    elseif dim == 4
+        return error_estimate_4d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+    else
+        return error_estimate_nd_threads(f, a, b, N, rule, boundary; dim=dim, nerr_terms=nerr_terms)
     end
 end
 

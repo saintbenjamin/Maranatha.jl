@@ -132,3 +132,91 @@ function error_estimate_1d(
 
     return err
 end
+
+"""
+    error_estimate_1d_threads(
+        f,
+        a::Real,
+        b::Real,
+        N::Int,
+        rule::Symbol,
+        boundary::Symbol;
+        nerr_terms::Int = 1,
+        kmax::Int = 128
+    ) -> Float64
+
+Threaded variant of [`error_estimate_1d`](@ref) for 1D midpoint-residual truncation-error modeling.
+
+All non-threading details (mathematical definition, coefficient construction, residual-term
+interpretation, and overall intent) are identical to [`error_estimate_1d`](@ref).
+See that function for the full formalism and background.
+
+# Threading implementation
+
+This function parallelizes the loop over collected residual orders `ks` using Julia's
+built-in multithreading:
+
+* The work is distributed via `Base.Threads.@threads` over `eachindex(ks)`.
+* Each iteration computes one derivative term ``f^{(k)}(\\bar{x})`` and its contribution to ``E``.
+* Contributions are accumulated into a shared `Threads.Atomic{Float64}` via
+  [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!) to avoid reliance on `threadid()`-indexed scratch arrays.
+
+Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+
+# Arguments
+
+Same as [`error_estimate_1d`](@ref).
+
+# Keyword arguments
+
+Same as [`error_estimate_1d`](@ref).
+
+# Returns
+
+Same as [`error_estimate_1d`](@ref).
+
+# Notes
+
+* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
+* For small `length(ks)` (common when `nerr_terms` is small), threading overhead may dominate.
+"""
+function error_estimate_1d_threads(
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
+    rule::Symbol,
+    boundary::Symbol;
+    nerr_terms::Int = 1,
+    kmax::Int = 128
+)
+
+    aa = float(a)
+    bb = float(b)
+    h  = (bb - aa) / N
+    x̄ = (aa + bb) / 2
+
+    ks, coeffsR = _leading_midpoint_residual_terms(
+        rule, boundary, N;
+        nterms = nerr_terms,
+        kmax   = kmax
+    )
+
+    err = Threads.Atomic{Float64}(0.0)
+
+    Threads.@threads for i in eachindex(ks)
+        k = ks[i]
+        k == 0 && continue
+
+        dx = nth_derivative(
+            f, x̄, k;
+            h=h, rule=rule, N=N, dim=1,
+            side=:mid, axis=:x, stage=:midpoint
+        )
+
+        val = Float64(coeffsR[i]) * h^(k+1) * dx
+        Threads.atomic_add!(err, val)
+    end
+
+    return err[]
+end

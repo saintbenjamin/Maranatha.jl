@@ -189,3 +189,178 @@ function error_estimate_3d(
 
     return err
 end
+
+"""
+    error_estimate_3d_threads(
+        f,
+        a::Real,
+        b::Real,
+        N::Int,
+        rule::Symbol,
+        boundary::Symbol;
+        nerr_terms::Int = 1,
+        kmax::Int = 128
+    ) -> Float64
+
+Threaded variant of [`error_estimate_3d`](@ref) for 3D midpoint-residual truncation-error modeling.
+
+All non-threading details (mathematical definition, coefficient construction, residual-term
+interpretation, and overall intent) are identical to [`error_estimate_3d`](@ref).
+See that function for the full formalism and background.
+
+# Threading implementation
+
+This function parallelizes the dominant axis-wise summation loops using Julia's built-in
+multithreading:
+
+* For each residual order `k` in `ks`, the ``x``-, ``y``-, and ``z``-axis contributions are computed
+  as weighted sums over 2D index grids (size `length(xs)^2`) corresponding to the remaining axes.
+* Each axis sum is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over a flattened grid-index loop
+  (`idx in 1:(L^2)`), which is mapped to the corresponding pair of 1D node indices.
+* Partial contributions are accumulated into shared `Threads.Atomic{Float64}` accumulators
+  (``I_1``, ``I_2``, ``I_3``) via [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!), avoiding reliance on `threadid()`-indexed scratch arrays.
+
+Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+
+# Arguments
+
+Same as [`error_estimate_3d`](@ref).
+
+# Keyword arguments
+
+Same as [`error_estimate_3d`](@ref).
+
+# Returns
+
+Same as [`error_estimate_3d`](@ref).
+
+# Notes
+
+* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
+* For small `length(xs)` or small `nerr_terms`, threading overhead may dominate.
+"""
+function error_estimate_3d_threads(
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
+    rule::Symbol,
+    boundary::Symbol;
+    nerr_terms::Int = 1,
+    kmax::Int = 128
+)
+    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
+
+    aa = float(a)
+    bb = float(b)
+    h  = (bb - aa) / N
+
+    x̄ = (aa + bb) / 2
+    ȳ = x̄
+    z̄ = x̄
+
+    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    ys, wy = xs, wx
+    zs, wz = xs, wx
+
+    ks, coeffsR = if nerr_terms == 1
+        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
+        k == 0 && return 0.0
+        ([k], Quadrature.RBig[coeffR])
+    else
+        _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    end
+
+    L = length(xs)
+    err_total = 0.0
+
+    @inbounds for it in eachindex(ks)
+        kk = ks[it]
+        kk == 0 && continue
+        coeff = Float64(coeffsR[it])
+
+        I1 = Threads.Atomic{Float64}(0.0)
+        I2 = Threads.Atomic{Float64}(0.0)
+        I3 = Threads.Atomic{Float64}(0.0)
+
+        # -----------------------------
+        # X-axis (sum over y,z)
+        # -----------------------------
+        Threads.@threads for idx in 1:(L^2)
+            tmp = idx - 1
+            j   = (tmp % L) + 1
+            k2  = (tmp ÷ L) + 1
+
+            y = ys[j]
+            z = zs[k2]
+            w = wy[j] * wz[k2]
+
+            gx = let y=y, z=z
+                x -> f(x, y, z)
+            end
+
+            dx = nth_derivative(
+                gx, x̄, kk;
+                h=h, rule=rule, N=N, dim=3,
+                side=:mid, axis=:x, stage=:midpoint
+            )
+
+            Threads.atomic_add!(I1, w * dx)
+        end
+
+        # -----------------------------
+        # Y-axis (sum over x,z)
+        # -----------------------------
+        Threads.@threads for idx in 1:(L^2)
+            tmp = idx - 1
+            i   = (tmp % L) + 1
+            k2  = (tmp ÷ L) + 1
+
+            x = xs[i]
+            z = zs[k2]
+            w = wx[i] * wz[k2]
+
+            gy = let x=x, z=z
+                y -> f(x, y, z)
+            end
+
+            dy = nth_derivative(
+                gy, ȳ, kk;
+                h=h, rule=rule, N=N, dim=3,
+                side=:mid, axis=:y, stage=:midpoint
+            )
+
+            Threads.atomic_add!(I2, w * dy)
+        end
+
+        # -----------------------------
+        # Z-axis (sum over x,y)
+        # -----------------------------
+        Threads.@threads for idx in 1:(L^2)
+            tmp = idx - 1
+            i   = (tmp % L) + 1
+            j   = (tmp ÷ L) + 1
+
+            x = xs[i]
+            y = ys[j]
+            w = wx[i] * wy[j]
+
+            gz = let x=x, y=y
+                z -> f(x, y, z)
+            end
+
+            dz = nth_derivative(
+                gz, z̄, kk;
+                h=h, rule=rule, N=N, dim=3,
+                side=:mid, axis=:z, stage=:midpoint
+            )
+
+            Threads.atomic_add!(I3, w * dz)
+        end
+
+        err_total += coeff * h^(kk + 1) * (I1[] + I2[] + I3[])
+    end
+
+    return err_total
+end
