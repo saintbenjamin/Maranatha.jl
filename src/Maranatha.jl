@@ -131,6 +131,11 @@ usage is primarily intended for controlled numerical studies.
 """
 module Maranatha
 
+using LinearAlgebra
+using TaylorSeries
+using Enzyme
+using ForwardDiff
+
 include("log/JobLoggerTools.jl")
 using .JobLoggerTools
 

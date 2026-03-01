@@ -10,11 +10,12 @@
 
 module ErrorEstimate
 
-using TaylorSeries
-using Enzyme
-using ForwardDiff
-using LinearAlgebra
 using Base.Threads
+using ..LinearAlgebra
+using ..TaylorSeries
+using ..Enzyme
+using ..ForwardDiff
+
 using ..JobLoggerTools
 using ..Quadrature
 

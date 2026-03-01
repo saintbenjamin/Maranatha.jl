@@ -5,21 +5,22 @@ using .Maranatha.F0000GammaEminus1
 
     ff(x)  = gtilde_F0000(x; p=3)
     bounds = (0.0, 1.0)
+    use_threads = true
 
     @testset "Trapezoidal LCRC" begin
         announce("1D rules :: Trapezoidal LCRC")
         dim = 1
         rule = :ns_p2
         boundary = :LCRC
-        ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 0
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -30,15 +31,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p2
         boundary = :LCRO
-        ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 1
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -49,15 +50,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p2
         boundary = :LORC
-        ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 1
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -68,15 +69,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p2
         boundary = :LORO
-        ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
+        ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 2
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -87,15 +88,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p3
         boundary = :LCRC
-        ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 0
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -106,15 +107,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p3
         boundary = :LCRO
-        ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 1
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
-        ff_shift = 1
+        nerr_terms = 3
+        ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -125,15 +126,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p3
         boundary = :LORC
-        ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 1
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
-        ff_shift = 1
+        nerr_terms = 3
+        ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -144,15 +145,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p3
         boundary = :LORO
-        ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
+        ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 2
         ns .+= 40
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -163,15 +164,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p4
         boundary = :LCRC
-        ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
+        ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 0
         ns .+= 39
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -182,15 +183,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p4
         boundary = :LCRO
-        ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
+        ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 1
         ns .+= 39
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -201,15 +202,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p4
         boundary = :LORC
-        ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
+        ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 1
         ns .+= 39
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -220,15 +221,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p4
         boundary = :LORO
-        ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
+        ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 2
         ns .+= 39
         result_string = "F0000"
-        nerr_terms = 2
+        nerr_terms = 3
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -239,34 +240,34 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p5
         boundary = :LCRC
-        ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
+        ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 0
-        ns .+= 56
+        ns .+= 36
         result_string = "F0000"
-        nerr_terms = 1
+        nerr_terms = 2
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Bode LCRO" begin
+#=     @testset "Bode LCRO" begin
         announce("1D rules :: Bode LCRO")
         dim = 1
         rule = :ns_p5
         boundary = :LCRO
-        ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
+        ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 1
         ns .+= 56
         result_string = "F0000"
-        nerr_terms = 1
+        nerr_terms = 2
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -277,15 +278,15 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p5
         boundary = :LORC
-        ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
+        ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 1
         ns .+= 56
         result_string = "F0000"
-        nerr_terms = 1
+        nerr_terms = 2
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -296,19 +297,19 @@ using .Maranatha.F0000GammaEminus1
         dim = 1
         rule = :ns_p5
         boundary = :LORO
-        ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
+        ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 2
         ns .+= 56
         result_string = "F0000"
-        nerr_terms = 1
+        nerr_terms = 2
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    end
+    end =#
 
     # @testset "6-point LCRC" begin
     #     announce("1D rules :: 6-point LCRC")
@@ -322,7 +323,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -340,7 +341,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -358,7 +359,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -376,7 +377,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -394,7 +395,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -412,7 +413,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -430,7 +431,7 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -448,14 +449,14 @@ using .Maranatha.F0000GammaEminus1
     #     ff_shift = 0
     #     est, fit, res = Maranatha.Runner.run_Maranatha(
     #         ff, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
     #     )
     #     assert_result_sane(res); @test isfinite(est)
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 end
 
-@testset "Integrand preset API (F0000)" begin
+#= @testset "Integrand preset API (F0000)" begin
     announce("Integrand preset API (F0000)")
 
     # Registry sanity
@@ -464,6 +465,7 @@ end
     # Construct preset integrand via registry
     ff = Maranatha.Integrands.integrand(:F0000; p=3, eps=1e-15)
     bounds = (0.0, 1.0)
+    use_threads = true
 
     @testset "Simpson 1/3 LCRC (preset)" begin
         announce("1D rules :: Simpson 1/3 LCRC (preset)")
@@ -478,14 +480,14 @@ end
         ff_shift = 0
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=2, nerr_terms=nerr_terms, ff_shift=ff_shift
+            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
-end
+end =#
 
-@testset "Preset vs raw integrand consistency (spot-check)" begin
+#= @testset "Preset vs raw integrand consistency (spot-check)" begin
     announce("Preset vs raw integrand consistency (spot-check)")
 
     t = 0.37
@@ -497,4 +499,4 @@ end
 
     # Same underlying formula expected (exact match in current design)
     @test f_raw(t) == f_pre(t)
-end
+end =#

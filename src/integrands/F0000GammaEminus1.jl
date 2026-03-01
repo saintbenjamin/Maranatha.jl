@@ -111,6 +111,12 @@ The algebraic form is preserved exactly from the original implementation.
 function g_F0000_raw(
     y::T
 ) where {T<:Number}
+    if y == zero(T)
+        return T(1) / T(2)
+    elseif y == one(T)
+        return zero(T)
+    end
+
     x = (one(T) - y) / y  # x>0
 
     exI0 = exI0_safe(x)
@@ -174,15 +180,15 @@ function gtilde_F0000(
     p::Int=2, 
     eps::T=T(1e-15)
 ) where {T<:Number}
-    if t ≤ eps
-        return zero(T)
-    elseif (one(T) - t) ≤ eps
-        return zero(T)
-    end
+    # if t ≤ eps
+    #     return zero(T)
+    # elseif (one(T) - t) ≤ eps
+    #     return zero(T)
+    # end
 
-    y = t^p
-    return T(p) * t^(p-1) * g_F0000_raw(y)
-    # return g_F0000_raw(t)
+    # y = t^p
+    # return T(p) * t^(p-1) * g_F0000_raw(y)
+    return g_F0000_raw(t)
 end
 
 end  # module F0000GammaEminus1
