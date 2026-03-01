@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Integrate/integrate_2d.jl
+# src/rules/Quadrature/quadrature_2d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,7 +9,7 @@
 # ============================================================================
 
 """
-    integrate_2d(
+    quadrature_2d(
         f, 
         a, 
         b, 
@@ -40,7 +40,7 @@ Loop ordering and accumulation are preserved exactly as implemented.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_2d(
+function quadrature_2d(
     f, 
     a, 
     b, 

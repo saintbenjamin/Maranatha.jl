@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Integrate/integrate_nd.jl
+# src/rules/Quadrature/quadrature_nd.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,7 +9,7 @@
 # ============================================================================
 
 """
-    integrate_nd(
+    quadrature_nd(
         f,
         a,
         b,
@@ -76,7 +76,7 @@ to ensure reproducibility and consistent floating-point behavior.
   [`quadrature_1d_nodes_weights`](@ref).
 - The integrand is called as ``f(x_1, x_2, \\ldots, x_\\texttt{dim})`` using splatting.
 """
-function integrate_nd(
+function quadrature_nd(
     f, 
     a, 
     b, 

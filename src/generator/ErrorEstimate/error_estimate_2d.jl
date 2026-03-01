@@ -1,5 +1,5 @@
 # ============================================================================
-# src/error/ErrorEstimator/estimate_error_2d.jl
+# src/generator/ErrorEstimate/error_estimate_2d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,128 +9,148 @@
 # ============================================================================
 
 """
-    estimate_error_2d(
+    error_estimate_2d(
         f,
         a::Real,
         b::Real,
         N::Int,
         rule::Symbol,
-        boundary::Symbol
+        boundary::Symbol;
+        nerr_terms::Int = 1,
+        kmax::Int = 128
     ) -> Float64
 
-Estimate the leading tensor-product truncation error for a ``2``-dimensional composite
-Newton-Cotes rule on the square domain ``[a,b]^2``.
+Estimate a ``2``-dimensional tensor-product truncation-error *model* for a composite Newton-Cotes rule
+on the square domain ``[a,b]^2`` using the exact midpoint residual expansion.
 
 # Function description
-This routine extends the ``1``-dimensional midpoint residual model axis-by-axis
-to tensor-product quadrature.
+This routine extends the ``1``-dimensional midpoint-residual model axis-by-axis to a tensor-product setting.
 
-Let ``\\displaystyle{h = \\frac{b-a}{N}}``.
-From the exact ``1``-dimensional composite rule, determine the leading midpoint residual order ``k``
-and its exact coefficient `coeff`.
-
-In two dimensions, the tensor-product truncation error decomposes
-into axis-wise contributions:
+Let ``\\displaystyle{h = \\frac{b-a}{N}}`` and ``\\displaystyle{\\bar{x} = \\bar{y} = \\frac{a+b}{2}}``.
+From the exact ``1``-dimensional composite rule (via rational weight assembly), the midpoint residual expansion
+yields a sequence of nonzero residual orders ``k`` with exact coefficients
+``\\displaystyle{\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}}``. This routine collects the first `nerr_terms`
+nonzero residual orders ``k_1, k_2, \\ldots`` (up to `kmax`) and returns the summed separable model:
 ```math
-E = \\texttt{coeff} \\, h^{k+1} \\, \\left( I_x + I_y \\right)
+E \\approx \\sum_{i=1}^{n_{\\text{err}}}
+\\texttt{coeff}_{k_i}\\, h^{k_i+1}\\, \\left( I_x^{(k_i)} + I_y^{(k_i)} \\right),
 ```
-where:
+with axis-wise cross integrals
 
-- ``\\displaystyle{I_x = \\int dy \\; \\frac{\\partial^k f}{\\partial x^k} \\left( \\bar{x} , y \\right)}``
-- ``\\displaystyle{I_y = \\int dx \\; \\frac{\\partial^k f}{\\partial y^k} \\left( x , \\bar{y} \\right)}``
-with midpoint coordinates:
 ```math
-\\bar{x} = \\bar{y} = \\frac{a+b}{2}
+I_x^{(k)} = \\int\\limits_{a}^{b} dy\\; \\frac{\\partial^k f}{\\partial x^k}(\\bar{x}, y),
+\\qquad
+I_y^{(k)} = \\int\\limits_{a}^{b} dx\\; \\frac{\\partial^k f}{\\partial y^k}(x, \\bar{y}),
 ```
-The cross-axis integrals are evaluated numerically using the same
-composite quadrature weights.
-
-# Mathematical structure
-For tensor-product rules, the leading truncation error separates as:
-```math
-E = C_k \\, h^{k+1} \\left[ 
-\\int dy \\; \\frac{\\partial^k f}{\\partial x^k} \\left( \\bar{x} , y \\right) 
-+ 
-\\int dx \\; \\frac{\\partial^k f}{\\partial y^k} \\left( x , \\bar{y} \\right) 
-\\right] 
-+ \\left( \\text{higher-order terms} \\right) \\,.
-```
-Mixed derivative contributions appear at higher asymptotic order
-and are not included in this leading model.
+evaluated numerically using the same ``1``-dimensional composite nodes/weights.
 
 # Arguments
-- `f`:
-    Scalar callable integrand ``f(x,y)`` (function, closure, or callable struct).
-- `a`, `b`:
-    Scalar bounds defining the square domain ``[a,b]^2``.
-- `N`:
-    Number of subintervals per axis.
-- `rule`:
-    Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
-- `boundary`:
-    Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+
+* `f`:
+  Scalar callable integrand ``f(x,y)`` (function, closure, or callable struct).
+* `a`, `b`:
+  Scalar bounds defining the square domain ``[a,b]^2``.
+* `N`:
+  Number of subintervals per axis. Must satisfy the composite tiling constraint for `(rule, boundary)`.
+* `rule`:
+  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+* `boundary`:
+  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+
+# Keyword arguments
+
+* `nerr_terms`:
+  Number of nonzero midpoint residual terms to include in the model (`1` = LO only, `2` = LO+NLO, ...).
+* `kmax`:
+  Maximum residual order scanned when collecting terms.
 
 # Returns
-- `Float64`:
-    Leading tensor-product truncation error estimate.
+
+* `Float64`:
+  The summed separable truncation-error model value.
 
 # Errors
-- Propagates any errors from:
-  - composite weight assembly,
-  - midpoint residual extraction,
-  - derivative evaluation ([`nth_derivative`](@ref)).
+
+* Propagates errors from:
+
+  * composite weight assembly,
+  * residual-term extraction,
+  * derivative evaluation ([`nth_derivative`](@ref)).
+* Throws (via [`Maranatha.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
+  insufficient nonzero residual terms exist up to `kmax`.
 
 # Notes
-- This routine models only the leading separable contribution.
-- Mixed derivative terms of the form ``\\displaystyle{\\frac{\\partial^r \\partial^s f}{\\partial x^r \\partial y^s}}`` appear at higher orders and are intentionally omitted.
-- Coefficients originate from exact rational composite weights.
+
+* This model sums only *axis-separable* contributions (``x``-only and ``y``-only operators).
+* Mixed derivative terms (e.g. ``\\partial_x^r\\partial_y^s f``) appear at higher asymptotic order
+  and are intentionally omitted here.
+* Coefficients are derived in exact rational arithmetic and converted to `Float64` only at the final stage.
 """
-function estimate_error_2d(
+function error_estimate_2d(
     f, 
     a::Real, 
     b::Real, 
     N::Int, 
     rule::Symbol,
-    boundary::Symbol
+    boundary::Symbol;
+    nerr_terms::Int = 1,
+    kmax::Int = 128
 )
+
+    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
     aa = float(a)
     bb = float(b)
-    h  = (bb-aa)/N
+    h  = (bb - aa) / N
 
-    x̄ = (aa+bb)/2
-    ȳ = (aa+bb)/2
+    x̄ = (aa + bb) / 2
+    ȳ = (aa + bb) / 2
 
     xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
-    k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=64)
-    k == 0 && return 0.0
-    coeff = Float64(coeffR)
-
-    # X-axis contribution: apply 1D error operator in x, integrate over y
-    I1 = 0.0
-    @inbounds for j in eachindex(xs)
-        y = xs[j]
-        gx(x) = f(x, y)
-        I1 += wx[j] * nth_derivative(
-            gx, x̄, k;
-            h=h, rule=rule, N=N, dim=2,
-            side=:mid, axis=:x, stage=:midpoint
-        )
+    # collect LO / LO+NLO / ...
+    ks, coeffsR = if nerr_terms == 1
+        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
+        k == 0 && return 0.0
+        ([k], Quadrature.RBig[coeffR])
+    else
+        _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
     end
 
-    # Y-axis contribution: apply 1D error operator in y, integrate over x
-    I2 = 0.0
-    @inbounds for i in eachindex(xs)
-        x = xs[i]
-        gy(y) = f(x, y)
-        I2 += wx[i] * nth_derivative(
-            gy, ȳ, k;
-            h=h, rule=rule, N=N, dim=2,
-            side=:mid, axis=:y, stage=:midpoint
-        )
+    err = 0.0
+
+    @inbounds for it in eachindex(ks)
+        k = ks[it]
+        k == 0 && continue
+        coeff = Float64(coeffsR[it])
+
+        # X-axis contribution: apply k-th derivative in x, integrate over y
+        I1 = 0.0
+        for j in eachindex(xs)
+            y = xs[j]
+            gx(x) = f(x, y)
+            I1 += wx[j] * nth_derivative(
+                gx, x̄, k;
+                h=h, rule=rule, N=N, dim=2,
+                side=:mid, axis=:x, stage=:midpoint
+            )
+        end
+
+        # Y-axis contribution: apply k-th derivative in y, integrate over x
+        I2 = 0.0
+        for i in eachindex(xs)
+            x = xs[i]
+            gy(y) = f(x, y)
+            I2 += wx[i] * nth_derivative(
+                gy, ȳ, k;
+                h=h, rule=rule, N=N, dim=2,
+                side=:mid, axis=:y, stage=:midpoint
+            )
+        end
+
+        err += coeff * h^(k+1) * (I1 + I2)
     end
 
-    # Each axis contributes coeff*h^(k+1) times the cross-axis integral
-    return coeff * h^(k+1) * (I1 + I2)
+    return err
 end

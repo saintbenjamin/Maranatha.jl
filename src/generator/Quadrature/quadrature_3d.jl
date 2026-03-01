@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Integrate/integrate_3d.jl
+# src/rules/Quadrature/quadrature_3d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,7 +9,7 @@
 # ============================================================================
 
 """
-    integrate_3d(
+    quadrature_3d(
         f, 
         a, 
         b, 
@@ -40,7 +40,7 @@ Loop ordering and accumulation are preserved exactly as implemented.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_3d(
+function quadrature_3d(
     f, 
     a, 
     b, 

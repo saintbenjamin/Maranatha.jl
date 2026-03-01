@@ -11,8 +11,8 @@
 module Runner
 
 using ..JobLoggerTools
-using ..Integrate
-using ..ErrorEstimator
+using ..Quadrature
+using ..ErrorEstimate
 using ..LeastChiSquareFit
 
 export run_Maranatha
@@ -23,11 +23,13 @@ export run_Maranatha
         a,
         b;
         dim::Int = 1,
-        nsamples = [4, 8, 16],
+        nsamples = [4, 8, 12, 16],
         rule::Symbol = :ns_p3,
         boundary::Symbol = :LCRC,
         err_method::Symbol = :derivative,
-        fit_terms::Int = 2
+        fit_terms::Int = 2,
+        nerr_terms::Int = 1,
+        ff_shift::Int = 0
     )
 
 High-level execution pipeline for ``n``-dimensional quadrature,
@@ -35,146 +37,168 @@ error modeling, and convergence extrapolation.
 
 # Function description
 `run_Maranatha` is the orchestration entry point that combines the core
-subsystems of Maranatha:
+subsystems of `Maranatha.jl`:
 
-- [`Maranatha.Integrate`](@ref)      : tensor-product Newton-Cotes quadrature in **arbitrary** dimension
-- [`Maranatha.ErrorEstimator`](@ref) : derivative-based error scale models
-- [`Maranatha.LeastChiSquareFit`](@ref) : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
+- [`Maranatha.Quadrature`](@ref)           : tensor-product Newton-Cotes quadrature in **arbitrary** dimension
+- [`Maranatha.ErrorEstimate`](@ref)      : residual-based derivative error scale models (midpoint expansion)
+- [`Maranatha.LeastChiSquareFit`](@ref)   : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
 
 For each resolution `N` in `nsamples`, the runner performs:
 
-1. Compute step size
-   ```math
-   h = \\frac{b-a}{N} \\, .
-   ```
+1. Compute step size ``\\displaystyle{h = \\frac{b-a}{N}}``.
 
-2. Evaluate the integral using the selected rule via [`Maranatha.Integrate.integrate`](@ref).
+2. Evaluate the integral using the selected rule via [`Maranatha.Quadrature.quadrature`](@ref).
 
 3. Estimate the integration error according to `err_method`.
+   For `err_method == :derivative`, this dispatches to
+   [`Maranatha.ErrorEstimate.error_estimate`](@ref) and forwards `nerr_terms`
+   to optionally include LO+NLO+... midpoint residual terms in the error model.
 
 4. Accumulate `(h, estimate, error)` triplets.
 
 After processing all resolutions, a weighted convergence fit is performed using a
-**residual-informed exponent basis** (derived from the composite Newton–Cotes midpoint residual model):
+**residual-informed exponent basis** derived from the composite Newton-Cotes midpoint residual model
+for `(rule, boundary)` and a representative subdivision count.
+
+The fitted model is reconstructed from the stored exponent vector:
 ```math
 I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}} \\,,
 ```
 where the exponent vector `powers` is determined during fitting and stored in the fit result
 (e.g. `fit_result.powers`, with `powers[1] = 0` for the constant term).
 
-The final extrapolated estimate ``\\lambda_0`` is returned together with the full
-fit object and the raw data vectors used in the fit.
+Optionally, the fit may apply a **fitting-function-shift** (`ff_shift`) to skip the nominal leading residual power
+when the corresponding coefficient is expected to vanish for the given integrand (e.g. symmetry causes the
+leading derivative contribution to be zero). In that case, the fitter selects powers starting at
+`1 + ff_shift` in the residual-power list and stores the resulting basis in `fit_result.powers`.
+
+The final extrapolated estimate is returned together with the full fit object and the raw data vectors.
 
 # Arguments
-- `integrand`: Callable integrand. May be a function, closure, or callable struct.
+
+* `integrand`:
+  Callable integrand. May be a function, closure, or callable struct.
   Must accept `dim` scalar positional arguments.
-- `a`, `b`: Scalar bounds defining the hypercube domain ``[a,b]^n`` where ``n`` is (spacetime) dimensionality.
+* `a`, `b`:
+  Scalar bounds defining the hypercube domain ``[a,b]^n`` where `n` is the dimensionality.
 
 # Keyword arguments
-- `dim::Int=1`:
+
+* `dim::Int = 1`:
   Dimensionality of the tensor-product quadrature.
-  Internally dispatched through [`Maranatha.Integrate.integrate`](@ref), 
-  which supports specialized implementations (from ``1``-dimensional to ``4``-dimensional quadrature) and a general ``n``-dimensional quadrature fallback.
+  Internally dispatched through [`Maranatha.Quadrature.quadrature`](@ref),
+  which supports specialized implementations (from ``1``-dimensional to ``4``-dimensional quadrature)
+  and a general ``n``-dimensional quadrature fallback.
 
-- `nsamples=[4,8,16]`:
-  Vector of subdivision counts `N`. Each value defines a different grid
-  resolution used in the convergence study.
+* `nsamples = [4, 8, 12, 16]`:
+  Vector of subdivision counts `N`. Each value defines a different grid resolution used in the convergence study.
 
-- `rule::Symbol = :ns_p3`:
-  Newton–Cotes rule identifier. For the Taylor/moment-based general rules, use `:ns_pK`
+* `rule::Symbol = :ns_p3`:
+  Newton-Cotes rule identifier. For the general NS rules, use `:ns_pK`
   (e.g. `:ns_p3`, `:ns_p4`, `:ns_p5`, ...). This symbol is forwarded to both integration
   and error-estimation modules.
 
-- `boundary::Symbol = :LCRC`:
+* `boundary::Symbol = :LCRC`:
   Boundary pattern for the composite rule assembly. Supported values are:
   `:LCRC`, `:LORC`, `:LCRO`, `:LORO`.
   This is forwarded consistently to integration, error estimation, and fitting.
 
-- `err_method::Symbol=:derivative`:
+* `err_method::Symbol = :derivative`:
   Error estimation strategy.
   Supported values:
 
-  - `:derivative`  → [`Maranatha.ErrorEstimator.estimate_error`](@ref)
-  
-- `fit_terms::Int = 2`:
+  * `:derivative`: [`Maranatha.ErrorEstimate.error_estimate`](@ref)
+
+* `fit_terms::Int = 2`:
   Number of basis terms used in the convergence model (including the constant term).
-  This is forwarded as `nterms` to the least-``\\chi^2`` fitter, which determines the
-  first `nterms-1` nonzero residual-derived exponents and stores them in `fit_result.powers`.
+  This is forwarded as `nterms` to the least-``\\chi^2`` fitter.
+  The fitter selects `nterms-1` residual-derived exponents (optionally shifted by `ff_shift`)
+  and stores the full exponent vector (with leading `0`) in `fit_result.powers`.
+
+* `nerr_terms::Int = 1`:
+  Number of midpoint residual terms used by the derivative-based error estimator.
+  This is forwarded to [`Maranatha.ErrorEstimate.error_estimate`](@ref) as `nerr_terms`.
+
+  * ``1``  uses LO only
+  * ``>1`` uses LO + NLO + ... up to `nerr_terms` terms (subject to the residual scan limit)
+
+* `ff_shift::Int = 0`:
+  Forward shift applied inside the fitter when selecting residual-derived powers.
+  If `ff_shift = 1`, the fitter skips the first residual power and fits using the next ones, etc.
+  This is forwarded to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref) as `ff_shift`.
 
 # Returns
+
 A 3-tuple:
 
-- `final_estimate::Float64`:
+* `final_estimate::Float64`:
   Convenience alias for `fit_result.estimate`.
 
-- `fit_result::NamedTuple`:
-  Fit object returned by [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).  
-  Fields:
-  - `estimate::Float64` :
-    Extrapolated integral estimate ``I_0`` (the ``h \\to 0`` limit), equal to `params[1]`.
-  - `estimate_error::Float64` :
-    ``1 \\, \\sigma`` uncertainty of `estimate`, taken as `param_errors[1]` from the covariance diagonal.
-  - `params::Vector{Float64}` :
-    Fitted parameter vector ``[\\lambda_1, \\lambda_2, \\ldots]`` corresponding to the model
-    ``\\displaystyle{I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}}}`` where the exponent vector is stored in `fit_result.powers`.
-  - `param_errors::Vector{Float64}` :
-    ``1 \\, \\sigma`` uncertainties for `params` (square roots of `diag(cov)`).
-  - `cov::Matrix{Float64}` :
-    Parameter covariance matrix, suitable for uncertainty propagation
-    (e.g. ``\\sigma_{\\mathrm{fit}}(h)^2 = \\phi(h)^{\\top}\\,V\\,\\phi(h)`` where ``V`` is covariance matrix).
-  - `powers::Vector{Int}` :
-    Exponent vector used in the fit basis (typically with `powers[1] = 0` for the constant term).
-    This ensures plotting and downstream reconstruction use the exact same model as the fit.
-  - `chisq::Float64` :
-    Total chi-square value 
-    ```math
-    \\chi^2 = \\sum_i \\left(\\frac{y_i - \\hat y_i}{\\sigma_i}\\right)^2 \\,.
-    ```
-  - `redchisq::Float64` :
-    Reduced chi-square ``\\chi^2/\\mathrm{d.o.f.}``.
-    (If `dof == 0`, this may be `Inf`/`NaN` depending on `chisq`.)
-  - `dof::Int` :
-    Degrees of freedom `length(estimates) - length(params)`.
+* `fit_result::NamedTuple`:
+  Fit object returned by [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+  Key fields:
 
-- `data::NamedTuple`:
+  * `estimate::Float64`:
+    Extrapolated integral estimate ``I_0`` (the ``h \\to 0`` limit), equal to `params[1]`.
+  * `error_estimate::Float64`:
+    `1\\sigma` uncertainty of `estimate`, taken from `param_errors[1]`.
+  * `params::Vector{Float64}`:
+    Fitted parameter vector ``[I_0, C_1, C_2, \\ldots]``.
+  * `param_errors::Vector{Float64}`:
+    `1\\sigma` uncertainties for `params` (square roots of `diag(cov)`).
+  * `cov::Matrix{Float64}`:
+    Parameter covariance matrix, suitable for uncertainty propagation
+    (e.g. ``\\sigma_{\\mathrm{fit}}(h)^2 = \\varphi(h)^{\\top} \\, V \\, \\varphi(h)``).
+  * `powers::Vector{Int}`:
+    Exponent vector used in the fit basis (with `powers[1] = 0`), reflecting any `ff_shift` applied.
+  * `chisq::Float64`, `redchisq::Float64`, `dof::Int`:
+    Standard ``\\chi^2`` diagnostics.
+
+* `data::NamedTuple`:
   Raw convergence data:
-  - `h`   : step sizes
-  - `avg` : integral estimates
-  - `err` : error estimates
+
+  * `h`   : step sizes
+  * `avg` : integral estimates
+  * `err` : error estimates
 
 # Design notes
-- The runner is **dimension-agnostic**: the tensor-product implementation
-  allows arbitrary ``n \\ge 1`` (``n``: dimension), subject only to computational cost.
-- Error estimators provide a *scale model* rather than a strict truncation bound,
-  enabling stable weighted fits across dimensions.
-- Logging and timing are fully centralized through [`Maranatha.JobLoggerTools`](@ref).
+
+* The runner is **dimension-agnostic** and supports arbitrary ``n \\ge 1`` subject to computational cost.
+* Error estimators provide a *scale model* rather than a strict truncation bound, enabling stable weighted fits.
+* Logging and timing are centralized through [`Maranatha.JobLoggerTools`](@ref).
 
 # Example
+
 ```julia
 f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
 
 I0, fit, data = run_Maranatha(
-    f, 
+    f,
     0.0, 1.0;
     dim=4,
     nsamples=[40, 44, 48, 52, 56, 60, 64],
-    rule = :ns_p5,
-    boundary = :LCRC,
-    err_method=:derivative
-    fit_terms=4
+    rule=:ns_p5,
+    boundary=:LCRC,
+    err_method=:derivative,
+    fit_terms=4,
+    nerr_terms=2,
+    ff_shift=1
 )
 ```
+
 """
 function run_Maranatha(
     integrand,
     a,
     b;
     dim=1,
-    nsamples=[4,8,16],
+    nsamples=[4,8,12,16],
     rule=:ns_p3,
     boundary=:LCRC,
     err_method::Symbol = :derivative,
     fit_terms::Int = 2,
+    nerr_terms::Int = 1,
+    ff_shift::Int = 0,
 )
     jobid = nothing
 
@@ -188,15 +212,15 @@ function run_Maranatha(
         push!(hs, h)
 
         # # Step 1: Evaluate integral using selected rule
-        # JobLoggerTools.log_stage_sub1_benji("integrate() ::", jobid)
+        # JobLoggerTools.log_stage_sub1_benji("quadrature() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
-            I = integrate(integrand, a, b, N, dim, rule, boundary)
+            I = quadrature(integrand, a, b, N, dim, rule, boundary)
         # end
         # # Step 2: Estimate integration error
-        # JobLoggerTools.log_stage_sub1_benji("estimate_error() ::", jobid)
+        # JobLoggerTools.log_stage_sub1_benji("error_estimate() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
             err = if err_method == :derivative
-                estimate_error(integrand, a, b, N, dim, rule, boundary)
+                error_estimate(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
             else
                 JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative)")
             end
@@ -208,7 +232,7 @@ function run_Maranatha(
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
     # JobLoggerTools.log_stage_benji("least_chi_square_fit() ::", jobid)
     # JobLoggerTools.@logtime_benji jobid begin
-        fit_result = least_chi_square_fit(a, b, hs, estimates, errors, rule, boundary; nterms=fit_terms)
+        fit_result = least_chi_square_fit(a, b, hs, estimates, errors, rule, boundary; nterms=fit_terms, ff_shift=ff_shift)
     # end
     print_fit_result(fit_result)
 

@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Integrate/integrate_4d.jl
+# src/rules/Quadrature/quadrature_4d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,7 +9,7 @@
 # ============================================================================
 
 """
-    integrate_4d(
+    quadrature_4d(
         f, 
         a, 
         b, 
@@ -40,7 +40,7 @@ Loop ordering and accumulation are preserved exactly as implemented.
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_4d(
+function quadrature_4d(
     f, 
     a, 
     b, 

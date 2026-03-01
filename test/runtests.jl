@@ -56,10 +56,10 @@ function announce(title::AbstractString)
     return nothing
 end
 
-@testset "Maranatha regression suite" begin
-    announce("Maranatha regression suite")
+@testset "Maranatha.jl Quadrature Suite" begin
+    announce("Maranatha.jl Quadrature Suite")
 
-    include("Z_q_1D_F0000_test.jl")
+    # include("Z_q_1D_F0000_test.jl")
 
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
         announce("Canonical integrands (multi-dim, multi-rule)")

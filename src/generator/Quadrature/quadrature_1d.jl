@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Integrate/integrate_1d.jl
+# src/rules/Quadrature/quadrature_1d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,7 +9,7 @@
 # ============================================================================
 
 """
-    integrate_1d(
+    quadrature_1d(
         f, 
         a, 
         b, 
@@ -39,7 +39,7 @@ This keeps all rule-specific constraints and behaviour centralized in
 # Returns
 - Estimated integral value as a `Float64`.
 """
-function integrate_1d(
+function quadrature_1d(
     f, 
     a, 
     b, 

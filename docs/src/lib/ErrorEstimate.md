@@ -1,8 +1,8 @@
-# Maranatha.ErrorEstimator
+# Maranatha.ErrorEstimate
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimator,
+    Main.Maranatha.ErrorEstimate,
 ]
 Private = true
 ```

@@ -59,8 +59,8 @@ makedocs(
         "Home" => "index.md",
         "Reference" => Any[
             "Runner"                          => "lib/Runner.md",
-            "Integrate"                       => "lib/Integrate.md",
-            "ErrorEstimator"                  => "lib/ErrorEstimator.md",
+            "Quadrature"                       => "lib/Quadrature.md",
+            "ErrorEstimate"                  => "lib/ErrorEstimate.md",
             "LeastChiSquareFit"                  => "lib/LeastChiSquareFit.md",
             "PlotTools"                       => "lib/PlotTools.md",
             "Integrands"                      => "lib/Integrands.md",

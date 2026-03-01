@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Integrate.jl
+# src/rules/Quadrature.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,21 +8,21 @@
 # License: MIT License
 # ============================================================================
 
-module Integrate
+module Quadrature
 
 using LinearAlgebra
 using ..JobLoggerTools
 
-export integrate, quadrature_1d_nodes_weights
+export quadrature, quadrature_1d_nodes_weights
 
-include("Integrate/integrate_1d.jl")
-include("Integrate/integrate_2d.jl")
-include("Integrate/integrate_3d.jl")
-include("Integrate/integrate_4d.jl")
-include("Integrate/integrate_nd.jl")
+include("Quadrature/quadrature_1d.jl")
+include("Quadrature/quadrature_2d.jl")
+include("Quadrature/quadrature_3d.jl")
+include("Quadrature/quadrature_4d.jl")
+include("Quadrature/quadrature_nd.jl")
 
 """
-    integrate(
+    quadrature(
         integrand,
         a,
         b,
@@ -62,7 +62,7 @@ is ``[a,b]^{\\texttt{dim}}``.
 - Throws an error if `rule` is unknown or if `N` violates rule-specific constraints.
 - Any error thrown by `integrand` during evaluation is propagated.
 """
-function integrate(
+function quadrature(
     integrand, 
     a, 
     b, 
@@ -72,15 +72,15 @@ function integrate(
     boundary
 )
     if dim == 1
-        return integrate_1d(integrand, a, b, N, rule, boundary)
+        return quadrature_1d(integrand, a, b, N, rule, boundary)
     elseif dim == 2
-        return integrate_2d(integrand, a, b, N, rule, boundary)
+        return quadrature_2d(integrand, a, b, N, rule, boundary)
     elseif dim == 3
-        return integrate_3d(integrand, a, b, N, rule, boundary)
+        return quadrature_3d(integrand, a, b, N, rule, boundary)
     elseif dim == 4
-        return integrate_4d(integrand, a, b, N, rule, boundary)
+        return quadrature_4d(integrand, a, b, N, rule, boundary)
     else
-        return integrate_nd(integrand, a, b, N, rule, boundary; dim=dim)
+        return quadrature_nd(integrand, a, b, N, rule, boundary; dim=dim)
     end
 end
 
@@ -788,4 +788,4 @@ function quadrature_1d_nodes_weights(
     JobLoggerTools.error_benji("Unsupported rule=$rule (and not recognized as :ns_pK).")
 end
 
-end  # module Integrate
+end  # module Quadrature

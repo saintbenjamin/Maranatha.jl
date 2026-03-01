@@ -16,7 +16,7 @@ quadrature**, **error-scale modeling**, and **least ``\\chi^2`` fitting for ``h 
 
 `Maranatha.jl` is designed around a **pipeline-oriented workflow**:
 
-1. integration
+1. quadrature
 2. error estimation
 3. ``h \\to 0`` extrapolation via least ``\\chi^2`` fitting
 4. visualization using [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl).
@@ -28,18 +28,21 @@ evolve without tightly coupling the codebase.
 # Architecture overview
 
 ## Integration layer
-[`Maranatha.Integrate`](@ref) module provides a unified front-end for tensor-product Newton-Cotes
+[`Maranatha.Quadrature`](@ref) module provides a unified front-end for tensor-product Newton-Cotes
 quadrature in arbitrary dimensions. The concrete rule implementations are
 kept internal and are not part of the public API surface. The quadrature core uses an exact-moment / Taylor-expansion-based construction to support
 general multi-point composite Newton-Cotes rules through a unified implementation (including
-configurable endpoint openness via boundary patterns). Legacy hard-coded rule tables are intentionally removed.
+configurable endpoint openness via boundary patterns).
 
 ## Error modeling
-The [`Maranatha.ErrorEstimator`](@ref) module supplies lightweight derivative-based error
+The [`Maranatha.ErrorEstimate`](@ref) module supplies lightweight derivative-based error
 (scale) estimators that follow a tensor-product philosophy across dimensions.
-The estimator uses a lightweight derivative-based *error scale* model whose leading term is
+The estimator uses a lightweight derivative-based *error scale* model whose leading structure is
 determined from the composite Newton-Cotes *midpoint residual moments* computed from the exact
 composite weights (assembled rationally and converted to floating-point only at the final stage).
+
+The estimator supports using one or more residual terms (LO, NLO, ...) via a term count parameter
+(e.g. `nerr_terms` in the high-level runner), which sums multiple midpoint-residual contributions when requested.
 This provides consistent ``h``-scaling weights for least-``\\chi^2`` fitting across dimensions.
 
 This estimator is *not a rigorous truncation bound*; it is designed to
@@ -56,10 +59,15 @@ I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[
 where the exponent vector `powers` is determined during fitting and stored in the fit result
 (e.g. `fit_result.powers`, with `powers[1] = 0` for the constant term).
 
+The fitter may optionally apply a **fitting-function-shift** (e.g. `ff_shift`) when selecting residual-derived powers,
+allowing the fit basis to skip a nominal leading order that is expected to vanish for the given integrand.
+In such cases, the stored `fit_result.powers` reflects the shifted basis actually used in the fit.
+
 The routine also returns the parameter covariance matrix, enabling covariance-propagated uncertainty
 bands in convergence plots.
 
 ## Integrand system
+
 The [`Maranatha.Integrands`](@ref) submodule implements a registry-based preset system that allows
 named integrands to be constructed via factories while still accepting plain
 `Julia` callables (functions, closures, callable structs).
@@ -67,40 +75,46 @@ named integrands to be constructed via factories while still accepting plain
 This design keeps user-facing workflows simple without sacrificing flexibility.
 
 ## Execution layer
-[`Maranatha.Runner.run_Maranatha`](@ref) is the main orchestration entry point.  
+
+[`Maranatha.Runner.run_Maranatha`](@ref) is the main orchestration entry point.
 It performs:
 
-1) multi-resolution integration,
-2) error-scale estimation,
-3) least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation,
-4) formatted reporting of results.
+1. multi-resolution quadrature,
+2. error-scale estimation (optionally summing LO + NLO + ... residual terms via `nerr_terms`),
+3. least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation (optionally shifting the fit basis via `ff_shift`),
+4. formatted reporting of results.
 
 Users typically interact only with this high-level interface.
 
 ## Plotting utilities
+
 [`Maranatha.PlotTools.plot_convergence_result`](@ref) generates publication-style convergence
 figures using [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) with [``\\LaTeX``](https://www.latex-project.org/) rendering. The shaded band represents the
 full covariance-propagated ``1 \\, \\sigma`` uncertainty of the fitted model.
 The plot reconstruction uses the exact exponent basis stored in the fit result (e.g. `fit_result.powers`)
-together with the parameter covariance (e.g. `fit_result.cov`), ensuring consistency with the fitted model.
+together with the parameter covariance (e.g. `fit_result.cov`), ensuring consistency with the fitted model,
+including any forward-shift (`ff_shift`) applied during fitting.
 
 ## Logging
+
 All runtime diagnostics are handled by [`Maranatha.JobLoggerTools`](@ref), which provides
 timestamped logging, stage delimiters, and timing macros used consistently
 throughout the pipeline.
 
 # Public API
+
 The top-level Maranatha namespace re-exports a minimal set of entry points:
 
-- [`Maranatha.Runner.run_Maranatha`](@ref)
-    Perform numerical integration, error estimation, and least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation.
+* [`Maranatha.Runner.run_Maranatha`](@ref)
+  Perform numerical integration, error estimation, and least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation.
 
-- [`Maranatha.PlotTools.plot_convergence_result`](@ref)
-    Visualize convergence behavior and fitted uncertainty bands.
+* [`Maranatha.PlotTools.plot_convergence_result`](@ref)
+  Visualize convergence behavior and fitted uncertainty bands.
 
 Internal submodules remain accessible but are not required for normal usage.
 
 # Dimensionality
+
 A generalized ``n``-dimensional implementation is provided following the same
 tensor-product philosophy, with dimension-specific specializations available
 for lower dimensions.
@@ -108,11 +122,12 @@ Because tensor enumeration scales rapidly with dimension, higher-dimensional
 usage is primarily intended for controlled numerical studies.
 
 # Design goals
-- Pipeline-oriented structure rather than rule-centric APIs.
-- Strict separation between numerical core, orchestration, and visualization.
-- Reproducible floating-point behavior through preserved loop ordering.
-- Minimal public API surface with extensible internal modules.
-- Unified general ``n``-point Newton–Cotes support via Taylor/moment-based rule construction (no legacy rule tables).
+
+* Pipeline-oriented structure rather than rule-centric APIs.
+* Strict separation between numerical core, orchestration, and visualization.
+* Reproducible floating-point behavior through preserved loop ordering.
+* Minimal public API surface with extensible internal modules.
+* Unified general multi-point Newton-Cotes support via Taylor-expansion/moment-based rule construction.
 """
 module Maranatha
 
@@ -125,11 +140,11 @@ using .AvgErrFormatter
 # ============================================================
 # Integration dispatcher / high-level interface
 #
-# `Integrate.jl` typically defines a unified front-end that
+# `Quadrature.jl` typically defines a unified front-end that
 # selects a specific quadrature rule depending on user options.
 # ============================================================
-include("generator/Integrate.jl")
-using .Integrate
+include("generator/Quadrature.jl")
+using .Quadrature
 
 # ============================================================
 # Error estimation and fitting utilities
@@ -138,11 +153,10 @@ using .Integrate
 #   - analytic / model-based error estimators
 #   - convergence diagnostics for fitting pipelines
 # ============================================================
+include("generator/ErrorEstimate.jl")
+using .ErrorEstimate
 
-include("error/ErrorEstimator.jl")
-using .ErrorEstimator
-
-include("fit/LeastChiSquareFit.jl")
+include("generator/LeastChiSquareFit.jl")
 using .LeastChiSquareFit
 
 # ============================================================

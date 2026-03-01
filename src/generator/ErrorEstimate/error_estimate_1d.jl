@@ -1,5 +1,5 @@
 # ============================================================================
-# src/error/ErrorEstimator/estimate_error_1d.jl
+# src/generator/ErrorEstimate/error_estimate_1d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,117 +9,126 @@
 # ============================================================================
 
 """
-    estimate_error_1d(
+    error_estimate_1d(
         f,
         a::Real,
         b::Real,
         N::Int,
         rule::Symbol,
-        boundary::Symbol
+        boundary::Symbol;
+        nerr_terms::Int = 1,
+        kmax::Int = 128
     ) -> Float64
 
-Estimate the leading truncation error for a ``1``-dimensional composite Newton-Cotes rule
-using the exact midpoint residual expansion derived from rational weight assembly.
+Estimate a ``1``-dimensional truncation-error *model* for a composite Newton-Cotes rule using
+the exact midpoint residual expansion derived from rational weight assembly.
 
 # Function description
-This routine computes a *model-based leading truncation term*
-consistent with the exact composite Newton–Cotes construction
-implemented in the `Integrate` module.
+This routine computes an asymptotic truncation-error model consistent with the
+exact composite Newton-Cotes construction implemented in [`Maranatha.Quadrature`](@ref).
 
-The procedure is:
-
-1) Let ``\\displaystyle{h = \\frac{b-a}{N}}``.
-
-2) Using the exact rational composite weights ``\\beta``, determine the
-   first nonzero midpoint residual order ``k`` and its exact coefficient:
+Let ``\\displaystyle{h = \\frac{b-a}{N}}`` and the physical midpoint ``\\displaystyle{\\bar{x} = \\frac{a+b}{2}}``.
+Using exact rational composite weights ``\\beta`` (assembled internally), the midpoint-centered
+residual moments determine a sequence of nonzero residual orders ``k`` and coefficients
+``\\displaystyle{\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}}``, where:
 ```math
-\\texttt{diff}_k = \\int\\limits_0^{N_{\\text{sub}}} du \\; \\left( u - c \\right)^k - \\sum_0^{N_{\\text{sub}}} \\beta_j \\, \\left( j - c \\right)^k
-```
-```math
-\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}
-```
-where:
-- ``\\displaystyle{c = \\frac{N}{2}}`` is the midpoint in dimensionless coordinate,
-- ``\\beta_j`` are the exact composite coefficients.
-
-3) Evaluate the ``k``-th derivative of ``f`` at the physical midpoint:
-```math
-\\bar{x} = \\frac{a+b}{2}
+\\texttt{diff}_k
+= \\int\\limits_0^{N} du\\,(u-c)^k
+- \\sum_{j=0}^{N} \\beta_j\\,(j-c)^k,
+\\qquad c = \\frac{N}{2}.
 ```
 
-4) Return the modeled leading error term:
-```math
-E = \\texttt{coeff} \\, h^{k+1} \\, f^{k}\\left(\\bar{x}\\right)
-```
+The function collects the first `nerr_terms` nonzero residual orders
+``k_1, k_2, \\ldots`` (up to `kmax`) and returns the summed model:
 
-This matches the leading term of the Taylor expansion of the composite
-Newton-Cotes rule around the midpoint and is fully consistent with
-the exact rational assembly used in [`Maranatha.Integrate`](@ref).
-
-# Mathematical structure
-If the composite rule integrates monomials up to order ``m`` exactly,
-then the first nonzero residual term appears at derivative order ``k > m``,
-and the truncation error behaves like:
 ```math
-E = C_k \\, h^{k+1} \\, f^{k}\\left(\\bar{x}\\right) + \\left( \\text{higher-order terms} \\right) \\,.
+E \\approx \\sum_{i=1}^{n_{\\text{err}}}
+\\texttt{coeff}_{k_i}\\, h^{k_i+1}\\, f^{(k_i)}(\\bar{x}).
 ```
-This routine returns exactly that leading term.
 
 # Arguments
-- `f`:
-    Scalar callable integrand `f(x)` (function, closure, or callable struct).
-- `a`, `b`:
-    Lower and upper bounds of the integration interval.
-- `N`:
-    Number of subintervals.
-    Must satisfy the composite tiling constraint for `(rule, boundary)`.
-- `rule`:
-    Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
-- `boundary`:
-    Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+
+* `f`:
+  Scalar callable integrand ``f(x)`` (function, closure, or callable struct).
+* `a`, `b`:
+  Lower and upper bounds of the integration interval.
+* `N`:
+  Number of subintervals.
+  Must satisfy the composite tiling constraint for `(rule, boundary)`.
+* `rule`:
+  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+* `boundary`:
+  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+
+# Keyword arguments
+
+* `nerr_terms`:
+  Number of nonzero midpoint residual terms to include in the model.
+  `1` gives LO only; `2` gives LO+NLO; etc.
+* `kmax`:
+  Maximum residual order scanned when collecting terms.
 
 # Returns
-- `Float64`:
-    Leading truncation error estimate.
+
+* `Float64`:
+  The summed truncation-error model value (may be signed, following the model coefficients
+  and derivative signs).
 
 # Errors
-- Propagates any errors from:
-  - composite weight assembly,
-  - midpoint residual extraction,
-  - derivative evaluation ([`nth_derivative`](@ref)).
-- Returns `0.0` only if the detected residual order is `k == 0`
-  (degenerate or pathological case).
+
+* Propagates errors from:
+
+  * composite weight assembly,
+  * residual-term extraction,
+  * derivative evaluation ([`nth_derivative`](@ref)).
+* Throws (via [`Maranatha.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
+  insufficient nonzero residual terms exist up to `kmax`.
 
 # Notes
-- This is a *leading-term asymptotic model*, not a strict upper bound.
-- The coefficient is derived from exact rational arithmetic and
-  converted to `Float64` only at the final stage.
+
+* This is an asymptotic *model* for fit stabilization and scaling diagnostics, not a strict bound.
+* Coefficients are derived in exact rational arithmetic and converted to `Float64` only at the final stage.
 """
-function estimate_error_1d(
+function error_estimate_1d(
     f,
     a::Real,
     b::Real,
     N::Int,
     rule::Symbol,
-    boundary::Symbol
+    boundary::Symbol;
+    nerr_terms::Int = 1,
+    kmax::Int = 128
 )
+
+    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
 
     aa = float(a)
     bb = float(b)
     h  = (bb - aa) / N
 
-    k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=64)
-    k == 0 && return 0.0  # practically shouldn't happen, but safe
-
     x̄ = (aa + bb) / 2
 
-    d = nth_derivative(
-        f,
-        x̄, k;
-        h=h, rule=rule, N=N, dim=1,
-        side=:mid, axis=:x, stage=:midpoint
+    # Collect LO, (optionally) NLO, ... midpoint residual terms
+    ks, coeffsR = _leading_midpoint_residual_terms(
+        rule, boundary, N;
+        nterms = nerr_terms,
+        kmax   = kmax
     )
 
-    return Float64(coeffR) * h^(k+1) * d
+    err = 0.0
+    @inbounds for i in eachindex(ks)
+        k = ks[i]
+        k == 0 && continue  # degenerate safety
 
+        dx = nth_derivative(
+            f,
+            x̄, k;
+            h=h, rule=rule, N=N, dim=1,
+            side=:mid, axis=:x, stage=:midpoint
+        )
+
+        err += Float64(coeffsR[i]) * h^(k+1) * dx
+    end
+
+    return err
 end

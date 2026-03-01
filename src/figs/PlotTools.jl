@@ -13,7 +13,7 @@ module PlotTools
 using PyPlot
 using LinearAlgebra
 using ..JobLoggerTools
-using ..ErrorEstimator
+using ..ErrorEstimate
 
 export plot_convergence_result, set_pyplot_latex_style
 
@@ -77,100 +77,117 @@ and visualize a *fit uncertainty band* propagated from the parameter covariance.
 
 # Function description
 This routine is a visualization companion to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-It produces a publication-style convergence plot and saves it as a PNG file.
+It produces a convergence plot and saves it as a PNG file.
 
-The ``x``-axis is ``h^2`` (with ``\\displaystyle{h = \\frac{b-a}{N}}`` supplied via `hs`), and the ``y``-axis is the
-raw quadrature estimate ``I(h)`` with pointwise error bars (absolute values are used
-for plotting).
+The ``x``-axis is ``h^2`` (with ``h`` provided via `hs`), and the ``y``-axis is the raw quadrature
+estimate ``I(h)`` with pointwise error bars (absolute values are used for plotting).
 
-Although the ``x``-axis is plotted in ``h^2``, the fitted model is evaluated as a function
-of ``h``. Internally, the routine builds a dense grid in ``h^2``, converts it via
-``h = \\sqrt{h^2}``, and then evaluates the model and its propagated uncertainty on that
-``h`` grid.
+Although the ``x``-axis is plotted in ``h^2``, the fitted model is evaluated as a function of ``h``.
+Internally, the routine builds a dense grid in ``h^2``, converts it via ``h = \\sqrt{h^2}``,
+and evaluates the model and its propagated uncertainty on that ``h`` grid.
 
 ## Model reconstruction (no refitting)
-This function does *not* refit anything. It uses the stored fit output:
+This function does *not* refit anything. It reconstructs the model from the stored fit output:
+- `pvec   = fit_result.params`
+- `Cov    = fit_result.cov`
+- `I0     = fit_result.estimate`
+- `I0_err = fit_result.error_estimate`
 
-- `pvec = fit_result.params`
-- `Cov  = fit_result.cov`
-- `I0   = fit_result.estimate`
-- `I0_err = fit_result.estimate_error`
-
-A convergence model is reconstructed from the fit parameters:
+A convergence model is reconstructed using the exponent vector stored in `fit_result.powers`:
 ```math
-I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}}
+I(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h),
+\\qquad
+\\varphi_1(h)=1,
+\\qquad
+\\varphi_i(h)=h^{\\texttt{powers[i]}} \\ (i\\ge 2),
 ```
-where `powers` is the exponent vector determined during fitting and
-stored in `fit_result.powers`.
+where `powers = fit_result.powers` and `length(powers) == length(pvec)` is required.
 
-The exponent structure used for plotting is taken directly from
-`fit_result.powers`, ensuring consistency with the model used in
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+### Fallback behavior
 
-This routine assumes that `fit_result.powers` corresponds to the same basis ordering
-as `fit_result.params`. If this field is missing or inconsistent, the model reconstruction
-will be invalid.
+If `fit_result.powers` is not present, the routine falls back to a legacy assumption:
+it infers a representative subdivision count `Nref` from the smallest `h` in `hs`, extracts a leading
+residual order `k` via [`Maranatha.ErrorEstimate._leading_midpoint_residual_term`](@ref),
+sets `p = k`, and then uses:
+```math
+\\texttt{powers = (0, p, p+2, p+4, \\ldots)}
+```
+to match the length of `fit_result.params`.
+
+In this fallback mode, `rule` and `boundary` are used only for that residual-based power inference
+and for labeling the output filename.
 
 ## Fit curve and uncertainty band
-For each point on a dense grid in ``h``, the basis vector is constructed using the exact exponent set employed in the fit.
 
-Let `powers` denote the exponent vector stored in `fit_result.powers`
-(with `powers[1] = 0` for the constant term). Then
-```math
-\\varphi_1(h) = 1, \\qquad
-\\varphi_\\texttt{i}(h) = h^{\\,\\texttt{powers[i]}} \\quad (\\texttt{i} = 2, \\ldots, n),
-```
-where `n = length(fit_result.params)`.
+For each point on a dense grid in `h`, the basis vector is constructed using the same exponents
+used by the fit (preferably `fit_result.powers`).
 
 The routine evaluates:
-- fit curve: ``I_{\\text{fit}}(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h)``
-- ``1\\,\\sigma`` fit uncertainty:
-```math
-\\sigma_{\\text{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} \\, V \\, \\varphi(h)
-```
-where ``V`` is `fit_result.cov`.
 
-The plotted shaded band corresponds to ``I_{\\text{fit}}(h) \\pm \\sigma_{\\text{fit}}(h)``
-and therefore includes parameter correlations.
+* fit curve: ``I_{\\text{fit}}(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h)``
+* ``1 \\, \\sigma`` prediction uncertainty from parameter covariance:
+```math
+\\sigma_{\\text{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} \\, V \\, \\varphi(h),
+```
+where `V` is `fit_result.cov`. The plotted shaded band corresponds to
+``I_{\\text{fit}}(h) \\pm \\sigma_{\\text{fit}}(h)`` and includes parameter correlations.
 
 ## Plot elements
+
 The resulting figure contains:
-- the fitted curve ``I_{\\text{fit}}(h)`` (line),
-- the fit uncertainty band ``\\pm \\sigma`` (shaded region),
-- the measured points with error bars,
-- the extrapolated point at ``h^2 = 0`` with uncertainty `fit_result.estimate_error`.
+
+* the fitted curve ``I_{\\text{fit}}(h)`` (line),
+* the fit uncertainty band ``\\pm \\sigma`` (shaded region),
+* the measured points with error bars,
+* the extrapolated point at ``h^2 = 0`` with uncertainty `fit_result.error_estimate`.
 
 ## Output
+
 The output file is saved as:
 
-`convergence_\$(name)_\$(rule)_\$(boundary).png`
+```julia
+convergence_\$(name)_\$(rule)_\$(boundary).png
+```
 
 # Arguments
-- `a`, `b`: Integration bounds used only to derive a representative subdivision count `Nref`
-  from the smallest step size in `hs`.
-- `name`: Label used in the output filename.
-- `hs`: Step sizes ``h`` (typically ``\\displaystyle{h = \\frac{b-a}{N}}``).
-- `estimates`: Quadrature estimates ``I(h)`` corresponding to `hs`.
-- `errors`: Error estimates for ``I(h)`` (absolute values are used for plotting).
-- `fit_result`: Fit object expected to provide:
-  - `fit_result.params`
-  - `fit_result.cov`
-  - `fit_result.estimate`
-  - `fit_result.estimate_error`
+
+* `a`, `b`:
+  Integration bounds used only in the legacy fallback path to derive `Nref` from the smallest step size in `hs`.
+* `name`:
+  Label used in the output filename.
+* `hs`:
+  Step sizes `h` (typically ``\\displaystyle{h=\\frac{b-a}{N}}``).
+* `estimates`:
+  Quadrature estimates ``I(h)`` corresponding to `hs`.
+* `errors`:
+  Error estimates for ``I(h)`` (absolute values are used for plotting).
+* `fit_result`:
+  Fit object expected to provide:
+
+  * `fit_result.params`
+  * `fit_result.cov`
+  * `fit_result.estimate`
+  * `fit_result.error_estimate`
+    Optionally:
+  * `fit_result.powers` (recommended; required for exact basis reconstruction).
 
 # Keyword arguments
-- `rule`: Quadrature rule symbol (used for residual-based `p` detection and labeling).
-- `boundary`: Boundary pattern symbol (used for residual-based `p` detection and labeling).
+
+* `rule`:
+  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+* `boundary`:
+  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
 
 # Returns
-- `nothing`.
+
+* `nothing`.
 
 # Errors
-- Throws an error if input lengths mismatch.
-- Throws an error if no valid points remain after filtering.
-- Throws an error if `fit_result.powers` is missing or inconsistent with `fit_result.params`
-  (basis length/order mismatch).
-- Propagates errors from downstream plotting and linear-algebra operations
+
+* Throws an error if input lengths mismatch.
+* Throws an error if no valid points remain after filtering.
+* Throws an error if `fit_result.powers` exists but has a length mismatch with `fit_result.params`.
+* Propagates errors from downstream plotting and linear-algebra operations
   (e.g. non-finite values after filtering, covariance not usable for propagation).
 """
 function plot_convergence_result(
@@ -194,7 +211,7 @@ function plot_convergence_result(
     # (assumes hs correspond to increasing resolution)
     Nref = round(Int, (b - a) / minimum(float.(hs)))
 
-    # k, _ = ErrorEstimator._leading_midpoint_residual_term(rule, boundary, Nref)
+    # k, _ = ErrorEstimate._leading_midpoint_residual_term(rule, boundary, Nref)
     # p = k
 
     # # --- Determine leading power from rule ---
@@ -228,11 +245,14 @@ function plot_convergence_result(
     # --- New fit result structure ---
     pvec = fit_result.params
     I0      = fit_result.estimate
-    I0_err  = fit_result.estimate_error
+    I0_err  = fit_result.error_estimate
 
     # --- Build model automatically from params ---
     # Model: I(h) = I0 + C1*h^p + C2*h^(p+2) + ...
     Cov = fit_result.cov
+
+    # [PATCH] enforce symmetry for numerical stability
+    CovS = Symmetric(Matrix(Cov))
 
     # --------------------------------------------
     # Determine model exponents used by the fit
@@ -243,7 +263,7 @@ function plot_convergence_result(
     else
         # fallback: legacy assumption (p, p+2, p+4, ...)
         Nref = round(Int, (b - a) / minimum(float.(hs)))
-        k, _ = ErrorEstimator._leading_midpoint_residual_term(rule, boundary, Nref)
+        k, _ = ErrorEstimate._leading_midpoint_residual_term(rule, boundary, Nref)
         p = k
         vcat(0, [p + 2*(i-2) for i in 2:length(pvec)])
     end
@@ -264,7 +284,11 @@ function plot_convergence_result(
     function model_and_err(h)
         φ = basis_vec(h)
         y = dot(pvec, φ)
-        σ = sqrt(abs(dot(φ, Cov * φ)))
+
+        # [PATCH] prediction variance = φ' Cov φ, clipped at 0
+        var = dot(φ, CovS * φ)
+        # σ = sqrt(max(var, 0.0))
+        σ = sqrt(abs(var))
         return y, σ
     end
 

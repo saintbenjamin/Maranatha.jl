@@ -1,8 +1,8 @@
-# Maranatha.Integrate
+# Maranatha.Quadrature
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.Integrate,
+    Main.Maranatha.Quadrature,
 ]
 Private = true
 ```
