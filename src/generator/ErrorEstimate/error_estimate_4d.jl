@@ -257,8 +257,8 @@ multithreading:
   as weighted sums over 3D index grids (size `length(xs)^3`) corresponding to the remaining axes.
 * Each axis sum is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over a flattened grid-index loop
   (`idx in 1:(L^3)`), which is mapped to the corresponding triple of 1D node indices.
-* Partial contributions are accumulated into shared `Threads.Atomic{Float64}` accumulators
-  (``I_1``, ``I_2``, ``I_3``, ``I_4``) via [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!), avoiding reliance on `threadid()`-indexed scratch arrays.
+* Each axis sum accumulates into a thread-local `Float64` scratch buffer indexed by
+  [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid), followed by a `sum` reduction to form ``I_1``, ``I_2``, ``I_3``, and ``I_4``.
 
 Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
 
@@ -314,7 +314,9 @@ function error_estimate_4d_threads(
         _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
     end
 
-    L = length(xs)
+    L  = length(xs)
+    nt = Threads.maxthreadid()
+
     err_total = 0.0
 
     @inbounds for it in eachindex(ks)
@@ -322,15 +324,14 @@ function error_estimate_4d_threads(
         kk == 0 && continue
         coeff = Float64(coeffsR[it])
 
-        I1 = Threads.Atomic{Float64}(0.0)
-        I2 = Threads.Atomic{Float64}(0.0)
-        I3 = Threads.Atomic{Float64}(0.0)
-        I4 = Threads.Atomic{Float64}(0.0)
-
         # -----------------------------
         # X-axis (sum over y,z,t)
         # -----------------------------
+        I1_parts = zeros(Float64, nt)
+
         Threads.@threads for idx in 1:(L^3)
+            tid = Threads.threadid()
+
             tmp = idx - 1
             j   = (tmp % L) + 1
             tmp ÷= L
@@ -352,13 +353,19 @@ function error_estimate_4d_threads(
                 side=:mid, axis=:x, stage=:midpoint
             )
 
-            Threads.atomic_add!(I1, w * dx)
+            I1_parts[tid] += w * dx
         end
+
+        I1 = sum(I1_parts)
 
         # -----------------------------
         # Y-axis (sum over x,z,t)
         # -----------------------------
+        I2_parts = zeros(Float64, nt)
+
         Threads.@threads for idx in 1:(L^3)
+            tid = Threads.threadid()
+
             tmp = idx - 1
             i   = (tmp % L) + 1
             tmp ÷= L
@@ -380,13 +387,19 @@ function error_estimate_4d_threads(
                 side=:mid, axis=:y, stage=:midpoint
             )
 
-            Threads.atomic_add!(I2, w * dy)
+            I2_parts[tid] += w * dy
         end
+
+        I2 = sum(I2_parts)
 
         # -----------------------------
         # Z-axis (sum over x,y,t)
         # -----------------------------
+        I3_parts = zeros(Float64, nt)
+
         Threads.@threads for idx in 1:(L^3)
+            tid = Threads.threadid()
+
             tmp = idx - 1
             i   = (tmp % L) + 1
             tmp ÷= L
@@ -408,13 +421,19 @@ function error_estimate_4d_threads(
                 side=:mid, axis=:z, stage=:midpoint
             )
 
-            Threads.atomic_add!(I3, w * dz)
+            I3_parts[tid] += w * dz
         end
+
+        I3 = sum(I3_parts)
 
         # -----------------------------
         # T-axis (sum over x,y,z)
         # -----------------------------
+        I4_parts = zeros(Float64, nt)
+
         Threads.@threads for idx in 1:(L^3)
+            tid = Threads.threadid()
+
             tmp = idx - 1
             i   = (tmp % L) + 1
             tmp ÷= L
@@ -436,10 +455,12 @@ function error_estimate_4d_threads(
                 side=:mid, axis=:t, stage=:midpoint
             )
 
-            Threads.atomic_add!(I4, w * dt)
+            I4_parts[tid] += w * dt
         end
 
-        err_total += coeff * h^(kk + 1) * (I1[] + I2[] + I3[] + I4[])
+        I4 = sum(I4_parts)
+
+        err_total += coeff * h^(kk + 1) * (I1 + I2 + I3 + I4)
     end
 
     return err_total

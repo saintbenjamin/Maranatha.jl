@@ -181,8 +181,8 @@ multithreading:
 * For each residual order `k` in `ks`, the ``x``-axis and ``y``-axis contributions are computed
   as weighted sums over the 1D quadrature nodes `xs`.
 * Each axis sum is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over the corresponding node loop.
-* Partial contributions are accumulated into shared `Threads.Atomic{Float64}` accumulators
-  (``I_``, ``I_2``) via [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!)
+* Each threaded node loop accumulates into a thread-local `Float64` scratch buffer
+  indexed by [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid), followed by a `sum` reduction to form each axis integral.
 
 Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
 
@@ -233,7 +233,9 @@ function error_estimate_2d_threads(
         _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
     end
 
-    L = length(xs)
+    L  = length(xs)
+    nt = Threads.maxthreadid()
+
     err_total = 0.0
 
     @inbounds for it in eachindex(ks)
@@ -241,13 +243,16 @@ function error_estimate_2d_threads(
         k == 0 && continue
         coeff = Float64(coeffsR[it])
 
-        I1 = Threads.Atomic{Float64}(0.0)
-        I2 = Threads.Atomic{Float64}(0.0)
+        # -----------------------------
+        # X-axis term (sum over y)
+        # -----------------------------
+        I1_parts = zeros(Float64, nt)
 
-        # X-axis term
         Threads.@threads for j in 1:L
-            y = xs[j]
-            w = wx[j]
+            tid = Threads.threadid()
+
+            y   = xs[j]
+            w   = wx[j]
 
             gx = let y=y
                 x -> f(x, y)
@@ -259,13 +264,20 @@ function error_estimate_2d_threads(
                 side=:mid, axis=:x, stage=:midpoint
             )
 
-            Threads.atomic_add!(I1, w * dx)
+            I1_parts[tid] += w * dx
         end
+        I1 = sum(I1_parts)
 
-        # Y-axis term
+        # -----------------------------
+        # Y-axis term (sum over x)
+        # -----------------------------
+        I2_parts = zeros(Float64, nt)
+
         Threads.@threads for i in 1:L
-            x = xs[i]
-            w = wx[i]
+            tid = Threads.threadid()
+
+            x   = xs[i]
+            w   = wx[i]
 
             gy = let x=x
                 y -> f(x, y)
@@ -277,10 +289,11 @@ function error_estimate_2d_threads(
                 side=:mid, axis=:y, stage=:midpoint
             )
 
-            Threads.atomic_add!(I2, w * dy)
+            I2_parts[tid] += w * dy
         end
+        I2 = sum(I2_parts)
 
-        err_total += coeff * h^(k + 1) * (I1[] + I2[])
+        err_total += coeff * h^(k + 1) * (I1 + I2)
     end
 
     return err_total

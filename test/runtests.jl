@@ -14,21 +14,16 @@ using Test
 include(joinpath(@__DIR__, "..", "src", "Maranatha.jl"))
 using .Maranatha
 
-# include(joinpath(@__DIR__, "..", "src", "figs", "PlotTools.jl"))
-# using .PlotTools
-
-using .Maranatha.PlotTools
-
 # ----------------------------------------------------------------------------
 # Optional plotting switch:
 #   MARANATHA_PLOT=1  -> enable plots
 #   (default)         -> compute everything but do not call plot_convergence_result
 # ----------------------------------------------------------------------------
-const DO_PLOT = get(ENV, "MARANATHA_PLOT", "0") == "0"
+const DO_PLOT = get(ENV, "MARANATHA_PLOT", "0") == "1"
 
 function maybe_plot(a, b, tag::AbstractString, h, avg, err, fit; rule::Symbol, boundary::Symbol)
     if DO_PLOT
-        plot_convergence_result(a, b, tag, h, avg, err, fit; rule=rule, boundary=boundary)
+        PlotTools.plot_convergence_result(a, b, tag, h, avg, err, fit; rule=rule, boundary=boundary)
     end
     return nothing
 end

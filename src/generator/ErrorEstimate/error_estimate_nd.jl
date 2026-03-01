@@ -252,8 +252,8 @@ This function parallelizes the axis-wise accumulation using Julia's built-in mul
 * The per-axis contributions are distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over `axis in 1:dim`.
 * Each axis worker performs the full `(dim-1)`-dimensional node-product summation (odometer loop)
   for its assigned axis, repeatedly evaluating the required `k`-th derivative at the midpoint.
-* Per-axis results are accumulated into a shared `Threads.Atomic{Float64}` (`axis_sum`) via
-  [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!).
+* Per-axis results are accumulated into a thread-local `Float64` buffer indexed by [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid),
+  followed by a `sum` reduction across threads.
 * Thread safety is ensured by allocating `fixed` and `idx` buffers *inside* the threaded loop,
   avoiding any shared mutable state across threads.
 
@@ -289,6 +289,7 @@ function error_estimate_nd_threads(
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
     aa = float(a)
     bb = float(b)
@@ -312,12 +313,13 @@ function error_estimate_nd_threads(
     else
         ks, coeffsR = _leading_midpoint_residual_terms(
             rule, boundary, N;
-            nterms=nerr_terms,
-            kmax=kmax
+            nterms = nerr_terms,
+            kmax   = kmax
         )
         isempty(ks) && return 0.0
     end
 
+    nt = Threads.nthreads()
     err_total = 0.0
 
     @inbounds for it in eachindex(ks)
@@ -325,11 +327,13 @@ function error_estimate_nd_threads(
         k == 0 && continue
         coeff = Float64(coeffsR[it])
 
-        axis_sum = Threads.Atomic{Float64}(0.0)
+        # per-thread accumulation (no atomics)
+        axis_parts = zeros(Float64, nt)
 
         Threads.@threads for axis in 1:dim
+            tid = Threads.threadid()
 
-            # 스레드별 로컬 버퍼 (중요: 공유 금지)
+            # thread-local buffers (MUST NOT be shared)
             fixed = Vector{Float64}(undef, dim)
             idx   = ones(Int, dim - 1)
 
@@ -344,7 +348,6 @@ function error_estimate_nd_threads(
                 )
             else
                 fill!(idx, 1)
-
                 while true
                     wprod = 1.0
                     t = 1
@@ -366,7 +369,7 @@ function error_estimate_nd_threads(
                         side=:mid, axis=axis, stage=:midpoint
                     )
 
-                    # odometer
+                    # odometer increment over the (dim-1) free axes
                     q = dim - 1
                     while q >= 1
                         idx[q] += 1
@@ -381,10 +384,10 @@ function error_estimate_nd_threads(
                 end
             end
 
-            Threads.atomic_add!(axis_sum, Iaxis)
+            axis_parts[tid] += Iaxis
         end
 
-        err_total += coeff * h^(k+1) * axis_sum[]
+        err_total += coeff * h^(k + 1) * sum(axis_parts)
     end
 
     return err_total

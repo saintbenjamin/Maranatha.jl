@@ -156,10 +156,12 @@ See that function for the full formalism and background.
 This function parallelizes the loop over collected residual orders `ks` using Julia's
 built-in multithreading:
 
-* The work is distributed via `Base.Threads.@threads` over `eachindex(ks)`.
+* The work is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over `eachindex(ks)`.
 * Each iteration computes one derivative term ``f^{(k)}(\\bar{x})`` and its contribution to ``E``.
-* Contributions are accumulated into a shared `Threads.Atomic{Float64}` via
-  [`Threads.atomic_add!`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.atomic_add!) to avoid reliance on `threadid()`-indexed scratch arrays.
+* Each thread accumulates its contribution into a thread-local `Float64`
+  buffer indexed by [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid).
+* After the threaded loop completes, the per-thread partial sums are
+  combined via a final `sum` reduction.
 
 Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
 
@@ -190,6 +192,8 @@ function error_estimate_1d_threads(
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
+    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
     aa = float(a)
     bb = float(b)
@@ -202,11 +206,16 @@ function error_estimate_1d_threads(
         kmax   = kmax
     )
 
-    err = Threads.Atomic{Float64}(0.0)
+    nt = Threads.maxthreadid()
 
-    Threads.@threads for i in eachindex(ks)
+    # Each thread accumulates into its own slot; no atomics.
+    parts = zeros(Float64, nt)
+
+    @inbounds Threads.@threads for i in eachindex(ks)
+        tid = Threads.threadid()
+
         k = ks[i]
-        k == 0 && continue
+        k == 0 && return
 
         dx = nth_derivative(
             f, x̄, k;
@@ -214,9 +223,8 @@ function error_estimate_1d_threads(
             side=:mid, axis=:x, stage=:midpoint
         )
 
-        val = Float64(coeffsR[i]) * h^(k+1) * dx
-        Threads.atomic_add!(err, val)
+        parts[tid] += Float64(coeffsR[i]) * h^(k + 1) * dx
     end
 
-    return err[]
+    return sum(parts)
 end
