@@ -1,224 +1,216 @@
-# Maranatha.jl: A Framework for Precise Numerical Integration
+# Maranatha.jl
 
-**Maranatha.jl** is a prototype numerical integration engine designed
-for flexible, multi-dimensional quadrature with error estimation and
-convergence extrapolation.
+### Structured Newton–Cotes Quadrature with Residual-Informed Extrapolation
 
-This framework is intended for research and educational use, focusing
-on the structure and clarity of numerical methods rather than
-production-level accuracy.
+**Maranatha.jl** is a research-oriented numerical quadrature framework for
 
-------------------------------------------------------------------------
+* structured **multi-dimensional tensor-product integration**
+* derivative-aware **residual-based error scale modeling**
+* covariance-aware **least-χ² extrapolation to `h → 0`**
 
+It is designed for methodological research and lattice perturbation theory experiments,
+with emphasis on analytical transparency, reproducibility, and modular structure.
 
-## 📚 Documentation
+---
 
-The rendered documentation is available here:
+## 🔗 Documentation
 
-**https://saintbenjamin.github.io/Maranatha.jl/**
+📘 Full documentation:
 
-------------------------------------------------------------------------
+[https://saintbenjamin.github.io/Maranatha.jl/](https://saintbenjamin.github.io/Maranatha.jl/)
 
-## 🔤 Name Philosophy
+---
 
-**M**eshes are generated over the interval,\
-**A**daptively refined based on error estimates,\
-**R**ules like Simpson's and Bode's are applied to evaluate,\
-**A**utomatic differentiation supports higher-order error control,\
-**N**umerical values of the integrand are computed at each node,\
-**A**pproximation errors are analyzed and minimized,\
-**T**otal values are extrapolated via weighted least-chi-square-squares fitting,\
-**H**igher-dimensional extensions are made possible,\
-and **A**nalysis-ready results are provided for interpretation.
+## 🧠 Core Philosophy
 
-------------------------------------------------------------------------
+Maranatha is built around a **pipeline-oriented workflow**:
 
-## ✅ Current Features
+1. Structured tensor-product quadrature
+2. Residual-based derivative error scale modeling
+3. Weighted least-χ² extrapolation (`h → 0`)
+4. Covariance-propagated uncertainty visualization
 
--   1D to 4D numerical integration over hypercubes `[a, b]^d`
--   Simpson's 1/3, Simpson's 3/8, and Bode rules
-    -   closed variants
-    -   endpoint-free (open-chain) variants
--   Automatic error estimation using [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl)
--   Weighted linear least-squares extrapolation as `h → 0`
--   Convergence plots with error bars and fit curves
--   Modular structure: `rules/`, `error/`, `fit/`, and `Maranatha`
-    interface
--   Callable integrands (functions, closures, and structs)
--   Integrand registry and preset system
+Unlike traditional quadrature libraries that focus on rule tables,
+Maranatha derives rule structure through **moment / Taylor-expansion construction**,
+and derives fit exponents from the **composite midpoint residual expansion**.
 
-------------------------------------------------------------------------
+---
 
-## ⚠️ Limitations
+## 🚀 Current Capabilities
 
--   Currently supports **uniform tensor-product grids** on hypercube
-    domains `[a,b]^d`.
--   Both closed and endpoint-free (open-chain) rules are available, but
-    grid sizes must still satisfy rule-specific structural constraints:
-    -   Simpson's 1/3: `N % 2 == 0`
-    -   Simpson's 3/8: `N % 3 == 0`
-    -   Bode: `N % 4 == 0`
--   Error estimates are heuristic and based on local derivative models;
-    they should be interpreted as **scale indicators**, not strict
-    bounds.
--   Convergence extrapolation assumes a leading-order power-law behavior
-    (`I(h) ≈ I₀ + C h^p`) and may be unstable for poorly behaved
-    integrands.
--   No support yet for:
-    -   Adaptive mesh refinement
-    -   Non-uniform or sparse quadrature nodes
-    -   Integrands with strong singularities or discontinuities
-    -   General domains beyond tensor-product intervals
+### 🔢 Integration
 
-------------------------------------------------------------------------
+* General **multi-dimensional tensor-product quadrature** on `[a,b]^d`
+* Unified `:ns_pK` Newton–Cotes generator (no legacy rule tables)
+* Configurable boundary patterns:
 
-## 🚧 Development Status
+  * `:LCRC`, `:LORC`, `:LCRO`, `:LORO`
+* Rational composite weight assembly (converted to Float64 only at final stage)
 
-This project is currently at the **skeleton stage**.
+---
 
-Some results may be **numerically unstable or inaccurate**, especially
-in higher dimensions or under tight quadrature constraints.
+### 📐 Error Modeling
 
-The internal structure is designed for clarity and extensibility.
+Residual-based derivative error *scale* models:
 
-We are actively improving stability, error modeling, and generalization
-capabilities.
+* Midpoint residual-moment detection
+* LO / LO+NLO / multi-term support via `nerr_terms`
+* Tensor-product scaling philosophy
+* Automatic differentiation via:
 
-------------------------------------------------------------------------
+  * [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/stable/)
+  * [TaylorSeries.jl](https://juliadiff.org/TaylorSeries.jl/stable/) fallback for non-finite derivatives
 
-## 📂 Getting Started
+⚠️ These are **scaling heuristics**, not rigorous truncation bounds.
 
-A minimal 1D example:
+---
 
-``` julia
-using Maranatha
-using Maranatha.PlotTools
+### 📊 Convergence Extrapolation
 
-f1d(x) = sin(x)
+Weighted least-χ² fitting with:
 
-bounds = (0.0, π)
-ns = [4, 8, 16, 32]
+* Residual-informed exponent basis
+* Automatic power detection from composite midpoint expansion
+* Optional **fitting-function-shift (`ff_shift`)** to skip vanishing leading orders
+* Full parameter covariance matrix
+* Covariance-propagated uncertainty bands
 
-I, fit, data = run_Maranatha(
-    f1d, bounds...;
-    dim=1,
-    nsamples=ns,
-    rule=:simpson13_close,
-    err_method=:derivative
-)
+Model form:
 
-plot_convergence_result(
-    "1D_sin",
-    data.h,
-    data.avg,
-    data.err,
-    fit;
-    rule=:simpson13_close
-)
+```
+I(h) = Σ λᵢ h^{powers[i]}
 ```
 
-------------------------------------------------------------------------
+where `powers` is stored in `fit_result.powers`.
 
-## 🧩 Using Callable Integrands (Structs & Presets)
+---
 
-Maranatha accepts **any callable object**:
+### 📈 Visualization
 
--   normal functions
--   anonymous closures
--   callable structs
--   registry presets
+* Publication-style convergence plots
+* Full covariance uncertainty band
+* Basis reconstruction from stored exponent vector
+* LaTeX rendering via [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl)
 
-``` julia
-using Maranatha
+---
 
+### 🧩 Integrand System
+
+Supports:
+
+* Plain Julia functions
+* Closures
+* Callable structs
+* Registry-based presets
+
+Example:
+
+```julia
 struct MyIntegrand
     α::Float64
 end
 
 (f::MyIntegrand)(x) = exp(-f.α * x^2)
+```
 
-f = MyIntegrand(2.0)
+---
 
-bounds = (0.0, 1.0)
-ns = [8,16,24,32]
+## 🧪 Minimal Example
 
-I, fit, data = run_Maranatha(
-    f, bounds...;
-    dim=1,
-    nsamples=ns,
-    rule=:simpson13_close,
-    err_method=:derivative
+```julia
+using Maranatha
+
+f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
+
+I0, fit, data = run_Maranatha(
+    f,
+    0.0, 1.0;
+    dim=4,
+    nsamples=[40, 44, 48, 52, 56, 60, 64],
+    rule=:ns_p5,
+    boundary=:LCRC,
+    err_method=:derivative,
+    fit_terms=4,
+    nerr_terms=2,
+    ff_shift=1
 )
 ```
 
-------------------------------------------------------------------------
+Plot:
 
-## 📦 Using Preset Integrands (Registry System)
-
-``` julia
+```julia
 using Maranatha
-
-f = Maranatha.Integrands.integrand(:F0000; p=3, eps=1e-15)
-
-bounds = (0.0, 1.0)
-ns = [40,44,48,52,56,60,64]
-
-I, fit, data = run_Maranatha(
-    f, bounds...;
-    dim=1,
-    nsamples=ns,
-    rule=:bode_close,
-    err_method=:derivative
-)
-```
-
-------------------------------------------------------------------------
-
-## 🧪 Example: <img src="https://latex.codecogs.com/svg.image?$F_{0000}-\gamma_E&plus;1$" title="$F_{0000}-\gamma_E+1$" />
-
-``` julia
-using Maranatha
-using Maranatha.PlotTools
-
-f = Maranatha.Integrands.integrand(:F0000; p=3)
-
-bounds = (0.0, 1.0)
-ns = [30,33,36,39,42,45,48]
-
-I, fit, data = run_Maranatha(
-    f, bounds...;
-    dim=1,
-    nsamples=ns,
-    rule=:simpson38_close,
-    err_method=:derivative
-)
 
 plot_convergence_result(
-    "F0000_demo",
+    0.0, 1,
+    "4D_demo",
     data.h,
     data.avg,
     data.err,
     fit;
-    rule=:simpson38_close
+    rule=:ns_p3,
+    boundary=:LCRC
 )
 ```
 
-------------------------------------------------------------------------
+---
+
+## ⚠️ Scope & Assumptions
+
+* Uniform tensor-product grids only
+* Hypercube domains `[a,b]^d`
+* Smooth integrands preferred
+* Not adaptive (yet)
+* Not designed for singular/discontinuous integrands
+
+---
+
+## 🏗 Architecture Overview
+
+Internal modules:
+
+* `Integrate`
+* `ErrorEstimator`
+* `LeastChiSquareFit`
+* `Integrands`
+* `Runner`
+* `PlotTools`
+* `JobLoggerTools`
+
+Public API intentionally minimal:
+
+```julia
+run_Maranatha
+plot_convergence_result
+```
+
+---
+
+## 🚧 Development Status
+
+`Maranatha.jl` is under active research development.
+
+The architecture is stable and modular,
+but high-dimensional stability and extreme quadrature regimes
+are still under refinement.
+
+---
 
 ## 📎 License
 
 MIT License
 
-------------------------------------------------------------------------
+---
 
 ## 🙏 Acknowledgments
 
-This project uses:
+* [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/stable/)
+* [TaylorSeries.jl](https://juliadiff.org/TaylorSeries.jl/stable/) 
+* [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl)
 
-* [ForwardDiff.jl](https://github.com/JuliaDiff/ForwardDiff.jl) for automatic differentiation
-* [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl) for visualization
+---
 
-------------------------------------------------------------------------
+## 🔤 Name Meaning
 
-*Maranatha* means "Come, O Lord" --- a reminder to pursue truth and
-beauty in every equation.
+*Maranatha* — "Come, O Lord." --- a reminder that clarity, structure, and
+truth matter even in numerical computation.
