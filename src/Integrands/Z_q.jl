@@ -1,5 +1,5 @@
 # ============================================================================
-# src/integrands/Z_q.jl
+# src/Integrands/Z_q.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

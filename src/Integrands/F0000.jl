@@ -1,5 +1,5 @@
 # ============================================================================
-# src/integrands/F0000.jl
+# src/Integrands/F0000.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

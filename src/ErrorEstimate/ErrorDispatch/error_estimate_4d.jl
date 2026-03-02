@@ -1,5 +1,5 @@
 # ============================================================================
-# src/generator/ErrorEstimate/error_estimate_4d.jl
+# src/ErrorEstimate/ErrorDispatch/error_estimate_4d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -90,7 +90,7 @@ along the remaining axes.
 
   * composite weight assembly / midpoint residual extraction,
   * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`Maranatha.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
+* Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
   insufficient nonzero residual terms exist up to `kmax`.
 
 # Notes
@@ -128,21 +128,23 @@ function error_estimate_4d(
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    # collect LO / LO+NLO / ...
-    ks, coeffsR = if nerr_terms == 1
-        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
-        k == 0 && return 0.0
-        ([k], Quadrature.RBig[coeffR])
-    else
-        _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
-    end
+    # # collect LO / LO+NLO / ...
+    # ks, coeffsR = if nerr_terms == 1
+    #     k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
+    #     k == 0 && return 0.0
+    #     ([k], Quadrature.RBig[coeffR])
+    # else
+    #     _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    # end
+    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
 
     err = 0.0
 
     @inbounds for it in eachindex(ks)
         kk = ks[it]
         kk == 0 && continue
-        coeff = Float64(coeffsR[it])
+        # coeff = Float64(coeffsR[it])
+        coeff = coeffs[it]
 
         # X-axis
         I1 = 0.0
@@ -306,13 +308,14 @@ function error_estimate_4d_threads(
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    ks, coeffsR = if nerr_terms == 1
-        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
-        k == 0 && return 0.0
-        ([k], Quadrature.RBig[coeffR])
-    else
-        _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
-    end
+    # ks, coeffsR = if nerr_terms == 1
+    #     k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
+    #     k == 0 && return 0.0
+    #     ([k], Quadrature.RBig[coeffR])
+    # else
+    #     _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    # end
+    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
 
     L  = length(xs)
     nt = Threads.maxthreadid()
@@ -322,7 +325,8 @@ function error_estimate_4d_threads(
     @inbounds for it in eachindex(ks)
         kk = ks[it]
         kk == 0 && continue
-        coeff = Float64(coeffsR[it])
+        # coeff = Float64(coeffsR[it])
+        coeff = coeffs[it]
 
         # -----------------------------
         # X-axis (sum over y,z,t)

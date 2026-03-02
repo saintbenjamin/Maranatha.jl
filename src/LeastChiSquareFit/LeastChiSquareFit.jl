@@ -1,5 +1,5 @@
 # ============================================================================
-# src/generator/LeastChiSquareFit.jl
+# src/LeastChiSquareFit/LeastChiSquareFit.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -13,8 +13,8 @@ module LeastChiSquareFit
 using LinearAlgebra
 using Statistics
 using Printf
-using ..AvgErrFormatter
-using ..JobLoggerTools
+using ..Utils.AvgErrFormatter
+using ..Utils.JobLoggerTools
 using ..ErrorEstimate
 
 export least_chi_square_fit, print_fit_result
@@ -46,7 +46,7 @@ the smallest step size in `hs`.
 
 ## Exponent selection (midpoint residual model + forward shift)
 First, a list of candidate residual powers is obtained via
-[`Maranatha.ErrorEstimate._leading_residual_ks_with_center`](@ref):
+[`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_residual_ks_with_center`](@ref):
 - `powers_all = ks`.
 
 These are then **sliced** to build the fit basis using the optional forward-shift `ff_shift`:
@@ -173,7 +173,7 @@ function least_chi_square_fit(
 
     Nref = round(Int, (b - a) / minimum(float.(hs)))
 
-    ks, _center = ErrorEstimate._leading_residual_ks_with_center(
+    ks, _center = ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any(
         rule, boundary, Nref; nterms=nterms, kmax=256
     )
 
@@ -278,7 +278,7 @@ Print a formatted summary of a convergence fit result.
 
 # Function description
 This routine prints each fitted parameter ``\\lambda_k`` with its ``1 \\, \\sigma`` uncertainty
-using [`Maranatha.AvgErrFormatter.avgerr_e2d_from_float`](@ref), followed by ``\\chi^2`` diagnostics 
+using [`Maranatha.Utils.AvgErrFormatter.avgerr_e2d_from_float`](@ref), followed by ``\\chi^2`` diagnostics 
 and the extrapolated result ``I(h \\to 0)``.
 
 The output formatting and ordering are intentionally kept identical to the

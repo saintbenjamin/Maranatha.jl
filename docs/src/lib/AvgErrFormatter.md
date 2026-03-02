@@ -1,8 +1,8 @@
-# Maranatha.AvgErrFormatter
+# Maranatha.Utils.AvgErrFormatter
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.AvgErrFormatter,
+    Main.Maranatha.Utils.AvgErrFormatter,
 ]
 Private = true
 ```

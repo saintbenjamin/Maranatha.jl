@@ -1,5 +1,5 @@
 # ============================================================================
-# src/integrands/Integrands.jl
+# src/Integrands/Integrands.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -10,7 +10,7 @@
 
 module Integrands
 
-using ..JobLoggerTools
+using ..Utils.JobLoggerTools
 
 export integrand, register_integrand!, available_integrands
 

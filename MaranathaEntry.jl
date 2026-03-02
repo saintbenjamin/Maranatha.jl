@@ -13,6 +13,6 @@ using Pkg
 # Usage:
 #   julia --project MaranathaEntry.jl
 #   MARANATHA_PLOT=1 julia --project MaranathaEntry.jl
-ENV["MARANATHA_PLOT"] = get(ENV, "MARANATHA_PLOT", "0")
+ENV["MARANATHA_PLOT"] = get(ENV, "MARANATHA_PLOT", "1")
 
 Pkg.test("Maranatha")

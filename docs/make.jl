@@ -56,20 +56,33 @@ makedocs(
     linkcheck = "linkcheck" in ARGS,
     linkcheck_ignore = linkcheck_ignore,
     pages = [
-        "Home" => "index.md",
-        "Reference" => Any[
-            "Runner"                          => "lib/Runner.md",
-            "Quadrature"                       => "lib/Quadrature.md",
-            "ErrorEstimate"                  => "lib/ErrorEstimate.md",
-            "LeastChiSquareFit"                  => "lib/LeastChiSquareFit.md",
-            "PlotTools"                       => "lib/PlotTools.md",
-            "Integrands"                      => "lib/Integrands.md",
-            "AvgErrFormatter"                 => "lib/AvgErrFormatter.md",
-            "JobLoggerTools"                  => "lib/JobLoggerTools.md",
-            "examples" => Any[
-                "F0000GammaEminus1"               => "lib/F0000GammaEminus1.md",
-                "F0000Preset"                     => "lib/F0000Preset.md",
-                "Z_q"                             => "lib/Z_q.md",
+        "Home"                       => "index.md",
+        "Reference"                  => Any[
+            "Runner"                 => "lib/Runner.md",
+            "Quadrature"             => Any[
+                "Quadrature"         => "lib/Quadrature.md",
+                "QuadratureDispatch" => "lib/QuadratureDispatch.md",
+                "Gauss"              => "lib/Gauss.md",
+                "NewtonCotes"        => "lib/NewtonCotes.md",
+            ],
+            "ErrorEstimate"          => Any[
+                "ErrorEstimate"      => "lib/ErrorEstimate.md",
+                "ErrorDispatch"      => "lib/ErrorDispatch.md",
+                "ErrorGauss"         => "lib/ErrorGauss.md",
+                "ErrorNewtonCotes"   => "lib/ErrorNewtonCotes.md",
+            ],
+            "LeastChiSquareFit"      => "lib/LeastChiSquareFit.md",
+            "PlotTools"              => "lib/PlotTools.md",
+            "Integrands"             => Any[
+                "Integrands"         => "lib/Integrands.md",
+                "F0000GammaEminus1"  => "lib/F0000GammaEminus1.md",
+                "F0000Preset"        => "lib/F0000Preset.md",
+                "Z_q"                => "lib/Z_q.md",
+            ],
+            "Utils"                  => Any[
+                "Utils"              => "lib/Utils.md",
+                "AvgErrFormatter"    => "lib/AvgErrFormatter.md",
+                "JobLoggerTools"     => "lib/JobLoggerTools.md",
             ]
         ]
     ],

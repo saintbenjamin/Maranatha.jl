@@ -97,7 +97,7 @@ including any forward-shift (`ff_shift`) applied during fitting.
 
 ## Logging
 
-All runtime diagnostics are handled by [`Maranatha.JobLoggerTools`](@ref), which provides
+All runtime diagnostics are handled by [`Maranatha.Utils.JobLoggerTools`](@ref), which provides
 timestamped logging, stage delimiters, and timing macros used consistently
 throughout the pipeline.
 
@@ -136,11 +136,8 @@ using TaylorSeries
 using Enzyme
 using ForwardDiff
 
-include("log/JobLoggerTools.jl")
-using .JobLoggerTools
-
-include("log/AvgErrFormatter.jl")
-using .AvgErrFormatter
+include("Utils/Utils.jl")
+using .Utils
 
 # ============================================================
 # Integration dispatcher / high-level interface
@@ -148,7 +145,7 @@ using .AvgErrFormatter
 # `Quadrature.jl` typically defines a unified front-end that
 # selects a specific quadrature rule depending on user options.
 # ============================================================
-include("generator/Quadrature.jl")
+include("Quadrature/Quadrature.jl")
 using .Quadrature
 
 # ============================================================
@@ -158,10 +155,10 @@ using .Quadrature
 #   - analytic / model-based error estimators
 #   - convergence diagnostics for fitting pipelines
 # ============================================================
-include("generator/ErrorEstimate.jl")
+include("ErrorEstimate/ErrorEstimate.jl")
 using .ErrorEstimate
 
-include("generator/LeastChiSquareFit.jl")
+include("LeastChiSquareFit/LeastChiSquareFit.jl")
 using .LeastChiSquareFit
 
 # ============================================================
@@ -178,21 +175,21 @@ using .LeastChiSquareFit
 # ============================================================
 
 # --- Integrand registry core ---
-include("integrands/Integrands.jl")
+include("Integrands/Integrands.jl")
 using .Integrands
 
 # --- Raw integrand implementation (dependency of presets) ---
-include("integrands/F0000GammaEminus1.jl")
+include("Integrands/F0000GammaEminus1.jl")
 using .F0000GammaEminus1
 
 # --- Preset wrappers (user-facing integrands) ---
-include("integrands/F0000.jl")
+include("Integrands/F0000.jl")
 using .F0000Preset
 
 # Register built-in presets
 F0000Preset.__register_F0000_integrand__()
 
-include("integrands/Z_q.jl")
+include("Integrands/Z_q.jl")
 using .Z_q
 
 # ============================================================
@@ -212,7 +209,7 @@ using .Z_q
 #     surface consisting of user-facing entry points only.
 # ============================================================
 
-include("controller/Runner.jl")
+include("Runner/Runner.jl")
 using .Runner
 
 # ============================================================
@@ -224,7 +221,7 @@ using .Runner
 # evolve independently without affecting the integration logic.
 # ============================================================
 
-include("figs/PlotTools.jl")
+include("PlotTools/PlotTools.jl")
 using .PlotTools
 
 # ============================================================

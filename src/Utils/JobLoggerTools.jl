@@ -1,5 +1,5 @@
 # ============================================================================
-# src/log/JobLoggerTools.jl (Benji: taken from Deborah.Sarah)
+# src/JobLoggerTools/JobLoggerTools.jl (Benji: taken from Deborah.Sarah)
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

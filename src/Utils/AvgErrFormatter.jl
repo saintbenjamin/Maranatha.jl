@@ -1,5 +1,5 @@
 # ============================================================================
-# src/log/AvgErrFormatter.jl (Benji: taken from src/Sarah/AvgErrFormatter.jl of Deborah.jl)
+# src/AvgErrFormatter/AvgErrFormatter.jl (Benji: taken from src/Sarah/AvgErrFormatter.jl of Deborah.jl)
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

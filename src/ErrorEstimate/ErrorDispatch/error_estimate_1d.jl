@@ -1,5 +1,5 @@
 # ============================================================================
-# src/generator/ErrorEstimate/error_estimate_1d.jl
+# src/ErrorEstimate/ErrorDispatch/error_estimate_1d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -81,7 +81,7 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
   * composite weight assembly,
   * residual-term extraction,
   * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`Maranatha.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
+* Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
   insufficient nonzero residual terms exist up to `kmax`.
 
 # Notes
@@ -108,17 +108,21 @@ function error_estimate_1d(
 
     x̄ = (aa + bb) / 2
 
-    # Collect LO, (optionally) NLO, ... midpoint residual terms
-    ks, coeffsR = _leading_midpoint_residual_terms(
-        rule, boundary, N;
-        nterms = nerr_terms,
-        kmax   = kmax
-    )
+    # # Collect LO, (optionally) NLO, ... midpoint residual terms
+    # ks, coeffsR = _leading_midpoint_residual_terms(
+    #     rule, boundary, N;
+    #     nterms = nerr_terms,
+    #     kmax   = kmax
+    # )
+    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
 
     err = 0.0
+
     @inbounds for i in eachindex(ks)
         k = ks[i]
         k == 0 && continue  # degenerate safety
+        # coeff = Float64(coeffsR[i])
+        coeff = coeffs[i]
 
         dx = nth_derivative(
             f,
@@ -127,7 +131,7 @@ function error_estimate_1d(
             side=:mid, axis=:x, stage=:midpoint
         )
 
-        err += Float64(coeffsR[i]) * h^(k+1) * dx
+        err += coeff * h^(k+1) * dx
     end
 
     return err
@@ -200,11 +204,12 @@ function error_estimate_1d_threads(
     h  = (bb - aa) / N
     x̄ = (aa + bb) / 2
 
-    ks, coeffsR = _leading_midpoint_residual_terms(
-        rule, boundary, N;
-        nterms = nerr_terms,
-        kmax   = kmax
-    )
+    # ks, coeffsR = _leading_midpoint_residual_terms(
+    #     rule, boundary, N;
+    #     nterms = nerr_terms,
+    #     kmax   = kmax
+    # )
+    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
 
     nt = Threads.maxthreadid()
 
@@ -216,6 +221,8 @@ function error_estimate_1d_threads(
 
         k = ks[i]
         k == 0 && return
+        # coeff = Float64(coeffsR[i])
+        coeff = coeffs[i]
 
         dx = nth_derivative(
             f, x̄, k;
@@ -223,7 +230,7 @@ function error_estimate_1d_threads(
             side=:mid, axis=:x, stage=:midpoint
         )
 
-        parts[tid] += Float64(coeffsR[i]) * h^(k + 1) * dx
+        parts[tid] += coeff * h^(k + 1) * dx
     end
 
     return sum(parts)

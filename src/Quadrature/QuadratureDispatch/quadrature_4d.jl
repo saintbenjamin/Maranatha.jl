@@ -1,5 +1,5 @@
 # ============================================================================
-# src/rules/Quadrature/quadrature_4d.jl
+# src/Quadrature/QuadratureDispatch/quadrature_4d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

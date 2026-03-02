@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorEstimate.jl
+# src/Utils/AvgErrFormatter.jl (Benji: taken from src/Sarah/AvgErrFormatter.jl of Deborah.jl)
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,24 +8,12 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorEstimate
+module Utils
 
-using ..LinearAlgebra
-using ..TaylorSeries
-using ..Enzyme
-using ..ForwardDiff
+include("JobLoggerTools.jl")
+include("AvgErrFormatter.jl")
 
-using ..Utils.JobLoggerTools
-using ..Quadrature
+using .JobLoggerTools
+using .AvgErrFormatter
 
-include("ErrorNewtonCotes.jl")
-include("ErrorGauss.jl")
-include("ErrorDispatch.jl")
-
-using .ErrorNewtonCotes
-using .ErrorGauss
-using .ErrorDispatch
-
-export error_estimate, error_estimate_threads
-
-end  # module ErrorEstimate
+end  # module Utils

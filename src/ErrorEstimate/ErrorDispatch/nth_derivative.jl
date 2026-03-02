@@ -1,5 +1,5 @@
 # ============================================================================
-# src/generator/ErrorEstimate/nth_derivative.jl
+# src/ErrorEstimate/nth_derivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -191,7 +191,7 @@ This wrapper:
 2) If the result is non-finite, logs a warning and retries using
    [`nth_derivative_taylor`](@ref).
 3) If still non-finite, emits a fatal error 
-   via [`Maranatha.JobLoggerTools.error_benji`](@ref).
+   via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref).
 
 It is designed to be shared across 1D, 2D, 3D, 4D, and general nD
 error estimators.

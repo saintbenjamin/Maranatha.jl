@@ -1,5 +1,5 @@
 # ============================================================================
-# src/generator/ErrorEstimate/error_estimate_nd.jl
+# src/ErrorEstimate/ErrorDispatch/error_estimate_nd.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -98,7 +98,7 @@ Special case:
 
   * composite weight assembly / midpoint residual extraction,
   * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`Maranatha.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
+* Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
   insufficient nonzero residual terms exist up to `kmax`.
 
 # Notes
@@ -141,18 +141,27 @@ function error_estimate_nd(
     coeffsR = Quadrature.RBig[]
 
     if nerr_terms == 1
-        k, coeffR = _leading_midpoint_residual_term(
+        # k, coeffR = _leading_midpoint_residual_term(
+        #     rule, boundary, N; 
+        #     kmax = kmax
+        # )
+        ks, coeffs, _center = _leading_residual_terms_any(
             rule, boundary, N; 
-            kmax = kmax
+            kmax=kmax
         )
         k == 0 && return 0.0
         push!(ks, k)
         push!(coeffsR, coeffR)
     else
-        ks, coeffsR = _leading_midpoint_residual_terms(
-            rule, boundary, N;
-            nterms = nerr_terms,
-            kmax   = kmax
+        # ks, coeffsR = _leading_midpoint_residual_terms(
+        #     rule, boundary, N;
+        #     nterms = nerr_terms,
+        #     kmax   = kmax
+        # )
+        ks, coeffs, _center = _leading_residual_terms_any(
+            rule, boundary, N; 
+            nterms=nerr_terms, 
+            kmax=kmax
         )
         isempty(ks) && return 0.0
     end
@@ -166,7 +175,8 @@ function error_estimate_nd(
         k = ks[it]
         k == 0 && continue
 
-        coeff = Float64(coeffsR[it])
+        # coeff = Float64(coeffsR[it])
+        coeff = coeffs[it]
         total_axes = 0.0
 
         for axis in 1:dim
@@ -306,15 +316,27 @@ function error_estimate_nd_threads(
     coeffsR = Quadrature.RBig[]
 
     if nerr_terms == 1
-        k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=kmax)
+        # k, coeffR = _leading_midpoint_residual_term(
+        #     rule, boundary, N; 
+        #     kmax = kmax
+        # )
+        ks, coeffs, _center = _leading_residual_terms_any(
+            rule, boundary, N; 
+            kmax=kmax
+        )
         k == 0 && return 0.0
         push!(ks, k)
         push!(coeffsR, coeffR)
     else
-        ks, coeffsR = _leading_midpoint_residual_terms(
-            rule, boundary, N;
-            nterms = nerr_terms,
-            kmax   = kmax
+        # ks, coeffsR = _leading_midpoint_residual_terms(
+        #     rule, boundary, N;
+        #     nterms = nerr_terms,
+        #     kmax   = kmax
+        # )
+        ks, coeffs, _center = _leading_residual_terms_any(
+            rule, boundary, N; 
+            nterms=nerr_terms, 
+            kmax=kmax
         )
         isempty(ks) && return 0.0
     end
@@ -325,7 +347,9 @@ function error_estimate_nd_threads(
     @inbounds for it in eachindex(ks)
         k = ks[it]
         k == 0 && continue
-        coeff = Float64(coeffsR[it])
+
+        # coeff = Float64(coeffsR[it])
+        coeff = coeffs[it]
 
         # per-thread accumulation (no atomics)
         axis_parts = zeros(Float64, nt)

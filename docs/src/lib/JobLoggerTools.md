@@ -1,8 +1,8 @@
-# Maranatha.JobLoggerTools
+# Maranatha.Utils.JobLoggerTools
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.JobLoggerTools,
+    Main.Maranatha.Utils.JobLoggerTools,
 ]
 Private = true
 ```

@@ -1,5 +1,5 @@
 # ============================================================================
-# src/controller/Runner.jl
+# src/Runner/Runner.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -10,7 +10,7 @@
 
 module Runner
 
-using ..JobLoggerTools
+using ..Utils.JobLoggerTools
 using ..Quadrature
 using ..ErrorEstimate
 using ..LeastChiSquareFit
@@ -49,11 +49,11 @@ For each resolution `N` in `nsamples`, the runner performs:
 
 1. Compute step size ``\\displaystyle{h = \\frac{b-a}{N}}``.
 
-2. Evaluate the integral using the selected rule via [`Maranatha.Quadrature.quadrature`](@ref).
+2. Evaluate the integral using the selected rule via [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref).
 
 3. Estimate the integration error according to `err_method`.
    For `err_method == :derivative`, this dispatches to
-   [`Maranatha.ErrorEstimate.error_estimate`](@ref) and forwards `nerr_terms`
+   [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref) and forwards `nerr_terms`
    to optionally include LO+NLO+... midpoint residual terms in the error model.
 
 4. Accumulate `(h, estimate, error)` triplets.
@@ -88,7 +88,7 @@ The final extrapolated estimate is returned together with the full fit object an
 
 * `dim::Int = 1`:
   Dimensionality of the tensor-product quadrature.
-  Internally dispatched through [`Maranatha.Quadrature.quadrature`](@ref),
+  Internally dispatched through [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref),
   which supports specialized implementations (from ``1``-dimensional to ``4``-dimensional quadrature)
   and a general ``n``-dimensional quadrature fallback.
 
@@ -109,7 +109,7 @@ The final extrapolated estimate is returned together with the full fit object an
   Error estimation strategy.
   Supported values:
 
-  * `:derivative`: [`Maranatha.ErrorEstimate.error_estimate`](@ref)
+  * `:derivative`: [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
 
 * `fit_terms::Int = 2`:
   Number of basis terms used in the convergence model (including the constant term).
@@ -119,7 +119,7 @@ The final extrapolated estimate is returned together with the full fit object an
 
 * `nerr_terms::Int = 1`:
   Number of midpoint residual terms used by the derivative-based error estimator.
-  This is forwarded to [`Maranatha.ErrorEstimate.error_estimate`](@ref) as `nerr_terms`.
+  This is forwarded to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref) as `nerr_terms`.
 
   * ``1``  uses LO only
   * ``>1`` uses LO + NLO + ... up to `nerr_terms` terms (subject to the residual scan limit)
@@ -130,7 +130,7 @@ The final extrapolated estimate is returned together with the full fit object an
   This is forwarded to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref) as `ff_shift`.
 
 * `use_threads::Bool = false`:
-  If `true`, dispatches to the threaded error-estimation backend ([`error_estimate_threads`](@ref)).
+  If `true`, dispatches to the threaded error-estimation backend ([`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref)).
 
 # Returns
 
@@ -170,7 +170,7 @@ A 3-tuple:
 
 * The runner is **dimension-agnostic** and supports arbitrary ``n \\ge 1`` subject to computational cost.
 * Error estimators provide a *scale model* rather than a strict truncation bound, enabling stable weighted fits.
-* Logging and timing are centralized through [`Maranatha.JobLoggerTools`](@ref).
+* Logging and timing are centralized through [`Maranatha.Utils.JobLoggerTools`](@ref).
 * Threaded error estimation is optionally enabled via `use_threads`, without affecting the fitting stage.
 
 # Example
@@ -221,20 +221,20 @@ function run_Maranatha(
         # # Step 1: Evaluate integral using selected rule
         # JobLoggerTools.log_stage_sub1_benji("quadrature() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
-            I = quadrature(integrand, a, b, N, dim, rule, boundary)
+        I = Quadrature.QuadratureDispatch.quadrature(integrand, a, b, N, dim, rule, boundary)
         # end
         # # Step 2: Estimate integration error
         # JobLoggerTools.log_stage_sub1_benji("error_estimate() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
-            err = if err_method == :derivative
-                if use_threads
-                  error_estimate_threads(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
-                else
-                  error_estimate(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
-                end
+        err = if err_method == :derivative
+            if use_threads
+              ErrorEstimate.ErrorDispatch.error_estimate_threads(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
             else
-                JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative)")
+              ErrorEstimate.ErrorDispatch.error_estimate(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
             end
+        else
+            JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative)")
+        end
         # end
         push!(estimates, I)
         push!(errors, err)
@@ -243,9 +243,9 @@ function run_Maranatha(
     # Step 3: Perform least chi-square fit to extrapolate as h → 0
     # JobLoggerTools.log_stage_benji("least_chi_square_fit() ::", jobid)
     # JobLoggerTools.@logtime_benji jobid begin
-        fit_result = least_chi_square_fit(a, b, hs, estimates, errors, rule, boundary; nterms=fit_terms, ff_shift=ff_shift)
+        fit_result = LeastChiSquareFit.least_chi_square_fit(a, b, hs, estimates, errors, rule, boundary; nterms=fit_terms, ff_shift=ff_shift)
     # end
-    print_fit_result(fit_result)
+    LeastChiSquareFit.print_fit_result(fit_result)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
 end
