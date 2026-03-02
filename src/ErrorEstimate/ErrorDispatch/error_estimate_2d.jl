@@ -107,7 +107,7 @@ function error_estimate_2d(
     x̄ = (aa + bb) / 2
     ȳ = (aa + bb) / 2
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     # # collect LO / LO+NLO / ...
     # ks, coeffsR = if nerr_terms == 1
@@ -225,7 +225,7 @@ function error_estimate_2d_threads(
     x̄ = (aa + bb) / 2
     ȳ = x̄
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     # ks, coeffsR = if nerr_terms == 1
     #     k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))

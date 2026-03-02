@@ -21,30 +21,34 @@ import ..JobLoggerTools
 # ------------------------------------------------------------
 
 """
-    _exact_moment_shifted_float(Nsub::Int, c::Float64, k::Int) -> Float64
+    _exact_moment_shifted_float(
+        Nsub::Int, 
+        c::Float64, 
+        k::Int
+    ) -> Float64
 
 Compute the exact shifted monomial moment
-``\\displaystyle \\int_{0}^{N_{\\mathrm{sub}}} (u - c)^k \\, du``
+``\\displaystyle{ \\int\\limits_{0}^{N_{\\texttt{sub}}} du \\; (u - c)^k}``
 in `Float64`.
 
 # Function description
 This helper returns the closed-form integral:
 ```math
-\\int_{0}^{N} (u-c)^k \\, du
+\\int\\limits_{0}^{N} du \\; (u-c)^k
 = \\left[ \\frac{(u-c)^{k+1}}{k+1} \\right]_{u=0}^{u=N}
-= \\frac{(N-c)^{k+1} - (0-c)^{k+1}}{k+1},
+= \\frac{(N-c)^{k+1} - (0-c)^{k+1}}{k+1} \\,,
 ```
 
-with `N = Nsub` treated as a dimensionless length (unit-block tiling on `u ∈ [0, Nsub]`).
+with `N = Nsub` treated as a dimensionless length (unit-block tiling on ``u \\in [0, N_\\texttt{sub}]``).
 
 It is used by [`_leading_midpoint_residual_terms_gauss_float`](@ref) to form the
 exact-minus-quadrature residual for the midpoint-shifted monomial basis.
 
 # Arguments
 
-* `Nsub`: Number of composite unit blocks; the integration domain is `u ∈ [0, Nsub]`.
-* `c`: Shift (typically the midpoint), often `c = Nsub/2`.
-* `k`: Nonnegative integer power in `(u - c)^k`.
+* `Nsub`: Number of composite unit blocks; the integration domain is ``u \\in [0, N_\\texttt{sub}]``.
+* `c`: Shift (typically the midpoint), often ``c = \\dfrac{N_\\texttt{sub}}{2}``.
+* `k`: Nonnegative integer power in ``\\left( u - c \\right)^k``.
 
 # Returns
 
@@ -52,28 +56,32 @@ exact-minus-quadrature residual for the midpoint-shifted monomial basis.
 
 # Notes
 
-* This routine is *Float64-only* by design; it mirrors the numerical tolerance
+* This routine is *`Float64`-only* by design; it mirrors the numerical tolerance
   philosophy used by the Gauss residual-term generator.
 * For large `k`, powers can overflow or lose accuracy in `Float64`; callers should
   keep `kmax` moderate.
 """
-@inline function _exact_moment_shifted_float(Nsub::Int, c::Float64, k::Int)::Float64
+@inline function _exact_moment_shifted_float(
+    Nsub::Int, 
+    c::Float64, 
+    k::Int
+)::Float64
     Nf = Float64(Nsub)
     kp1 = Float64(k + 1)
     return ((Nf - c)^(k + 1) - (0.0 - c)^(k + 1)) / kp1
 end
 
 """
-_leading_midpoint_residual_terms_gauss_float(
-rule::Symbol,
-boundary::Symbol,
-Nsub::Int;
-nterms::Int = 2,
-kmax::Int = 128
-) -> (ks, coeffs)
+    _leading_midpoint_residual_terms_gauss_float(
+        rule::Symbol,
+        boundary::Symbol,
+        Nsub::Int;
+        nterms::Int = 2,
+        kmax::Int = 128
+    ) -> (ks, coeffs)
 
 Detect the leading nonzero midpoint-shifted residual terms for a **composite Gauss-family**
-quadrature rule on the dimensionless interval `u ∈ [0, Nsub]` (Float64-only).
+quadrature rule on the dimensionless interval ``u \\in [0, N_\\texttt{sub}]`` (`Float64`-only).
 
 # Function description
 
@@ -82,40 +90,40 @@ This routine numerically probes the residual moments of a composite Gauss rule b
 * the exact shifted moment:
 
 ```math
-M_k^{\\mathrm{exact}} = \\int_{0}^{N} (u-c)^k \\, du,
+M_k^{\\texttt{exact}} = \\int\\limits_{0}^{N} du \\; \\left( u - c \\right)^k \\,,
 ```
 
 * against the quadrature approximation on the composite Gauss grid:
 
 ```math
-M_k^{\\mathrm{quad}}  = \\sum_i W_i (U_i - c)^k,
+M_k^{\\texttt{quad}}  = \\sum_i W_i \\, \\left( U_i - c \\right)^k \\,,
 ```
 
-where `(U, W)` are produced by
-[`Quadrature.Gauss._composite_gauss_u_grid`](@ref) and `c = N/2` is the midpoint shift.
+where ``(U, W)`` are produced by
+[`Quadrature.Gauss._composite_gauss_u_grid`](@ref) and ``c = \\dfrac{N}{2}`` is the midpoint shift.
 
 The difference is:
 
 ```math
-\\mathrm{diff}(k) = M_k^{\\mathrm{exact}} - M_k^{\\mathrm{quad}}.
+\\texttt{diff}_k = M_k^{\\texttt{exact}} - M_k^{\\texttt{quad}}.
 ```
 
-For each detected nonzero residual moment index `k`, this routine records the
+For each detected nonzero residual moment index ``k``, this routine records the
 factorial-scaled coefficient:
 
 ```math
-\\mathrm{coeff}(k) = \\frac{\\mathrm{diff}(k)}{k!}.
+\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}.
 ```
 
 It returns the first `nterms` detected `(k, coeff(k))` pairs (as aligned vectors),
-searching `k = 0..kmax`.
+searching ``k = 0 , \\ldots , \\texttt{kmax}``.
 
 # Arguments
 
-* `rule`: Gauss rule symbol of the form `:gauss_pK` (K = points per block).
+* `rule`: Gauss rule symbol of the form `:gauss_pK` (`K` = points per block).
 * `boundary`: Boundary-family selector, forwarded to Gauss:
   `:LORO` (Legendre), `:LCRO` (left Radau), `:LORC` (right Radau), `:LCRC` (Lobatto).
-* `Nsub`: Number of unit blocks in the composite tiling (`u ∈ [0, Nsub]`).
+* `Nsub`: Number of unit blocks in the composite tiling (``u \\in [0, N_\\texttt{sub}]``).
 
 # Keywords
 
@@ -125,11 +133,11 @@ searching `k = 0..kmax`.
 # Returns
 
 * `ks::Vector{Int}`: Moment indices where a nonzero residual was detected (length `nterms`).
-* `coeffs::Vector{Float64}`: Factorial-scaled residual coefficients `diff(k)/k!` aligned with `ks`.
+* `coeffs::Vector{Float64}`: Factorial-scaled residual coefficients ``\\dfrac{\\texttt{diff}_k}{k!}`` aligned with `ks`.
 
 # Error conditions
 
-* Throws (via `JobLoggerTools.error_benji`) if:
+* Throws (via [`JobLoggerTools.error_benji`](@ref)) if:
 
   * `nterms < 1` or `kmax < 0`,
   * `rule` is not `:gauss_pK`,
@@ -139,11 +147,11 @@ searching `k = 0..kmax`.
 # Numerical tolerances
 
 A residual is treated as nonzero if:
-
 ```math
-|\\mathrm{diff}(k)| > \\texttt{tol_abs} + \\texttt{tol_rel} |M_k^{\\mathrm{exact}}|,
+\\left\\lvert \\texttt{diff}_k \\right\\rvert > 
+\\texttt{tol\\_abs} + 
+\\texttt{tol\\_rel} \\, \\left\\lvert M_k^{\\texttt{exact}} \\right\\rvert \\,,
 ```
-
 where:
 
 * `tol_abs = 5e4 * eps(Float64)`
@@ -156,7 +164,7 @@ while still detecting genuine leading residual orders.
 
 * This routine is intended as a lightweight *order detection / coefficient extraction*
   tool for midpoint-based residual models; it is not a rigorous error bound.
-* For large `k`, `(U[i]-c)^k` and `(N-c)^(k+1)` may overflow or underflow in `Float64`.
+* For large ``k``, ``\\left( U_i - c \\right)^k`` and ``\\left( N - c \\right)^{k+1}`` may overflow or underflow in `Float64`.
   Increase `kmax` cautiously.
 """
 function _leading_midpoint_residual_terms_gauss_float(

@@ -62,12 +62,14 @@ makedocs(
             "Quadrature"             => Any[
                 "Quadrature"         => "lib/Quadrature.md",
                 "QuadratureDispatch" => "lib/QuadratureDispatch.md",
+                "BSpline"            => "lib/BSpline.md",
                 "Gauss"              => "lib/Gauss.md",
                 "NewtonCotes"        => "lib/NewtonCotes.md",
             ],
             "ErrorEstimate"          => Any[
                 "ErrorEstimate"      => "lib/ErrorEstimate.md",
                 "ErrorDispatch"      => "lib/ErrorDispatch.md",
+                "ErrorBSpline"       => "lib/ErrorBSpline.md",
                 "ErrorGauss"         => "lib/ErrorGauss.md",
                 "ErrorNewtonCotes"   => "lib/ErrorNewtonCotes.md",
             ],

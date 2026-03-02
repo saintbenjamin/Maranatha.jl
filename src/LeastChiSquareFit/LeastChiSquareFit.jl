@@ -15,6 +15,9 @@ using Statistics
 using Printf
 using ..Utils.AvgErrFormatter
 using ..Utils.JobLoggerTools
+using ..Quadrature.NewtonCotes
+using ..Quadrature.Gauss
+using ..Quadrature.BSpline
 using ..ErrorEstimate
 
 export least_chi_square_fit, print_fit_result
@@ -181,7 +184,23 @@ function least_chi_square_fit(
     # Select fit powers with optional forward-shift
     # ------------------------------------------------------------
 
-    powers_all = ks
+    # ------------------------------------------------------------
+    # Map residual indices -> fit powers in h
+    #
+    # Convention:
+    # - NS rules: ks already treated as powers (your current pipeline convention)
+    # - GAUSS / BSPLINE rules: ks are moment indices k, so power is (k+1)
+    # ------------------------------------------------------------
+    powers_all = if NewtonCotes._is_ns_rule(rule)
+        ks
+    elseif Gauss._is_gauss_rule(rule)
+        # ks .+ 1
+        ks
+    elseif BSpline._is_bspl_rule(rule)
+        ks .+ 1
+    else
+        JobLoggerTools.error_benji("Unsupported rule family for fit-power mapping: rule=$rule")
+    end
 
     (nterms >= 2)   || JobLoggerTools.error_benji("nterms must be >= 2 (got $nterms)")
     (ff_shift >= 0) || JobLoggerTools.error_benji("ff_shift must be ≥ 0 (got $ff_shift)")
@@ -197,7 +216,8 @@ function least_chi_square_fit(
     powers = powers_all[start:stop]
 
     JobLoggerTools.println_benji(
-        "fit powers (h^p), ff_shift=$(ff_shift): " * join(string.(powers), ", ")
+        "residual ks (backend) = [" * join(string.(ks), ", ") * "], " *
+        "fit powers (h^p), ff_shift=$(ff_shift) = [" * join(string.(powers), ", ") * "]"
     )
 
     h = collect(float.(hs))

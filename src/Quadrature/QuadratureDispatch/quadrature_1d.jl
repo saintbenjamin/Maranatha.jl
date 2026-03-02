@@ -21,17 +21,17 @@
 Evaluate the ``1``-dimensional integral of ``f(x)`` over ``[a, b]`` using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
-This routine generates 1D quadrature nodes and weights using [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
+This routine generates 1D quadrature nodes and weights using [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
 ```math
 \\sum_i w_i \\, f(x_i) \\,.
 ```
 This keeps all rule-specific constraints and behaviour centralized in
-[`quadrature_1d_nodes_weights`](@ref).
+[`get_quadrature_1d_nodes_weights`](@ref).
 
 # Arguments
 - `f`: Integrand callable `f(x)`.
 - `a`, `b`: Integration bounds.
-- `N`: Number of intervals (rule-specific constraints are enforced by [`quadrature_1d_nodes_weights`](@ref)).
+- `N`: Number of intervals (rule-specific constraints are enforced by [`get_quadrature_1d_nodes_weights`](@ref)).
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
   Required for NS rules.
@@ -47,7 +47,7 @@ function quadrature_1d(
     rule,
     boundary
 )
-    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, ws = get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
 
     total = 0.0
     @inbounds for j in eachindex(xs)

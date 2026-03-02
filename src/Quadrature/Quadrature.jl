@@ -14,14 +14,16 @@ using ..LinearAlgebra
 
 using ..Utils.JobLoggerTools
 
-export quadrature, quadrature_1d_nodes_weights
+export quadrature, get_quadrature_1d_nodes_weights
 
 include("NewtonCotes.jl")
 include("Gauss.jl")
+include("BSpline.jl")
 include("QuadratureDispatch.jl")
 
 using .NewtonCotes
 using .Gauss
+using .BSpline
 using .QuadratureDispatch
 
 end  # module Quadrature

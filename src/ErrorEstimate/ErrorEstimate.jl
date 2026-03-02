@@ -20,10 +20,12 @@ using ..Quadrature
 
 include("ErrorNewtonCotes.jl")
 include("ErrorGauss.jl")
+include("ErrorBSpline.jl")
 include("ErrorDispatch.jl")
 
 using .ErrorNewtonCotes
 using .ErrorGauss
+using .ErrorBSpline
 using .ErrorDispatch
 
 export error_estimate, error_estimate_threads

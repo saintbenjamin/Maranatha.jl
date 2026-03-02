@@ -29,7 +29,7 @@ tensor product of a 1D quadrature rule.
 The algorithm:
 
 1. Builds 1D quadrature nodes and weights `(xs, ws)` via
-   [`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`.
+   [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`.
 2. Iterates over all multi-indices ``(i_1, i_2, \\ldots, i_{\\texttt{dim}})`` using an
    odometer-style index update.
 3. Forms the tensor-product weight
@@ -73,7 +73,7 @@ to ensure reproducibility and consistent floating-point behavior.
 - This is a pure tensor-product construction; computational cost scales
   as ``O(\\texttt{length(xs)}^\\texttt{dim})`` and therefore grows exponentially with `dim`.
 - Rule-specific constraints on `N` are enforced inside
-  [`quadrature_1d_nodes_weights`](@ref).
+  [`get_quadrature_1d_nodes_weights`](@ref).
 - The integrand is called as ``f(x_1, x_2, \\ldots, x_\\texttt{dim})`` using splatting.
 """
 function quadrature_nd(
@@ -87,7 +87,7 @@ function quadrature_nd(
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
 
-    xs, ws = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, ws = get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
 
     # Multi-index over axes (1-based)
     idx = ones(Int, dim)

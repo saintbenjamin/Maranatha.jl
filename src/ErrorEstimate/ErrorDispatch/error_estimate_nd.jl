@@ -129,7 +129,7 @@ function error_estimate_nd(
 
     x̄ = (aa + bb) / 2
 
-    xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     # helper: call f with axis value replaced by x (x may be Dual)
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
@@ -306,7 +306,7 @@ function error_estimate_nd_threads(
     h  = (bb - aa) / N
     x̄ = (aa + bb) / 2
 
-    xs, ws = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)

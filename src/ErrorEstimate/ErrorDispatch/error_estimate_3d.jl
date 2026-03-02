@@ -116,7 +116,7 @@ function error_estimate_3d(
     ȳ = (aa + bb) / 2
     z̄ = (aa + bb) / 2
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
 
@@ -262,7 +262,7 @@ function error_estimate_3d_threads(
     ȳ = x̄
     z̄ = x̄
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
 

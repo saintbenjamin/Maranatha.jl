@@ -123,7 +123,7 @@ function error_estimate_4d(
     z̄ = (aa + bb) / 2
     t̄ = (aa + bb) / 2
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx
@@ -303,7 +303,7 @@ function error_estimate_4d_threads(
     z̄ = x̄
     t̄ = x̄
 
-    xs, wx = quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx

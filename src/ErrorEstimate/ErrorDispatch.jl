@@ -20,10 +20,12 @@ import ..JobLoggerTools
 
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
+import ..Quadrature.BSpline
 import ..Quadrature.QuadratureDispatch
 
 import ..ErrorEstimate.ErrorNewtonCotes
 import ..ErrorEstimate.ErrorGauss
+import ..ErrorEstimate.ErrorBSpline
 
 include("ErrorDispatch/nth_derivative.jl")
 
@@ -132,6 +134,13 @@ function _leading_residual_terms_any(
 
     if Gauss._is_gauss_rule(rule)
         ks, coeffs = ErrorGauss._leading_midpoint_residual_terms_gauss_float(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
+        return ks, coeffs, :mid
+    end
+
+    if BSpline._is_bspl_rule(rule)
+        ks, coeffs = ErrorBSpline._leading_midpoint_residual_terms_bspline_float(
+            rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0
+        )
         return ks, coeffs, :mid
     end
 
@@ -299,6 +308,13 @@ function _leading_residual_ks_with_center_any(
         end
 
         JobLoggerTools.error_benji("Could not collect nterms=$nterms GAUSS residual ks up to kmax=$kmax")
+    end
+
+    if BSpline._is_bspl_rule(rule)
+        ks, center = ErrorBSpline._leading_residual_ks_with_center_bspline_float(
+            rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0, tol_abs=tol_abs, tol_rel=tol_rel
+        )
+        return ks, center
     end
 
     JobLoggerTools.error_benji("Unsupported rule=$rule for residual ks extraction.")

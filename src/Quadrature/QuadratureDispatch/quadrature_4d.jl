@@ -23,7 +23,7 @@ using a tensor-product quadrature constructed from 1D nodes and weights.
 
 # Function description
 This routine generates 1D quadrature nodes and weights using
-[`quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms the tensor product:
+[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms the tensor product:
 ```math
 \\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell \\, f(x_i, y_j, z_k, t_\\ell) \\,.
 ```
@@ -49,7 +49,7 @@ function quadrature_4d(
     boundary
 )
 
-    xs, wx = quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, wx = get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx

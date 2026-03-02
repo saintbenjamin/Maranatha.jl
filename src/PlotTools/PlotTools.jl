@@ -231,16 +231,35 @@ function plot_convergence_result(
     end
 
     # Raw x = h^2
-    h2 = hs .^ 2
+    # h2 = hs .^ 2
+
+    # ------------------------------------------------------------
+    # Determine x-axis power from fit (e.g. h^p)
+    # ------------------------------------------------------------
+    fit_powers = if hasproperty(fit_result, :powers)
+        fit_result.powers
+    else
+        JobLoggerTools.error_benji("fit_result missing :powers (cannot infer convergence power)")
+    end
+
+    # first nonzero power
+    lead_pow = fit_powers[2]   # index 1 is 0 (constant term)
+
+    # x-axis = h^lead_pow
+    hx = hs .^ lead_pow
+
     errors_pos = abs.(errors)
 
-    mask = (h2 .> 0) .& isfinite.(h2) .& isfinite.(estimates) .& isfinite.(errors_pos)
+    # mask = (h2 .> 0) .& isfinite.(h2) .& isfinite.(estimates) .& isfinite.(errors_pos)
+    mask = (hx .> 0) .& isfinite.(hx) .& isfinite.(estimates) .& isfinite.(errors_pos)
 
-    h2p = h2[mask]
+    # h2p = h2[mask]
+    hxp = hx[mask]
     estp = estimates[mask]
     errp = errors_pos[mask]
 
-    isempty(h2p) && JobLoggerTools.error_benji("No valid points to plot.")
+    # isempty(h2p) && JobLoggerTools.error_benji("No valid points to plot.")
+    isempty(hxp) && JobLoggerTools.error_benji("No valid points to plot.")
 
     # --- New fit result structure ---
     pvec = fit_result.params
@@ -293,8 +312,10 @@ function plot_convergence_result(
     end
 
     # --- Smooth curve including extrapolated point at h^2 = 0 ---
-    h2min = minimum(h2p)
-    h2max = maximum(h2p)
+    # h2min = minimum(h2p)
+    # h2max = maximum(h2p)
+    h2min = minimum(hxp)
+    h2max = maximum(hxp)
 
     h2_range_log = 10 .^ range(log10(h2min), log10(h2max); length=200)
 
@@ -331,7 +352,8 @@ function plot_convergence_result(
 
     # Data points
     ax.errorbar(
-        h2p, estp;
+        # h2p, estp;
+        hxp, estp;
         yerr=errp,
         fmt="o",
         color="blue",
@@ -353,7 +375,8 @@ function plot_convergence_result(
         markeredgecolor="red"
     )
 
-    ax.set_xlabel(raw"$h^2$")
+    # ax.set_xlabel(raw"$h^2$")
+    ax.set_xlabel("\$h^{$(lead_pow)}\$")
     ax.set_ylabel("Integral Estimate")
 
     fig.tight_layout()
@@ -484,7 +507,7 @@ function plot_quadrature_coverage_1d(
     # -------------------------------
     # Build global nodes/weights (for markers)
     # -------------------------------
-    xs, ws = Quadrature.quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, ws = Quadrature.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
 
     aa = Float64(a)
     bb = Float64(b)

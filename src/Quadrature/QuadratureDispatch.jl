@@ -12,6 +12,7 @@ module QuadratureDispatch
 
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
+import ..Quadrature.BSpline
 
 """
     _decode_boundary(
@@ -59,7 +60,7 @@ Supported boundary patterns are:
 end
 
 """
-    quadrature_1d_nodes_weights(
+    get_quadrature_1d_nodes_weights(
         a::Real, 
         b::Real, 
         N::Int, 
@@ -104,7 +105,7 @@ The return types are `Vector{Float64}` for both nodes and weights.
 - This function currently errors on non-NS rules unless you extend the fallback branch
   with your pre-existing implementation.
 """
-function quadrature_1d_nodes_weights(
+function get_quadrature_1d_nodes_weights(
     a::Real,
     b::Real,
     N::Int,
@@ -138,6 +139,20 @@ function quadrature_1d_nodes_weights(
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)  # points per block
         return Gauss._composite_gauss_nodes_weights(a, b, N, npts, boundary)
+    end
+
+    # --- composite B-SPLINE branch ---
+    if BSpline._is_bspl_rule(rule)
+        p = BSpline._parse_bspl_p(rule)
+        kind = BSpline._bspl_kind(rule)  # :interp or :smooth
+
+        # NOTE: smoothing λ is fixed to 0.0 for now (pure interpolation-like),
+        #       will be wired as a user option later.
+        if kind === :interp
+            return BSpline.bspline_nodes_weights(a, b, N, p, boundary; kind=:interp)
+        else
+            return BSpline.bspline_nodes_weights(a, b, N, p, boundary; kind=:smooth, λ=0.0)
+        end
     end
 
     # ------------------------------------------------------------
