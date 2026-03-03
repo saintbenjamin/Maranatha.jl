@@ -7,7 +7,7 @@ with a modular, rule-dispatched architecture for
 
 * structured **multi-dimensional tensor-product integration**
 * derivative-aware **residual-based error scale modeling**
-* covariance-aware **least-χ² extrapolation to `h → 0`**
+* covariance-aware **least chi-square fitting for $h \to 0$ extrapolation**
 
 It is designed for methodological research and lattice perturbation theory experiments,
 with emphasis on analytical transparency, reproducibility, and modular structure.
@@ -28,12 +28,12 @@ Maranatha is built around a **pipeline-oriented workflow**:
 
 1. Structured tensor-product quadrature
 2. Residual-based derivative error scale modeling
-3. Weighted least-χ² extrapolation (`h → 0`)
+3. Weighted least chi-square fitting for $h \to 0$ extrapolation
 4. Covariance-propagated uncertainty visualization
 
 Unlike traditional quadrature libraries that focus on static rule tables,
 Maranatha derives rule structure through **moment / Taylor-expansion construction**
-(for Newton–Cotes) and supports additional rule backends (Gauss-family, B-spline)
+(for Newton-Cotes) and supports additional rule backends (Gauss-family, B-spline)
 through unified tensor-product dispatch.
 
 Fit exponents are determined from a **residual-informed expansion**
@@ -45,13 +45,12 @@ dispatched by rule family.
 
 ### 🔢 Integration
 
-* General **multi-dimensional tensor-product quadrature** on `[a,b]^d`
+* General **multi-dimensional tensor-product quadrature** on $[a,b]^d$
 * Unified quadrature dispatcher supporting:
-  * Newton–Cotes (`:ns_pK`)
-  * Gauss-family rules (`:gauss_pK`)
-  * B-spline-based rules (`:bsplI_pK`/`:bsplS_pK`)
+  * Newton–Cotes (`:ns_p2`, `:ns_p3`, ...)
+  * Gauss-family rules (`:gauss_p2`, `:gauss_p3`, ...)
+  * B-spline-based rules (`:bsplI_p2`, .../`:bsplS_p2`, ...)
 * Configurable boundary patterns (for composite rules):
-
   * `:LCRC`, `:LORC`, `:LCRO`, `:LORO`
 * Rational composite weight assembly (for Newton–Cotes rules),
   converted to `Float64` only at the final stage
@@ -63,12 +62,11 @@ dispatched by rule family.
 Residual-based derivative error *scale* models:
 
 * Rule-family residual-term detection (midpoint-based for composite rules)
-* LO / LO+NLO / multi-term support via `nerr_terms`
+* LO / LO + NLO / multi-term support via `nerr_terms`
 * Tensor-product scaling philosophy
 * Automatic differentiation via:
-
-  * [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/stable/)
-  * [TaylorSeries.jl](https://juliadiff.org/TaylorSeries.jl/stable/) fallback for non-finite derivatives
+  * [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
+  * [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/) fallback for non-finite derivatives
 
 ⚠️ These are **scaling heuristics**, not rigorous truncation bounds.
 
@@ -76,7 +74,7 @@ Residual-based derivative error *scale* models:
 
 ### 📊 Convergence Extrapolation
 
-Weighted least-χ² fitting with:
+Weighted least chi-square fitting with:
 
 * Residual-informed exponent basis
 * Automatic power detection from rule-dispatched residual expansion
@@ -86,9 +84,9 @@ Weighted least-χ² fitting with:
 
 Model form:
 
-```
-I(h) = Σ λᵢ h^{powers[i]}
-```
+$$
+I(h) = \sum_\texttt{i} \lambda_\texttt{i} \,  h^{\texttt{powers[i]}}
+$$
 
 where `powers` is stored in `fit_result.powers`.
 
@@ -99,8 +97,8 @@ where `powers` is stored in `fit_result.powers`.
 * Publication-style convergence plots
 * Full covariance uncertainty band
 * Basis reconstruction from stored exponent vector (`fit_result.powers`)
-* Convergence plotted against `h^p`, where `p` is the leading fitted exponent
-* LaTeX rendering via [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl)
+* Convergence plotted against $h^p$, where $p$ is the leading fitted exponent
+* LaTeX rendering via [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
 
 ---
 
@@ -126,6 +124,8 @@ end
 ---
 
 ## 🧪 Minimal Example
+
+Quadrature with least $\chi^2$ fitting for $h \to 0$ extrapolation:
 
 ```julia
 using Maranatha
@@ -168,7 +168,7 @@ plot_convergence_result(
 ## ⚠️ Scope & Assumptions
 
 * Uniform tensor-product grids only
-* Hypercube domains `[a,b]^d`
+* Hypercube domains $[a,b]^d$
 * Designed for smooth integrands
 * Not adaptive (yet)
 * Not specialized for singular/discontinuous integrands
@@ -180,19 +180,39 @@ plot_convergence_result(
 
 Internal modules:
 
-* `Runner`
-* `Quadrature`
-* `ErrorEstimate`
-* `LeastChiSquareFit`
-* `PlotTools`
-* `Integrands`
-* `Utils`
+* [`Runner`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Runner/)
+* [`Quadrature`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Quadrature/)
+* [`ErrorEstimate`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Runner/)
+* [`LeastChiSquareFit`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/LeastChiSquareFit/)
+* [`PlotTools`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/PlotTools/)
+* [`Integrands`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Integrands/)
+* [`Utils`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Utils/)
 
 Public API intentionally minimal:
 
 ```julia
-run_Maranatha
-plot_convergence_result
+I0, fit, data = run_Maranatha(
+    f,
+    0.0, 1.0;
+    dim=4,
+    nsamples=[40, 44, 48, 52, 56, 60, 64],
+    rule=:ns_p5,
+    boundary=:LCRC,
+    err_method=:derivative,
+    fit_terms=4,
+    nerr_terms=2,
+    ff_shift=1
+)
+plot_convergence_result(
+    0.0, 1.0,
+    "4D_demo",
+    data.h,
+    data.avg,
+    data.err,
+    fit;
+    rule=:ns_p5,
+    boundary=:LCRC
+)
 ```
 
 ---
@@ -215,9 +235,9 @@ MIT License
 
 ## 🙏 Acknowledgments
 
-* [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/stable/)
-* [TaylorSeries.jl](https://juliadiff.org/TaylorSeries.jl/stable/) 
-* [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl)
+* [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
+* [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/) 
+* [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
 
 ---
 
