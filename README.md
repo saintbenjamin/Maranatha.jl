@@ -45,8 +45,6 @@ dispatched by rule family.
 
 ### 🔢 Integration
 
-### 🔢 Integration
-
 * General **multi-dimensional tensor-product quadrature** on `[a,b]^d`
 * Unified quadrature dispatcher supporting:
   * Newton–Cotes (`:ns_pK`)
@@ -154,13 +152,13 @@ Plot:
 using Maranatha
 
 plot_convergence_result(
-    0.0, 1,
+    0.0, 1.0,
     "4D_demo",
     data.h,
     data.avg,
     data.err,
     fit;
-    rule=:ns_p3,
+    rule=:ns_p5,
     boundary=:LCRC
 )
 ```
@@ -220,6 +218,24 @@ MIT License
 * [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/stable/)
 * [TaylorSeries.jl](https://juliadiff.org/TaylorSeries.jl/stable/) 
 * [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl)
+
+---
+
+## 🔤 Name Philosophy
+
+_Maranatha.jl as an acrostic:_
+
+> **M**eshes define structured grids over the domain,  
+> **A**cross increasing resolutions, evaluations are compared,  
+> **R**ule backends enable tensor-product evaluation,  
+> **A**utomatic differentiation enables derivative-based scaling,  
+> **N**umerical values are computed deterministically at each node,  
+> **A**pproximation errors follow residual-informed structure,  
+> **T**otal values are extrapolated via weighted least-χ² fitting,  
+> **H**igher-dimensional extensions preserve the tensor-product philosophy,  
+> and **A**nalysis-ready results carry covariance-aware uncertainty.
+
+With **J**u**l**ia, it is realized and goes forth into new horizons.
 
 ---
 
