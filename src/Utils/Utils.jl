@@ -15,7 +15,7 @@ Unified utility bundle used across `Maranatha.jl`.
 
 # Overview
 
-`Utils` serves as a lightweight aggregation layer for reusable helper
+`Maranatha.Utils` serves as a lightweight aggregation layer for reusable helper
 submodules that are shared throughout the `Maranatha.jl` codebase.
 
 Rather than placing miscellaneous helper functions in a single large file,
@@ -26,7 +26,7 @@ Currently included:
 
 - [`Maranatha.Utils.JobLoggerTools`](@ref)  
   Timestamped logging utilities, structured stage delimiters, assertion
-  helpers, and the [`Maranatha.Utils.@logtime_benji`](@ref) macro for execution timing with
+  helpers, and the [`Maranatha.Utils.JobLoggerTools.@logtime_benji`](@ref) macro for execution timing with
   allocation reporting.
 
 - [`Maranatha.Utils.AvgErrFormatter`](@ref)  
@@ -38,26 +38,28 @@ Currently included:
 
 - Keep utilities **modular and dependency-light**.
 - Avoid monolithic helper files.
-- Provide a stable namespace (`Utils.*`) for shared infrastructure.
+- Provide a stable namespace (`Maranatha.Utils.*`) for shared infrastructure.
 - Allow future extensions by adding new submodules without breaking
   existing interfaces.
 
-`Utils` is intentionally infrastructural and contains no numerical
+`Maranatha.Utils` is intentionally infrastructural and contains no numerical
 algorithms. Its purpose is to support logging, formatting, and other
 cross-cutting concerns used by higher-level modules such as
-`Quadrature`, `ErrorEstimate`, and `LeastChiSquareFit`.
+[`Maranatha.Quadrature`](@ref), 
+[`Maranatha.ErrorEstimate`](@ref), 
+and [`Maranatha.LeastChiSquareFit`](@ref).
 
 # Example
 
 ```julia
-using .Utils
+using Maranatha.Utils
 
 Utils.JobLoggerTools.log_stage_benji("Starting computation")
 
 result = Utils.JobLoggerTools.@logtime_benji(nothing, sum(rand(10^6)))
 
 formatted = Utils.JobLoggerTools.avgerr_e2d_from_float(1.234, 0.056)
-Utils.JobLoggerTools.println_benji("Fit result = $formatted")
+Utils.JobLoggerTools.println_benji("Fit result = \$formatted")
 ```
 
 Additional submodules may be introduced over time as the project evolves.
