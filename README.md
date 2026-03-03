@@ -248,15 +248,15 @@ MIT License
 
 _[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/) as an acrostic:_
 
-> **M**eshes sketch structured grids over the domain,
-> **A**cross increasing resolutions, evaluations gather and compare.
-> **R**ule backends quietly orchestrate tensor-product evaluation,
-> **A**utomatic differentiation keeps an eye on derivative-based scaling.
-> **N**umerical values take their places at each node,
-> **A**pproximation errors reveal their residual-informed structure.
-> **T**otal values emerge through weighted least-χ² fitting,
-> **H**igher-dimensional extensions remain faithful to the tensor-product philosophy,
-> and **A**nalysis-ready results carry covariance-aware uncertainty without apology.
+> **M**eshes sketch structured grids over the domain,  
+> **A**cross increasing resolutions, evaluations gather and compare.  
+> **R**ule backends quietly orchestrate tensor-product evaluation,  
+> **A**utomatic differentiation keeps an eye on derivative-based scaling.  
+> **N**umerical values take their places at each node,  
+> **A**pproximation errors reveal their residual-informed structure.  
+> **T**otal values emerge through weighted least-χ² fitting,  
+> **H**igher-dimensional extensions remain faithful to the tensor-product philosophy,  
+> and **A**nalysis-ready results carry covariance-aware uncertainty without apology.  
 
 With **J**u**l**ia, it is realized and goes forth into new horizons.
 
