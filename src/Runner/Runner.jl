@@ -29,7 +29,8 @@ export run_Maranatha
         err_method::Symbol = :derivative,
         fit_terms::Int = 2,
         nerr_terms::Int = 1,
-        ff_shift::Int = 0
+        ff_shift::Int = 0,
+        use_threads::Bool = false        
     )
 
 High-level execution pipeline for ``n``-dimensional quadrature,
@@ -39,11 +40,12 @@ error modeling, and convergence extrapolation.
 `run_Maranatha` is the orchestration entry point that combines the core
 subsystems of `Maranatha.jl`:
 
-- [`Maranatha.Quadrature`](@ref)           : tensor-product Newton-Cotes quadrature in **arbitrary** dimension
+- [`Maranatha.Quadrature`](@ref)         : tensor-product quadrature dispatcher (Newton-Cotes / Gauss / B-spline backends)
 - [`Maranatha.ErrorEstimate`](@ref)      : residual-based derivative error scale models (midpoint expansion)
 - [`Maranatha.LeastChiSquareFit`](@ref)   : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
 
-Optionally, derivative-based error estimation can be executed using threaded dispatch (see `use_threads`).
+Error estimation is currently supported via `err_method = :derivative` only.
+Threaded execution of the derivative-based backend can be enabled with `use_threads`.
 
 For each resolution `N` in `nsamples`, the runner performs:
 
@@ -59,15 +61,17 @@ For each resolution `N` in `nsamples`, the runner performs:
 4. Accumulate `(h, estimate, error)` triplets.
 
 After processing all resolutions, a weighted convergence fit is performed using a
-**residual-informed exponent basis** derived from the composite Newton-Cotes midpoint residual model
-for `(rule, boundary)` and a representative subdivision count.
+**residual-informed exponent basis** derived from the rule-family residual model
+(dispatched internally based on `rule`) for `(rule, boundary)` and a representative subdivision count.
 
-The fitted model is reconstructed from the stored exponent vector:
+The fitted convergence model is reconstructed from the stored exponent vector:
 ```math
-I(h) = \\sum_{\\texttt{i}=1}^{n} \\lambda_\\texttt{i} \\, h^{\\,\\texttt{powers[i]}} \\,,
+I(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h),
+\\qquad
+\\varphi_i(h) = h^{\\texttt{powers[i]}} \\quad (i=1,\\dots,n),
 ```
-where the exponent vector `powers` is determined during fitting and stored in the fit result
-(e.g. `fit_result.powers`, with `powers[1] = 0` for the constant term).
+where `powers = fit_result.powers` with `powers[1] = 0` for the constant term.
+
 
 Optionally, the fit may apply a **fitting-function-shift** (`ff_shift`) to skip the nominal leading residual power
 when the corresponding coefficient is expected to vanish for the given integrand (e.g. symmetry causes the
@@ -96,9 +100,9 @@ The final extrapolated estimate is returned together with the full fit object an
   Vector of subdivision counts `N`. Each value defines a different grid resolution used in the convergence study.
 
 * `rule::Symbol = :ns_p3`:
-  Newton-Cotes rule identifier. For the general NS rules, use `:ns_pK`
-  (e.g. `:ns_p3`, `:ns_p4`, `:ns_p5`, ...). This symbol is forwarded to both integration
-  and error-estimation modules.
+  Quadrature rule identifier forwarded to integration, error estimation, and fitting.
+  Examples include Newton-Cotes NS rules (`:ns_pK`) as well as Gauss-family and B-spline rule symbols
+  supported by [`Maranatha.Quadrature`](@ref).
 
 * `boundary::Symbol = :LCRC`:
   Boundary pattern for the composite rule assembly. Supported values are:
@@ -106,10 +110,10 @@ The final extrapolated estimate is returned together with the full fit object an
   This is forwarded consistently to integration, error estimation, and fitting.
 
 * `err_method::Symbol = :derivative`:
-  Error estimation strategy.
-  Supported values:
-
-  * `:derivative`: [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
+  Error estimation strategy.  
+  Currently, only `:derivative` is implemented
+  (dispatching to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)).
+  This keyword is reserved for future error-estimation backends.
 
 * `fit_terms::Int = 2`:
   Number of basis terms used in the convergence model (including the constant term).

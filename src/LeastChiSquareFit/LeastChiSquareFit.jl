@@ -43,19 +43,29 @@ This routine fits a rule- and boundary-dependent convergence ansatz that is **li
 parameters**, using weighted least squares (WLS). The step size is provided by the caller as
 ``\\displaystyle{h = \\frac{b-a}{N}}`` (via `hs`).
 
-The convergence exponents are inferred from the composite Newton-Cotes midpoint residual model,
-which depends on `(rule, boundary)` and a representative subdivision count `Nref` derived from
-the smallest step size in `hs`.
+The convergence exponents are inferred from a unified midpoint-residual model
+that depends on `(rule, boundary)` and a representative subdivision count `Nref`
+derived from the smallest step size in `hs`.
+
+A list of candidate residual indices is obtained via
+[`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref).
+These indices are then mapped to fit powers in `h` depending on the rule family
+(see below), and sliced using the optional `ff_shift`.
 
 ## Exponent selection (midpoint residual model + forward shift)
-First, a list of candidate residual powers is obtained via
-[`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_residual_ks_with_center`](@ref):
-- `powers_all = ks`.
 
-These are then **sliced** to build the fit basis using the optional forward-shift `ff_shift`:
+First, a list of candidate residual indices is obtained via
+[`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref)
+as `ks`.
 
-- The model uses exactly `need = nterms - 1` non-constant powers.
-- The selected powers are:
+These `ks` are then mapped to the fit powers in `h` depending on the rule family:
+
+- **Newton-Cotes NS rules**: `powers_all = ks` (current pipeline convention).
+- **Gauss-family rules**: `powers_all = ks` (as returned by the Gauss residual backend).
+- **B-spline rules**: `powers_all = ks .+ 1` (moment index `k` corresponds to an ``h^{k+1}`` scaling).
+
+The fit basis uses exactly `need = nterms - 1` non-constant powers, selected by slicing:
+
 ```math
 \\texttt{powers} = \\texttt{powers\\_all[ (1+ff\\_shift) : (1+ff\\_shift+need-1) ]}
 ```

@@ -120,22 +120,18 @@ function error_estimate_3d(
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    # # collect LO / LO+NLO / ...
-    # ks, coeffsR = if nerr_terms == 1
-    #     k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
-    #     k == 0 && return 0.0
-    #     ([k], Quadrature.RBig[coeffR])
-    # else
-    #     _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
-    # end
-    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    # Collect residual terms (LO or LO+NLO+...)
+    ks, coeffs, _center = _leading_residual_terms_any(
+        rule, boundary, N; 
+        nterms = nerr_terms, 
+        kmax   = kmax
+    )
 
     err = 0.0
 
     @inbounds for it in eachindex(ks)
         kk = ks[it]
         kk == 0 && continue
-        # coeff = Float64(coeffsR[it])
         coeff = coeffs[it]
 
         # X-axis contribution: d^kk/dx^kk then integrate over y,z
@@ -266,14 +262,11 @@ function error_estimate_3d_threads(
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    # ks, coeffsR = if nerr_terms == 1
-    #     k, coeffR = _leading_midpoint_residual_term(rule, boundary, N; kmax=min(kmax, 64))
-    #     k == 0 && return 0.0
-    #     ([k], Quadrature.RBig[coeffR])
-    # else
-    #     _leading_midpoint_residual_terms(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
-    # end
-    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    ks, coeffs, _center = _leading_residual_terms_any(
+        rule, boundary, N; 
+        nterms = nerr_terms, 
+        kmax   = kmax
+    )
 
     L  = length(xs)
     nt = Threads.maxthreadid()
@@ -283,7 +276,6 @@ function error_estimate_3d_threads(
     @inbounds for it in eachindex(ks)
         kk = ks[it]
         kk == 0 && continue
-        # coeff = Float64(coeffsR[it])
         coeff = coeffs[it]
 
         # -----------------------------

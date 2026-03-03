@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/nth_derivative.jl
+# src/ErrorEstimate/ErrorDispatch/nth_derivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

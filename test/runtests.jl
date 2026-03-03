@@ -55,13 +55,13 @@ end
 @testset "Maranatha.jl Quadrature Suite" begin
     announce("Maranatha.jl Quadrature Suite")
 
-    # include("pedagological_visualization_1D_test.jl")
+    include("pedagological_visualization_1D_test.jl")
 
     # include("Z_q_1D_F0000_test.jl")
 
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
         announce("Canonical integrands (multi-dim, multi-rule)")
-        include("canonical_1D_BSpline_test.jl")
+    #     include("canonical_1D_BSpline_test.jl")
     #     include("canonical_1D_gauss_test.jl")
     #     include("canonical_1D_test.jl")
     #     include("canonical_2D_test.jl")

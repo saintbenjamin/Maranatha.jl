@@ -11,8 +11,12 @@
 """
     module Maranatha
 
-`Maranatha.jl` is a modular Newton-Cotes-based toolkit for **multi-dimensional
-quadrature**, **error-scale modeling**, and **least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation** on hypercube domains ``\\left[ a, b \\right]^n`` where ``n`` is the (spacetime) dimensionality.
+`Maranatha.jl` is a modular toolkit for **multi-dimensional quadrature**,
+**error-scale modeling**, and **least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation**
+on hypercube domains ``[a,b]^n`` where ``n`` is the (spacetime) dimensionality.
+
+The quadrature layer supports multiple rule backends (Newton-Cotes, Gauss-family, and B-spline),
+selected via rule dispatch.
 
 `Maranatha.jl` is designed around a **pipeline-oriented workflow**:
 
@@ -28,8 +32,9 @@ evolve without tightly coupling the codebase.
 # Architecture overview
 
 ## Integration layer
-[`Maranatha.Quadrature`](@ref) module provides a unified front-end for tensor-product Newton-Cotes
-quadrature in arbitrary dimensions. The concrete rule implementations are
+[`Maranatha.Quadrature`](@ref) provides a unified front-end for tensor-product quadrature
+in arbitrary dimensions, dispatching to multiple rule backends (Newton-Cotes / Gauss-family / B-spline).
+The concrete rule implementations are
 kept internal and are not part of the public API surface. The quadrature core uses an exact-moment / Taylor-expansion-based construction to support
 general multi-point composite Newton-Cotes rules through a unified implementation (including
 configurable endpoint openness via boundary patterns).
@@ -38,8 +43,8 @@ configurable endpoint openness via boundary patterns).
 The [`Maranatha.ErrorEstimate`](@ref) module supplies lightweight derivative-based error
 (scale) estimators that follow a tensor-product philosophy across dimensions.
 The estimator uses a lightweight derivative-based *error scale* model whose leading structure is
-determined from the composite Newton-Cotes *midpoint residual moments* computed from the exact
-composite weights (assembled rationally and converted to floating-point only at the final stage).
+determined from a rule-family residual model (dispatched by `rule`),
+using midpoint residual moments/terms derived from the underlying composite weights.
 
 The estimator supports using one or more residual terms (LO, NLO, ...) via a term count parameter
 (e.g. `nerr_terms` in the high-level runner), which sums multiple midpoint-residual contributions when requested.
@@ -50,7 +55,7 @@ produce consistent scaling weights for least ``\\chi^2`` fitting for ``h \\to 0`
 
 ## Least ``\\chi^2`` fitting
 [`Maranatha.LeastChiSquareFit`](@ref) submodule performs least ``\\chi^2`` fitting for ``h \\to 0`` extrapolation using
-a *residual-informed exponent basis* derived from the composite Newton-Cotes midpoint residual expansion.
+a *residual-informed exponent basis* derived from a residual-informed exponent basis dispatched by rule family (via the error-model backend).
 
 The fitted model is linear in its parameters:
 ```math
@@ -91,9 +96,11 @@ Users typically interact only with this high-level interface.
 [`Maranatha.PlotTools.plot_convergence_result`](@ref) generates publication-style convergence
 figures using [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) with [``\\LaTeX``](https://www.latex-project.org/) rendering. The shaded band represents the
 full covariance-propagated ``1 \\, \\sigma`` uncertainty of the fitted model.
-The plot reconstruction uses the exact exponent basis stored in the fit result (e.g. `fit_result.powers`)
-together with the parameter covariance (e.g. `fit_result.cov`), ensuring consistency with the fitted model,
-including any forward-shift (`ff_shift`) applied during fitting.
+The plot reconstruction uses the exact exponent basis stored in the fit result
+(e.g. `fit_result.powers`) together with the parameter covariance (e.g. `fit_result.cov`),
+ensuring consistency with the fitted model, including any forward-shift (`ff_shift`) applied.
+Convergence is visualized against ``h^{p}`` where ``p = \texttt{fit_result.powers[2]}``,
+with model evaluation performed on ``h`` via ``h = x^{1/p}``.
 
 ## Logging
 

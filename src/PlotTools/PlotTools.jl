@@ -13,6 +13,7 @@ module PlotTools
 using PyPlot
 using LinearAlgebra
 using ..Utils.JobLoggerTools
+using ..Quadrature
 using ..ErrorEstimate
 
 export plot_convergence_result, set_pyplot_latex_style
@@ -72,19 +73,23 @@ end
         boundary::Symbol = :LCRC
     ) -> Nothing
 
-Plot convergence data ``I(h)`` against ``h^2``, overlay the fitted extrapolation curve,
+Plot convergence data ``I(h)`` against ``h^{p}`` (where the leading exponent `p`
+is taken from `fit_result.powers`), overlay the fitted extrapolation curve,
 and visualize a *fit uncertainty band* propagated from the parameter covariance.
 
 # Function description
-This routine is a visualization companion to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+This routine is a visualization companion to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
 It produces a convergence plot and saves it as a PNG file.
 
-The ``x``-axis is ``h^2`` (with ``h`` provided via `hs`), and the ``y``-axis is the raw quadrature
-estimate ``I(h)`` with pointwise error bars (absolute values are used for plotting).
+The ``x``-axis is ``h^{p}``, where ``p = \\texttt{fit_result.powers[2]}``
+(the first non-constant exponent used by the fit), and the ``y``-axis is the raw
+quadrature estimate ``I(h)`` with pointwise error bars (absolute values are used).
 
-Although the ``x``-axis is plotted in ``h^2``, the fitted model is evaluated as a function of ``h``.
-Internally, the routine builds a dense grid in ``h^2``, converts it via ``h = \\sqrt{h^2}``,
-and evaluates the model and its propagated uncertainty on that ``h`` grid.
+Although the ``x``-axis is plotted in ``h^{p}``, the fitted model is evaluated as a function of ``h``.
+Internally, the routine builds a dense grid in the plotted ``x`` coordinate
+(``x = h^{p}``), converts it back to ``h`` via ``h = x^{1/p}``,
+and evaluates the fitted model and its propagated uncertainty on that `h` grid.
 
 ## Model reconstruction (no refitting)
 This function does *not* refit anything. It reconstructs the model from the stored fit output:
@@ -103,19 +108,11 @@ I(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h),
 ```
 where `powers = fit_result.powers` and `length(powers) == length(pvec)` is required.
 
-### Fallback behavior
+### Requirement: `fit_result.powers`
 
-If `fit_result.powers` is not present, the routine falls back to a legacy assumption:
-it infers a representative subdivision count `Nref` from the smallest `h` in `hs`, extracts a leading
-residual order `k` via [`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_midpoint_residual_term`](@ref),
-sets `p = k`, and then uses:
-```math
-\\texttt{powers = (0, p, p+2, p+4, \\ldots)}
-```
-to match the length of `fit_result.params`.
-
-In this fallback mode, `rule` and `boundary` are used only for that residual-based power inference
-and for labeling the output filename.
+This routine requires `fit_result` to provide `powers` so that the basis used in
+the fit can be reconstructed exactly (no refitting). If `fit_result.powers` is
+missing, the function throws an error.
 
 ## Fit curve and uncertainty band
 
@@ -139,7 +136,7 @@ The resulting figure contains:
 * the fitted curve ``I_{\\text{fit}}(h)`` (line),
 * the fit uncertainty band ``\\pm \\sigma`` (shaded region),
 * the measured points with error bars,
-* the extrapolated point at ``h^2 = 0`` with uncertainty `fit_result.error_estimate`.
+* the extrapolated point at ``h^{p} = 0`` with uncertainty `fit_result.error_estimate`.
 
 ## Output
 
@@ -152,7 +149,7 @@ convergence_\$(name)_\$(rule)_\$(boundary).png
 # Arguments
 
 * `a`, `b`:
-  Integration bounds used only in the legacy fallback path to derive `Nref` from the smallest step size in `hs`.
+  Integration bounds (currently unused by this plotting routine; retained for API consistency).
 * `name`:
   Label used in the output filename.
 * `hs`:
@@ -168,15 +165,14 @@ convergence_\$(name)_\$(rule)_\$(boundary).png
   * `fit_result.cov`
   * `fit_result.estimate`
   * `fit_result.error_estimate`
-    Optionally:
-  * `fit_result.powers` (recommended; required for exact basis reconstruction).
+  * `fit_result.powers` (required; used to reconstruct the fit basis exactly).
 
 # Keyword arguments
 
 * `rule`:
-  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+  Rule symbol used only for labeling the output filename.
 * `boundary`:
-  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Boundary symbol used only for labeling the output filename.
 
 # Returns
 
@@ -211,27 +207,11 @@ function plot_convergence_result(
     # (assumes hs correspond to increasing resolution)
     Nref = round(Int, (b - a) / minimum(float.(hs)))
 
-    # k, _ = ErrorEstimate._leading_midpoint_residual_term(rule, boundary, Nref)
-    # p = k
-
-    # # --- Determine leading power from rule ---
-    # p =
-    #     rule == :simpson13_close ? 4 :
-    #     rule == :simpson13_open  ? 4 :
-    #     rule == :simpson38_close ? 4 :
-    #     rule == :simpson38_open  ? 4 :
-    #     rule == :bode_close      ? 6 :
-    #     rule == :bode_open       ? 6 :
-    #     JobLoggerTools.error_benji("Unknown rule")
-
     # --- Input checks ---
     n = length(hs)
     if length(estimates) != n || length(errors) != n
         JobLoggerTools.error_benji("Input length mismatch.")
     end
-
-    # Raw x = h^2
-    # h2 = hs .^ 2
 
     # ------------------------------------------------------------
     # Determine x-axis power from fit (e.g. h^p)
@@ -250,7 +230,6 @@ function plot_convergence_result(
 
     errors_pos = abs.(errors)
 
-    # mask = (h2 .> 0) .& isfinite.(h2) .& isfinite.(estimates) .& isfinite.(errors_pos)
     mask = (hx .> 0) .& isfinite.(hx) .& isfinite.(estimates) .& isfinite.(errors_pos)
 
     # h2p = h2[mask]
@@ -258,7 +237,6 @@ function plot_convergence_result(
     estp = estimates[mask]
     errp = errors_pos[mask]
 
-    # isempty(h2p) && JobLoggerTools.error_benji("No valid points to plot.")
     isempty(hxp) && JobLoggerTools.error_benji("No valid points to plot.")
 
     # --- New fit result structure ---
@@ -279,12 +257,6 @@ function plot_convergence_result(
     # --------------------------------------------
     fit_powers = if hasproperty(fit_result, :powers)
         fit_result.powers
-    else
-        # fallback: legacy assumption (p, p+2, p+4, ...)
-        Nref = round(Int, (b - a) / minimum(float.(hs)))
-        k, _ = ErrorEstimate.NewtonCotes._leading_midpoint_residual_term(rule, boundary, Nref)
-        p = k
-        vcat(0, [p + 2*(i-2) for i in 2:length(pvec)])
     end
 
     (length(fit_powers) == length(pvec)) || JobLoggerTools.error_benji(
@@ -311,19 +283,18 @@ function plot_convergence_result(
         return y, σ
     end
 
-    # --- Smooth curve including extrapolated point at h^2 = 0 ---
-    # h2min = minimum(h2p)
-    # h2max = maximum(h2p)
-    h2min = minimum(hxp)
-    h2max = maximum(hxp)
+    # --- Smooth curve including extrapolated point at x = 0 ---
+    xmin = minimum(hxp)
+    xmax = maximum(hxp)
 
-    h2_range_log = 10 .^ range(log10(h2min), log10(h2max); length=200)
+    x_range_log = 10 .^ range(log10(xmin), log10(xmax); length=200)
 
     # prepend zero explicitly
-    h2_range = vcat(0.0, h2_range_log)
+    x_range = vcat(0.0, x_range_log)
 
-    # model needs h, not h^2
-    h_range  = sqrt.(h2_range)
+    # model needs h, not x; x = h^lead_pow  =>  h = x^(1/lead_pow)
+    h_range = x_range .^ (1.0 / Float64(lead_pow))
+
     y_fit = similar(h_range)
     y_err = similar(h_range)
 
@@ -331,18 +302,17 @@ function plot_convergence_result(
         y_fit[i], y_err[i] = model_and_err(h_range[i])
     end
 
-
     # Style
     set_pyplot_latex_style(0.5)
 
     fig, ax = PyPlot.subplots(figsize=(5.6,5.0), dpi=500)
 
     # Fit curve
-    ax.plot(h2_range, y_fit; color="black", linewidth=2.5)
+    ax.plot(x_range, y_fit; color="black", linewidth=2.5)
 
     # --- Fit error band ---
     ax.fill_between(
-        h2_range,
+        x_range,
         y_fit .- y_err,
         y_fit .+ y_err;
         alpha=0.25,
@@ -362,7 +332,7 @@ function plot_convergence_result(
         markeredgecolor="blue"
     )
 
-    # --- Extrapolated point at h^2 = 0 ---
+    # --- Extrapolated point at h = 0 ---
     ax.errorbar(
         [0.0],
         [I0];
@@ -396,7 +366,6 @@ using ..Quadrature   # <-- add this line in PlotTools module imports
 
 export plot_quadrature_coverage_1d
 
-
 """
     plot_quadrature_coverage_1d(
         f,
@@ -413,18 +382,153 @@ export plot_quadrature_coverage_1d
         show_block_fill::Bool = false
     ) -> Nothing
 
-Educational 1D visualization:
+Visualize **``1``-dimensional quadrature coverage** on ``[a,b]`` by plotting the integrand,
+the quadrature nodes/weights, and an **exact, non-distorting decomposition**
+of the per-block interpolation contributions.
 
-1) Plot the integrand `f(x)` on `[a,b]`.
-2) Reconstruct the composite `:ns_pK` block tiling implied by `(N, boundary)`.
-3) For each block, build the degree-(p-1) polynomial interpolant through the block nodes,
-   and visualize the "covered region" by filling the area under that interpolant.
+# Function description
 
-This makes it easy to see how increasing `N` (resolution) and `K` (local node count)
-changes the piecewise polynomial approximation quality.
+This routine is a diagnostic/educational visualizer for understanding what a
+``1``-dimensional quadrature rule is *actually doing* on a structured grid.
 
-The plot is saved as:
-`quad_coverage_\$(name)_\$(rule)_\$(boundary)_N\$(N).png`.
+Given a rule specified by `(rule, boundary)` and a subdivision count `N`,
+the function:
+
+1. Retrieves the global quadrature nodes/weights `(xs, ws)` via
+   [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
+2. Partitions the domain into a sequence of **blocks** (local panels), each associated
+   with a set of nodes used to form a local interpolant.
+3. For each block, constructs an interpolating polynomial through the nodal samples
+   ``(x_i, f(x_i))`` using a simple Vandermonde solve (educational; not optimized).
+4. Draws the block interpolant curve and, optionally, fills the signed contribution
+   of each nodal term **exactly** using Lagrange basis functions.
+
+The goal is to provide an *honest* visualization:
+
+- The filled contributions in a block sum to the block interpolant exactly.
+- Both positive and negative contributions are shown (no clipping / hiding).
+
+# Block construction (rule-family dispatch)
+
+This plotter supports three rule families, identified by `rule`:
+
+- Newton-Cotes NS rules (as detected by [`Maranatha.Quadrature.NewtonCotes._is_ns_rule`](@ref))
+- Gauss-family rules (as detected by [`Maranatha.Quadrature.Gauss._is_gauss_rule(rule)`](@ref))
+- B-spline-family rules (as detected by [`Maranatha.Quadrature.BSpline._is_bspl_rule(rule)`](@ref))
+
+## NS rules (`:ns_pK`)
+
+For NS rules, blocks are constructed using the same boundary-aware tiling rules
+as the composite quadrature assembly. The boundary pattern `boundary` must be one of:
+
+- `:LCRC`, `:LORC`, `:LCRO`, `:LORO`
+
+and `N` must satisfy the composability constraint imposed by the boundary widths.
+
+## Gauss / B-spline rules
+
+For Gauss-family and B-spline-family rules, the visualization uses a minimal-assumption
+panelization: the interval is divided into `N` uniform panels, and each global node is
+assigned to a panel based on its `x` location. Empty panels are skipped.
+
+This is intended as a conservative, non-distorting *coverage* visualization for
+structured composite constructions.
+
+# Exact, non-distorting contribution visualization
+
+When `show_bars=true`, the routine performs a per-block decomposition based on
+Lagrange basis functions.
+
+For a block with nodes ``x_1,\\dots,x_p`` and nodal values ``y_i = f(x_i)``,
+the interpolant is:
+
+```math
+P(x) = \\sum_{i=1}^{p} y_i \\, \\ell_i(x),
+```
+
+where ``\\ell_i(x)`` are Lagrange basis polynomials.
+
+The visualization fills the signed areas under each term ``y_i\\,\\ell_i(x)``
+over the block grid. Therefore, the sum of filled regions equals the plotted
+block interpolant exactly.
+
+Implementation notes:
+
+* Lagrange basis values are evaluated using a barycentric form for stability.
+* The block interpolant itself is computed from a Vandermonde fit to keep the
+  educational mapping between nodal samples and the interpolant explicit.
+
+# Arguments
+
+* `f`:
+  Scalar integrand ``f(x)`` defined on ``[a,b]``. Non-finite samples are treated as `NaN`
+  and will suppress drawing in blocks where needed.
+
+* `a`, `b`:
+  Interval endpoints.
+
+* `N::Int`:
+  Subdivision count that defines the structured grid resolution and (for composite rules)
+  the panelization used by [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
+
+# Keyword arguments
+
+* `rule::Symbol = :ns_p3`:
+  Quadrature rule identifier. Must be supported by the internal rule-family detectors:
+  [`Maranatha.Quadrature.NewtonCotes._is_ns_rule`](@ref), 
+  [`Maranatha.Quadrature.Gauss._is_gauss_rule`](@ref), or 
+  [`Maranatha.Quadrature.BSpline._is_bspl_rule`](@ref).
+
+* `boundary::Symbol = :LCRC`:
+  Boundary pattern. Used by NS rules for exact boundary tiling; for other families it is
+  forwarded to node/weight generation (and may be ignored depending on the backend).
+
+* `ngrid_f::Int = 4000`:
+  Number of points used to draw the dense integrand curve.
+
+* `ngrid_block::Int = 400`:
+  Number of points used per block for interpolant curves and basis contribution fills.
+
+* `name::String = "coverage"`:
+  Label used in the output filename.
+
+* `show_bars::Bool = true`:
+  If `true`, draw the exact Lagrange-term contribution fills inside each block.
+
+* `bar_width_scale::Float64 = 1.0`:
+  Width scale used only for the legacy bar-height bookkeeping and diagnostic `I_hat`
+  display (the final visualization uses the Lagrange-term fills; no geometric distortion
+  is introduced by this parameter).
+
+* `show_block_fill::Bool = false`:
+  If `true`, also fill the region under each block interpolant curve (in addition to the
+  per-term contribution fills). This is purely visual.
+
+# Output
+
+Saves a PNG file:
+
+```julia
+quad_coverage_\$(name)_\$(String(rule))_\$(String(boundary))_N\$(N).png
+```
+
+# Returns
+
+* `nothing`.
+
+# Errors
+
+* Throws an error if `N < 1`.
+* Throws an error if `rule` does not belong to a supported family.
+* For NS rules, throws an error if `boundary` is invalid or `N` violates the composability
+  constraint implied by `(rule, boundary)`.
+
+# Design notes
+
+* This routine is intended for **diagnostics and interpretation**, not for performance.
+* The interpolant fit uses a Vandermonde solve for transparency; it is not numerically optimal.
+* The contribution visualization is designed to avoid “curve-smoothing” or other presentation
+  artifacts that could misrepresent what the quadrature rule is actually approximating.
 """
 function plot_quadrature_coverage_1d(
     f,
@@ -445,69 +549,198 @@ function plot_quadrature_coverage_1d(
     # Basic checks
     # -------------------------------
     N >= 1 || JobLoggerTools.error_benji("N must be ≥ 1 (got N=$N)")
-    startswith(String(rule), "ns_p") || JobLoggerTools.error_benji("This plotter supports only :ns_pK rules (got rule=$rule)")
-    p = parse(Int, String(rule)[5:end])
-    p >= 2 || JobLoggerTools.error_benji("p must be ≥ 2 (got p=$p from rule=$rule)")
+
+    # Identify rule family (must match your existing modules)
+    is_ns   = Quadrature.NewtonCotes._is_ns_rule(rule)
+    is_gaus = Quadrature.Gauss._is_gauss_rule(rule)
+    is_bs   = Quadrature.BSpline._is_bspl_rule(rule)
+
+    (is_ns || is_gaus || is_bs) || JobLoggerTools.error_benji(
+        "Unsupported rule family for coverage plot: rule=$rule"
+    )
 
     # -------------------------------
-    # Decode boundary and tiling
+    # Build global nodes/weights (markers + contributions)
     # -------------------------------
-    @inline function _decode_boundary(boundary::Symbol)
-        if boundary === :LCRC
-            return (:closed, :closed)
-        elseif boundary === :LORC
-            return (:opened, :closed)
-        elseif boundary === :LCRO
-            return (:closed, :opened)
-        elseif boundary === :LORO
-            return (:opened, :opened)
+    xs, ws = Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+
+    aa = Float64(a)
+    bb = Float64(b)
+    h  = (bb - aa) / Float64(N)
+
+    # -------------------------------
+    # Build "blocks" for honest visualization
+    #
+    # Each block is a NamedTuple:
+    #   (x0::Float64, x1::Float64, inds::Vector{Int})
+    #
+    # - For NS rules: use exact boundary tiling (same as your current logic).
+    # - For Gauss / B-spline: treat as N uniform panels on [a,b] and assign nodes by location.
+    #   (This is honest, minimal-assumption, and works as long as your composite construction
+    #    respects the N-panel partition.)
+    # -------------------------------
+    blocks = NamedTuple{(:x0,:x1,:inds),Tuple{Float64,Float64,Vector{Int}}}[]
+
+    if is_ns
+        # --- NS: keep your exact tiling logic, but encapsulate as block list ---
+
+        # decode boundary
+        @inline function _decode_boundary(boundary::Symbol)
+            if boundary === :LCRC
+                return (:closed, :closed)
+            elseif boundary === :LORC
+                return (:opened, :closed)
+            elseif boundary === :LCRO
+                return (:closed, :opened)
+            elseif boundary === :LORO
+                return (:opened, :opened)
+            else
+                JobLoggerTools.error_benji("boundary must be one of :LCRC | :LORC | :LCRO | :LORO (got $boundary)")
+            end
+        end
+
+        # NS order p from :ns_pK
+        startswith(String(rule), "ns_p") || JobLoggerTools.error_benji("NS rule must be :ns_pK (got rule=$rule)")
+        p = parse(Int, String(rule)[5:end])
+        p >= 2 || JobLoggerTools.error_benji("p must be ≥ 2 (got p=$p from rule=$rule)")
+
+        @inline function _local_width(p::Int, kind::Symbol)::Int
+            kind === :closed && return p - 1
+            kind === :opened && return p
+            JobLoggerTools.error_benji("unknown local kind=$kind")
+        end
+
+        @inline function _check_condition(p::Int, boundary::Symbol, Nsub::Int)
+            Ltype, Rtype = _decode_boundary(boundary)
+            wL = _local_width(p, Ltype)
+            wR = _local_width(p, Rtype)
+            wC = p - 1
+
+            if Nsub < wL + wR
+                JobLoggerTools.error_benji(
+                    "Invalid N for boundary=$boundary: need N ≥ wL+wR = $(wL+wR), got N=$Nsub"
+                )
+            end
+
+            rem = Nsub - wL - wR
+            if rem % wC != 0
+                m_low  = rem ÷ wC
+                m_high = m_low + 1
+                N_low  = wL + m_low  * wC + wR
+                N_high = wL + m_high * wC + wR
+                JobLoggerTools.error_benji(
+                    "Invalid N for boundary=$boundary.\n" *
+                    "Require: N = wL + m*(p-1) + wR.\n" *
+                    "Got: N=$Nsub, wL=$wL, wR=$wR, (p-1)=$wC.\n" *
+                    "Nearest valid N: $N_low or $N_high."
+                )
+            end
+
+            m = rem ÷ wC
+            return m, wL, wR, Ltype, Rtype, p
+        end
+
+        m, wL, wR, Ltype, Rtype, p = _check_condition(p, boundary, N)
+
+        # helper to get block node indices (node index j is 0..N; stored at j+1)
+        function _block_nodes_indices(start::Int, kind::Symbol, which_open::Symbol)::Vector{Int}
+            if kind === :closed
+                return [start + u for u in 0:(p-1)]
+            else
+                if which_open === :backward
+                    return [start + u for u in 1:p]
+                elseif which_open === :forward
+                    return [start + u for u in 0:(p-1)]
+                else
+                    JobLoggerTools.error_benji("which_open must be :backward or :forward")
+                end
+            end
+        end
+
+        function _block_interval_x(start::Int, kind::Symbol)::Tuple{Float64,Float64}
+            w = _local_width(p, kind)
+            x0 = aa + start * h
+            x1 = aa + (start + w) * h
+            return x0, x1
+        end
+
+        # build blocks in drawing order: left, interior, right
+        start = 0
+
+        # left
+        if Ltype === :closed
+            x0, x1 = _block_interval_x(start, :closed)
+            inds = _block_nodes_indices(start, :closed, :backward)
+            push!(blocks, (; x0, x1, inds))
+            start += (p - 1)
         else
-            JobLoggerTools.error_benji("boundary must be one of :LCRC | :LORC | :LCRO | :LORO (got $boundary)")
+            x0, x1 = _block_interval_x(start, :opened)
+            inds = _block_nodes_indices(start, :opened, :backward)
+            push!(blocks, (; x0, x1, inds))
+            start += p
+        end
+
+        # interior closed
+        for _ in 1:m
+            x0, x1 = _block_interval_x(start, :closed)
+            inds = _block_nodes_indices(start, :closed, :backward)
+            push!(blocks, (; x0, x1, inds))
+            start += (p - 1)
+        end
+
+        # right
+        start_expected = N - wR
+        start == start_expected || JobLoggerTools.error_benji("Internal tiling mismatch: start=$start expected=$start_expected")
+
+        if Rtype === :closed
+            x0, x1 = _block_interval_x(start, :closed)
+            inds = _block_nodes_indices(start, :closed, :backward)
+            push!(blocks, (; x0, x1, inds))
+        else
+            x0, x1 = _block_interval_x(start, :opened)
+            inds = _block_nodes_indices(start, :opened, :forward)
+            push!(blocks, (; x0, x1, inds))
+        end
+
+    else
+        # --- Gauss / B-spline: N uniform panels on [a,b], assign nodes to panels by x location ---
+
+        edges = collect(range(aa, bb; length=N+1))
+
+        # panel index in 1..N (clamp to handle x==bb)
+        @inline function _panel_id(x::Float64)::Int
+            if x <= edges[1]
+                return 1
+            elseif x >= edges[end]
+                return N
+            else
+                # find k s.t. edges[k] <= x < edges[k+1]
+                return searchsortedlast(edges, x) |> xk -> min(max(xk, 1), N)
+            end
+        end
+
+        panel_inds = [Int[] for _ in 1:N]
+        @inbounds for j in eachindex(xs)
+            pid = _panel_id(Float64(xs[j]))
+            push!(panel_inds[pid], j)  # NOTE: j is 1-based index into xs/ws
+        end
+
+        for k in 1:N
+            x0 = edges[k]
+            x1 = edges[k+1]
+            inds = panel_inds[k]
+            # Skip empty panels (can happen for some constructions)
+            isempty(inds) && continue
+            push!(blocks, (; x0, x1, inds))
         end
     end
 
-    @inline function _local_width(p::Int, kind::Symbol)::Int
-        kind === :closed && return p - 1
-        kind === :opened && return p
-        JobLoggerTools.error_benji("unknown local kind=$kind")
-    end
-
-    @inline function _check_condition(p::Int, boundary::Symbol, Nsub::Int)
-        Ltype, Rtype = _decode_boundary(boundary)
-        wL = _local_width(p, Ltype)
-        wR = _local_width(p, Rtype)
-        wC = p - 1
-
-        if Nsub < wL + wR
-            JobLoggerTools.error_benji(
-                "Invalid N for boundary=$boundary: need N ≥ wL+wR = $(wL+wR), got N=$Nsub"
-            )
-        end
-
-        rem = Nsub - wL - wR
-        if rem % wC != 0
-            m_low  = rem ÷ wC
-            m_high = m_low + 1
-            N_low  = wL + m_low  * wC + wR
-            N_high = wL + m_high * wC + wR
-            JobLoggerTools.error_benji(
-                "Invalid N for boundary=$boundary.\n" *
-                "Require: N = wL + m*(p-1) + wR.\n" *
-                "Got: N=$Nsub, wL=$wL, wR=$wR, (p-1)=$wC.\n" *
-                "Nearest valid N: $N_low or $N_high."
-            )
-        end
-
-        m = rem ÷ wC
-        return m, wL, wR, Ltype, Rtype
-    end
-
-    m, wL, wR, Ltype, Rtype = _check_condition(p, boundary, N)
+    # m, wL, wR, Ltype, Rtype = _check_condition(p, boundary, N)
 
     # -------------------------------
     # Build global nodes/weights (for markers)
     # -------------------------------
-    xs, ws = Quadrature.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, ws = Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
 
     aa = Float64(a)
     bb = Float64(b)
@@ -658,161 +891,59 @@ function plot_quadrature_coverage_1d(
         )
     end
 
-    # ------------------------------------------------------------
-    # Compute how many blocks cover each node index j (0..N).
-    # Shared nodes (block boundaries) will have cover_count > 1.
-    # We'll split contrib[j] evenly across covering blocks.
-    # ------------------------------------------------------------
-    cover_count = zeros(Int, length(xs))  # index = j+1
-
-    function _accumulate_cover!(start::Int, kind::Symbol)
-        w = _local_width(p, kind)
-        jlo = max(start, 0)
-        jhi = min(start + w, N)
-        for j in jlo:jhi
-            cover_count[j+1] += 1
-        end
-    end
-
-    # One pass over the tiling, same as the drawing order
-    start_tmp = 0
-
-    # Left block
-    if Ltype === :closed
-        _accumulate_cover!(start_tmp, :closed)
-        start_tmp += (p - 1)
-    else
-        _accumulate_cover!(start_tmp, :opened)
-        start_tmp += p
-    end
-
-    # Interior closed blocks
-    for _ in 1:m
-        _accumulate_cover!(start_tmp, :closed)
-        start_tmp += (p - 1)
-    end
-
-    # Right block
-    start_expected = N - wR
-    start_tmp == start_expected || JobLoggerTools.error_benji(
-        "Internal tiling mismatch in cover_count pass: start=$start_tmp expected=$start_expected"
-    )
-
-    if Rtype === :closed
-        _accumulate_cover!(start_tmp, :closed)
-    else
-        _accumulate_cover!(start_tmp, :opened)
-    end
-
     # -------------------------------
-    # Composite blocks: left, interior (closed), right
-    # Each block visualized by filling under its interpolant
+    # Draw blocks (backend-agnostic)
+    # Each block: (x0, x1, inds)
     # -------------------------------
-    start = 0
-
-    function _block_nodes_indices(start::Int, kind::Symbol, which_open::Symbol)::Vector{Int}
-        if kind === :closed
-            # u = 0:(p-1)
-            return [start + u for u in 0:(p-1)]
+    function _draw_block_generic(x0::Float64, x1::Float64, inds_any)
+        # inds_any:
+        # - NS path: node indices are j = 0..N (global grid index)
+        # - Gauss/BS path: node indices are direct 1-based indices into xs/ws
+        #
+        # Normalize to actual x-node vectors xv
+        xv = Float64[]
+        if is_ns
+            # inds are in 0..N => map to xs[j+1]
+            append!(xv, [Float64(xs[j+1]) for j in inds_any])
         else
-            if which_open === :backward
-                # u = 1:p
-                return [start + u for u in 1:p]
-            elseif which_open === :forward
-                # u = 0:(p-1)
-                return [start + u for u in 0:(p-1)]
-            else
-                JobLoggerTools.error_benji("which_open must be :backward or :forward")
-            end
+            # inds are 1-based into xs
+            append!(xv, [Float64(xs[j]) for j in inds_any])
         end
-    end
 
-    function _block_interval_x(start::Int, kind::Symbol)::Tuple{Float64,Float64}
-        w = _local_width(p, kind)
-        x0 = aa + start * h
-        x1 = aa + (start + w) * h
-        return x0, x1
-    end
-
-    function _draw_block(start::Int, kind::Symbol, which_open::Symbol)
-        inds = _block_nodes_indices(start, kind, which_open)
-        (minimum(inds) >= 0 && maximum(inds) <= N) || return
-
-        xv = [xs[j+1] for j in inds]
+        # y at nodes
         yv = Vector{Float64}(undef, length(xv))
         @inbounds for i in eachindex(xv)
             yi = f(xv[i])
-            yv[i] = (isfinite(yi) ? Float64(yi) : NaN)
+            yv[i] = isfinite(yi) ? Float64(yi) : NaN
         end
         any(!isfinite, yv) && return
 
+        # Fit interpolant (educational Vandermonde)
         c = _poly_fit_coeffs(xv, yv)
 
-        x0, x1 = _block_interval_x(start, kind)
         xb = collect(range(x0, x1; length=ngrid_block))
         yb = Vector{Float64}(undef, length(xb))
         @inbounds for i in eachindex(xb)
             yb[i] = _poly_eval(c, xb[i])
         end
 
-        # --- Let matplotlib choose the next color automatically ---
+        # Let matplotlib choose color for this block
         line = ax.plot(xb, yb; linewidth=1.2, alpha=0.85)[1]
-        col = line."get_color"()   # <- exact color used for this block line
+        col  = line."get_color"()
 
         if show_block_fill
             ax.fill_between(xb, zeros(length(xb)), yb; alpha=0.18, linewidth=0, color=col)
         end
 
-        # # --- Color bars in this block with the same color ---
-        # # Split shared-node contributions evenly across covering blocks.
-        # if show_bars
-        #     w = _local_width(p, kind)
-        #     jlo = max(start, 0)
-        #     jhi = min(start + w, N)
-
-        #     js = Int[]
-        #     hs_local = Float64[]
-
-        #     for j in jlo:jhi
-        #         idx = j + 1
-        #         if isfinite(contrib[idx]) && cover_count[idx] > 0
-        #             # split contribution for shared nodes
-        #             csplit = contrib[idx] / cover_count[idx]
-        #             push!(js, j)
-        #             push!(hs_local, csplit / bw)
-        #         end
-        #     end
-
-        #     if !isempty(js)
-        #         ax.bar(
-        #             [xs[j+1] for j in js],
-        #             hs_local;
-        #             width=bw,
-        #             align="center",
-        #             alpha=0.35,
-        #             linewidth=0,
-        #             color=col
-        #         )
-        #     end
-        # end
-
         # ============================================================
         # Exact, non-distorting visualization:
         # Fill the area under each nodal contribution y_i * ℓ_i(x)
         # so that the sum equals the interpolant P(x) exactly.
-        # Works for all ns_pK, any boundary tiling.
         # ============================================================
         if show_bars
-            Lmat = _lagrange_basis_matrix(xv, xb)   # size (p, ngrid_block)
-
-            # We draw per-node patches with outlines, so the splitting is visible.
-            # Positive and negative parts are both drawn (no hiding).
+            Lmat = _lagrange_basis_matrix(xv, xb)
             for i in 1:length(xv)
-                yi = yv[i]
-                # contribution curve over this block grid
-                ycomp = yi .* view(Lmat, i, :)
-
-                # fill between 0 and ycomp (signed)
+                ycomp = yv[i] .* view(Lmat, i, :)
                 ax.fill_between(
                     xb,
                     zeros(length(xb)),
@@ -828,36 +959,8 @@ function plot_quadrature_coverage_1d(
         return
     end
 
-    bidx = 0  # block index for color cycling
-
-    # Left block
-    if Ltype === :closed
-        bidx += 1
-        _draw_block(start, :closed, :backward)
-        start += (p - 1)
-    else
-        bidx += 1
-        _draw_block(start, :opened, :backward)
-        start += p
-    end
-
-    # Interior closed blocks
-    for _ in 1:m
-        bidx += 1
-        _draw_block(start, :closed, :backward)
-        start += (p - 1)
-    end
-
-    # Right block (start should be N - wR)
-    start_expected = N - wR
-    start == start_expected || JobLoggerTools.error_benji("Internal tiling mismatch: start=$start expected=$start_expected")
-
-    if Rtype === :closed
-        bidx += 1
-        _draw_block(start, :closed, :backward)
-    else
-        bidx += 1
-        _draw_block(start, :opened, :forward)
+    for blk in blocks
+        _draw_block_generic(blk.x0, blk.x1, blk.inds)
     end
 
     ax.set_xlim(aa, bb)

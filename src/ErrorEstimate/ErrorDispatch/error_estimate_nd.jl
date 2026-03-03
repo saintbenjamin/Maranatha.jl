@@ -137,34 +137,13 @@ function error_estimate_nd(
     end
 
     # Collect residual terms (LO or LO+NLO+...)
-    ks = Int[]
-    coeffsR = Quadrature.RBig[]
+    ks, coeffs, _center = _leading_residual_terms_any(
+        rule, boundary, N;
+        nterms = nerr_terms,
+        kmax   = kmax
+    )
 
-    if nerr_terms == 1
-        # k, coeffR = _leading_midpoint_residual_term(
-        #     rule, boundary, N; 
-        #     kmax = kmax
-        # )
-        ks, coeffs, _center = _leading_residual_terms_any(
-            rule, boundary, N; 
-            kmax=kmax
-        )
-        k == 0 && return 0.0
-        push!(ks, k)
-        push!(coeffsR, coeffR)
-    else
-        # ks, coeffsR = _leading_midpoint_residual_terms(
-        #     rule, boundary, N;
-        #     nterms = nerr_terms,
-        #     kmax   = kmax
-        # )
-        ks, coeffs, _center = _leading_residual_terms_any(
-            rule, boundary, N; 
-            nterms=nerr_terms, 
-            kmax=kmax
-        )
-        isempty(ks) && return 0.0
-    end
+    isempty(ks) && return 0.0
 
     fixed = Vector{Float64}(undef, dim)
     idx   = ones(Int, dim - 1)
@@ -175,7 +154,6 @@ function error_estimate_nd(
         k = ks[it]
         k == 0 && continue
 
-        # coeff = Float64(coeffsR[it])
         coeff = coeffs[it]
         total_axes = 0.0
 
@@ -312,34 +290,13 @@ function error_estimate_nd_threads(
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
-    ks = Int[]
-    coeffsR = Quadrature.RBig[]
+    ks, coeffs, _center = _leading_residual_terms_any(
+        rule, boundary, N;
+        nterms = nerr_terms,
+        kmax   = kmax
+    )
 
-    if nerr_terms == 1
-        # k, coeffR = _leading_midpoint_residual_term(
-        #     rule, boundary, N; 
-        #     kmax = kmax
-        # )
-        ks, coeffs, _center = _leading_residual_terms_any(
-            rule, boundary, N; 
-            kmax=kmax
-        )
-        k == 0 && return 0.0
-        push!(ks, k)
-        push!(coeffsR, coeffR)
-    else
-        # ks, coeffsR = _leading_midpoint_residual_terms(
-        #     rule, boundary, N;
-        #     nterms = nerr_terms,
-        #     kmax   = kmax
-        # )
-        ks, coeffs, _center = _leading_residual_terms_any(
-            rule, boundary, N; 
-            nterms=nerr_terms, 
-            kmax=kmax
-        )
-        isempty(ks) && return 0.0
-    end
+    isempty(ks) && return 0.0
 
     nt = Threads.nthreads()
     err_total = 0.0
@@ -348,7 +305,6 @@ function error_estimate_nd_threads(
         k = ks[it]
         k == 0 && continue
 
-        # coeff = Float64(coeffsR[it])
         coeff = coeffs[it]
 
         # per-thread accumulation (no atomics)

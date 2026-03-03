@@ -28,7 +28,7 @@ using .Maranatha.F0000GammaEminus1
     use_threads = true
 
     dim = 1
-    rule = :ns_p3
+    rule = :bsplI_p3
     boundary = :LCRC
     ns = 48
     result_string = "PV_1D"

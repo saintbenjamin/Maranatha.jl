@@ -1,8 +1,9 @@
 # Maranatha.jl
 
-### Structured Newton–Cotes Quadrature with Residual-Informed Extrapolation
+### Structured Tensor-Product Quadrature with Residual-Informed Extrapolation
 
-**Maranatha.jl** is a research-oriented numerical quadrature framework for
+**Maranatha.jl** is a research-oriented numerical quadrature framework
+with a modular, rule-dispatched architecture for
 
 * structured **multi-dimensional tensor-product integration**
 * derivative-aware **residual-based error scale modeling**
@@ -30,9 +31,13 @@ Maranatha is built around a **pipeline-oriented workflow**:
 3. Weighted least-χ² extrapolation (`h → 0`)
 4. Covariance-propagated uncertainty visualization
 
-Unlike traditional quadrature libraries that focus on rule tables,
-Maranatha derives rule structure through **moment / Taylor-expansion construction**,
-and derives fit exponents from the **composite midpoint residual expansion**.
+Unlike traditional quadrature libraries that focus on static rule tables,
+Maranatha derives rule structure through **moment / Taylor-expansion construction**
+(for Newton–Cotes) and supports additional rule backends (Gauss-family, B-spline)
+through unified tensor-product dispatch.
+
+Fit exponents are determined from a **residual-informed expansion**
+dispatched by rule family.
 
 ---
 
@@ -40,12 +45,18 @@ and derives fit exponents from the **composite midpoint residual expansion**.
 
 ### 🔢 Integration
 
+### 🔢 Integration
+
 * General **multi-dimensional tensor-product quadrature** on `[a,b]^d`
-* Unified `:ns_pK` Newton–Cotes generator (no legacy rule tables)
-* Configurable boundary patterns:
+* Unified quadrature dispatcher supporting:
+  * Newton–Cotes (`:ns_pK`)
+  * Gauss-family rules (`:gauss_pK`)
+  * B-spline-based rules (`:bsplI_pK`/`:bsplS_pK`)
+* Configurable boundary patterns (for composite rules):
 
   * `:LCRC`, `:LORC`, `:LCRO`, `:LORO`
-* Rational composite weight assembly (converted to Float64 only at final stage)
+* Rational composite weight assembly (for Newton–Cotes rules),
+  converted to `Float64` only at the final stage
 
 ---
 
@@ -53,7 +64,7 @@ and derives fit exponents from the **composite midpoint residual expansion**.
 
 Residual-based derivative error *scale* models:
 
-* Midpoint residual-moment detection
+* Rule-family residual-term detection (midpoint-based for composite rules)
 * LO / LO+NLO / multi-term support via `nerr_terms`
 * Tensor-product scaling philosophy
 * Automatic differentiation via:
@@ -70,7 +81,7 @@ Residual-based derivative error *scale* models:
 Weighted least-χ² fitting with:
 
 * Residual-informed exponent basis
-* Automatic power detection from composite midpoint expansion
+* Automatic power detection from rule-dispatched residual expansion
 * Optional **fitting-function-shift (`ff_shift`)** to skip vanishing leading orders
 * Full parameter covariance matrix
 * Covariance-propagated uncertainty bands
@@ -89,7 +100,8 @@ where `powers` is stored in `fit_result.powers`.
 
 * Publication-style convergence plots
 * Full covariance uncertainty band
-* Basis reconstruction from stored exponent vector
+* Basis reconstruction from stored exponent vector (`fit_result.powers`)
+* Convergence plotted against `h^p`, where `p` is the leading fitted exponent
 * LaTeX rendering via [PyPlot.jl](https://github.com/JuliaPy/PyPlot.jl)
 
 ---
@@ -159,9 +171,10 @@ plot_convergence_result(
 
 * Uniform tensor-product grids only
 * Hypercube domains `[a,b]^d`
-* Smooth integrands preferred
+* Designed for smooth integrands
 * Not adaptive (yet)
-* Not designed for singular/discontinuous integrands
+* Not specialized for singular/discontinuous integrands
+* High-dimensional usage scales combinatorially (intended for controlled studies)
 
 ---
 
@@ -169,13 +182,13 @@ plot_convergence_result(
 
 Internal modules:
 
-* `Integrate`
-* `ErrorEstimator`
-* `LeastChiSquareFit`
-* `Integrands`
 * `Runner`
+* `Quadrature`
+* `ErrorEstimate`
+* `LeastChiSquareFit`
 * `PlotTools`
-* `JobLoggerTools`
+* `Integrands`
+* `Utils`
 
 Public API intentionally minimal:
 

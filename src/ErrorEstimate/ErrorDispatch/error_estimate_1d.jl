@@ -108,20 +108,18 @@ function error_estimate_1d(
 
     x̄ = (aa + bb) / 2
 
-    # # Collect LO, (optionally) NLO, ... midpoint residual terms
-    # ks, coeffsR = _leading_midpoint_residual_terms(
-    #     rule, boundary, N;
-    #     nterms = nerr_terms,
-    #     kmax   = kmax
-    # )
-    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    # Collect residual terms (LO or LO+NLO+...)
+    ks, coeffs, _center = _leading_residual_terms_any(
+        rule, boundary, N; 
+        nterms = nerr_terms, 
+        kmax   = kmax
+    )
 
     err = 0.0
 
     @inbounds for i in eachindex(ks)
         k = ks[i]
         k == 0 && continue  # degenerate safety
-        # coeff = Float64(coeffsR[i])
         coeff = coeffs[i]
 
         dx = nth_derivative(
@@ -204,12 +202,11 @@ function error_estimate_1d_threads(
     h  = (bb - aa) / N
     x̄ = (aa + bb) / 2
 
-    # ks, coeffsR = _leading_midpoint_residual_terms(
-    #     rule, boundary, N;
-    #     nterms = nerr_terms,
-    #     kmax   = kmax
-    # )
-    ks, coeffs, _center = _leading_residual_terms_any(rule, boundary, N; nterms=nerr_terms, kmax=kmax)
+    ks, coeffs, _center = _leading_residual_terms_any(
+        rule, boundary, N; 
+        nterms = nerr_terms, 
+        kmax   = kmax
+    )
 
     nt = Threads.maxthreadid()
 
@@ -221,7 +218,6 @@ function error_estimate_1d_threads(
 
         k = ks[i]
         k == 0 && return
-        # coeff = Float64(coeffsR[i])
         coeff = coeffs[i]
 
         dx = nth_derivative(
