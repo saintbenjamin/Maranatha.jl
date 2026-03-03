@@ -24,8 +24,8 @@ export run_Maranatha
         b;
         dim::Int = 1,
         nsamples = [4, 8, 12, 16],
-        rule::Symbol = :ns_p3,
-        boundary::Symbol = :LCRC,
+        rule::Symbol = :newton_p3,
+        boundary::Symbol = :LU_ININ,
         err_method::Symbol = :derivative,
         fit_terms::Int = 2,
         nerr_terms::Int = 1,
@@ -99,14 +99,14 @@ The final extrapolated estimate is returned together with the full fit object an
 * `nsamples = [4, 8, 12, 16]`:
   Vector of subdivision counts `N`. Each value defines a different grid resolution used in the convergence study.
 
-* `rule::Symbol = :ns_p3`:
+* `rule::Symbol = :newton_p3`:
   Quadrature rule identifier forwarded to integration, error estimation, and fitting.
-  Examples include Newton-Cotes NS rules (`:ns_pK`) as well as Gauss-family and B-spline rule symbols
+  Examples include Newton-Cotes NS rules (`:newton_pK`) as well as Gauss-family and B-spline rule symbols
   supported by [`Maranatha.Quadrature`](@ref).
 
-* `boundary::Symbol = :LCRC`:
+* `boundary::Symbol = :LU_ININ`:
   Boundary pattern for the composite rule assembly. Supported values are:
-  `:LCRC`, `:LORC`, `:LCRO`, `:LORO`.
+  `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`.
   This is forwarded consistently to integration, error estimation, and fitting.
 
 * `err_method::Symbol = :derivative`:
@@ -187,8 +187,8 @@ I0, fit, data = run_Maranatha(
     0.0, 1.0;
     dim=4,
     nsamples=[40, 44, 48, 52, 56, 60, 64],
-    rule=:ns_p5,
-    boundary=:LCRC,
+    rule=:newton_p5,
+    boundary=:LU_ININ,
     err_method=:derivative,
     fit_terms=4,
     nerr_terms=2,
@@ -203,8 +203,8 @@ function run_Maranatha(
     b;
     dim=1,
     nsamples=[4,8,12,16],
-    rule=:ns_p3,
-    boundary=:LCRC,
+    rule=:newton_p3,
+    boundary=:LU_ININ,
     err_method::Symbol = :derivative,
     fit_terms::Int = 2,
     nerr_terms::Int = 1,
@@ -212,6 +212,13 @@ function run_Maranatha(
     use_threads::Bool = false,
 )
     jobid = nothing
+
+    # ------------------------------------------------------------
+    # Normalize legacy inputs (do this ONCE, early)
+    # ------------------------------------------------------------
+    rule = normalize_newton_rule(rule)
+    rule = normalize_bspline_rule(rule)
+    boundary = normalize_boundary(boundary)
 
     estimates = Float64[]     # List of integral results
     errors = Float64[]        # List of estimated errors
@@ -252,6 +259,248 @@ function run_Maranatha(
     LeastChiSquareFit.print_fit_result(fit_result)
 
     return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
+end
+
+"""
+    _DEPRECATION_WARNED :: Set{Symbol}
+
+Session-local registry of symbols that have already triggered a deprecation warning.
+
+# Description
+This set is used internally by Maranatha's normalization helpers
+(e.g. rule and boundary normalizers) to ensure that each deprecated
+symbol emits a warning **only once per Julia session**.
+
+When a legacy symbol is first encountered, it is inserted into this set
+after the warning is issued. Subsequent encounters of the same symbol
+are silently ignored to prevent repeated warning spam.
+
+# Notes
+- Intended for internal use only.
+- The registry is reset when the Julia session restarts.
+"""
+const _DEPRECATION_WARNED = Set{Symbol}()
+
+"""
+    _warn_once(
+        sym::Symbol, 
+        msg::String
+    ) -> Nothing
+
+Emit a deprecation warning only once per session for a given symbol.
+
+# Function description
+This helper is used internally by rule and boundary normalizers to avoid
+repeated warning spam when legacy symbols are encountered multiple times
+during a single Julia session.
+
+If `sym` has not yet triggered a warning, `msg` is emitted via `@warn`
+and the symbol is recorded. Subsequent calls with the same `sym` are ignored.
+
+# Arguments
+- `sym`: The legacy symbol that triggered the warning.
+- `msg`: Warning message to be emitted.
+
+# Notes
+- This function is intended for internal use.
+- The warning registry is session-local.
+"""
+@inline function _warn_once(
+    sym::Symbol, 
+    msg::String
+)::Nothing
+    if !(sym in _DEPRECATION_WARNED)
+        push!(_DEPRECATION_WARNED, sym)
+        @warn msg
+    end
+    return nothing
+end
+
+"""
+    normalize_newton_rule(
+        rule::Symbol; 
+        warn::Bool = true
+    ) -> Symbol
+
+Normalize legacy Newton-Cotes rule symbols to the current naming convention.
+
+# Function description
+This function converts deprecated Newton rule symbols of the form
+
+- `:ns_pK`
+
+into the current canonical format
+
+- `:newton_pK`
+
+where `K` denotes the polynomial degree.
+
+If `rule` is already in the new format or does not belong to the
+legacy Newton family, it is returned unchanged.
+
+# Arguments
+- `rule`: Quadrature rule symbol.
+- `warn`: If `true`, emit a deprecation warning (once per symbol).
+
+# Returns
+- `Symbol`: The normalized rule symbol.
+
+# Notes
+- This function should be called early in high-level runners
+  (e.g. `run_Maranatha`) to ensure internal consistency.
+"""
+function normalize_newton_rule(
+    rule::Symbol; 
+    warn::Bool = true
+)::Symbol
+    s = String(rule)
+
+    if startswith(s, "ns_p")
+        # preserve suffix verbatim (supports multi-digit like ns_p10)
+        suffix = s[length("ns_p")+1:end]  # e.g. "3", "10"
+        new_rule = Symbol("newton_p", suffix)
+
+        if warn
+            _warn_once(rule,
+                "Deprecated rule symbol `$rule` detected. " *
+                "Use `$new_rule` instead. It will be normalized automatically for now."
+            )
+        end
+        return new_rule
+    end
+
+    return rule
+end
+
+"""
+    normalize_bspline_rule(
+        rule::Symbol; 
+        warn::Bool = true
+    ) -> Symbol
+
+Normalize legacy B-spline rule symbols to the current naming convention.
+
+# Function description
+This function converts deprecated B-spline rule symbols:
+
+- `:bsplI_pK` → `:bspline_interp_pK`
+- `:bsplS_pK` → `:bspline_smooth_pK`
+
+where `K` is the spline degree.
+
+If `rule` is already in the new format or does not belong to the
+legacy B-spline family, it is returned unchanged.
+
+# Arguments
+- `rule`: Quadrature rule symbol.
+- `warn`: If `true`, emit a deprecation warning (once per symbol).
+
+# Returns
+- `Symbol`: The normalized rule symbol.
+
+# Notes
+- This function only renames the rule; it does not parse the spline degree.
+  Use `_parse_bspl_p` for degree extraction.
+"""
+function normalize_bspline_rule(
+    rule::Symbol; 
+    warn::Bool = true
+)::Symbol
+    s = String(rule)
+
+    if startswith(s, "bsplI_p")
+        deg = s[length("bsplI_p")+1:end]          # after "bsplI_p"
+        new_rule = Symbol("bspline_interp_p", deg)
+
+        if warn
+            _warn_once(rule,
+                "Deprecated B-spline rule symbol `$rule` detected. " *
+                "Use `$new_rule` instead. It will be normalized automatically for now."
+            )
+        end
+        return new_rule
+
+    elseif startswith(s, "bsplS_p")
+        deg = s[length("bsplS_p")+1:end]          # after "bsplS_p"
+        new_rule = Symbol("bspline_smooth_p", deg)
+
+        if warn
+            _warn_once(rule,
+                "Deprecated B-spline rule symbol `$rule` detected. " *
+                "Use `$new_rule` instead. It will be normalized automatically for now."
+            )
+        end
+        return new_rule
+    end
+
+    return rule
+end
+
+"""
+    normalize_boundary(
+        boundary::Symbol; 
+        warn::Bool = true
+    ) -> Symbol
+
+Normalize legacy boundary symbols to the current LU-based naming scheme.
+
+# Function description
+This function converts deprecated boundary symbols:
+
+- `:LCRC` → `:LU_ININ`
+- `:LORC` → `:LU_EXIN`
+- `:LCRO` → `:LU_INEX`
+- `:LORO` → `:LU_EXEX`
+
+where:
+
+- `IN` = include endpoint (closed)
+- `EX` = exclude endpoint (opened)
+
+If `boundary` already follows the `:LU_*` convention, it is returned unchanged.
+
+# Arguments
+- `boundary`: Boundary configuration symbol.
+- `warn`: If `true`, emit a deprecation warning (once per symbol).
+
+# Returns
+- `Symbol`: The normalized boundary symbol.
+
+# Notes
+- Normalization should occur before boundary decoding.
+- This function does not validate semantic consistency beyond renaming.
+"""
+function normalize_boundary(
+    boundary::Symbol; 
+    warn::Bool = true
+)::Symbol
+    s = String(boundary)
+
+    # already new format
+    if startswith(s, "LU_")
+        return boundary
+    end
+
+    new_boundary = if boundary === :LCRC
+        :LU_ININ
+    elseif boundary === :LORC
+        :LU_EXIN
+    elseif boundary === :LCRO
+        :LU_INEX
+    elseif boundary === :LORO
+        :LU_EXEX
+    else
+        boundary
+    end
+
+    if warn && (new_boundary !== boundary)
+        _warn_once(boundary,
+            "Deprecated boundary symbol `$boundary` detected. " *
+            "Use `$new_boundary` instead. It will be normalized automatically for now."
+        )
+    end
+
+    return new_boundary
 end
 
 end  # module Runner

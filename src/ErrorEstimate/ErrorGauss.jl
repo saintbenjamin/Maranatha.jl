@@ -122,7 +122,7 @@ searching ``k = 0 , \\ldots , \\texttt{kmax}``.
 
 * `rule`: Gauss rule symbol of the form `:gauss_pK` (`K` = points per block).
 * `boundary`: Boundary-family selector, forwarded to Gauss:
-  `:LORO` (Legendre), `:LCRO` (left Radau), `:LORC` (right Radau), `:LCRC` (Lobatto).
+  `:LU_EXEX` (Legendre), `:LU_INEX` (left Radau), `:LU_EXIN` (right Radau), `:LU_ININ` (Lobatto).
 * `Nsub`: Number of unit blocks in the composite tiling (``u \\in [0, N_\\texttt{sub}]``).
 
 # Keywords

@@ -49,11 +49,11 @@ dispatched by rule family.
 
 * General **multi-dimensional tensor-product quadrature** on $[a,b]^d$
 * Unified quadrature dispatcher supporting:
-  * Newton–Cotes (`:ns_p2`, `:ns_p3`, ...)
+  * Newton–Cotes (`:newton_p2`, `:newton_p3`, ...)
   * Gauss-family rules (`:gauss_p2`, `:gauss_p3`, ...)
-  * B-spline-based rules (`:bsplI_p2`, .../`:bsplS_p2`, ...)
+  * B-spline-based rules (`:bspline_interp_p2`, .../`:bspline_smooth_p2`, ...)
 * Configurable boundary patterns (for composite rules):
-  * `:LCRC`, `:LORC`, `:LCRO`, `:LORO`
+  * `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`
 * Rational composite weight assembly (for Newton–Cotes rules),
   converted to `Float64` only at the final stage
 
@@ -139,8 +139,8 @@ I0, fit, data = run_Maranatha(
     0.0, 1.0;
     dim=4,
     nsamples=[40, 44, 48, 52, 56, 60, 64],
-    rule=:ns_p5,
-    boundary=:LCRC,
+    rule=:newton_p5,
+    boundary=:LU_ININ,
     err_method=:derivative,
     fit_terms=4,
     nerr_terms=2,
@@ -160,8 +160,8 @@ plot_convergence_result(
     data.avg,
     data.err,
     fit;
-    rule=:ns_p5,
-    boundary=:LCRC
+    rule=:newton_p5,
+    boundary=:LU_ININ
 )
 ```
 
@@ -198,8 +198,8 @@ I0, fit, data = run_Maranatha(
     0.0, 1.0;
     dim=4,
     nsamples=[40, 44, 48, 52, 56, 60, 64],
-    rule=:ns_p5,
-    boundary=:LCRC,
+    rule=:newton_p5,
+    boundary=:LU_ININ,
     err_method=:derivative,
     fit_terms=4,
     nerr_terms=2,
@@ -212,8 +212,8 @@ plot_convergence_result(
     data.avg,
     data.err,
     fit;
-    rule=:ns_p5,
-    boundary=:LCRC
+    rule=:newton_p5,
+    boundary=:LU_ININ
 )
 ```
 

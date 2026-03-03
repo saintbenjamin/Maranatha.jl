@@ -1,4 +1,4 @@
-using .Maranatha.F0000GammaEminus1
+# using .Maranatha.F0000GammaEminus1
 
 @testset "1D rules" begin
     announce("1D rules")
@@ -9,13 +9,13 @@ using .Maranatha.F0000GammaEminus1
     # bounds = (0.0, 1.0)
     # ff(x)  = gtilde_F0000(x; p=3)
     # bounds = (0.0, 1.0)
-    use_threads = true
+    use_threads = false
 
-    @testset "1D Gauss LORO" begin
-        announce("1D rules :: Gauss LORO")
+    @testset "1D Gauss LU_EXEX" begin
+        announce("1D rules :: Gauss LU_EXEX")
         dim = 1
         rule = :gauss_p2
-        boundary = :LORO
+        boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 0
         result_string = "Gauss_1D"

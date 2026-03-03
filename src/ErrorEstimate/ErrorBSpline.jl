@@ -88,8 +88,8 @@ for composite B-spline quadrature rules on ``u \\in [0, \\texttt{Nsub}]`` (`Floa
 This routine detects leading midpoint-centered residual terms for B-spline quadrature
 rules:
 
-- Interpolation spline rule: `:bsplI_pK`
-- Smoothing spline rule:     `:bsplS_pK` (requires smoothing strength ``\\lambda``)
+- Interpolation spline rule: `:bspline_interp_pK`
+- Smoothing spline rule:     `:bspline_smooth_pK` (requires smoothing strength ``\\lambda``)
 
 The residual is defined using the midpoint shift ``\\displaystyle{c = \\frac{N_{\\texttt{sub}}}{2}}``:
 ```math
@@ -112,15 +112,15 @@ along with the corresponding scaled coefficients ``\\displaystyle{\\frac{\\textt
 
 # Arguments
 
-* `rule`:     B-spline rule symbol (`:bsplI_pK` or `:bsplS_pK`).
-* `boundary`: Boundary pattern for the knot clamping (`:LCRC`, `:LCRO`, `:LORC`, `:LORO`).
+* `rule`:     B-spline rule symbol (`:bspline_interp_pK` or `:bspline_smooth_pK`).
+* `boundary`: Boundary pattern for the knot clamping (`:LU_ININ`, `:LU_INEX`, `:LU_EXIN`, `:LU_EXEX`).
 * `Nsub`:     Dimensionless tiling length `N` (must satisfy ``N_\\texttt{sub} \\ge 1``).
 
 # Keyword arguments
 
 * `nterms`: Number of detected nonzero residual terms to collect (`nterms ≥ 1`).
 * `kmax`:   Maximum moment order to scan (`k = 0:kmax`).
-* `λ`:      Smoothing strength for `:bsplS_pK` rules (``\\lambda \\ge 0``).
+* `λ`:      Smoothing strength for `:bspline_smooth_pK` rules (``\\lambda \\ge 0``).
 * `tol_abs`: Absolute tolerance used in nonzero detection.
 * `tol_rel`: Relative tolerance used in nonzero detection.
 
@@ -163,9 +163,9 @@ function _leading_midpoint_residual_terms_bspline_float(
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
     (Nsub >= 1)   || JobLoggerTools.error_benji("Nsub must be ≥ 1 (got Nsub=$Nsub)")
 
-    Quadrature.BSpline._is_bspl_rule(rule) || JobLoggerTools.error_benji("expected :bsplI_pK or :bsplS_pK (got $rule)")
-    p    = Quadrature.BSpline._parse_bspl_p(rule)
-    kind = Quadrature.BSpline._bspl_kind(rule)  # :interp or :smooth
+    Quadrature.BSpline._is_bspline_rule(rule) || JobLoggerTools.error_benji("expected :bspline_interp_pK or :bspline_smooth_pK (got $rule)")
+    p    = Quadrature.BSpline._parse_bspline_p(rule)
+    kind = Quadrature.BSpline._bspline_kind(rule)  # :interp or :smooth
 
     # Build B-spline quadrature on [0, Nsub].
     # We set N = Nsub so the "resolution parameter" matches the dimensionless tiling length.
@@ -236,7 +236,7 @@ This matches the interface of other residual-index helpers in the [`Maranatha.Er
 layer.
 
 # Arguments
-- `rule`:     B-spline rule symbol (`:bsplI_pK` or `:bsplS_pK`).
+- `rule`:     B-spline rule symbol (`:bspline_interp_pK` or `:bspline_smooth_pK`).
 - `boundary`: Boundary pattern symbol.
 - `Nsub`:     Dimensionless tiling length (must satisfy ``N_\\texttt{sub} \\ge 1``).
 

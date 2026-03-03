@@ -55,7 +55,7 @@ end
 @testset "Maranatha.jl Quadrature Suite" begin
     announce("Maranatha.jl Quadrature Suite")
 
-    include("pedagological_visualization_1D_test.jl")
+    # include("pedagological_visualization_1D_test.jl")
 
     # include("Z_q_1D_F0000_test.jl")
 
@@ -65,8 +65,8 @@ end
         include("canonical_2D_test.jl")
         include("canonical_3D_test.jl")
         include("canonical_4D_test.jl")
-        # include("canonical_1D_BSpline_test.jl")
-        # include("canonical_1D_gauss_test.jl")
+        include("canonical_1D_BSpline_test.jl")
+        include("canonical_1D_gauss_test.jl")
     end
 
     # include("Z_q_4D_test.jl")

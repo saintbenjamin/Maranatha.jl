@@ -1,19 +1,19 @@
-using .Maranatha.F0000GammaEminus1
+# using .Maranatha.F0000GammaEminus1
 
 @testset "1D rules" begin
     announce("1D rules")
 
-    # f1D(x) = sin(x)
-    # bounds = (0.0, π)
-    f1D(x)  = gtilde_F0000(x; p=3)
-    bounds = (0.0, 1.0)
+    f1D(x) = sin(x)
+    bounds = (0.0, π)
+    # f1D(x)  = gtilde_F0000(x; p=3)
+    # bounds = (0.0, 1.0)
     use_threads = false
 
-    @testset "1D BSpline LORO" begin
-        announce("1D rules :: BSpline LORO")
+    @testset "1D BSpline LU_ININ" begin
+        announce("1D rules :: BSpline LU_ININ")
         dim = 1
-        rule = :bsplI_p4
-        boundary = :LCRC
+        rule = :bspline_interp_p4
+        boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 0
         result_string = "Gauss_1D"

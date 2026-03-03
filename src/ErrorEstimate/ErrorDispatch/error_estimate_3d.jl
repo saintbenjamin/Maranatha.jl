@@ -62,9 +62,9 @@ along the remaining axes.
 * `N`:
   Number of subintervals per axis. Must satisfy the composite tiling constraint for `(rule, boundary)`.
 * `rule`:
-  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
 * `boundary`:
-  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 
 # Keyword arguments
 
@@ -116,7 +116,7 @@ function error_estimate_3d(
     ȳ = (aa + bb) / 2
     z̄ = (aa + bb) / 2
 
-    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
 
@@ -258,7 +258,7 @@ function error_estimate_3d_threads(
     ȳ = x̄
     z̄ = x̄
 
-    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
 

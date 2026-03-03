@@ -5,13 +5,13 @@ using .Maranatha.F0000GammaEminus1
 
     ff(x)  = gtilde_F0000(x; p=3)
     bounds = (0.0, 1.0)
-    use_threads = true
+    use_threads = false
 
-    @testset "Trapezoidal LCRC" begin
-        announce("1D rules :: Trapezoidal LCRC")
+    @testset "Trapezoidal LU_ININ" begin
+        announce("1D rules :: Trapezoidal LU_ININ")
         dim = 1
-        rule = :ns_p2
-        boundary = :LCRC
+        rule = :newton_p2
+        boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 0
         ns .+= 40
@@ -26,11 +26,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Trapezoidal LCRO" begin
-        announce("1D rules :: Trapezoidal LCRO")
+    @testset "Trapezoidal LU_INEX" begin
+        announce("1D rules :: Trapezoidal LU_INEX")
         dim = 1
-        rule = :ns_p2
-        boundary = :LCRO
+        rule = :newton_p2
+        boundary = :LU_INEX
         ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 1
         ns .+= 40
@@ -45,11 +45,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Trapezoidal LORC" begin
-        announce("1D rules :: Trapezoidal LORC")
+    @testset "Trapezoidal LU_EXIN" begin
+        announce("1D rules :: Trapezoidal LU_EXIN")
         dim = 1
-        rule = :ns_p2
-        boundary = :LORC
+        rule = :newton_p2
+        boundary = :LU_EXIN
         ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 1
         ns .+= 40
@@ -64,11 +64,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Trapezoidal LORO" begin
-        announce("1D rules :: Trapezoidal LORO")
+    @testset "Trapezoidal LU_EXEX" begin
+        announce("1D rules :: Trapezoidal LU_EXEX")
         dim = 1
-        rule = :ns_p2
-        boundary = :LORO
+        rule = :newton_p2
+        boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8]
         ns .+= 2
         ns .+= 40
@@ -83,11 +83,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 1/3 LCRC" begin
-        announce("1D rules :: Simpson 1/3 LCRC")
+    @testset "Simpson 1/3 LU_ININ" begin
+        announce("1D rules :: Simpson 1/3 LU_ININ")
         dim = 1
-        rule = :ns_p3
-        boundary = :LCRC
+        rule = :newton_p3
+        boundary = :LU_ININ
         ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 0
         ns .+= 40
@@ -102,11 +102,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 1/3 LCRO" begin
-        announce("1D rules :: Simpson 1/3 LCRO")
+    @testset "Simpson 1/3 LU_INEX" begin
+        announce("1D rules :: Simpson 1/3 LU_INEX")
         dim = 1
-        rule = :ns_p3
-        boundary = :LCRO
+        rule = :newton_p3
+        boundary = :LU_INEX
         ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 1
         ns .+= 40
@@ -121,11 +121,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 1/3 LORC" begin
-        announce("1D rules :: Simpson 1/3 LORC")
+    @testset "Simpson 1/3 LU_EXIN" begin
+        announce("1D rules :: Simpson 1/3 LU_EXIN")
         dim = 1
-        rule = :ns_p3
-        boundary = :LORC
+        rule = :newton_p3
+        boundary = :LU_EXIN
         ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 1
         ns .+= 40
@@ -140,11 +140,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 1/3 LORO" begin
-        announce("1D rules :: Simpson 1/3 LORO")
+    @testset "Simpson 1/3 LU_EXEX" begin
+        announce("1D rules :: Simpson 1/3 LU_EXEX")
         dim = 1
-        rule = :ns_p3
-        boundary = :LORO
+        rule = :newton_p3
+        boundary = :LU_EXEX
         ns = [4, 6, 8, 10, 12, 14, 16]
         ns .+= 2
         ns .+= 40
@@ -159,11 +159,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 3/8 LCRC" begin
-        announce("1D rules :: Simpson 3/8 LCRC")
+    @testset "Simpson 3/8 LU_ININ" begin
+        announce("1D rules :: Simpson 3/8 LU_ININ")
         dim = 1
-        rule = :ns_p4
-        boundary = :LCRC
+        rule = :newton_p4
+        boundary = :LU_ININ
         ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 0
         ns .+= 39
@@ -178,11 +178,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 3/8 LCRO" begin
-        announce("1D rules :: Simpson 3/8 LCRO")
+    @testset "Simpson 3/8 LU_INEX" begin
+        announce("1D rules :: Simpson 3/8 LU_INEX")
         dim = 1
-        rule = :ns_p4
-        boundary = :LCRO
+        rule = :newton_p4
+        boundary = :LU_INEX
         ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 1
         ns .+= 39
@@ -197,11 +197,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 3/8 LORC" begin
-        announce("1D rules :: Simpson 3/8 LORC")
+    @testset "Simpson 3/8 LU_EXIN" begin
+        announce("1D rules :: Simpson 3/8 LU_EXIN")
         dim = 1
-        rule = :ns_p4
-        boundary = :LORC
+        rule = :newton_p4
+        boundary = :LU_EXIN
         ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 1
         ns .+= 39
@@ -216,11 +216,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Simpson 3/8 LORO" begin
-        announce("1D rules :: Simpson 3/8 LORO")
+    @testset "Simpson 3/8 LU_EXEX" begin
+        announce("1D rules :: Simpson 3/8 LU_EXEX")
         dim = 1
-        rule = :ns_p4
-        boundary = :LORO
+        rule = :newton_p4
+        boundary = :LU_EXEX
         ns = [6, 9, 12, 15, 18, 21, 24]
         ns .+= 2
         ns .+= 39
@@ -235,11 +235,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Bode LCRC" begin
-        announce("1D rules :: Bode LCRC")
+    @testset "Bode LU_ININ" begin
+        announce("1D rules :: Bode LU_ININ")
         dim = 1
-        rule = :ns_p5
-        boundary = :LCRC
+        rule = :newton_p5
+        boundary = :LU_ININ
         ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 0
         ns .+= 36
@@ -254,11 +254,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-#=     @testset "Bode LCRO" begin
-        announce("1D rules :: Bode LCRO")
+#=     @testset "Bode LU_INEX" begin
+        announce("1D rules :: Bode LU_INEX")
         dim = 1
-        rule = :ns_p5
-        boundary = :LCRO
+        rule = :newton_p5
+        boundary = :LU_INEX
         ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 1
         ns .+= 56
@@ -273,11 +273,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Bode LORC" begin
-        announce("1D rules :: Bode LORC")
+    @testset "Bode LU_EXIN" begin
+        announce("1D rules :: Bode LU_EXIN")
         dim = 1
-        rule = :ns_p5
-        boundary = :LORC
+        rule = :newton_p5
+        boundary = :LU_EXIN
         ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 1
         ns .+= 56
@@ -292,11 +292,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 
-    @testset "Bode LORO" begin
-        announce("1D rules :: Bode LORO")
+    @testset "Bode LU_EXEX" begin
+        announce("1D rules :: Bode LU_EXEX")
         dim = 1
-        rule = :ns_p5
-        boundary = :LORO
+        rule = :newton_p5
+        boundary = :LU_EXEX
         ns = [8, 12, 16, 20, 24, 28, 32]
         ns .+= 2
         ns .+= 56
@@ -311,11 +311,11 @@ using .Maranatha.F0000GammaEminus1
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end =#
 
-    # @testset "6-point LCRC" begin
-    #     announce("1D rules :: 6-point LCRC")
+    # @testset "6-point LU_ININ" begin
+    #     announce("1D rules :: 6-point LU_ININ")
     #     dim = 1
-    #     rule = :ns_p6
-    #     boundary = :LCRC
+    #     rule = :newton_p6
+    #     boundary = :LU_ININ
     #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     #     ns .+= 0
     #     result_string = "F0000"
@@ -329,11 +329,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "6-point LCRO" begin
-    #     announce("1D rules :: 6-point LCRO")
+    # @testset "6-point LU_INEX" begin
+    #     announce("1D rules :: 6-point LU_INEX")
     #     dim = 1
-    #     rule = :ns_p6
-    #     boundary = :LCRO
+    #     rule = :newton_p6
+    #     boundary = :LU_INEX
     #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     #     ns .+= 1
     #     result_string = "F0000"
@@ -347,11 +347,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "6-point LORC" begin
-    #     announce("1D rules :: 6-point LORC")
+    # @testset "6-point LU_EXIN" begin
+    #     announce("1D rules :: 6-point LU_EXIN")
     #     dim = 1
-    #     rule = :ns_p6
-    #     boundary = :LORC
+    #     rule = :newton_p6
+    #     boundary = :LU_EXIN
     #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     #     ns .+= 1
     #     result_string = "F0000"
@@ -365,11 +365,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "6-point LORO" begin
-    #     announce("1D rules :: 6-point LORO")
+    # @testset "6-point LU_EXEX" begin
+    #     announce("1D rules :: 6-point LU_EXEX")
     #     dim = 1
-    #     rule = :ns_p6
-    #     boundary = :LORO
+    #     rule = :newton_p6
+    #     boundary = :LU_EXEX
     #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     #     ns .+= 2
     #     result_string = "F0000"
@@ -383,11 +383,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "7-point LCRC" begin
-    #     announce("1D rules :: 7-point LCRC")
+    # @testset "7-point LU_ININ" begin
+    #     announce("1D rules :: 7-point LU_ININ")
     #     dim = 1
-    #     rule = :ns_p7
-    #     boundary = :LCRC
+    #     rule = :newton_p7
+    #     boundary = :LU_ININ
     #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
     #     ns .+= 0
     #     result_string = "F0000"
@@ -401,11 +401,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "7-point LCRO" begin
-    #     announce("1D rules :: 7-point LCRO")
+    # @testset "7-point LU_INEX" begin
+    #     announce("1D rules :: 7-point LU_INEX")
     #     dim = 1
-    #     rule = :ns_p7
-    #     boundary = :LCRO
+    #     rule = :newton_p7
+    #     boundary = :LU_INEX
     #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
     #     ns .+= 1
     #     result_string = "F0000"
@@ -419,11 +419,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "7-point LORC" begin
-    #     announce("1D rules :: 7-point LORC")
+    # @testset "7-point LU_EXIN" begin
+    #     announce("1D rules :: 7-point LU_EXIN")
     #     dim = 1
-    #     rule = :ns_p7
-    #     boundary = :LORC
+    #     rule = :newton_p7
+    #     boundary = :LU_EXIN
     #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
     #     ns .+= 1
     #     result_string = "F0000"
@@ -437,11 +437,11 @@ using .Maranatha.F0000GammaEminus1
     #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     # end
 
-    # @testset "7-point LORO" begin
-    #     announce("1D rules :: 7-point LORO")
+    # @testset "7-point LU_EXEX" begin
+    #     announce("1D rules :: 7-point LU_EXEX")
     #     dim = 1
-    #     rule = :ns_p7
-    #     boundary = :LORO
+    #     rule = :newton_p7
+    #     boundary = :LU_EXEX
     #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
     #     ns .+= 2
     #     result_string = "F0000"
@@ -465,13 +465,13 @@ end
     # Construct preset integrand via registry
     ff = Maranatha.Integrands.integrand(:F0000; p=3, eps=1e-15)
     bounds = (0.0, 1.0)
-    use_threads = true
+    use_threads = false
 
-    @testset "Simpson 1/3 LCRC (preset)" begin
-        announce("1D rules :: Simpson 1/3 LCRC (preset)")
+    @testset "Simpson 1/3 LU_ININ (preset)" begin
+        announce("1D rules :: Simpson 1/3 LU_ININ (preset)")
         dim = 1
-        rule = :ns_p3
-        boundary = :LCRC
+        rule = :newton_p3
+        boundary = :LU_ININ
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 0
         ns .+= 40

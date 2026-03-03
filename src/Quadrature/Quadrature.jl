@@ -53,11 +53,11 @@ Features:
 
 Supported rule symbols:
 
-    :ns_pK    (e.g., :ns_p3, :ns_p5, ...)
+    :newton_pK    (e.g., :newton_p3, :newton_p5, ...)
 
 Boundary patterns:
 
-    :LCRC  :LORC  :LCRO  :LORO
+    :LU_ININ  :LU_EXIN  :LU_INEX  :LU_EXEX
 
 ------------------------------------------------------------------------
 
@@ -77,10 +77,10 @@ Supported rule symbols:
 
 Boundary selects family:
 
-    :LORO -> Legendre
-    :LCRO -> Radau (left)
-    :LORC -> Radau (right)
-    :LCRC -> Lobatto
+    :LU_EXEX -> Legendre
+    :LU_INEX -> Radau (left)
+    :LU_EXIN -> Radau (right)
+    :LU_ININ -> Lobatto
 
 Nodes/weights are cached per `(n, boundary)` pair.
 
@@ -98,8 +98,8 @@ B-spline-based quadrature using:
 
 Supported rule symbols:
 
-    :bsplI_pK -> interpolation
-    :bsplS_pK -> smoothing
+    :bspline_interp_pK -> interpolation
+    :bspline_smooth_pK -> smoothing
 
 Boundary controls endpoint clamping.
 
@@ -150,7 +150,7 @@ Computational cost scales as:
 
 Boundary handling is centralized via:
 
-    :LCRC  :LORC  :LCRO  :LORO
+    :LU_ININ  :LU_EXIN  :LU_INEX  :LU_EXEX
 
 These patterns determine:
 

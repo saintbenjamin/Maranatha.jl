@@ -56,9 +56,9 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
   Number of subintervals.
   Must satisfy the composite tiling constraint for `(rule, boundary)`.
 * `rule`:
-  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
 * `boundary`:
-  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 
 # Keyword arguments
 

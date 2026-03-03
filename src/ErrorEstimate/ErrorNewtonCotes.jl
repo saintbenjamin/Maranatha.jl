@@ -112,13 +112,13 @@ This helper is a convenience wrapper around
 
 Workflow:
 1) Validate `boundary` via [`Maranatha.Quadrature.QuadratureDispatch._decode_boundary`](@ref).
-2) Require `rule` to be of NS form `:ns_pK` (midpoint residual model is defined for these).
+2) Require `rule` to be of NS form `:newton_pK` (midpoint residual model is defined for these).
 3) Parse ``p`` from `rule` and assemble the exact rational ``\\beta``.
 4) Scan for the first nonzero midpoint residual term `(k, coeff)`.
 
 # Arguments
-- `rule`: Must be an `:ns_pK`-style rule symbol (e.g. `:ns_p3`, `:ns_p5`).
-- `boundary`: Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `rule`: Must be an `:newton_pK`-style rule symbol (e.g. `:newton_p3`, `:newton_p5`).
+- `boundary`: Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 - `Nsub`: Number of subintervals (must satisfy the composite tiling constraint for that boundary).
 - `kmax`: Maximum ``k`` to scan.
 
@@ -126,7 +126,7 @@ Workflow:
 - `(k, coeff)`: The leading nonzero residual order and its exact coefficient.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:ns_pK`,
+- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
   if `Nsub` is invalid for the boundary tiling, or if no term is found up to `kmax`.
 """
 function _leading_midpoint_residual_term(
@@ -139,9 +139,9 @@ function _leading_midpoint_residual_term(
     # boundary validation (also catches typos early)
     Quadrature.QuadratureDispatch._decode_boundary(boundary)
 
-    Quadrature.NewtonCotes._is_ns_rule(rule) || JobLoggerTools.error_benji("midpoint residual model currently expects :ns_pK rules (got rule=$rule)")
+    Quadrature.NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji("midpoint residual model currently expects :newton_pK rules (got rule=$rule)")
 
-    p = Quadrature.NewtonCotes._parse_ns_p(rule)
+    p = Quadrature.NewtonCotes._parse_newton_p(rule)
 
     # exact β (rational) from your assembly
     βR = Quadrature.NewtonCotes._assemble_composite_beta_rational(p, boundary, Nsub)
@@ -177,8 +177,8 @@ This is useful for constructing multi-term convergence models where multiple
 nonzero residual orders are needed (*e.g.* fitting several powers).
 
 # Arguments
-- `rule`: `:ns_pK` rule symbol (required by the current implementation).
-- `boundary`: Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `rule`: `:newton_pK` rule symbol (required by the current implementation).
+- `boundary`: Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 - `Nsub`: Number of subintervals for the composite rule.
 - `nterms`: Number of nonzero `k` values to collect (must satisfy `nterms ≥ 1`).
 - `kmax`: Maximum `k` to scan (inclusive).
@@ -204,7 +204,7 @@ function _leading_residual_ks_with_center(
     center = :mid
 
     while length(ks) < nterms
-        β = Quadrature.NewtonCotes._assemble_composite_beta_rational(Quadrature.NewtonCotes._parse_ns_p(rule), boundary, Nsub)
+        β = Quadrature.NewtonCotes._assemble_composite_beta_rational(Quadrature.NewtonCotes._parse_newton_p(rule), boundary, Nsub)
         c = Quadrature.NewtonCotes.RBig(BigInt(Nsub), 2)
         # scan k upward and collect first n nonzero midpoint residuals
         center = :mid
@@ -342,7 +342,7 @@ for midpoint residual extraction.
 
 Workflow:
 1) Validate `boundary` via [`Maranatha.Quadrature.QuadratureDispatch._decode_boundary`](@ref) (catches typos early).
-2) Require `rule` to be an NS rule (`:ns_pK`) because the residual/``\\beta`` construction
+2) Require `rule` to be an NS rule (`:newton_pK`) because the residual/``\\beta`` construction
    is defined in terms of the exact-rational NS assembly.
 3) Parse `p` from `rule`.
 4) Assemble exact rational composite coefficients `βR` using
@@ -351,8 +351,8 @@ Workflow:
    [`_leading_midpoint_residual_terms_from_beta`](@ref).
 
 # Arguments
-- `rule`: Must be an `:ns_pK` rule symbol.
-- `boundary`: Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `rule`: Must be an `:newton_pK` rule symbol.
+- `boundary`: Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 - `Nsub`: Number of subintervals for the composite rule.
 - `nterms`: Number of nonzero residual terms to collect (must satisfy `nterms ≥ 1`).
 - `kmax`: Maximum derivative order scanned (inclusive, must satisfy `kmax ≥ 0`).
@@ -362,7 +362,7 @@ Workflow:
 - `coeffs::Vector{Quadrature.NewtonCotes.RBig}`: Exact rational coefficients ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}`` `diff(k)/k!` aligned with `ks`.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:ns_pK`,
+- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
   if `Nsub` violates composite constraints, or if insufficient nonzero terms exist up to `kmax`.
 """
 function _leading_midpoint_residual_terms(
@@ -377,11 +377,11 @@ function _leading_midpoint_residual_terms(
     Quadrature.QuadratureDispatch._decode_boundary(boundary)
 
     # This residual construction currently assumes ns rules
-    Quadrature.NewtonCotes._is_ns_rule(rule) || JobLoggerTools.error_benji(
-        "midpoint residual model currently expects :ns_pK rules (got rule=$rule)"
+    Quadrature.NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji(
+        "midpoint residual model currently expects :newton_pK rules (got rule=$rule)"
     )
 
-    p  = Quadrature.NewtonCotes._parse_ns_p(rule)
+    p  = Quadrature.NewtonCotes._parse_newton_p(rule)
 
     # Exact rational global weights β[0..Nsub] for the chosen boundary pattern
     βR = Quadrature.NewtonCotes._assemble_composite_beta_rational(p, boundary, Nsub)

@@ -15,12 +15,12 @@ using ..JobLoggerTools
 
 # ============================================================
 # Rule symbol parsing
-#   :bsplI_pK  -> interpolation spline quadrature (degree K)
-#   :bsplS_pK  -> smoothing spline quadrature (degree K)
+#   :bspline_interp_pK  -> interpolation spline quadrature (degree K)
+#   :bspline_smooth_pK  -> smoothing spline quadrature (degree K)
 # ============================================================
 
 """
-    _is_bspl_rule(
+    _is_bspline_rule(
         rule::Symbol
     ) -> Bool
 
@@ -29,8 +29,8 @@ Return `true` if `rule` is a B-spline quadrature rule symbol.
 # Function description
 A rule is considered a B-spline rule if its symbol string starts with either:
 
-- `"bsplI_p"` : interpolation B-spline quadrature (degree `p`)
-- `"bsplS_p"` : smoothing    B-spline quadrature (degree `p`)
+- `"bspline_interp_p"` : interpolation B-spline quadrature (degree `p`)
+- `"bspline_smooth_p"` : smoothing    B-spline quadrature (degree `p`)
 
 This helper is used only for lightweight dispatch / validation and does not
 parse the degree itself.
@@ -45,15 +45,15 @@ parse the degree itself.
 - This function performs only prefix checks; it does not validate that the suffix
   is a valid integer degree.
 """
-@inline function _is_bspl_rule(
+@inline function _is_bspline_rule(
     rule::Symbol
 )::Bool
     s = String(rule)
-    startswith(s, "bsplI_p") || startswith(s, "bsplS_p")
+    startswith(s, "bspline_interp_p") || startswith(s, "bspline_smooth_p")
 end
 
 """
-    _bspl_kind(
+    _bspline_kind(
         rule::Symbol
     ) -> Symbol
 
@@ -62,8 +62,8 @@ Decode the B-spline rule kind from a rule symbol.
 # Function description
 Given a rule symbol of the form:
 
-- `:bsplI_pK`  (interpolation)
-- `:bsplS_pK`  (smoothing)
+- `:bspline_interp_pK`  (interpolation)
+- `:bspline_smooth_pK`  (smoothing)
 
 this helper returns the corresponding kind tag:
 
@@ -80,15 +80,15 @@ this helper returns the corresponding kind tag:
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `rule` is not a recognized B-spline rule.
 
 # Notes
-- This function does not parse the degree `p`; use [`_parse_bspl_p`](@ref) for that.
+- This function does not parse the degree `p`; use [`_parse_bspline_p`](@ref) for that.
 """
-@inline function _bspl_kind(
+@inline function _bspline_kind(
     rule::Symbol
 )::Symbol
     s = String(rule)
-    if startswith(s, "bsplI_p")
+    if startswith(s, "bspline_interp_p")
         return :interp
-    elseif startswith(s, "bsplS_p")
+    elseif startswith(s, "bspline_smooth_p")
         return :smooth
     else
         JobLoggerTools.error_benji("Not a B-spline rule: rule=$rule")
@@ -96,7 +96,7 @@ this helper returns the corresponding kind tag:
 end
 
 """
-    _parse_bspl_p(
+    _parse_bspline_p(
         rule::Symbol
     ) -> Int
 
@@ -105,8 +105,8 @@ Parse the spline degree `p` from a B-spline rule symbol.
 # Function description
 This helper extracts the integer degree `p` from rule symbols:
 
-- `:bsplI_pK`  (interpolation)
-- `:bsplS_pK`  (smoothing)
+- `:bspline_interp_pK`  (interpolation)
+- `:bspline_smooth_pK`  (smoothing)
 
 where `K` is a nonnegative integer degree (e.g., `0, 1, 2, 3, ...`).
 
@@ -120,16 +120,16 @@ where `K` is a nonnegative integer degree (e.g., `0, 1, 2, 3, ...`).
 - Throws (via `JobLoggerTools.error_benji`) if `rule` is not a B-spline rule,
   or if the parsed degree is invalid (`p < 0`).
 """
-@inline function _parse_bspl_p(
+@inline function _parse_bspline_p(
     rule::Symbol
 )::Int
     s = String(rule)
-    if startswith(s, "bsplI_p")
-        p = parse(Int, s[8:end])
+    if startswith(s, "bspline_interp_p")
+        p = parse(Int, s[17:end])
         p >= 0 || JobLoggerTools.error_benji("B-spline degree must be ≥ 0 (got p=$p)")
         return p
-    elseif startswith(s, "bsplS_p")
-        p = parse(Int, s[8:end])
+    elseif startswith(s, "bspline_smooth_p")
+        p = parse(Int, s[17:end])
         p >= 0 || JobLoggerTools.error_benji("B-spline degree must be ≥ 0 (got p=$p)")
         return p
     else
@@ -144,10 +144,10 @@ end
 # then enforce endpoint clamping by overwriting the first/last p+1 knots if closed.
 #
 # boundary patterns:
-#   LCRC: clamp both
-#   LCRO: clamp left only
-#   LORC: clamp right only
-#   LORO: clamp none (fully open / extended)
+#   LU_ININ: clamp both
+#   LU_INEX: clamp left only
+#   LU_EXIN: clamp right only
+#   LU_EXEX: clamp none (fully open / extended)
 # ============================================================
 
 """
@@ -176,8 +176,8 @@ a - p \\, h \\;,\\;  a - (p-1) \\, h \\;,\\;  \\ldots \\;,\\; b + (p-1) \\, h \\
 ```
 Then endpoint clamping is enforced by overwriting knots near the endpoints:
 
-* left clamp  (repeat `a` for `p+1` knots) if `boundary ∈ { :LCRC, :LCRO }`
-* right clamp (repeat `b` for `p+1` knots) if `boundary ∈ { :LCRC, :LORC }`
+* left clamp  (repeat `a` for `p+1` knots) if `boundary ∈ { :LU_ININ, :LU_INEX }`
+* right clamp (repeat `b` for `p+1` knots) if `boundary ∈ { :LU_ININ, :LU_EXIN }`
 
 This provides a simple, deterministic boundary behavior compatible with the
 Greville-point quadrature construction in this module.
@@ -188,7 +188,7 @@ Greville-point quadrature construction in this module.
 * `b`: Right endpoint (`Float64`).
 * `N`: Number of subintervals defining the uniform step (``N \\ge 1``).
 * `p`: Spline degree (``p \\ge 0``).
-* `boundary`: Boundary pattern (`:LCRC`, `:LCRO`, `:LORC`, `:LORO`).
+* `boundary`: Boundary pattern (`:LU_ININ`, `:LU_INEX`, `:LU_EXIN`, `:LU_EXEX`).
 
 # Returns
 
@@ -201,7 +201,7 @@ Greville-point quadrature construction in this module.
 # Notes
 
 * This is a pragmatic knot builder for quadrature, not a general-purpose spline API.
-* For `:LORO` no clamping is applied (fully extended endpoints).
+* For `:LU_EXEX` no clamping is applied (fully extended endpoints).
 """
 function _build_knots_uniform(
     a::Float64,
@@ -225,12 +225,12 @@ function _build_knots_uniform(
 
     # apply endpoint clamping depending on boundary
     # "closed" => repeat endpoint p+1 times by setting the first/last p+1 knots equal
-    if boundary === :LCRC || boundary === :LCRO
+    if boundary === :LU_ININ || boundary === :LU_INEX
         @inbounds for i in 1:(p+1)
             t[i] = a
         end
     end
-    if boundary === :LCRC || boundary === :LORC
+    if boundary === :LU_ININ || boundary === :LU_EXIN
         @inbounds for i in (length(t)-p):length(t)
             t[i] = b
         end
@@ -604,7 +604,7 @@ Thus weights are computed as ``w = A \\, z``.
 * `b`: Right endpoint (real), must satisfy `b > a`.
 * `N`: Number of uniform subintervals defining knot spacing (`N ≥ 1`).
 * `p`: B-spline degree (`p ≥ 0`).
-* `boundary`: Boundary pattern controlling endpoint clamping (`:LCRC`, `:LCRO`, `:LORC`, `:LORO`).
+* `boundary`: Boundary pattern controlling endpoint clamping (`:LU_ININ`, `:LU_INEX`, `:LU_EXIN`, `:LU_EXEX`).
 
 # Keyword arguments
 

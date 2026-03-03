@@ -14,8 +14,8 @@ import ..Quadrature
 
 # ============================================================
 # Composite Newton–Cotes via exact rational assembly
-# rule  : :ns_p3, :ns_p4, :ns_p5, ...
-# boundary : :LCRC | :LORC | :LCRO | :LORO
+# rule  : :newton_p3, :newton_p4, :newton_p5, ...
+# boundary : :LU_ININ | :LU_EXIN | :LU_INEX | :LU_EXEX
 #
 # Produces Float64 nodes/weights:
 #   xs[j] = a + j*(b-a)/N,  j=0..N
@@ -71,7 +71,7 @@ The cache key is:
 
 where:
 - `p`        : local Newton-Cotes node count (e.g. 3, 4, 5, ...)
-- `boundary` : boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`)
+- `boundary` : boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`)
 - `Nsub`     : number of global subintervals
 
 The stored value is:
@@ -303,7 +303,7 @@ The required constraint is:
 ```math
 N_\\text{sub} = w_L + m \\, (p - 1) + w_R
 ```
-where ``w_L`` / ``w_R`` depend on the boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+where ``w_L`` / ``w_R`` depend on the boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 
 This function checks:
 1) ``N_\\text{sub} \\ge w_L + w_R``, and
@@ -394,7 +394,7 @@ All computations remain in `RBig = Rational{BigInt}` to preserve exactness.
 
 # Arguments
 - `p`: Local node count (NC *order* in this implementation; must satisfy ``p \\ge 2``).
-- `boundary`: Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `boundary`: Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 - `Nsub`: Number of global subintervals (must satisfy the composite constraint).
 
 # Returns
@@ -478,59 +478,59 @@ function _assemble_composite_beta_rational(
 end
 
 """
-    _is_ns_rule(
+    _is_newton_cotes_rule(
         rule::Symbol
     ) -> Bool
 
-Return `true` if `rule` is a composite exact-assembly Newton-Cotes rule symbol of the form `:ns_pK`.
+Return `true` if `rule` is a composite exact-assembly Newton-Cotes rule symbol of the form `:newton_pK`.
 
 # Function description
 This helper recognizes the new composite exact-rational rules introduced in this module.
-A rule is considered an *NS rule* if its symbol string begins with `"ns_p"` (e.g. `:ns_p3`, `:ns_p5`).
+A rule is considered an *NS rule* if its symbol string begins with `"newton_p"` (e.g. `:newton_p3`, `:newton_p5`).
 
 # Arguments
 - `rule`: Quadrature rule symbol.
 
 # Returns
-- `Bool`: `true` if `rule` starts with `"ns_p"`, else `false`.
+- `Bool`: `true` if `rule` starts with `"newton_p"`, else `false`.
 """
-@inline function _is_ns_rule(
+@inline function _is_newton_cotes_rule(
     rule::Symbol
 )::Bool
-    startswith(String(rule), "ns_p")
+    startswith(String(rule), "newton_p")
 end
 
 """
-    _parse_ns_p(
+    _parse_newton_p(
         rule::Symbol
     ) -> Int
 
-Parse the local node count `p` from an NS rule symbol `:ns_pK`.
+Parse the local node count `p` from an NS rule symbol `:newton_pK`.
 
 # Function description
 For composite exact-assembly Newton-Cotes rules, the rule symbol encodes the
 local node count `p` as:
 
-    :ns_p3, :ns_p4, :ns_p5, ...
+    :newton_p3, :newton_p4, :newton_p5, ...
 
 This function extracts and validates `p` from the symbol.
 
 # Arguments
-- `rule`: Quadrature rule symbol, expected to start with `"ns_p"`.
+- `rule`: Quadrature rule symbol, expected to start with `"newton_p"`.
 
 # Returns
 - `Int`: Parsed node count `p` (guaranteed ``p \\ge 2`` if successful).
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if the symbol does not start with `"ns_p"`
+- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if the symbol does not start with `"newton_p"`
   or if the parsed `p` is invalid.
 """
-function _parse_ns_p(
+function _parse_newton_p(
     rule::Symbol
 )::Int
     s = String(rule)
-    _is_ns_rule(rule) || JobLoggerTools.error_benji("rule must start with :ns_p (got $rule)")
-    p = parse(Int, s[5:end])  # after "ns_p"
+    _is_newton_cotes_rule(rule) || JobLoggerTools.error_benji("rule must start with :newton_p (got $rule)")
+    p = parse(Int, s[9:end])  # after "newton_p"
     p >= 2 || JobLoggerTools.error_benji("p must be ≥ 2 (got p=$p in rule=$rule)")
     return p
 end
@@ -557,7 +557,7 @@ quadrature weights `ws`.
 
 # Arguments
 - `p`: Local node count (must satisfy ``p \\ge 2``).
-- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 - `Nsub`: Number of subintervals (must satisfy the composite constraint for the given boundary).
 
 # Returns

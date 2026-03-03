@@ -69,8 +69,8 @@ end
         estimates::Vector{Float64},
         errors::Vector{Float64},
         fit_result;
-        rule::Symbol = :ns_p3,
-        boundary::Symbol = :LCRC
+        rule::Symbol = :newton_p3,
+        boundary::Symbol = :LU_ININ
     ) -> Nothing
 
 Plot convergence data ``I(h)`` against ``h^{p}`` (where the leading exponent `p`
@@ -194,8 +194,8 @@ function plot_convergence_result(
     estimates::Vector{Float64},
     errors::Vector{Float64},
     fit_result;
-    rule::Symbol = :ns_p3,
-    boundary::Symbol = :LCRC
+    rule::Symbol = :newton_p3,
+    boundary::Symbol = :LU_ININ
 )
 
     # ------------------------------------------------------------
@@ -372,8 +372,8 @@ export plot_quadrature_coverage_1d
         a::Real,
         b::Real,
         N::Int;
-        rule::Symbol = :ns_p3,
-        boundary::Symbol = :LCRC,
+        rule::Symbol = :newton_p3,
+        boundary::Symbol = :LU_ININ,
         ngrid_f::Int = 4000,
         ngrid_block::Int = 400,
         name::String = "coverage",
@@ -412,16 +412,16 @@ The goal is to provide an *honest* visualization:
 
 This plotter supports three rule families, identified by `rule`:
 
-- Newton-Cotes NS rules (as detected by [`Maranatha.Quadrature.NewtonCotes._is_ns_rule`](@ref))
+- Newton-Cotes NS rules (as detected by [`Maranatha.Quadrature.NewtonCotes._is_newton_cotes_rule`](@ref))
 - Gauss-family rules (as detected by [`Maranatha.Quadrature.Gauss._is_gauss_rule(rule)`](@ref))
-- B-spline-family rules (as detected by [`Maranatha.Quadrature.BSpline._is_bspl_rule(rule)`](@ref))
+- B-spline-family rules (as detected by [`Maranatha.Quadrature.BSpline._is_bspline_rule(rule)`](@ref))
 
-## NS rules (`:ns_pK`)
+## NS rules (`:newton_pK`)
 
 For NS rules, blocks are constructed using the same boundary-aware tiling rules
 as the composite quadrature assembly. The boundary pattern `boundary` must be one of:
 
-- `:LCRC`, `:LORC`, `:LCRO`, `:LORO`
+- `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`
 
 and `N` must satisfy the composability constraint imposed by the boundary widths.
 
@@ -473,13 +473,13 @@ Implementation notes:
 
 # Keyword arguments
 
-* `rule::Symbol = :ns_p3`:
+* `rule::Symbol = :newton_p3`:
   Quadrature rule identifier. Must be supported by the internal rule-family detectors:
-  [`Maranatha.Quadrature.NewtonCotes._is_ns_rule`](@ref), 
+  [`Maranatha.Quadrature.NewtonCotes._is_newton_cotes_rule`](@ref), 
   [`Maranatha.Quadrature.Gauss._is_gauss_rule`](@ref), or 
-  [`Maranatha.Quadrature.BSpline._is_bspl_rule`](@ref).
+  [`Maranatha.Quadrature.BSpline._is_bspline_rule`](@ref).
 
-* `boundary::Symbol = :LCRC`:
+* `boundary::Symbol = :LU_ININ`:
   Boundary pattern. Used by NS rules for exact boundary tiling; for other families it is
   forwarded to node/weight generation (and may be ignored depending on the backend).
 
@@ -535,8 +535,8 @@ function plot_quadrature_coverage_1d(
     a::Real,
     b::Real,
     N::Int;
-    rule::Symbol = :ns_p3,
-    boundary::Symbol = :LCRC,
+    rule::Symbol = :newton_p3,
+    boundary::Symbol = :LU_ININ,
     ngrid_f::Int = 4000,
     ngrid_block::Int = 400,
     name::String = "coverage",
@@ -551,9 +551,9 @@ function plot_quadrature_coverage_1d(
     N >= 1 || JobLoggerTools.error_benji("N must be ≥ 1 (got N=$N)")
 
     # Identify rule family (must match your existing modules)
-    is_ns   = Quadrature.NewtonCotes._is_ns_rule(rule)
+    is_ns   = Quadrature.NewtonCotes._is_newton_cotes_rule(rule)
     is_gaus = Quadrature.Gauss._is_gauss_rule(rule)
-    is_bs   = Quadrature.BSpline._is_bspl_rule(rule)
+    is_bs   = Quadrature.BSpline._is_bspline_rule(rule)
 
     (is_ns || is_gaus || is_bs) || JobLoggerTools.error_benji(
         "Unsupported rule family for coverage plot: rule=$rule"
@@ -586,21 +586,21 @@ function plot_quadrature_coverage_1d(
 
         # decode boundary
         @inline function _decode_boundary(boundary::Symbol)
-            if boundary === :LCRC
+            if boundary === :LU_ININ
                 return (:closed, :closed)
-            elseif boundary === :LORC
+            elseif boundary === :LU_EXIN
                 return (:opened, :closed)
-            elseif boundary === :LCRO
+            elseif boundary === :LU_INEX
                 return (:closed, :opened)
-            elseif boundary === :LORO
+            elseif boundary === :LU_EXEX
                 return (:opened, :opened)
             else
-                JobLoggerTools.error_benji("boundary must be one of :LCRC | :LORC | :LCRO | :LORO (got $boundary)")
+                JobLoggerTools.error_benji("boundary must be one of :LU_ININ | :LU_EXIN | :LU_INEX | :LU_EXEX (got $boundary)")
             end
         end
 
-        # NS order p from :ns_pK
-        startswith(String(rule), "ns_p") || JobLoggerTools.error_benji("NS rule must be :ns_pK (got rule=$rule)")
+        # NS order p from :newton_pK
+        startswith(String(rule), "newton_p") || JobLoggerTools.error_benji("NS rule must be :newton_pK (got rule=$rule)")
         p = parse(Int, String(rule)[5:end])
         p >= 2 || JobLoggerTools.error_benji("p must be ≥ 2 (got p=$p from rule=$rule)")
 

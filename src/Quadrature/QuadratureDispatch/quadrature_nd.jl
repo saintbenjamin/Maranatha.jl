@@ -62,7 +62,7 @@ to ensure reproducibility and consistent floating-point behavior.
 - `a`, `b`: Domain bounds defining the hypercube ``[a,b]^\\texttt{dim}``.
 - `N`: Number of subdivisions per axis used to build the 1D rule.
 - `rule`: Integration rule symbol (e.g., `:simpson13_close`, `:bode_open`, etc.).
-- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
   Required for NS rules.
 - `dim`: Number of dimensions (must satisfy `dim```\\ge 1``).
 

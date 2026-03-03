@@ -574,7 +574,7 @@ Process-local cache for single-interval Gauss-family nodes/weights on ``[-1,1]``
 This cache stores the output of [`_gauss_family_nodes_weights`](@ref) for a given pair:
 
 * `n`       : number of points in the Gauss family rule,
-* `boundary`: which family (`:LORO`, `:LCRO`, `:LORC`, `:LCRC`).
+* `boundary`: which family (`:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`).
 
 The stored value is:
 
@@ -685,17 +685,17 @@ for a specified boundary pattern.
 
 This routine chooses among the supported Gauss families:
 
-* `boundary == :LORO` : Gauss-Legendre (no endpoints included)
-* `boundary == :LCRO` : Gauss-Radau (left endpoint ``-1`` included)
-* `boundary == :LORC` : Gauss-Radau (right endpoint ``+1`` included)
-* `boundary == :LCRC` : Gauss-Lobatto (both endpoints included)
+* `boundary == :LU_EXEX` : Gauss-Legendre (no endpoints included)
+* `boundary == :LU_INEX` : Gauss-Radau (left endpoint ``-1`` included)
+* `boundary == :LU_EXIN` : Gauss-Radau (right endpoint ``+1`` included)
+* `boundary == :LU_ININ` : Gauss-Lobatto (both endpoints included)
 
 It uses and populates the cache [`_GAUSS_CACHE`](@ref) keyed by `(n, boundary)`.
 
 # Arguments
 
 * `n`: Points per rule (Legendre: ``n \\ge 1``, Radau/Lobatto: ``n \\ge 2``).
-* `boundary`: One of `:LORO`, `:LCRO`, `:LORC`, `:LCRC`.
+* `boundary`: One of `:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`.
 
 # Returns
 
@@ -716,19 +716,19 @@ function _gauss_family_nodes_weights(
     cached = get(_GAUSS_CACHE, key, nothing)
     cached !== nothing && return cached
 
-    t, w = if boundary === :LORO
+    t, w = if boundary === :LU_EXEX
         gauss_legendre_nodes_weights_float(n)
-    elseif boundary === :LCRO
+    elseif boundary === :LU_INEX
         n >= 2 || JobLoggerTools.error_benji("Gauss-Radau requires n ≥ 2 (got n=$n)")
         gauss_radau_left_nodes_weights_float(n)
-    elseif boundary === :LORC
+    elseif boundary === :LU_EXIN
         n >= 2 || JobLoggerTools.error_benji("Gauss-Radau requires n ≥ 2 (got n=$n)")
         gauss_radau_right_nodes_weights_float(n)
-    elseif boundary === :LCRC
+    elseif boundary === :LU_ININ
         n >= 2 || JobLoggerTools.error_benji("Gauss-Lobatto requires n ≥ 2 (got n=$n)")
         gauss_lobatto_nodes_weights_float(n)
     else
-        JobLoggerTools.error_benji("boundary must be :LCRC|:LORC|:LCRO|:LORO (got $boundary)")
+        JobLoggerTools.error_benji("boundary must be :LU_ININ|:LU_EXIN|:LU_INEX|:LU_EXEX (got $boundary)")
     end
 
     _GAUSS_CACHE[key] = (t, w)
@@ -770,7 +770,7 @@ The output arrays have length `npts*N`, containing *all* per-block nodes and wei
 * `a`, `b`: Global integration interval endpoints (converted to `Float64`).
 * `N`: Number of uniform blocks (`N ≥ 1` expected by caller).
 * `npts`: Number of Gauss points per block (family-dependent constraints apply).
-* `boundary`: Family selector (`:LORO`, `:LCRO`, `:LORC`, `:LCRC`).
+* `boundary`: Family selector (`:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`).
 
 # Returns
 
@@ -843,7 +843,7 @@ Thus, weights are scaled by ``\\dfrac{1}{2}``.
 
 * `N`: Number of unit blocks (must satisfy `N ≥ 1`).
 * `npts`: Points per block (family-dependent constraints apply).
-* `boundary`: Family selector (`:LORO`, `:LCRO`, `:LORC`, `:LCRC`).
+* `boundary`: Family selector (`:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`).
 
 # Returns
 

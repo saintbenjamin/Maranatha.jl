@@ -62,7 +62,7 @@ The module is structured into three residual backends plus a unified dispatch la
 
 ## 1. [`Maranatha.ErrorEstimate.ErrorNewtonCotes`](@ref)
 
-Exact-rational residual extraction for NS-style composite Newton-Cotes rules (`:ns_pK`).
+Exact-rational residual extraction for NS-style composite Newton-Cotes rules (`:newton_pK`).
 
 Features:
 
@@ -89,7 +89,7 @@ Features:
 
 ## 3. [`Maranatha.ErrorEstimate.ErrorBSpline`](@ref)
 
-Float64 residual detection for composite B-spline quadrature rules (`:bsplI_pK`, `:bsplS_pK`).
+Float64 residual detection for composite B-spline quadrature rules (`:bspline_interp_pK`, `:bspline_smooth_pK`).
 
 Features:
 

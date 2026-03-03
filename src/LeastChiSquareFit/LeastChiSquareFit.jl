@@ -126,7 +126,7 @@ The ``1\\,\\sigma`` parameter errors are ``\\sqrt{\\mathrm{diag}(V)}``.
 * `rule`:
   Quadrature rule symbol used by the midpoint residual model.
 * `boundary`:
-  Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`) used by the midpoint residual model.
+  Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`) used by the midpoint residual model.
 
 # Keyword arguments
 
@@ -201,12 +201,12 @@ function least_chi_square_fit(
     # - NS rules: ks already treated as powers (your current pipeline convention)
     # - GAUSS / BSPLINE rules: ks are moment indices k, so power is (k+1)
     # ------------------------------------------------------------
-    powers_all = if NewtonCotes._is_ns_rule(rule)
+    powers_all = if NewtonCotes._is_newton_cotes_rule(rule)
         ks
     elseif Gauss._is_gauss_rule(rule)
         # ks .+ 1
         ks
-    elseif BSpline._is_bspl_rule(rule)
+    elseif BSpline._is_bspline_rule(rule)
         ks .+ 1
     else
         JobLoggerTools.error_benji("Unsupported rule family for fit-power mapping: rule=$rule")

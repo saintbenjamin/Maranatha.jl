@@ -33,7 +33,7 @@ This keeps all rule-specific constraints and behaviour centralized in
 - `a`, `b`: Integration bounds.
 - `N`: Number of intervals (rule-specific constraints are enforced by [`get_quadrature_1d_nodes_weights`](@ref)).
 - `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
   Required for NS rules.
 
 # Returns

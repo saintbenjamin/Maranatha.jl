@@ -10,8 +10,8 @@ using .Maranatha.F0000GammaEminus1
     # # bounds = (0.0, 10)
 
     # dim = 1
-    # rule = :ns_p7
-    # boundary = :LCRC
+    # rule = :newton_p7
+    # boundary = :LU_ININ
     # ns = 24
     # result_string = "PV_1D"
     # nerr_terms = 3
@@ -25,11 +25,11 @@ using .Maranatha.F0000GammaEminus1
 
     ff(x)  = gtilde_F0000(x; p=3)
     bounds = (0.0, 1.0)
-    use_threads = true
+    use_threads = false
 
     dim = 1
-    rule = :bsplI_p3
-    boundary = :LCRC
+    rule = :bspline_interp_p3
+    boundary = :LU_ININ
     ns = 48
     result_string = "PV_1D"
     nerr_terms = 3

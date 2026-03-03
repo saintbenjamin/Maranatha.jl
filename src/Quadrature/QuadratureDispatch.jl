@@ -29,10 +29,10 @@ composite Newton-Cotes assembly into the *local* endpoint kinds:
 - `:opened` means the local block is shifted (open-type block).
 
 Supported boundary patterns are:
-- `:LCRC` (Left Closed, Right Closed)
-- `:LORC` (Left Opened, Right Closed)
-- `:LCRO` (Left Closed, Right Opened)
-- `:LORO` (Left Opened, Right Opened)
+- `:LU_ININ` (Left Closed, Right Closed)
+- `:LU_EXIN` (Left Opened, Right Closed)
+- `:LU_INEX` (Left Closed, Right Opened)
+- `:LU_EXEX` (Left Opened, Right Opened)
 
 # Arguments
 - `boundary`: Boundary pattern symbol.
@@ -46,16 +46,16 @@ Supported boundary patterns are:
 @inline function _decode_boundary(
     boundary::Symbol
 )
-    if boundary === :LCRC
+    if boundary === :LU_ININ
         return (:closed, :closed)
-    elseif boundary === :LORC
+    elseif boundary === :LU_EXIN
         return (:opened, :closed)
-    elseif boundary === :LCRO
+    elseif boundary === :LU_INEX
         return (:closed, :opened)
-    elseif boundary === :LORO
+    elseif boundary === :LU_EXEX
         return (:opened, :opened)
     else
-        JobLoggerTools.error_benji("boundary must be one of: :LCRC | :LORC | :LCRO | :LORO (got $boundary)")
+        JobLoggerTools.error_benji("boundary must be one of: :LU_ININ | :LU_EXIN | :LU_INEX | :LU_EXEX (got $boundary)")
     end
 end
 
@@ -75,7 +75,7 @@ This function is the public ``1``-dimensional node/weight generator used by the 
 
 It supports:
 
-## Composite exact-assembly rules `:ns_pK`
+## Composite exact-assembly rules `:newton_pK`
 If `rule` is recognized as an NS rule, this routine:
 1) Parses `p` from `rule`,
 2) Builds (or fetches) the coefficient vector `β` for `(p, boundary, N)`,
@@ -88,8 +88,8 @@ The return types are `Vector{Float64}` for both nodes and weights.
 - `a`, `b`: Lower/upper bounds of the 1D interval.
 - `N`: Number of subintervals (must satisfy ``N \\ge 1`` and composite constraints for the selected boundary).
 - `rule`: Rule symbol. Supported:
-  - New rules: `:ns_p3`, `:ns_p4`, `:ns_p5`, ...
-- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  - New rules: `:newton_p3`, `:newton_p4`, `:newton_p5`, ...
+- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
   Required for NS rules.
 
 # Returns
@@ -119,8 +119,8 @@ function get_quadrature_1d_nodes_weights(
     _decode_boundary(boundary)
 
     # --- composite NS branch ---
-    if NewtonCotes._is_ns_rule(rule)
-        p = NewtonCotes._parse_ns_p(rule)
+    if NewtonCotes._is_newton_cotes_rule(rule)
+        p = NewtonCotes._parse_newton_p(rule)
         β = NewtonCotes._get_beta_float(p, boundary, N)
 
         aa = Float64(a)
@@ -142,9 +142,9 @@ function get_quadrature_1d_nodes_weights(
     end
 
     # --- composite B-SPLINE branch ---
-    if BSpline._is_bspl_rule(rule)
-        p = BSpline._parse_bspl_p(rule)
-        kind = BSpline._bspl_kind(rule)  # :interp or :smooth
+    if BSpline._is_bspline_rule(rule)
+        p = BSpline._parse_bspline_p(rule)
+        kind = BSpline._bspline_kind(rule)  # :interp or :smooth
 
         # NOTE: smoothing λ is fixed to 0.0 for now (pure interpolation-like),
         #       will be wired as a user option later.

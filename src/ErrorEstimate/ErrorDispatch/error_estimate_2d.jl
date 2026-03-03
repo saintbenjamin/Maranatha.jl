@@ -53,9 +53,9 @@ evaluated numerically using the same ``1``-dimensional composite nodes/weights.
 * `N`:
   Number of subintervals per axis. Must satisfy the composite tiling constraint for `(rule, boundary)`.
 * `rule`:
-  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
 * `boundary`:
-  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 
 # Keyword arguments
 
@@ -107,7 +107,7 @@ function error_estimate_2d(
     x̄ = (aa + bb) / 2
     ȳ = (aa + bb) / 2
 
-    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     # Collect residual terms (LO or LO+NLO+...)
     ks, coeffs, _center = _leading_residual_terms_any(
@@ -221,7 +221,7 @@ function error_estimate_2d_threads(
     x̄ = (aa + bb) / 2
     ȳ = x̄
 
-    xs, wx = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     ks, coeffs, _center = _leading_residual_terms_any(
         rule, boundary, N; 

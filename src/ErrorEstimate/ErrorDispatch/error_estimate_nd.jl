@@ -73,9 +73,9 @@ Special case:
 * `N`:
   Number of subintervals per axis. Must satisfy the composite tiling constraint for `(rule, boundary)`.
 * `rule`:
-  Composite Newton-Cotes rule symbol (must be `:ns_pK` style).
+  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
 * `boundary`:
-  Boundary pattern (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 * `dim`:
   Dimensionality of the integral (must satisfy ``\\texttt{dim} \\ge 1``).
 
@@ -129,7 +129,7 @@ function error_estimate_nd(
 
     x̄ = (aa + bb) / 2
 
-    xs, ws = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     # helper: call f with axis value replaced by x (x may be Dual)
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
@@ -284,7 +284,7 @@ function error_estimate_nd_threads(
     h  = (bb - aa) / N
     x̄ = (aa + bb) / 2
 
-    xs, ws = get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)

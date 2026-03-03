@@ -50,7 +50,7 @@ for either an NS (exact-rational) composite Newton–Cotes rule or a Float64 com
 # Function description
 This is a unified internal helper that normalizes the two residual backends into a common return type:
 
-- **NS rules** (`:ns_pK`):
+- **NS rules** (`:newton_pK`):
   Uses exact rational moment-matching residual coefficients computed from the exact-assembled
   composite Newton–Cotes coefficients `β`. The resulting residual coefficients are exact rationals
   internally, then converted to `Float64` in this wrapper.
@@ -73,9 +73,9 @@ This routine returns the first `nterms` detected `(k, coeff(k))` pairs as aligne
 
 * `rule`: Quadrature rule symbol. Supported:
 
-  * `:ns_pK` (exact composite Newton–Cotes; handled by `NewtonCotes` + `ErrorNewtonCotes`)
+  * `:newton_pK` (exact composite Newton–Cotes; handled by `NewtonCotes` + `ErrorNewtonCotes`)
   * `:gauss_pK` (composite Gauss family; handled by `Gauss` + `ErrorGauss`)
-* `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+* `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
   This is validated by `QuadratureDispatch._decode_boundary(boundary)`.
 * `Nsub`: Number of unit blocks in the dimensionless tiling domain `u ∈ [0, Nsub]`.
 
@@ -121,7 +121,7 @@ function _leading_residual_terms_any(
 
     QuadratureDispatch._decode_boundary(boundary)
 
-    if NewtonCotes._is_ns_rule(rule)
+    if NewtonCotes._is_newton_cotes_rule(rule)
         # exact rational coefficients from β
         if nterms == 1
             k, coeffR = ErrorNewtonCotes._leading_midpoint_residual_term(rule, boundary, Nsub; kmax=min(kmax, 64))
@@ -137,7 +137,7 @@ function _leading_residual_terms_any(
         return ks, coeffs, :mid
     end
 
-    if BSpline._is_bspl_rule(rule)
+    if BSpline._is_bspline_rule(rule)
         ks, coeffs = ErrorBSpline._leading_midpoint_residual_terms_bspline_float(
             rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0
         )
@@ -167,7 +167,7 @@ moment indices `k` where a nonzero residual is detected, plus the center symbol.
 
 Two backends are supported:
 
-## (A) NS rules (`:ns_pK`) — exact rational detection
+## (A) NS rules (`:newton_pK`) — exact rational detection
 For NS composite Newton–Cotes rules, this routine assembles the exact rational composite
 coefficient vector `β` and tests exact nonzero-ness:
 ```math
@@ -198,9 +198,9 @@ and returned as `:mid`.
 
 * `rule`: Quadrature rule symbol. Supported:
 
-  * `:ns_pK` (exact composite Newton–Cotes)
+  * `:newton_pK` (exact composite Newton–Cotes)
   * `:gauss_pK` (composite Gauss family)
-* `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+* `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 * `Nsub`: Number of unit blocks in the dimensionless domain `u ∈ [0, Nsub]`.
 
 # Keyword arguments
@@ -252,12 +252,12 @@ function _leading_residual_ks_with_center_any(
     # ------------------------------------------------------------
     # NS rules: exact rational test (diff != 0)
     # ------------------------------------------------------------
-    if NewtonCotes._is_ns_rule(rule)
+    if NewtonCotes._is_newton_cotes_rule(rule)
         ks = Int[]
         c  = NewtonCotes.RBig(BigInt(Nsub), 2)
         Nrb = NewtonCotes.RBig(BigInt(Nsub), 1)
 
-        β = NewtonCotes._assemble_composite_beta_rational(NewtonCotes._parse_ns_p(rule), boundary, Nsub)
+        β = NewtonCotes._assemble_composite_beta_rational(NewtonCotes._parse_newton_p(rule), boundary, Nsub)
 
         for k in 0:kmax
             exact = ((Nrb - c)^(k+1) - (NewtonCotes.RBig(0) - c)^(k+1)) /
@@ -310,7 +310,7 @@ function _leading_residual_ks_with_center_any(
         JobLoggerTools.error_benji("Could not collect nterms=$nterms GAUSS residual ks up to kmax=$kmax")
     end
 
-    if BSpline._is_bspl_rule(rule)
+    if BSpline._is_bspline_rule(rule)
         ks, center = ErrorBSpline._leading_residual_ks_with_center_bspline_float(
             rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0, tol_abs=tol_abs, tol_rel=tol_rel
         )
@@ -367,9 +367,9 @@ nonzero midpoint residual terms (LO+NLO+...).
 - `dim`:
     Number of dimensions (`Int`).
 - `rule`:
-    Integration rule symbol (must be `:ns_pK` style for the residual-based model).
+    Integration rule symbol (must be `:newton_pK` style for the residual-based model).
 - `boundary`:
-    Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+    Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 
 # Keyword arguments
 - `nerr_terms`:

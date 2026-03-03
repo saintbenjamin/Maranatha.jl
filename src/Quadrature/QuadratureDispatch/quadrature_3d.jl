@@ -34,7 +34,7 @@ Loop ordering and accumulation are preserved exactly as implemented.
 - `a`, `b`: Cube domain bounds (used for all axes).
 - `N`: Number of intervals per axis.
 - `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol (`:LCRC`, `:LORC`, `:LCRO`, `:LORO`).
+- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
   Required for NS rules.
 
 # Returns
