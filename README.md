@@ -25,7 +25,8 @@ analytical transparency, reproducibility, and modular structure.
 
 ## 🧠 Core Philosophy
 
-`Maranatha.jl` is built around a **pipeline-oriented workflow**:
+[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/) 
+is built around a **pipeline-oriented workflow**:
 
 1. Structured tensor-product quadrature
 2. Residual-based derivative error scale modeling
