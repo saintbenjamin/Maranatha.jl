@@ -2,7 +2,7 @@
 
 julia_version = "1.12.5"
 manifest_format = "2.0"
-project_hash = "e0cbf3e22db914c3df268b679dc56fae5647076c"
+project_hash = "22acf4f085ef82cc73602d85869eb3da7d1e06cf"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -286,7 +286,7 @@ version = "0.5.16"
 deps = ["Dates", "Enzyme", "ForwardDiff", "LinearAlgebra", "Printf", "PyPlot", "SpecialFunctions", "Statistics", "TaylorSeries"]
 path = "."
 uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
-version = "0.1.0"
+version = "0.8.2"
 
 [[deps.Markdown]]
 deps = ["Base64", "JuliaSyntaxHighlighting", "StyledStrings"]
