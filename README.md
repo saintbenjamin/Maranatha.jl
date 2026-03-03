@@ -2,15 +2,16 @@
 
 ### Structured Tensor-Product Quadrature with Residual-Informed Extrapolation
 
-**Maranatha.jl** is a research-oriented numerical quadrature framework
+**[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/)** 
+is a research-oriented numerical quadrature framework
 with a modular, rule-dispatched architecture for
 
 * structured **multi-dimensional tensor-product integration**
 * derivative-aware **residual-based error scale modeling**
-* covariance-aware **least chi-square fitting for $h \to 0$ extrapolation**
+* covariance-aware **least $\chi^2$ fitting for $h \to 0$ extrapolation**
 
-It is designed for methodological research and lattice perturbation theory experiments,
-with emphasis on analytical transparency, reproducibility, and modular structure.
+It is designed for methodological research, with emphasis on 
+analytical transparency, reproducibility, and modular structure.
 
 ---
 
@@ -24,16 +25,16 @@ with emphasis on analytical transparency, reproducibility, and modular structure
 
 ## 🧠 Core Philosophy
 
-Maranatha is built around a **pipeline-oriented workflow**:
+`Maranatha.jl` is built around a **pipeline-oriented workflow**:
 
 1. Structured tensor-product quadrature
 2. Residual-based derivative error scale modeling
-3. Weighted least chi-square fitting for $h \to 0$ extrapolation
+3. Weighted least $\chi^2$ fitting for $h \to 0$ extrapolation
 4. Covariance-propagated uncertainty visualization
 
 Unlike traditional quadrature libraries that focus on static rule tables,
 Maranatha derives rule structure through **moment / Taylor-expansion construction**
-(for Newton-Cotes) and supports additional rule backends (Gauss-family, B-spline)
+(for Newton-Cotes) and supports additional rule backends (Gauss, B-spline)
 through unified tensor-product dispatch.
 
 Fit exponents are determined from a **residual-informed expansion**
@@ -74,7 +75,7 @@ Residual-based derivative error *scale* models:
 
 ### 📊 Convergence Extrapolation
 
-Weighted least chi-square fitting with:
+Weighted least $\chi^2$ fitting with:
 
 * Residual-informed exponent basis
 * Automatic power detection from rule-dispatched residual expansion
@@ -180,13 +181,13 @@ plot_convergence_result(
 
 Internal modules:
 
-* [`Runner`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Runner/)
-* [`Quadrature`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Quadrature/)
-* [`ErrorEstimate`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Runner/)
-* [`LeastChiSquareFit`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/LeastChiSquareFit/)
-* [`PlotTools`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/PlotTools/)
-* [`Integrands`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Integrands/)
-* [`Utils`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Utils/)
+* [`Maranatha.Runner`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Runner/)
+* [`Maranatha.Quadrature`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Quadrature/)
+* [`Maranatha.ErrorEstimate`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/ErrorEstimate/)
+* [`Maranatha.LeastChiSquareFit`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/LeastChiSquareFit/)
+* [`Maranatha.PlotTools`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/PlotTools/)
+* [`Maranatha.Integrands`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Integrands/)
+* [`Maranatha.Utils`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Utils/)
 
 Public API intentionally minimal:
 
@@ -219,7 +220,8 @@ plot_convergence_result(
 
 ## 🚧 Development Status
 
-`Maranatha.jl` is under active research development.
+[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/) 
+is under active research development.
 
 The architecture is stable and modular,
 but high-dimensional stability and extreme quadrature regimes
@@ -243,7 +245,7 @@ MIT License
 
 ## 🔤 Name Philosophy
 
-_Maranatha.jl as an acrostic:_
+_[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/) as an acrostic:_
 
 > **M**eshes define structured grids over the domain,  
 > **A**cross increasing resolutions, evaluations are compared,  
@@ -251,7 +253,7 @@ _Maranatha.jl as an acrostic:_
 > **A**utomatic differentiation enables derivative-based scaling,  
 > **N**umerical values are computed deterministically at each node,  
 > **A**pproximation errors follow residual-informed structure,  
-> **T**otal values are extrapolated via weighted least-χ² fitting,  
+> **T**otal values are extrapolated via weighted least chi-square fitting,  
 > **H**igher-dimensional extensions preserve the tensor-product philosophy,  
 > and **A**nalysis-ready results carry covariance-aware uncertainty.
 
