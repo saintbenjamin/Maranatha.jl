@@ -254,7 +254,7 @@ _[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/) as an acrostic:
 > **A**utomatic differentiation keeps an eye on derivative-based scaling.  
 > **N**umerical values take their places at each node,  
 > **A**pproximation errors reveal their residual-informed structure.  
-> **T**otal values emerge through weighted least-χ² fitting,  
+> **T**otal values emerge through weighted least chi-square fitting,  
 > **H**igher-dimensional extensions remain faithful to the tensor-product philosophy,  
 > and **A**nalysis-ready results carry covariance-aware uncertainty without apology.  
 
