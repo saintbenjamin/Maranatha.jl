@@ -138,12 +138,73 @@ The resulting figure contains:
 * the measured points with error bars,
 * the extrapolated point at ``h^{p} = 0`` with uncertainty `fit_result.error_estimate`.
 
+A second figure is also produced: a log-log plot of the relative error ``\\dfrac{I(h) - I_0}{I_0}``
+versus ``h^p``, including propagated error bars for points, a propagated uncertainty band
+for the fitted curve, and a slope-1 reference guide line.
+
+## Additional output: relative-error log-log plot
+
+In addition to the main convergence plot, this routine also produces a second figure
+showing the **relative convergence error** on log-log axes:
+```math
+r(h) = \\frac{|I(h)-I_0|}{|I_0|},
+\\qquad x = h^{p}.
+```
+
+The fitted model is evaluated on the same dense grid (in ``x=h^{p}``) and converted back
+to ``h`` via ``h=x^{1/p}`` to compute the curve:
+```math
+r_{\\text{fit}}(h) = \\frac{|I_{\\text{fit}}(h)-I_0|}{|I_0|}.
+```
+
+### Error bars for data points (propagated)
+
+For each measured point, the plotted ``1 \\, \\sigma`` error bar on the relative error
+is computed by **first-order uncertainty propagation**, assuming independent uncertainties
+for the point estimate ``I(h)`` and the extrapolated limit ``I_0``:
+```math
+\\sigma_r^2 \\approx
+\\left(\\frac{\\sigma_I}{|I_0|}\\right)^2
++
+\\left(\\frac{|I(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2,
+```
+
+where ``\\sigma_I`` is the provided pointwise error (from `errors`) and
+``\\sigma_{I_0}`` is `fit_result.error_estimate`.
+
+### Uncertainty band for the fitted curve (propagated)
+
+The shaded band around the fitted relative-error curve corresponds to:
+```math
+r_{\\text{fit}}(h) \\pm \\sigma_{r,\\text{fit}}(h),
+```
+with
+```math
+\\sigma_{r,\\text{fit}}^2(h) \\approx
+\\left(\\frac{\\sigma_{\\text{fit}}(h)}{|I_0|}\\right)^2
++
+\\left(\\frac{|I_{\\text{fit}}(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2,
+```
+where ``\\sigma_{\\text{fit}}(h)`` is obtained from the parameter covariance:
+```math
+\\sigma_{\\text{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} V \\varphi(h) \\,.
+```
+
+### Reference slope guide
+
+A gray dashed **reference line** with slope 1 in the ``x=h^{p}`` coordinate
+is drawn as a visual guide for the expected leading-order behavior:
+
+```math
+r(h) \\propto h^{p} \\quad \\Longleftrightarrow \\quad r \\propto x.
+```
+
 ## Output
 
-The output file is saved as:
-
+Two output files are saved:
 ```julia
 convergence_\$(name)_\$(rule)_\$(boundary).png
+convergence_\$(name)_\$(rule)_\$(boundary)_rel_log.png
 ```
 
 # Arguments
@@ -354,6 +415,105 @@ function plot_convergence_result(
     outfile = "convergence_$(name)_$(String(rule))_$(String(boundary)).png"
     fig.savefig(outfile)
     PyPlot.close(fig)
+
+    # ============================================================
+    # Extra plot: log-log convergence of relative error
+    #   y = |I(h) - I0| / |I0|
+    # with error bars for both data points and fit curve
+    # outfile: ..._rel_log.png
+    # ============================================================
+
+    absI0 = abs(I0)
+    (absI0 > 0) || JobLoggerTools.error_benji("Relative-error plot requires nonzero I0 (got I0=$I0).")
+
+    # --- Data for relative-error plot ---
+    Δp   = estp .- I0
+    relp = abs.(Δp) ./ absI0
+
+    # 1σ error bar for relative error (independent σ_I and σ_I0)
+    rel_errp = sqrt.( (errp ./ absI0).^2 .+ ((abs.(Δp) .* I0_err) ./ (absI0^2)).^2 )
+
+    # log-log requires strictly positive y (and yerr positive/finite)
+    mask2 = (relp .> 0) .& isfinite.(relp) .& isfinite.(rel_errp) .& (rel_errp .> 0) .&
+            (hxp .> 0) .& isfinite.(hxp)
+
+    hxp2 = hxp[mask2]
+    rel2 = relp[mask2]
+    rerr2 = rel_errp[mask2]
+
+    isempty(hxp2) && JobLoggerTools.error_benji("No valid positive relative-error points for log-log plot.")
+
+    # --- Fit curve + curve uncertainty band for relative error ---
+    # Use same x_range_log as before (no zero for log-log)
+    x_range2 = x_range_log
+    h_range2 = x_range2 .^ (1.0 / Float64(lead_pow))
+
+    rel_fit = similar(h_range2)
+    rel_sig = similar(h_range2)
+
+    for i in eachindex(h_range2)
+        yh, σy = model_and_err(h_range2[i])
+        Δ = yh - I0
+
+        rel_fit[i] = abs(Δ) / absI0
+
+        # 1σ for relative error curve (propagate σy and σ_I0)
+        rel_sig[i] = sqrt( (σy / absI0)^2 + ((abs(Δ) * I0_err) / (absI0^2))^2 )
+    end
+
+    # --- Plot ---
+    fig2, ax2 = PyPlot.subplots(figsize=(5.6,5.0), dpi=500)
+
+    ax2.plot(x_range2, rel_fit; color="red", linewidth=2.5)
+
+    # --- Reference slope line (slope = 1 in h^p axis) ---
+    # anchor point near middle of curve
+    idx_ref = length(x_range2) ÷ 2
+    x_ref = x_range2[idx_ref]
+    y_ref = rel_fit[idx_ref]
+
+    ref_line = y_ref .* (x_range2 ./ x_ref)
+
+    ax2.plot(
+        x_range2,
+        ref_line;
+        linestyle="--",
+        linewidth=2.0,
+        color="gray"
+    )
+
+    # Fit curve error band
+    ax2.fill_between(
+        x_range2,
+        rel_fit .- rel_sig,
+        rel_fit .+ rel_sig;
+        alpha=0.25,
+        linewidth=0,
+        color="red"
+    )
+
+    # Data points with error bars
+    ax2.errorbar(
+        hxp2, rel2;
+        yerr=rerr2,
+        fmt="o",
+        color="blue",
+        capsize=6,
+        markerfacecolor="none",
+        markeredgecolor="blue"
+    )
+
+    ax2.set_xscale("log")
+    ax2.set_yscale("log")
+
+    ax2.set_xlabel("\$h^{$(lead_pow)}\$")
+    ax2.set_ylabel(raw"$|I(h)-I_0|/|I_0|$")
+
+    fig2.tight_layout()
+
+    outfile2 = "convergence_$(name)_$(String(rule))_$(String(boundary))_rel_log.png"
+    fig2.savefig(outfile2)
+    PyPlot.close(fig2)
 
     return nothing
 end
