@@ -82,7 +82,7 @@ This routine is a visualization companion to
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
 It produces a convergence plot and saves it as a PNG file.
 
-The ``x``-axis is ``h^{p}``, where ``p = \\texttt{fit_result.powers[2]}``
+The ``x``-axis is ``h^{p}``, where ``p = \\texttt{fit\\_result.powers[2]}``
 (the first non-constant exponent used by the fit), and the ``y``-axis is the raw
 quadrature estimate ``I(h)`` with pointwise error bars (absolute values are used).
 
