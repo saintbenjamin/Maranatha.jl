@@ -17,12 +17,10 @@ import ..Enzyme
 import ..ForwardDiff
 
 import ..JobLoggerTools
-
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
 import ..Quadrature.QuadratureDispatch
-
 import ..ErrorEstimate.ErrorNewtonCotes
 import ..ErrorEstimate.ErrorGauss
 import ..ErrorEstimate.ErrorBSpline

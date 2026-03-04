@@ -10,6 +10,7 @@
 
 module QuadratureDispatch
 
+import ..JobLoggerTools
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline

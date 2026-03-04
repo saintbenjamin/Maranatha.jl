@@ -10,8 +10,8 @@
 
 module ErrorGauss
 
-import ..Quadrature
 import ..JobLoggerTools
+import ..Quadrature
 
 # ------------------------------------------------------------
 # Float64 midpoint residual terms for composite GAUSS rules

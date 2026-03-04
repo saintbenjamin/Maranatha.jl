@@ -11,6 +11,7 @@
 module Gauss
 
 using ..LinearAlgebra
+
 using ..JobLoggerTools
 
 """

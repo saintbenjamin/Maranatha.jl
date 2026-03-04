@@ -11,6 +11,7 @@
 
 module ErrorNewtonCotes
 
+import ..JobLoggerTools
 import ..Quadrature
 
 # ----------------------------

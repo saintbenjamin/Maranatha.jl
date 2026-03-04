@@ -11,6 +11,7 @@
 module BSpline
 
 using ..LinearAlgebra
+
 using ..JobLoggerTools
 
 # ============================================================

@@ -55,7 +55,7 @@ end
 @testset "Maranatha.jl Quadrature Suite" begin
     announce("Maranatha.jl Quadrature Suite")
 
-    # include("pedagological_visualization_1D_test.jl")
+    include("pedagogical_visualization_1D_test.jl")
 
     # include("Z_q_1D_F0000_test.jl")
 

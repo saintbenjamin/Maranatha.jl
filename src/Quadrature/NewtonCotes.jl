@@ -10,6 +10,7 @@
 
 module NewtonCotes
 
+import ..JobLoggerTools
 import ..Quadrature
 
 # ============================================================

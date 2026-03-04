@@ -13,8 +13,8 @@ module LeastChiSquareFit
 using LinearAlgebra
 using Statistics
 using Printf
-using ..Utils.AvgErrFormatter
 using ..Utils.JobLoggerTools
+using ..Utils.AvgErrFormatter
 using ..Quadrature.NewtonCotes
 using ..Quadrature.Gauss
 using ..Quadrature.BSpline
