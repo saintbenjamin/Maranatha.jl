@@ -180,15 +180,15 @@ function gtilde_F0000(
     p::Int=2, 
     eps::T=T(1e-15)
 ) where {T<:Number}
-    # if t ≤ eps
-    #     return zero(T)
-    # elseif (one(T) - t) ≤ eps
-    #     return zero(T)
-    # end
+    if t ≤ eps
+        return zero(T)
+    elseif (one(T) - t) ≤ eps
+        return zero(T)
+    end
 
-    # y = t^p
-    # return T(p) * t^(p-1) * g_F0000_raw(y)
-    return g_F0000_raw(t)
+    y = t^p
+    return T(p) * t^(p-1) * g_F0000_raw(y)
+    # return g_F0000_raw(t)
 end
 
 end  # module F0000GammaEminus1
