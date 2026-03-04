@@ -144,6 +144,14 @@ function get_quadrature_1d_nodes_weights(
 
     # --- composite B-SPLINE branch ---
     if BSpline._is_bspline_rule(rule)
+        # Policy: B-spline rules support only clamped boundary for now
+        if boundary !== :LU_ININ
+            JobLoggerTools.error_benji(
+                "B-spline rules currently support only boundary=:LU_ININ (clamped). " *
+                "Got boundary=$boundary for rule=$rule."
+            )
+        end
+
         p = BSpline._parse_bspline_p(rule)
         kind = BSpline._bspline_kind(rule)  # :interp or :smooth
 

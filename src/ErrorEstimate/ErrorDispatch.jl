@@ -282,12 +282,38 @@ function _leading_residual_ks_with_center_any(
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)
 
+        if boundary === :LU_INEX || boundary === :LU_EXIN
+            # For Gauss–Radau rules (one endpoint included), the leading residual
+            # moment indices are known analytically: the quadrature is exact for
+            # polynomials up to degree (2npts - 2), so the first non-vanishing
+            # centered moment occurs at k = 2*npts - 1.  Subsequent residual
+            # moments appear with step 2 (odd powers only).
+            #
+            # The generic Float64 tolerance-based moment test can misclassify
+            # low-order moments (e.g. k=0) due to roundoff and cancellation in
+            # the composite rule, which would corrupt the extrapolation model.
+            #
+            # Therefore we bypass the numerical detection and generate the
+            # residual indices directly from the theoretical sequence.
+            ks = Int[]
+            k0 = 2*npts - 1
+            for j in 0:(nterms-1)
+                push!(ks, k0 + 2*j)
+            end
+            return ks, center
+        end
+
         # dimensionless u-grid on [0, Nsub]
         U, W = Gauss._composite_gauss_u_grid(Nsub, npts, boundary)
         c = Float64(Nsub) / 2.0
 
         ks = Int[]
-        for k in 0:kmax
+        for k in 1:kmax
+            # k=0 is the constant moment (weight sum). It should be exact by construction,
+            # but with Float64 tolerance tests and mixed per-block families (Option A),
+            # tiny floating drift can falsely flag k=0 as "nonzero residual".
+            # Never use k=0 as a residual index for convergence power inference.
+
             # exact moment ∫_0^N (u-c)^k du  (Float64)
             exact = ((Float64(Nsub) - c)^(k+1) - (0.0 - c)^(k+1)) / Float64(k+1)
 
@@ -303,6 +329,10 @@ function _leading_residual_ks_with_center_any(
                 push!(ks, k)
                 length(ks) == nterms && return ks, center
             end
+        end
+
+        if !isempty(ks) && ks[1] == 0
+            JobLoggerTools.error_benji("GAUSS residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$boundary Nsub=$Nsub")
         end
 
         JobLoggerTools.error_benji("Could not collect nterms=$nterms GAUSS residual ks up to kmax=$kmax")

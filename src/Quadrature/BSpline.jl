@@ -526,6 +526,68 @@ function _roughness_R_second_diff(
     return transpose(D) * D
 end
 
+"""
+    _solve_singular_safe(
+        M::AbstractMatrix{Float64},
+        b::AbstractVector{Float64};
+        rtol::Float64 = 1e-12
+    ) -> Vector{Float64}
+
+Solve a square linear system `M * x = b` robustly, with a safe fallback for
+singular (or effectively singular) matrices.
+
+# What it does
+- First tries the standard fast solve `M \\ b`.
+- If that fails specifically with `LinearAlgebra.SingularException`, it falls back
+  to an SVD-based pseudo-inverse solve and returns a **minimum-norm** solution.
+
+# When this is useful
+Some boundary patterns, smoothing penalties, or tolerance-driven constructions can
+produce systems that are singular (or so ill-conditioned that they behave as singular).
+This helper prevents the whole pipeline from crashing in that case.
+
+# Arguments
+- `M`: Square coefficient matrix (Float64).
+- `b`: Right-hand-side vector (Float64), length must match `size(M,1)`.
+- `rtol`: Relative cutoff used to decide which singular values are treated as zero
+  in the pseudo-inverse fallback. Larger values make the fallback more aggressive.
+
+# Returns
+- `Vector{Float64}`: A solution vector `x`. If the fallback is used, the returned
+  solution is the minimum-norm solution among all solutions that fit the retained
+  singular subspace.
+
+# Errors
+- Re-throws any exception that is **not** `LinearAlgebra.SingularException`.
+"""
+function _solve_singular_safe(
+    M::AbstractMatrix{Float64},
+    b::AbstractVector{Float64};
+    rtol::Float64 = 1e-12
+)::Vector{Float64}
+    # Try the fast path first
+    try
+        return M \ b
+    catch err
+        if err isa LinearAlgebra.SingularException
+            F = LinearAlgebra.svd(M)
+            σ = F.S
+            σmax = isempty(σ) ? 0.0 : maximum(σ)
+            tol = rtol * σmax
+
+            invσ = similar(σ)
+            @inbounds for i in eachindex(σ)
+                invσ[i] = (σ[i] > tol) ? (1.0 / σ[i]) : 0.0
+            end
+
+            # x = V * diag(invσ) * U' * b
+            return F.V * (invσ .* (F.U' * b))
+        else
+            rethrow()
+        end
+    end
+end
+
 # ============================================================
 # Public: composite B-spline quadrature nodes/weights on [a,b]
 #
@@ -649,6 +711,16 @@ function bspline_nodes_weights(
     (N >= 1)  || JobLoggerTools.error_benji("Need N ≥ 1 (got N=$N)")
     (p >= 0)  || JobLoggerTools.error_benji("Need p ≥ 0 (got p=$p)")
 
+    # ------------------------------------------------------------
+    # Policy: B-spline quadrature is only supported for clamped boundary
+    # ------------------------------------------------------------
+    if boundary !== :LU_ININ
+        JobLoggerTools.error_benji(
+            "B-spline quadrature currently supports only boundary=:LU_ININ (clamped). " *
+            "Got boundary=$boundary."
+        )
+    end
+
     # knots + basis count
     t  = _build_knots_uniform(aa, bb, N, p, boundary)
     nb = length(t) - p - 1
@@ -667,8 +739,11 @@ function bspline_nodes_weights(
     end
 
     if kind === :interp
-        # weights w = A' \ b
-        w = transpose(A) \ bI
+        # weights w = A' \ bI
+        # NOTE: For unclamped boundaries the collocation matrix can be rank-deficient.
+        #       Use a robust fallback to avoid SingularException.
+        At = transpose(A)
+        w  = _solve_singular_safe(At, bI; rtol=1e-12)
         return xs, w
     elseif kind === :smooth
         (λ >= 0.0) || JobLoggerTools.error_benji("Smoothing λ must be ≥ 0 (got λ=$λ)")
@@ -676,7 +751,7 @@ function bspline_nodes_weights(
 
         # solve (A'A + λR)' z = b, then w = A*z
         M = transpose(A) * A + λ * R
-        z = transpose(M) \ bI
+        z = _solve_singular_safe(transpose(M), bI; rtol=1e-12)
         w = A * z
         return xs, w
     else

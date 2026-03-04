@@ -204,13 +204,24 @@ function least_chi_square_fit(
     powers_all = if NewtonCotes._is_newton_cotes_rule(rule)
         ks
     elseif Gauss._is_gauss_rule(rule)
-        # ks .+ 1
-        ks
+        if boundary === :LU_INEX || boundary === :LU_EXIN
+            # Radau: shift powers so constant term is not duplicated
+            ks .+ 1
+        else
+            # Legendre / Lobatto
+            ks
+        end
     elseif BSpline._is_bspline_rule(rule)
         ks .+ 1
     else
         JobLoggerTools.error_benji("Unsupported rule family for fit-power mapping: rule=$rule")
     end
+
+    # Defensive normalization of fit powers:
+    # - Drop nonpositive powers (p <= 0) because h^0 duplicates the intercept column.
+    # - Remove duplicates to avoid rank deficiency in the design matrix.
+    powers_all = unique(sort(powers_all))
+    powers_all = [p for p in powers_all if p > 0]
 
     (nterms >= 2)   || JobLoggerTools.error_benji("nterms must be >= 2 (got $nterms)")
     (ff_shift >= 0) || JobLoggerTools.error_benji("ff_shift must be ≥ 0 (got $ff_shift)")

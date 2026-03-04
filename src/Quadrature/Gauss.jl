@@ -737,6 +737,98 @@ function _gauss_family_nodes_weights(
 end
 
 """
+    _local_boundary_for_block(
+        boundary::Symbol,
+        blk::Int,
+        N::Int
+    ) -> Symbol
+
+Translate a *global* boundary selection into the boundary rule used for a
+specific subinterval in composite Gauss quadrature.
+
+# What it does
+In the Maranatha quadrature interface, `boundary` describes the behavior of the
+**entire integration interval** `[a,b]`. However, composite Gauss rules apply a
+quadrature rule separately on each subinterval (block). This helper determines
+which Gauss-family rule should be used for a given block index.
+
+Interior blocks always use the standard Gauss–Legendre rule (`:LU_EXEX`).
+Endpoint-sensitive rules are applied only where the global interval actually
+touches the boundary.
+
+# Block policy
+- `:LU_EXEX`  
+  All blocks use Gauss-Legendre.
+
+- `:LU_INEX`  
+  First block uses Gauss-Radau (left endpoint included), all others use
+  Gauss-Legendre.
+
+- `:LU_EXIN`  
+  Last block uses Gauss-Radau (right endpoint included), all others use
+  Gauss-Legendre.
+
+- `:LU_ININ`  
+  First block uses left Radau, last block uses right Radau, interior blocks
+  use Gauss-Legendre.
+
+# Arguments
+- `boundary`: Global boundary mode requested by the quadrature driver.
+- `blk`: Zero-based index of the current subinterval.
+- `N`: Total number of subintervals.
+
+# Returns
+- `Symbol`: The Gauss-family boundary mode that should be used for this block.
+
+# Notes
+This function prevents Radau/Lobatto rules from being applied to *every*
+subinterval, which would incorrectly treat internal block boundaries as true
+integration endpoints.
+"""
+@inline function _local_boundary_for_block(
+    boundary::Symbol,
+    blk::Int,
+    N::Int
+)::Symbol
+    # Map a *global* boundary selector to a *per-block* selector.
+    #
+    # Policy (Option A):
+    # - Interior blocks always use Gauss–Legendre (:LU_EXEX).
+    # - Global boundary conditions are applied only to the first/last block.
+    #
+    # Meaning:
+    #   :LU_EXEX -> all blocks :LU_EXEX
+    #   :LU_INEX -> first block  :LU_INEX, others :LU_EXEX
+    #   :LU_EXIN -> last  block  :LU_EXIN, others :LU_EXEX
+    #   :LU_ININ -> first block  :LU_INEX, last block :LU_EXIN, interior :LU_EXEX
+    #
+    # Note:
+    # - We intentionally do NOT apply Radau/Lobatto to every block, because the
+    #   "boundary" selector in Maranatha is a global interval concept, not a
+    #   per-subinterval concept.
+
+    if boundary === :LU_EXEX
+        return :LU_EXEX
+    elseif boundary === :LU_INEX
+        return (blk == 0) ? :LU_INEX : :LU_EXEX
+    elseif boundary === :LU_EXIN
+        return (blk == N - 1) ? :LU_EXIN : :LU_EXEX
+    elseif boundary === :LU_ININ
+        if blk == 0
+            return :LU_INEX
+        elseif blk == N - 1
+            return :LU_EXIN
+        else
+            return :LU_EXEX
+        end
+    else
+        JobLoggerTools.error_benji(
+            "boundary must be :LU_ININ|:LU_EXIN|:LU_INEX|:LU_EXEX (got $boundary)"
+        )
+    end
+end
+
+"""
     _composite_gauss_nodes_weights(
         a, 
         b, 
@@ -795,14 +887,18 @@ function _composite_gauss_nodes_weights(
     bb = Float64(b)
     h  = (bb - aa) / Float64(N)
 
-    t, w = _gauss_family_nodes_weights(npts, boundary)
-
+    # t, w = _gauss_family_nodes_weights(npts, boundary)
+    
     xs = Vector{Float64}(undef, npts * N)
     ws = Vector{Float64}(undef, npts * N)
 
     half = 0.5
     idx = 1
     for blk in 0:(N-1)
+        # Use per-block boundary so that "boundary" remains a global-interval concept.
+        local_boundary = _local_boundary_for_block(boundary, blk, N)
+        t, w = _gauss_family_nodes_weights(npts, local_boundary)  # on [-1,1]
+
         xL = aa + Float64(blk) * h
         xR = xL + h
         mid   = (xL + xR) * half
@@ -867,7 +963,7 @@ function _composite_gauss_u_grid(
 
     N >= 1 || throw(ArgumentError("N must be ≥ 1"))
 
-    t, w = _gauss_family_nodes_weights(npts, boundary)  # on [-1,1]
+    # t, w = _gauss_family_nodes_weights(npts, boundary)  # on [-1,1]
 
     U = Vector{Float64}(undef, npts * N)
     W = Vector{Float64}(undef, npts * N)
@@ -875,6 +971,11 @@ function _composite_gauss_u_grid(
     half = 0.5
     idx = 1
     for m in 0:(N-1)
+        # Match the composite quadrature construction: apply global boundary
+        # only to the first/last block, and use Legendre on interior blocks.
+        local_boundary = _local_boundary_for_block(boundary, m, N)
+        t, w = _gauss_family_nodes_weights(npts, local_boundary)  # on [-1,1]
+
         mm = Float64(m)
         @inbounds for i in 1:npts
             U[idx] = mm + (t[i] + 1.0) * half

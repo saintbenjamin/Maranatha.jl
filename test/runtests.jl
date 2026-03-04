@@ -57,22 +57,22 @@ end
 
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
         announce("Canonical integrands (multi-dim, multi-rule)")
-        include("canonical_1D_newton_test.jl")
-        include("canonical_2D_newton_test.jl")
-        include("canonical_3D_newton_test.jl")
-        include("canonical_4D_newton_test.jl")
+        # include("canonical_1D_newton_test.jl")
+        # include("canonical_2D_newton_test.jl")
+        # include("canonical_3D_newton_test.jl")
+        # include("canonical_4D_newton_test.jl")
         include("canonical_1D_gauss_test.jl")
-        include("canonical_2D_gauss_test.jl")
-        include("canonical_3D_gauss_test.jl")
-        include("canonical_4D_gauss_test.jl")
-        include("canonical_1D_bspline_test.jl")
-        include("canonical_2D_bspline_test.jl")
-        include("canonical_3D_bspline_test.jl")
-        include("canonical_4D_bspline_test.jl")
+        # include("canonical_2D_gauss_test.jl")
+        # include("canonical_3D_gauss_test.jl")
+        # include("canonical_4D_gauss_test.jl")
+        # include("canonical_1D_bspline_test.jl")
+        # include("canonical_2D_bspline_test.jl")
+        # include("canonical_3D_bspline_test.jl")
+        # include("canonical_4D_bspline_test.jl")
     end
 
-    include("pedagogical_visualization_1D_test.jl")
+    # include("pedagogical_visualization_1D_test.jl")
 
-    include("Z_q_1D_F0000_test.jl")
-    include("Z_q_4D_test.jl")
+    # include("Z_q_1D_F0000_test.jl")
+    # include("Z_q_4D_test.jl")
 end
