@@ -206,7 +206,8 @@ function least_chi_square_fit(
     elseif Gauss._is_gauss_rule(rule)
         if boundary === :LU_INEX || boundary === :LU_EXIN
             # Radau: shift powers so constant term is not duplicated
-            ks .+ 1
+            # ks .+ 1
+            ks
         else
             # Legendre / Lobatto
             ks
