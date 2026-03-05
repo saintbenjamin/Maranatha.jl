@@ -16,7 +16,130 @@ module F0000GammaEminus1
 
 using SpecialFunctions
 
-export gtilde_F0000
+export gtilde_F0000, g_F0000_raw
+
+# ============================================================
+# TaylorSeries compatibility shims (local to this module)
+# - Provide besseli(0, Taylor1) via local Taylor expansion
+# - Make branch comparisons Taylor-safe by using constant terms
+# ============================================================
+
+using TaylorSeries
+using ForwardDiff
+using FastDifferentiation
+
+import SpecialFunctions: besseli
+
+"""
+    _const_term(x)
+
+Return the constant term of `x`.
+
+# Function description
+If `x` is a `TaylorSeries.Taylor1`, this function extracts the constant
+coefficient (`x.coeffs[1]`). Otherwise it returns `x` unchanged.
+
+# Arguments
+- `x`: Any numeric value or `Taylor1`.
+
+# Returns
+- The constant term of `x`.
+
+# Notes
+- Used to evaluate branch conditions using the real constant part of Taylor
+  inputs while preserving the original object for subsequent computation.
+"""
+@inline _const_term(x) = x
+@inline _const_term(x::TaylorSeries.Taylor1) = x.coeffs[1]
+
+"""
+    _nth_derivative_forwarddiff_scalar(g, x::Real, n::Int)
+
+Compute the `n`-th derivative of a scalar function `g` at point `x`
+using repeated `ForwardDiff.derivative`.
+
+# Function description
+This helper constructs the `n`-th derivative operator by repeatedly
+wrapping `ForwardDiff.derivative`. It is primarily used to obtain the
+Taylor coefficients of special functions that do not natively support
+`Taylor1` inputs.
+
+# Arguments
+- `g`: Scalar function `g(::Real)`.
+- `x::Real`: Evaluation point.
+- `n::Int`: Derivative order (`n ≥ 0`).
+
+# Returns
+- `Real`: The value of `g^{(n)}(x)`.
+
+# Notes
+- Intended for small derivative orders (as required by local Taylor
+  expansions in error estimation).
+"""
+@inline function _nth_derivative_forwarddiff_scalar(g, x::Real, n::Int)
+    n >= 0 || throw(ArgumentError("n must be ≥ 0 (got n=$n)"))
+    h = g
+    for _ in 1:n
+        prev = h
+        h = t -> ForwardDiff.derivative(prev, t)
+    end
+    return h(x)
+end
+
+"""
+    besseli(nu::Integer, x::TaylorSeries.Taylor1{T}) where {T<:Real}
+
+Provide `TaylorSeries` support for `besseli(0, x)`.
+
+# Function description
+`SpecialFunctions.besseli` does not define a method for `Taylor1` inputs.
+This method constructs the Taylor expansion of `I₀(x)` around the constant
+term `x₀`:
+
+```math
+I_0(x_0 + dx) = \\sum_{k=0}^{N} \\frac{I_0^k(x_0)}{k!} dx^k
+```
+where ``dx = x - x_0`` and `N = x.order`.
+
+The derivatives ``I₀^k(x_0)`` are evaluated using repeated
+`ForwardDiff.derivative`.
+
+# Arguments
+- `nu::Integer`: Bessel order (only `0` is supported).
+- `x::TaylorSeries.Taylor1{T}`: Taylor input.
+
+# Returns
+- `TaylorSeries.Taylor1{T}`: Taylor expansion of ``I_0(x)`` up to order `x.order`.
+
+# Notes
+- This method is implemented locally for the F0000 integrand module and is
+  not intended as a global extension of `SpecialFunctions`.
+- The construction assumes small Taylor perturbations around ``x_0``, which is
+  the typical situation when Taylor objects arise in derivative-based error
+  estimation.
+"""
+function besseli(nu::Integer, x::TaylorSeries.Taylor1{T}) where {T<:Real}
+    nu == 0 || throw(ArgumentError("besseli(Taylor1) is implemented only for nu=0 (got nu=$nu)"))
+
+    N  = x.order
+    x0 = x.coeffs[1]
+    dx = x - x0
+
+    # Coefficients for Σ c[k+1] * dx^k
+    c = Vector{T}(undef, N + 1)
+
+    # k = 0
+    c[1] = besseli(0, x0)
+
+    # k >= 1
+    g = z -> besseli(0, z)
+    for k in 1:N
+        dk = _nth_derivative_forwarddiff_scalar(g, x0, k)
+        c[k + 1] = dk / factorial(k)
+    end
+
+    return TaylorSeries.Taylor1(c, N)
+end
 
 """
     exI0_safe(
@@ -56,19 +179,59 @@ appears in the F0000 integrand.
 @inline function exI0_safe(
     x::T
 ) where {T<:Number}
-    if float(x) ≤ T(50) # if x ≤ T(50)  # threshold: safe zone for besseli(0,x) in Float64
+    x0 = float(_const_term(x))   # branch decision in Real only
+
+    if x0 ≤ 50.0
         return exp(-x) * besseli(0, x)
     else
         invx = inv(x)
-        # asymptotic series for exp(-x) I0(x)
-        # 1/sqrt(2πx) * (1 + 1/(8x) + 9/(128x^2) + 225/(3072x^3) + 11025/(98304x^4))
+
         s = one(T) +
             invx / T(8) +
             T(9) * invx^2 / T(128) +
             T(225) * invx^3 / T(3072) +
-            T(11025) * invx^4 / T(98304)
+            T(11025) * invx^4 / T(98304) # +
+            # T(893025) * invx^5 / T(3932160) +
+            # T(108056025) * invx^6 / T(188743680)
+
         return s / sqrt(T(2) * T(pi) * x)
     end
+    # return Bessels.besseli0x(x)
+end
+
+"""
+    exI0_safe(
+        x::T
+    ) where {T<:Number}
+
+Return the scaled modified Bessel factor ``exp(-x) \\, I_0(x)`` in a numerically safe way.
+
+Uses a simple branch on the **real constant term** of ``x``:
+- for ``x \\le 50``: evaluates ``\\exp(-x) \\; \\texttt{besseli}(0, x)`` directly,
+- for ``x > 50``: uses a truncated large-`x` asymptotic expansion of ``exp(-x) \\, I_0(x)``.
+
+This is written to work with plain reals as well as AD / Taylor types by avoiding
+type-dependent branching.
+"""
+@inline function exI0_safe(
+    x::FastDifferentiation.Node
+)
+    T = typeof(x)
+
+    # Asymptotic expansion of exp(-x) I0(x):
+    # exp(-x) I0(x) ~ 1/sqrt(2πx) * (1 + 1/(8x) + 9/(128x^2) + 225/(3072x^3) + 11025/(98304x^4) + ...)
+    invx = inv(x)
+
+    s = one(T) +
+        invx / T(8) +
+        T(9) * invx^2 / T(128) +
+        T(225) * invx^3 / T(3072) +
+        T(11025) * invx^4 / T(98304) # +
+        # T(893025) * invx^5 / T(3932160) +
+        # T(108056025) * invx^6 / T(188743680)
+
+    return s / sqrt(T(2) * T(pi) * x)
+    # return Bessels.besseli0x(x)
 end
 
 """
@@ -131,6 +294,38 @@ function g_F0000_raw(
 end
 
 """
+    g_F0000_raw(
+        y::T
+    ) where {T<:Number}
+
+Evaluate the **raw** F0000 integrand on ``y \\in (0, 1)``.
+
+Computes ``x = \\dfrac{1 - y}{y}`` and returns the sum of:
+- a term proportional to ``\\left(\\exp(-x) \\, I_0(x)\\right)^4`` with rational prefactors in ``y``,
+- a correction term involving ``\\exp(-x/2)``.
+
+This raw form has endpoint-singular prefactors, so it is intended for interior
+evaluation (endpoint handling is done elsewhere).
+"""
+function g_F0000_raw(
+    y::FastDifferentiation.Node
+)
+    T = typeof(y)
+
+    x = (one(T) - y) / y  # x>0
+    exI0 = exI0_safe(x)
+
+    termA = (4T(pi)^2) * ((one(T) - y) / (y^3)) * (exI0^4)
+
+    emx2 = exp(-x / T(2))
+    bracket = one(T) - (T(1)/T(2)) * (one(T) + one(T)/y) * emx2
+    termB = - (one(T) / (y * (one(T) - y))) * bracket
+
+    return termA + termB
+end
+
+
+"""
     gtilde_F0000(
         t::T; 
         p::Int=2, 
@@ -153,6 +348,13 @@ so the returned transformed integrand is:
 To avoid endpoint singularities inherited from the raw `y`-integrand, the
 function returns `0` when `t` is within `eps` of either endpoint.
 
+# Implementation note
+When `t` is a `TaylorSeries.Taylor1` object (used for local derivative
+extraction), the hard endpoint cutoff is intentionally skipped. Applying the
+cutoff to a Taylor object would collapse the series to zero and destroy the
+derivative information. In this case the function returns the analytic
+expression `p * t^(p-1) * g_F0000_raw(t^p)` directly.
+
 # Arguments
 - `t::T`: Parameter in `[0, 1]`.
 
@@ -164,14 +366,13 @@ function returns `0` when `t` is within `eps` of either endpoint.
 - `T`: The transformed integrand value `g̃(t)` (or zero near endpoints).
 
 # Notes
-- Endpoint suppression is implemented exactly (hard cutoff) to keep numerical
-  behavior unchanged and to avoid non-finite weights in quadrature rules that
-  sample near `t = 0` or `t = 1`.
-- The function is generic in `T<:Number` so it can be used with AD / Taylor
-  objects, but the cutoff comparisons (`t ≤ eps`) require an ordered type; this
-  is intended for real-valued `t`.
+- Endpoint suppression uses a hard cutoff only for ordinary numeric inputs.
+  For `TaylorSeries.Taylor1` inputs (derivative extraction), the cutoff is
+  intentionally skipped and the analytic transformed expression is returned.
+- The cutoff decision is made using the real constant term of `t` and `eps`,
+  to avoid type-dependent branching for AD / Taylor inputs. 
 
-# Errors
+ # Errors
 - Throws an error if `p < 1` (implicitly, via `t^(p-1)` or user intent); no
   explicit check is performed here to preserve original behavior.
 """
@@ -180,11 +381,22 @@ function gtilde_F0000(
     p::Int=2, 
     eps::T=T(1e-15)
 ) where {T<:Number}
-    if t ≤ eps
-        return zero(T)
-    elseif (one(T) - t) ≤ eps
-        return zero(T)
+
+    # If t is a Taylor object (used only for local derivative extraction),
+    # do NOT apply hard endpoint cutoffs, otherwise all derivatives collapse to 0.
+    if t isa TaylorSeries.Taylor1
+        y = t^p
+        return T(p) * t^(p-1) * g_F0000_raw(y)
     end
+
+    t0   = float(_const_term(t))     # Real
+    eps0 = float(_const_term(eps))   # Real
+
+    if t0 ≤ eps0
+        return zero(T)
+    elseif (1.0 - t0) ≤ eps0
+        return zero(T)
+    end    
 
     y = t^p
     return T(p) * t^(p-1) * g_F0000_raw(y)

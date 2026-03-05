@@ -15,6 +15,9 @@ import ..LinearAlgebra
 import ..TaylorSeries
 import ..Enzyme
 import ..ForwardDiff
+# import ..Diffractor
+import ..FastDifferentiation
+import ..FastDifferentiation: @variables
 
 import ..JobLoggerTools
 import ..Quadrature.NewtonCotes
@@ -400,6 +403,9 @@ nonzero midpoint residual terms (LO+NLO+...).
     Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
 
 # Keyword arguments
+- `err_method`:
+  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
 - `nerr_terms`:
     Number of nonzero midpoint residual terms to include (`1` = LO only, `2` = LO+NLO, ...).
 
@@ -415,18 +421,19 @@ function error_estimate(
     dim, 
     rule,
     boundary;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1
 )
     if dim == 1
-        return error_estimate_1d(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_1d(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     elseif dim == 2
-        return error_estimate_2d(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_2d(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     elseif dim == 3
-        return error_estimate_3d(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_3d(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     elseif dim == 4
-        return error_estimate_4d(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_4d(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     else
-        return error_estimate_nd(f, a, b, N, rule, boundary; dim=dim, nerr_terms=nerr_terms)
+        return error_estimate_nd(f, a, b, N, rule, boundary; dim=dim, err_method=err_method, nerr_terms=nerr_terms)
     end
 end
 
@@ -474,18 +481,19 @@ function error_estimate_threads(
     dim,
     rule,
     boundary;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1
 )
     if dim == 1
-        return error_estimate_1d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_1d_threads(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     elseif dim == 2
-        return error_estimate_2d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_2d_threads(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     elseif dim == 3
-        return error_estimate_3d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_3d_threads(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     elseif dim == 4
-        return error_estimate_4d_threads(f, a, b, N, rule, boundary, nerr_terms=nerr_terms)
+        return error_estimate_4d_threads(f, a, b, N, rule, boundary, err_method=err_method, nerr_terms=nerr_terms)
     else
-        return error_estimate_nd_threads(f, a, b, N, rule, boundary; dim=dim, nerr_terms=nerr_terms)
+        return error_estimate_nd_threads(f, a, b, N, rule, boundary; dim=dim, err_method=err_method, nerr_terms=nerr_terms)
     end
 end
 

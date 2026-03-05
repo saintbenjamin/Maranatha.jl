@@ -16,6 +16,7 @@
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         dim::Int,
         nerr_terms::Int = 1,
         kmax::Int = 128
@@ -81,6 +82,9 @@ Special case:
 
 # Keyword arguments
 
+* `err_method`:
+  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
 * `nerr_terms`:
   Number of nonzero midpoint residual terms to include in the model (`1` = LO only, `2` = LO+NLO, ...).
 * `kmax`:
@@ -116,6 +120,7 @@ function error_estimate_nd(
     rule::Symbol,
     boundary::Symbol;
     dim::Int,
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -165,7 +170,8 @@ function error_estimate_nd(
                     x -> f(x),
                     x̄, k;
                     h=h, rule=rule, N=N, dim=dim,
-                    side=:mid, axis=axis, stage=:midpoint
+                    side=:mid, axis=axis, stage=:midpoint,
+                    err_method=err_method
                 )
             else
                 fill!(idx, 1)
@@ -186,7 +192,8 @@ function error_estimate_nd(
                         x -> _call_with_axis(f, fixed, axis, x, dim),
                         x̄, k;
                         h=h, rule=rule, N=N, dim=dim,
-                        side=:mid, axis=axis, stage=:midpoint
+                        side=:mid, axis=axis, stage=:midpoint,
+                        err_method=err_method
                     )
 
                     # odometer increment
@@ -221,6 +228,7 @@ end
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         dim::Int,
         nerr_terms::Int = 1,
         kmax::Int = 128
@@ -272,6 +280,7 @@ function error_estimate_nd_threads(
     rule::Symbol,
     boundary::Symbol;
     dim::Int,
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -324,7 +333,8 @@ function error_estimate_nd_threads(
                     x -> f(x),
                     x̄, k;
                     h=h, rule=rule, N=N, dim=dim,
-                    side=:mid, axis=axis, stage=:midpoint
+                    side=:mid, axis=axis, stage=:midpoint,
+                    err_method=err_method
                 )
             else
                 fill!(idx, 1)
@@ -346,7 +356,8 @@ function error_estimate_nd_threads(
                         x -> _call_with_axis(f, fixed, axis, x, dim),
                         x̄, k;
                         h=h, rule=rule, N=N, dim=dim,
-                        side=:mid, axis=axis, stage=:midpoint
+                        side=:mid, axis=axis, stage=:midpoint,
+                        err_method=err_method
                     )
 
                     # odometer increment over the (dim-1) free axes

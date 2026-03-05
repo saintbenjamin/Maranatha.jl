@@ -19,16 +19,20 @@ Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
 using a Taylor expansion via [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/).
 
 # Function description
-This routine evaluates the Taylor expansion of ``f(x + t)`` around ``x``
-up to order `n` using a [`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1) expansion variable.  
-The `n`-th derivative is obtained from the `n`-th Taylor coefficient
-multiplied by ``n!``.
+This routine evaluates the truncated Taylor expansion of ``f(x + t)`` around
+``x`` up to order `n` using a
+[`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1)
+expansion variable.
 
-Unlike the [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) implementation, this method performs *higher-order
-differentiation in a single pass* rather than recursively applying
-first derivatives. It is useful for benchmarking alternative AD strategies
-and for testing high-order derivative extraction based on truncated
-power-series arithmetic.
+The ``n``-th derivative is extracted from the Taylor-expanded result by taking
+the constant term of the ``n``-th Taylor-series derivative `TaylorSeries.derivative(y, n)`.
+(No explicit multiplication by ``n!`` is performed in this function.)
+
+Unlike the [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) implementation, this method performs higher-order
+differentiation in a single pass rather than recursively applying first
+derivatives. It is useful for benchmarking alternative AD strategies and for
+testing high-order derivative extraction based on truncated power-series
+arithmetic.
 
 This function accepts any callable object `f`, including:
 - ordinary functions,
@@ -44,19 +48,20 @@ This function accepts any callable object `f`, including:
 - The `n`-th derivative value ``f^{(n)}(x)``.
 
 # Notes
-- Internally converts `x` to `Float64` to match the surrounding numeric policy.
-- This method may allocate significantly more memory than [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/),
-  especially when used inside large loops or with high expansion orders.
+- The expansion center is forced to `Float64` (`x0 = float(x)`), so the result
+  is computed around a `Float64` point even if `x` was not `Float64`.
+- Computational cost and allocation typically grow with the Taylor order `n`,
+  since power-series arithmetic stores and propagates coefficients up to degree `n`.
 """
 @inline function nth_derivative_taylor(f, x::Real, n::Int)
     n < 0 && throw(ArgumentError("n must be nonnegative"))
-    xx = Float64(x)
+    n == 0 && return f(x)
 
-    n == 0 && return f(xx)
+    x0 = float(x)                         # force scalar center
+    t  = TaylorSeries.Taylor1(Float64, n) # pure Taylor variable (const term = 0)
 
-    t = Taylor1(Float64, n)     # expansion variable (order n)
-    y = f(xx + t)               # y is Taylor1 (or compatible)
-    return y[n] * factorial(n)  # nth derivative at x
+    y = f(x0 + t)                         # CRITICAL: expand around x0
+    return TaylorSeries.constant_term(TaylorSeries.derivative(y, n))
 end
 
 """
@@ -163,6 +168,152 @@ function nth_derivative_forwarddiff(
     return g(x)
 end
 
+"""
+    nth_derivative_fastdifferentiation(
+        f,
+        x::Real,
+        n::Int
+    )
+
+Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
+using symbolic differentiation via
+[`FastDifferentiation.jl`](https://github.com/brianguenter/FastDifferentiation.jl).
+
+# Function description
+This routine constructs a symbolic expression graph of the function `f`
+using `FastDifferentiation.Node` objects and performs repeated symbolic
+differentiation with respect to the variable.
+
+The resulting symbolic derivative expression is then compiled into a
+numerical evaluation function and executed at the point `x`.
+
+# Important requirement
+The callable `f` must support evaluation on
+`FastDifferentiation.Node` inputs.
+
+In other words, `f(t::Node)` must return a symbolic expression rather than
+attempting to perform purely numerical operations.
+
+Typical compatible cases include:
+
+- algebraic expressions
+- functions composed of standard mathematical operations
+- integrand definitions written generically over `Number`
+
+Functions containing strict type restrictions (e.g. `f(x::Float64)`)
+or unsupported control flow may not be traceable.
+
+# Arguments
+- `f`: Scalar-to-scalar callable (must accept symbolic `Node` inputs).
+- `x::Real`: Point at which the derivative is evaluated.
+- `n::Int`: Derivative order (nonnegative integer).
+
+# Returns
+- The `n`-th derivative value ``f^{(n)}(x)``.
+
+# Notes
+- Internally, the symbolic derivative is constructed first and then
+  compiled into an executable function using [`FastDifferentiation.make_function`](https://brianguenter.github.io/FastDifferentiation.jl/stable/api/#FastDifferentiation.make_function-Union{Tuple{T},%20Tuple{AbstractArray{T},%20Vararg{AbstractVector{%3C:FastDifferentiation.Node}}}}%20where%20T%3C:FastDifferentiation.Node).
+- Clearing the `FastDifferentiation` cache avoids graph reuse issues when
+  the routine is called repeatedly with different functions.
+"""
+function nth_derivative_fastdifferentiation(
+    f,
+    x::Real,
+    n::Int
+)
+    n >= 0 || throw(ArgumentError("n must be ≥ 0 (got n=$n)"))
+    n == 0 && return f(x)
+
+    # Clear global symbolic cache to prevent graph reuse across calls.
+    FastDifferentiation.clear_cache()
+
+    # Declare symbolic differentiation variable.
+    @variables t
+
+    # Build symbolic expression graph by evaluating f on the symbolic variable.
+    expr = f(t)
+
+    # Construct the n-th derivative symbolically.
+    dexpr = FastDifferentiation.derivative(expr, ntuple(_ -> t, n)...)
+
+    # Compile symbolic expression into a numerical evaluation function.
+    exe = FastDifferentiation.make_function([dexpr], [t])
+
+    # Evaluate the compiled derivative at the requested point.
+    return exe(float(x))[1]
+end
+
+# """
+#     nth_derivative_diffractor(
+#         f,
+#         x::Real,
+#         n::Int
+#     )
+
+# Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
+# using automatic differentiation via
+# [`Diffractor.jl`](https://github.com/JuliaDiff/Diffractor.jl).
+
+# # Function description
+# This routine computes higher-order derivatives by repeatedly applying
+# `AbstractDifferentiation.derivative` with a `DiffractorForwardBackend`.
+
+# The implementation constructs a nested closure chain:
+
+# ```math
+# f \\to f^{\\prime} \\to f^{\\prime\\prime} \\to \\ldots f^{(n)}
+# ```
+
+# and evaluates the resulting function at the input point `x`.
+
+# This mirrors the design used in the `ForwardDiff` implementation,
+# preserving identical calling semantics while replacing the backend
+# automatic differentiation engine.
+
+# # Arguments
+# - `f`: Scalar-to-scalar callable (e.g. `f(x)::Number`).
+# - `x::Real`: Point at which the derivative is evaluated.
+# - `n::Int`: Derivative order (nonnegative integer).
+
+# # Returns
+# - The `n`-th derivative value ``f^{(n)}(x)``.
+
+# # Notes
+# - The callable `f` may be any Julia callable object, including:
+#   - ordinary functions,
+#   - closures,
+#   - callable structs (functors).
+# - No restriction to `Function` is imposed, allowing compatibility with
+#   integrand registries and preset callable objects.
+# """
+# function nth_derivative_diffractor(
+#     f,
+#     x::Real,
+#     n::Int
+# )
+
+#     n >= 0 || throw(ArgumentError("n must be ≥ 0 (got n=$n)"))
+
+#     if n == 0
+#         return f(x)
+#     end
+
+#     backend = DiffractorForwardBackend()
+
+#     # Build nested derivative closures.
+#     # Each iteration replaces g with its derivative function.
+#     g = f
+#     for _ in 1:n
+#         prev = g
+#         g = t -> AbstractDifferentiation.derivative(backend, prev, t)
+#     end
+
+#     # Evaluate the final derivative at x.
+#     return g(x)
+
+# end
+
 # ============================================================
 # Safe derivative wrapper (shared by 1D–nD error estimators)
 # ============================================================
@@ -176,41 +327,49 @@ end
         rule,
         N,
         dim::Int,
+        err_method::Symbol = :forwarddiff,
         side::Symbol = :mid,
         axis = 0,
-        stage::Symbol = :mid
+        stage::Symbol = :midpoint
     ) -> Real
 
-Safely compute the `n`-th derivative of scalar callable `g` at point `x`.
+Compute the `n`-th derivative of a scalar callable `g` at point `x`
+using a selected differentiation backend.
 
 # Function description
-This wrapper:
+This function is a lightweight backend dispatcher used by the error-estimation
+pipeline. It does **not** implement automatic fallback or retry logic; it simply
+routes the request according to `err_method`:
 
-1) Attempts to compute the derivative using [`nth_derivative_forwarddiff`](@ref) 
-   ([`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based).
-2) If the result is non-finite, logs a warning and retries using
-   [`nth_derivative_taylor`](@ref).
-3) If still non-finite, emits a fatal error 
-   via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref).
+- `:forwarddiff`         → [`nth_derivative_forwarddiff`](@ref)
+- `:taylorseries`        → [`nth_derivative_taylor`](@ref)
+- `:fastdifferentiation` → [`nth_derivative_fastdifferentiation`](@ref)
+- `:enzyme`              → [`nth_derivative_enzyme`](@ref)
 
-It is designed to be shared across 1D, 2D, 3D, 4D, and general nD
-error estimators.
+If an unknown `err_method` is provided, the function aborts via
+[`Maranatha.Utils.JobLoggerTools.error_benji`](@ref) with a context-rich message.
+
+This interface is shared across 1D/2D/3D/4D and general nD error estimators.
 
 # Keyword arguments
-- `h`     : Grid spacing.
-- `rule`  : Quadrature rule symbol.
-- `N`     : Number of subdivisions.
-- `dim`   : Problem dimensionality.
-- `side`  : `:L`, `:R`, or `:mid` (boundary location indicator).
-- `axis`  : Axis index or symbolic name (for logging).
-- `stage` : `:midpoint` or `:boundary` (error-model stage).
+- `h`          : Grid spacing.
+- `rule`       : Quadrature rule symbol.
+- `N`          : Number of subdivisions.
+- `dim::Int`   : Problem dimensionality.
+- `err_method` : Backend selector
+  (`:forwarddiff | :taylorseries | :fastdifferentiation | :enzyme`).
+- `side`       : Boundary-location indicator (`:L`, `:R`, or `:mid`).
+- `axis`       : Axis index or symbolic name.
+- `stage`      : Stage tag for logging (e.g. `:midpoint` or `:boundary`).
 
 # Returns
-- The finite `n`-th derivative value ``f^{(n)}(x)``.
+- The `n`-th derivative value ``g^{(n)}(x)`` as returned by the selected backend.
 
 # Notes
-- This function is marked `@inline` so that Julia can inline it into
-  tight quadrature loops without overhead.
+- This function is marked `@inline` so it can be inlined into tight quadrature
+  loops with minimal dispatch overhead.
+- Any finiteness checks / fallback policies (if desired) must be implemented
+  outside this dispatcher.
 """
 @inline function nth_derivative(
     g,
@@ -220,30 +379,28 @@ error estimators.
     rule,
     N,
     dim::Int,
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     side::Symbol = :mid,
     axis = 0,
     stage::Symbol = :midpoint
 )
+    if err_method === :forwarddiff
+        return nth_derivative_forwarddiff(g, x, n)
 
-    d = nth_derivative_forwarddiff(g, x, n)
+    elseif err_method === :taylorseries
+        return nth_derivative_taylor(g, x, n)
 
-    if !isfinite(d)
-        JobLoggerTools.warn_benji(
-            "Non-finite derivative (ForwardDiff.jl); trying TaylorSeries.jl fallback " *
+    elseif err_method === :fastdifferentiation
+        return nth_derivative_fastdifferentiation(g, x, n)
+
+    elseif err_method === :enzyme
+        return nth_derivative_enzyme(g, x, n)
+
+    else
+        JobLoggerTools.error_benji(
+            "Unknown err_method=$err_method (expected :forwarddiff, :taylorseries, :fastdifferentiation, or :enzyme) " *
             "h=$h x=$x n=$n rule=$rule N=$N dim=$dim " *
             "side=$side axis=$axis stage=$stage"
         )
-
-        d = nth_derivative_taylor(g, x, n)
-
-        if !isfinite(d)
-            JobLoggerTools.error_benji(
-                "Non-finite derivative after TaylorSeries.jl fallback: " *
-                "h=$h x=$x deriv=$d n=$n rule=$rule N=$N dim=$dim " *
-                "side=$side axis=$axis stage=$stage"
-            )
-        end
     end
-
-    return d
 end

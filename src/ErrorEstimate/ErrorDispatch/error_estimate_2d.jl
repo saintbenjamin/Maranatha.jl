@@ -16,6 +16,7 @@
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
     ) -> Float64
@@ -59,6 +60,9 @@ evaluated numerically using the same ``1``-dimensional composite nodes/weights.
 
 # Keyword arguments
 
+* `err_method`:
+  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
 * `nerr_terms`:
   Number of nonzero midpoint residual terms to include in the model (`1` = LO only, `2` = LO+NLO, ...).
 * `kmax`:
@@ -93,6 +97,7 @@ function error_estimate_2d(
     N::Int, 
     rule::Symbol,
     boundary::Symbol;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -131,7 +136,8 @@ function error_estimate_2d(
             I1 += wx[j] * nth_derivative(
                 gx, x̄, k;
                 h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:x, stage=:midpoint
+                side=:mid, axis=:x, stage=:midpoint,
+                err_method=err_method
             )
         end
 
@@ -143,7 +149,8 @@ function error_estimate_2d(
             I2 += wx[i] * nth_derivative(
                 gy, ȳ, k;
                 h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:y, stage=:midpoint
+                side=:mid, axis=:y, stage=:midpoint,
+                err_method=err_method
             )
         end
 
@@ -161,6 +168,7 @@ end
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
     ) -> Float64
@@ -208,6 +216,7 @@ function error_estimate_2d_threads(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -257,7 +266,8 @@ function error_estimate_2d_threads(
             dx = nth_derivative(
                 gx, x̄, k;
                 h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:x, stage=:midpoint
+                side=:mid, axis=:x, stage=:midpoint,
+                err_method=err_method
             )
 
             I1_parts[tid] += w * dx
@@ -282,7 +292,8 @@ function error_estimate_2d_threads(
             dy = nth_derivative(
                 gy, ȳ, k;
                 h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:y, stage=:midpoint
+                side=:mid, axis=:y, stage=:midpoint,
+                err_method=err_method
             )
 
             I2_parts[tid] += w * dy

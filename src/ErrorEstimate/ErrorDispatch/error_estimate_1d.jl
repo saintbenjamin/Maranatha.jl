@@ -16,6 +16,7 @@
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
     ) -> Float64
@@ -62,6 +63,9 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 
 # Keyword arguments
 
+* `err_method`:
+  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
 * `nerr_terms`:
   Number of nonzero midpoint residual terms to include in the model.
   `1` gives LO only; `2` gives LO+NLO; etc.
@@ -96,6 +100,7 @@ function error_estimate_1d(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -126,7 +131,8 @@ function error_estimate_1d(
             f,
             x̄, k;
             h=h, rule=rule, N=N, dim=1,
-            side=:mid, axis=:x, stage=:midpoint
+            side=:mid, axis=:x, stage=:midpoint,
+            err_method=err_method
         )
 
         err += coeff * h^(k+1) * dx
@@ -143,6 +149,7 @@ end
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
     ) -> Float64
@@ -191,6 +198,7 @@ function error_estimate_1d_threads(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -223,7 +231,8 @@ function error_estimate_1d_threads(
         dx = nth_derivative(
             f, x̄, k;
             h=h, rule=rule, N=N, dim=1,
-            side=:mid, axis=:x, stage=:midpoint
+            side=:mid, axis=:x, stage=:midpoint,
+            err_method=err_method
         )
 
         parts[tid] += coeff * h^(k + 1) * dx

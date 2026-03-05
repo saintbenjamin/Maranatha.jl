@@ -266,29 +266,50 @@ function least_chi_square_fit(
     Xw = W * X
     yw = W * y
 
-    # --- WLS solve ---
-    params = Xw \ yw
+    # ==================================================================
+    # # --- WLS solve ---
+    # params = Xw \ yw
 
-    # # --- covariance (Method 1) ---
-    # # (Xᵀ W² X)^(-1)
-    # # A = transpose(X) * (W^2) * X
-    # # Cov = inv(A)
-    # Cov = inv(transpose(X) * (W^2) * X)
+    # # # --- covariance (Method 1) ---
+    # # # (Xᵀ W² X)^(-1)
+    # # # A = transpose(X) * (W^2) * X
+    # # # Cov = inv(A)
+    # # Cov = inv(transpose(X) * (W^2) * X)
+
+    # # param_errors = sqrt.(diag(Cov))
+
+    # # --- covariance (Method 2) ---
+    # # Build A = Xᵀ W² X
+    # A = transpose(X) * (W^2) * X
+
+    # Hess = 2.0 .* A
+    # F = cholesky(Symmetric(Hess))          # Hess must be SPD
+
+    # # Cov = 4 * inv(Hess) * A * inv(Hess)  (computed via solves)
+    # M   = F \ A                            # M = inv(Hess) * A
+    # Cov = 4.0 .* ((F \ transpose(M))')     # Cov = 4 * M * inv(Hess)
 
     # param_errors = sqrt.(diag(Cov))
+    # ==================================================================
+    # --- WLS solve (QR-based, numerically stable) ---
+    # Solve: minimize || W*(X*params - y) ||_2
+    # where W = Diagonal(1 ./ σ)
 
-    # --- covariance (Method 2) ---
-    # Build A = Xᵀ W² X
-    A = transpose(X) * (W^2) * X
+    # Weighted design and response
+    Xw = W * X
+    yw = W * y
 
-    Hess = 2.0 .* A
-    F = cholesky(Symmetric(Hess))          # Hess must be SPD
+    # QR least squares (avoid normal equations)
+    Fqr = qr(Xw)
+    params = Fqr \ yw
 
-    # Cov = 4 * inv(Hess) * A * inv(Hess)  (computed via solves)
-    M   = F \ A                            # M = inv(Hess) * A
-    Cov = 4.0 .* ((F \ transpose(M))')     # Cov = 4 * M * inv(Hess)
+    # Covariance of params: Cov ≈ inv(Xw'Xw)
+    # For QR: Xw = Q*R  =>  Xw'Xw = R'R  =>  inv(Xw'Xw) = inv(R)*inv(R') = inv(R'R)
+    R = Fqr.R
+    Cov = inv(transpose(R) * R)
 
     param_errors = sqrt.(diag(Cov))
+    # ==================================================================
 
     # diagnostics
     yhat  = X * params

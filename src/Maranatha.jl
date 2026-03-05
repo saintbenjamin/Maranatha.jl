@@ -142,6 +142,8 @@ using LinearAlgebra
 using TaylorSeries
 using Enzyme
 using ForwardDiff
+using FastDifferentiation
+# using Diffractor
 
 include("Utils/Utils.jl")
 using .Utils

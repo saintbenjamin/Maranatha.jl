@@ -1,25 +1,69 @@
 using .Maranatha.F0000GammaEminus1
 
-ff(x)  = gtilde_F0000(x; p=4)
+ff_tilde(x)  = gtilde_F0000(x; p=4)
+ff(x)  = g_F0000_raw(x)
+
 bounds = (0.0, 1.0)
 use_threads = false
 
 @testset "F0000GammaEminus1 1D" begin
     announce("F0000GammaEminus1 1D")
 
-    @testset "Gauss LU_EXEX" begin
-        announce("1D rules :: Gauss LU_EXEX")
+    @testset "Gauss LU_EXEX FastDifferentiation.jl" begin
+        announce("1D rules :: Gauss LU_EXEX FastDifferentiation.jl")
         dim = 1
         rule = :gauss_p2
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 20
-        result_string = "F0000"
-        nerr_terms = 1
+        err_method = :fastdifferentiation # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 2
         ff_shift = 0
+        fit_terms = 3
+        result_string = "F0000_FastDiff"
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+        )
+        assert_result_sane(res); @test isfinite(est)
+        maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
+    end
+
+    @testset "Gauss LU_EXEX ForwardDiff.jl" begin
+        announce("1D rules :: Gauss LU_EXEX ForwardDiff.jl")
+        dim = 1
+        rule = :gauss_p2
+        boundary = :LU_EXEX
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 20
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 1
+        ff_shift = 0
+        fit_terms = 3
+        result_string = "F0000_FwrdDiff"
+        est, fit, res = Maranatha.Runner.run_Maranatha(
+            ff_tilde, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+        )
+        assert_result_sane(res); @test isfinite(est)
+        maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
+    end
+
+    @testset "Gauss LU_EXEX TaylorSeries.jl" begin
+        announce("1D rules :: Gauss LU_EXEX TaylorSeries.jl")
+        dim = 1
+        rule = :gauss_p2
+        boundary = :LU_EXEX
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 20
+        err_method = :taylorseries # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 1
+        ff_shift = 0
+        fit_terms = 3
+        result_string = "F0000_Taylor"
+        est, fit, res = Maranatha.Runner.run_Maranatha(
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -32,28 +76,30 @@ use_threads = false
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 35
-        result_string = "F0000"
+        err_method = :fastdifferentiation # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 1
         ff_shift = 0
+        fit_terms = 3
+        result_string = "F0000"
         est, fit, res = Maranatha.Runner.run_Maranatha(
             ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
 end
 
+# Registry sanity
+@test :F0000 in Maranatha.Integrands.available_integrands()
+
+# Construct preset integrand via registry
+ff_here = Maranatha.Integrands.integrand(:F0000; p=4, eps=1e-15)
+bounds = (0.0, 1.0)
+use_threads = false
+
 @testset "Integrand preset API (F0000)" begin
     announce("Integrand preset API (F0000)")
-
-    # Registry sanity
-    @test :F0000 in Maranatha.Integrands.available_integrands()
-
-    # Construct preset integrand via registry
-    ff = Maranatha.Integrands.integrand(:F0000; p=4, eps=1e-15)
-    bounds = (0.0, 1.0)
-    use_threads = false
 
     @testset "Gauss LU_EXEX (preset)" begin
         announce("1D rules :: Gauss LU_EXEX (preset)")
@@ -62,12 +108,14 @@ end
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 20
-        result_string = "F0000_preset"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 1
         ff_shift = 0
+        fit_terms = 3
+        result_string = "F0000_preset"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=3, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff_here, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)

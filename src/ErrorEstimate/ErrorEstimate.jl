@@ -167,6 +167,8 @@ using ..LinearAlgebra
 using ..TaylorSeries
 using ..Enzyme
 using ..ForwardDiff
+using ..FastDifferentiation
+# using ..Diffractor
 
 using ..Utils.JobLoggerTools
 using ..Quadrature

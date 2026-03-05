@@ -1,7 +1,7 @@
 @testset "4D rules" begin
     announce("4D rules")
 
-    f4D(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
+    ff(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
     bounds = (0.0, 1.0)
     use_threads = false
 
@@ -12,12 +12,14 @@
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 0
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -30,12 +32,14 @@
         boundary = :LU_INEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -48,12 +52,14 @@
         boundary = :LU_EXIN
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -66,12 +72,14 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 2
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -84,12 +92,14 @@
         boundary = :LU_ININ
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 0
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -102,12 +112,14 @@
         boundary = :LU_INEX
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
-        ff_shift = 1
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -120,12 +132,14 @@
         boundary = :LU_EXIN
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
-        ff_shift = 1
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -138,12 +152,14 @@
         boundary = :LU_EXEX
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 2
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -156,12 +172,14 @@
         boundary = :LU_ININ
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 0
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -174,12 +192,14 @@
         boundary = :LU_INEX
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -192,12 +212,14 @@
         boundary = :LU_EXIN
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -210,12 +232,14 @@
         boundary = :LU_EXEX
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 2
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -228,12 +252,14 @@
         boundary = :LU_ININ
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 0
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -246,12 +272,14 @@
         boundary = :LU_INEX
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -264,12 +292,14 @@
         boundary = :LU_EXIN
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 1
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
@@ -282,158 +312,16 @@
         boundary = :LU_EXEX
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 2
-        result_string = "4D"
+        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
+        fit_terms = 4
+        result_string = "4D"
         est, fit, res = Maranatha.Runner.run_Maranatha(
-            f4D, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+            ff, bounds...; dim=dim, nsamples=ns,
+            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
         )
         assert_result_sane(res); @test isfinite(est)
         maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
     end
-
-    # @testset "6-point LU_ININ" begin
-    #     announce("4D rules :: 6-point LU_ININ")
-    #     dim = 4
-    #     rule = :newton_p6
-    #     boundary = :LU_ININ
-    #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
-    #     ns .+= 0
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "6-point LU_INEX" begin
-    #     announce("4D rules :: 6-point LU_INEX")
-    #     dim = 4
-    #     rule = :newton_p6
-    #     boundary = :LU_INEX
-    #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
-    #     ns .+= 1
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "6-point LU_EXIN" begin
-    #     announce("4D rules :: 6-point LU_EXIN")
-    #     dim = 4
-    #     rule = :newton_p6
-    #     boundary = :LU_EXIN
-    #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
-    #     ns .+= 1
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "6-point LU_EXEX" begin
-    #     announce("4D rules :: 6-point LU_EXEX")
-    #     dim = 4
-    #     rule = :newton_p6
-    #     boundary = :LU_EXEX
-    #     ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
-    #     ns .+= 2
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "7-point LU_ININ" begin
-    #     announce("4D rules :: 7-point LU_ININ")
-    #     dim = 4
-    #     rule = :newton_p7
-    #     boundary = :LU_ININ
-    #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
-    #     ns .+= 0
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "7-point LU_INEX" begin
-    #     announce("4D rules :: 7-point LU_INEX")
-    #     dim = 4
-    #     rule = :newton_p7
-    #     boundary = :LU_INEX
-    #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
-    #     ns .+= 1
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "7-point LU_EXIN" begin
-    #     announce("4D rules :: 7-point LU_EXIN")
-    #     dim = 4
-    #     rule = :newton_p7
-    #     boundary = :LU_EXIN
-    #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
-    #     ns .+= 1
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
-
-    # @testset "7-point LU_EXEX" begin
-    #     announce("4D rules :: 7-point LU_EXEX")
-    #     dim = 4
-    #     rule = :newton_p7
-    #     boundary = :LU_EXEX
-    #     ns = [12, 18, 24, 30, 36, 42, 48, 54, 60]
-    #     ns .+= 2
-    #     result_string = "4D"
-    #     nerr_terms = 3
-    #     ff_shift = 0
-    #     est, fit, res = Maranatha.Runner.run_Maranatha(
-    #         f4D, bounds...; dim=dim, nsamples=ns,
-    #         rule=rule, boundary=boundary, err_method=:derivative, fit_terms=4, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
-    #     )
-    #     assert_result_sane(res); @test isfinite(est)
-    #     maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
-    # end
 end

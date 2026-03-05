@@ -16,6 +16,7 @@
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
     ) -> Float64
@@ -74,6 +75,9 @@ along the remaining axes.
 
 # Keyword arguments
 
+* `err_method`:
+  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
 * `nerr_terms`:
   Number of nonzero midpoint residual terms to include in the model (`1` = LO only, `2` = LO+NLO, ...).
 * `kmax`:
@@ -107,6 +111,7 @@ function error_estimate_4d(
     N::Int, 
     rule::Symbol,
     boundary::Symbol;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -156,7 +161,8 @@ function error_estimate_4d(
                     I1 += wyj_wzk * wt[l] * nth_derivative(
                         gx, x̄, kk;
                         h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:x, stage=:midpoint
+                        side=:mid, axis=:x, stage=:midpoint,
+                        err_method=err_method
                     )
                 end
             end
@@ -176,7 +182,8 @@ function error_estimate_4d(
                     I2 += wxi_wzk * wt[l] * nth_derivative(
                         gy, ȳ, kk;
                         h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:y, stage=:midpoint
+                        side=:mid, axis=:y, stage=:midpoint,
+                        err_method=err_method
                     )
                 end
             end
@@ -196,7 +203,8 @@ function error_estimate_4d(
                     I3 += wxi_wyj * wt[l] * nth_derivative(
                         gz, z̄, kk;
                         h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:z, stage=:midpoint
+                        side=:mid, axis=:z, stage=:midpoint,
+                        err_method=err_method
                     )
                 end
             end
@@ -216,7 +224,8 @@ function error_estimate_4d(
                     I4 += wxi_wyj * wz[k2] * nth_derivative(
                         gt, t̄, kk;
                         h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:t, stage=:midpoint
+                        side=:mid, axis=:t, stage=:midpoint,
+                        err_method=err_method
                     )
                 end
             end
@@ -236,6 +245,7 @@ end
         N::Int,
         rule::Symbol,
         boundary::Symbol;
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
     ) -> Float64
@@ -284,6 +294,7 @@ function error_estimate_4d_threads(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -346,7 +357,8 @@ function error_estimate_4d_threads(
             dx = nth_derivative(
                 gx, x̄, kk;
                 h=h, rule=rule, N=N, dim=4,
-                side=:mid, axis=:x, stage=:midpoint
+                side=:mid, axis=:x, stage=:midpoint,
+                err_method=err_method
             )
 
             I1_parts[tid] += w * dx
@@ -380,7 +392,8 @@ function error_estimate_4d_threads(
             dy = nth_derivative(
                 gy, ȳ, kk;
                 h=h, rule=rule, N=N, dim=4,
-                side=:mid, axis=:y, stage=:midpoint
+                side=:mid, axis=:y, stage=:midpoint,
+                err_method=err_method
             )
 
             I2_parts[tid] += w * dy
@@ -414,7 +427,8 @@ function error_estimate_4d_threads(
             dz = nth_derivative(
                 gz, z̄, kk;
                 h=h, rule=rule, N=N, dim=4,
-                side=:mid, axis=:z, stage=:midpoint
+                side=:mid, axis=:z, stage=:midpoint,
+                err_method=err_method
             )
 
             I3_parts[tid] += w * dz
@@ -448,7 +462,8 @@ function error_estimate_4d_threads(
             dt = nth_derivative(
                 gt, t̄, kk;
                 h=h, rule=rule, N=N, dim=4,
-                side=:mid, axis=:t, stage=:midpoint
+                side=:mid, axis=:t, stage=:midpoint,
+                err_method=err_method
             )
 
             I4_parts[tid] += w * dt

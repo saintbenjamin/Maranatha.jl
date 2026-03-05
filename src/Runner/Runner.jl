@@ -109,9 +109,9 @@ The final extrapolated estimate is returned together with the full fit object an
   `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`.
   This is forwarded consistently to integration, error estimation, and fitting.
 
-* `err_method::Symbol = :derivative`:
-  Error estimation strategy.  
-  Currently, only `:derivative` is implemented
+* `err_method`:
+  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
   (dispatching to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)).
   This keyword is reserved for future error-estimation backends.
 
@@ -205,7 +205,7 @@ function run_Maranatha(
     nsamples=[4,8,12,16],
     rule=:newton_p3,
     boundary=:LU_ININ,
-    err_method::Symbol = :derivative,
+    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     fit_terms::Int = 2,
     nerr_terms::Int = 1,
     ff_shift::Int = 0,
@@ -237,14 +237,10 @@ function run_Maranatha(
         # # Step 2: Estimate integration error
         # JobLoggerTools.log_stage_sub1_benji("error_estimate() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
-        err = if err_method == :derivative
-            if use_threads
-              ErrorEstimate.ErrorDispatch.error_estimate_threads(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
-            else
-              ErrorEstimate.ErrorDispatch.error_estimate(integrand, a, b, N, dim, rule, boundary; nerr_terms=nerr_terms)
-            end
+        err = if use_threads
+            ErrorEstimate.ErrorDispatch.error_estimate_threads(integrand, a, b, N, dim, rule, boundary; err_method=err_method, nerr_terms=nerr_terms)
         else
-            JobLoggerTools.error_benji("Unknown err_method = $err_method (use :derivative)")
+            ErrorEstimate.ErrorDispatch.error_estimate(integrand, a, b, N, dim, rule, boundary; err_method=err_method, nerr_terms=nerr_terms)
         end
         # end
         push!(estimates, I)
