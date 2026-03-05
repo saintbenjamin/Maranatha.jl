@@ -110,7 +110,7 @@ The final extrapolated estimate is returned together with the full fit object an
   This is forwarded consistently to integration, error estimation, and fitting.
 
 * `err_method`:
-  Backend used for derivative evaluation via [`nth_derivative`](@ref).
+  Backend used for derivative evaluation via [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative`](@ref).
   Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
   (dispatching to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)).
   This keyword is reserved for future error-estimation backends.
