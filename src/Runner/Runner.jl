@@ -44,7 +44,6 @@ subsystems of `Maranatha.jl`:
 - [`Maranatha.ErrorEstimate`](@ref)      : residual-based derivative error scale models (midpoint expansion)
 - [`Maranatha.LeastChiSquareFit`](@ref)   : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
 
-Error estimation is currently supported via `err_method = :derivative` only.
 Threaded execution of the derivative-based backend can be enabled with `use_threads`.
 
 For each resolution `N` in `nsamples`, the runner performs:
@@ -54,9 +53,9 @@ For each resolution `N` in `nsamples`, the runner performs:
 2. Evaluate the integral using the selected rule via [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref).
 
 3. Estimate the integration error according to `err_method`.
-   For `err_method == :derivative`, this dispatches to
-   [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref) and forwards `nerr_terms`
-   to optionally include LO+NLO+... midpoint residual terms in the error model.
+   Supported values are `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, and `:enzyme`.
+   This dispatches to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref) and forwards `nerr_terms`,
+   allowing optional inclusion of LO, NLO, and higher-order midpoint residual terms in the error model.
 
 4. Accumulate `(h, estimate, error)` triplets.
 

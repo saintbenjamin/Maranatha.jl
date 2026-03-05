@@ -99,7 +99,7 @@ full covariance-propagated ``1 \\, \\sigma`` uncertainty of the fitted model.
 The plot reconstruction uses the exact exponent basis stored in the fit result
 (e.g. `fit_result.powers`) together with the parameter covariance (e.g. `fit_result.cov`),
 ensuring consistency with the fitted model, including any forward-shift (`ff_shift`) applied.
-Convergence is visualized against ``h^{p}`` where ``p = \texttt{fit_result.powers[2]}``,
+Convergence is visualized against ``h^{p}`` where ``p = \\texttt{fit\\_result.powers[2]}``,
 with model evaluation performed on ``h`` via ``h = x^{1/p}``.
 
 ## Logging
