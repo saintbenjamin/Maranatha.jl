@@ -68,7 +68,9 @@ Residual-based derivative error *scale* models:
 * Tensor-product scaling philosophy
 * Automatic differentiation via:
   * [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
-  * [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/) fallback for non-finite derivatives
+  * [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/)
+  * [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/)
+  * [`Enzyme.jl`](https://enzyme.mit.edu/julia/stable/)
 
 ⚠️ These are **scaling heuristics**, not rigorous truncation bounds.
 
@@ -239,7 +241,9 @@ MIT License
 ## 🙏 Acknowledgments
 
 * [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
-* [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/) 
+* [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/)
+* [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/)
+* [`Enzyme.jl`](https://enzyme.mit.edu/julia/stable/)
 * [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
 
 ---
