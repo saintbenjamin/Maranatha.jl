@@ -14,12 +14,6 @@ using ..LinearAlgebra
 
 using ..JobLoggerTools
 
-# ============================================================
-# Rule symbol parsing
-#   :bspline_interp_pK  -> interpolation spline quadrature (degree K)
-#   :bspline_smooth_pK  -> smoothing spline quadrature (degree K)
-# ============================================================
-
 """
     _is_bspline_rule(
         rule::Symbol
@@ -138,19 +132,6 @@ where `K` is a nonnegative integer degree (e.g., `0, 1, 2, 3, ...`).
     end
 end
 
-# ============================================================
-# Knot builder (uniform, with boundary pattern via endpoint clamping)
-#
-# We keep knot length = N + 2p + 1 (like classic open-uniform-with-extension),
-# then enforce endpoint clamping by overwriting the first/last p+1 knots if closed.
-#
-# boundary patterns:
-#   LU_ININ: clamp both
-#   LU_INEX: clamp left only
-#   LU_EXIN: clamp right only
-#   LU_EXEX: clamp none (fully open / extended)
-# ============================================================
-
 """
     _build_knots_uniform(
         a::Float64, 
@@ -240,12 +221,6 @@ function _build_knots_uniform(
     return t
 end
 
-# ============================================================
-# Greville abscissae:
-#   ξ_i = (t_{i+1} + ... + t_{i+p}) / p, for i=1..nbasis
-# with nbasis = length(t) - p - 1
-# ============================================================
-
 """
     _greville_points(
         t::Vector{Float64}, 
@@ -315,11 +290,6 @@ function _greville_points(
     end
     return xs
 end
-
-# ============================================================
-# B-spline basis evaluation (Cox–de Boor, stable DP)
-# Returns all basis values {B_{i,p}(x)} for i=1..nbasis.
-# ============================================================
 
 """
     _bspline_basis_all(
@@ -409,11 +379,6 @@ function _bspline_basis_all(
     return prev
 end
 
-# ============================================================
-# Exact integral of normalized B-spline basis:
-#   ∫ B_{i,p}(x) dx = (t_{i+p+1} - t_i) / (p+1)
-# ============================================================
-
 """
     _basis_integrals(
         t::Vector{Float64}, 
@@ -466,12 +431,6 @@ function _basis_integrals(
     end
     return b
 end
-
-# ============================================================
-# Smoothing penalty matrix (simple second-difference Tikhonov):
-#   R = D'D where D maps coeffs -> second differences
-# This is NOT the exact ∫(s''(x))^2 dx penalty, but works as a practical smoother.
-# ============================================================
 
 """
     _roughness_R_second_diff(
@@ -587,19 +546,6 @@ function _solve_singular_safe(
         end
     end
 end
-
-# ============================================================
-# Public: composite B-spline quadrature nodes/weights on [a,b]
-#
-# Returns nodes xs (Greville points) and weights ws such that:
-#   ∫_a^b f(x) dx  ≈  Σ ws[j] * f(xs[j])
-#
-# For interpolation:
-#   A c = y,  I = b'c = (A' \ b)' y
-# For smoothing:
-#   (A'A + λR) c = A' y,  I = b'c = (A*z)' y with (A'A+λR)' z = b
-#   => w = A*z
-# ============================================================
 
 """
     bspline_nodes_weights(
