@@ -1,5 +1,7 @@
 # Maranatha.jl
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18890716.svg)](https://doi.org/10.5281/zenodo.18890716)
+
 ### Structured Tensor-Product Quadrature with Residual-Informed Extrapolation
 
 **[`Maranatha.jl`](https://saintbenjamin.github.io/Maranatha.jl/)** 
@@ -349,6 +351,25 @@ Ongoing development focuses on:
 * robustness of high-dimensional extrapolation
 * improved stability of error-scale modeling
 * additional quadrature rule families
+
+---
+
+## 📚 Citation
+
+If you use **Maranatha.jl** in research, please cite:
+
+```bibtex
+@software{benjamin_jaedon_choi_2026_18890717,
+  author       = {Benjamin J. Choi},
+  title        = {\href{https://doi.org/10.5281/zenodo.18890716}{Maranatha.jl: Numerical Quadrature Continuum Extrapolation Framework in Julia}},
+  month        = mar,
+  year         = 2026,
+  note         = {If you use this software, please cite it as below.},
+  publisher    = {Zenodo},
+  version      = {v0.9.1},
+  doi          = {10.5281/zenodo.18890716}
+}
+```
 
 ---
 
