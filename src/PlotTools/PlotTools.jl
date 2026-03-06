@@ -10,13 +10,16 @@
 
 module PlotTools
 
-using PyPlot
-using LinearAlgebra
+using ..PyPlot
+using ..LinearAlgebra
+using ..Printf
+
 using ..Utils.JobLoggerTools
+using ..Utils.AvgErrFormatter
 using ..Quadrature
 using ..ErrorEstimate
 
-export plot_convergence_result, set_pyplot_latex_style
+export set_pyplot_latex_style, plot_convergence_result, plot_quadrature_coverage_1d
 
 """
     set_pyplot_latex_style(
@@ -61,6 +64,367 @@ function set_pyplot_latex_style(
 end
 
 """
+    _smart_text_placement!(
+        fig,
+        ax;
+        text::AbstractString,
+        x_points::Vector{Float64},
+        y_points::Vector{Float64},
+        x_curve::Vector{Float64}=Float64[],
+        y_curve::Vector{Float64}=Float64[],
+        yerr_points::Union{Nothing,Vector{Float64}}=nothing,
+        fontsize::Real=10,
+        prefer_order = (
+            (0.98, 0.98, :top,    :right),
+            (0.02, 0.98, :top,    :left),
+            (0.98, 0.02, :bottom, :right),
+            (0.02, 0.02, :bottom, :left),
+            (0.50, 0.98, :top,    :center),
+            (0.50, 0.02, :bottom, :center),
+            (0.98, 0.50, :center, :right),
+            (0.02, 0.50, :center, :left),
+            (0.80, 0.98, :top,    :center),
+            (0.20, 0.98, :top,    :center),
+            (0.80, 0.02, :bottom, :center),
+            (0.20, 0.02, :bottom, :center),
+            (0.98, 0.75, :center, :right),
+            (0.02, 0.75, :center, :left),
+            (0.98, 0.25, :center, :right),
+            (0.02, 0.25, :center, :left),
+        )
+    ) -> Nothing
+
+Place a text box inside an axis while heuristically avoiding plotted data, fitted curves,
+and vertical error bars.
+
+This helper evaluates a list of candidate text-anchor locations given in axis-fraction
+coordinates and chooses the location with the lowest overlap score. The score is computed
+in display coordinates after rendering, so the decision is based on the actual pixel-space
+bounding box of the text and the actual rendered positions of plotted objects.
+
+The algorithm considers three kinds of possible collisions:
+
+1. discrete data points `(x_points, y_points)`
+2. a polyline curve `(x_curve, y_curve)`
+3. vertical error-bar segments defined by `yerr_points`
+
+Each candidate location is penalized when:
+
+- the text box extends outside the axis bounding box
+- a data point falls inside the text box
+- an error bar intersects the text box
+- a curve segment intersects the text box
+- a plotted element comes very close to the text box even without intersecting it
+
+A weak additional bias slightly prefers positions near the top or bottom edge over the
+exact middle, but only when the geometric overlap scores are otherwise similar.
+
+The selected text is finally drawn with a semi-transparent white rounded box for readability.
+
+# Arguments
+- `fig` : Matplotlib figure object used to access the renderer.
+- `ax` : Matplotlib axis object on which the text is placed.
+- `text::AbstractString` : Text to place.
+- `x_points::Vector{Float64}` : X-coordinates of discrete data points.
+- `y_points::Vector{Float64}` : Y-coordinates of discrete data points.
+- `x_curve::Vector{Float64}=Float64[]` : X-coordinates of a curve or fitted line to avoid.
+- `y_curve::Vector{Float64}=Float64[]` : Y-coordinates of a curve or fitted line to avoid.
+- `yerr_points::Union{Nothing,Vector{Float64}}=nothing` : Optional vertical error magnitudes
+  for each data point. If provided, vertical error-bar segments are included in the overlap test.
+- `fontsize::Real=10` : Font size of the placed text.
+- `prefer_order` : Ordered tuple of candidate anchor positions in axis-fraction coordinates,
+  each given as `(xf, yf, va_sym, ha_sym)` where `xf` and `yf` are in `ax.transAxes`
+  coordinates and `va_sym`, `ha_sym` are vertical/horizontal alignment symbols.
+
+# Returns
+- `Nothing` : The function mutates the plot by adding the chosen text annotation directly to `ax`.
+
+# Notes
+- All collision checks are performed in display space, not data space, so the heuristic adapts
+  to the actual rendered aspect ratio and axis scaling.
+- Candidate positions are tested by temporarily creating an invisible text object, measuring its
+  rendered bounding box, and then removing it.
+- The curve-avoidance logic assumes that `(x_curve, y_curve)` forms a polyline and checks each
+  consecutive segment against the candidate text box.
+- Error bars are currently treated as vertical line segments only.
+- If no candidate survives meaningfully, the function falls back to the top-left corner
+  `(0.02, 0.98, :top, :left)`.
+
+# Examples
+```julia
+_smart_text_placement!(
+    fig, ax;
+    text = "fit: y = ax + b",
+    x_points = xs,
+    y_points = ys,
+    x_curve = xfit,
+    y_curve = yfit,
+    yerr_points = yerr,
+    fontsize = 11
+)
+```
+
+"""
+function _smart_text_placement!(
+    fig, 
+    ax;
+    text::AbstractString,
+    x_points::Vector{Float64},
+    y_points::Vector{Float64},
+    x_curve::Vector{Float64}=Float64[],
+    y_curve::Vector{Float64}=Float64[],
+    yerr_points::Union{Nothing,Vector{Float64}}=nothing,
+    fontsize::Real=10,
+    prefer_order = (
+        (0.98, 0.98, :top,    :right),
+        (0.02, 0.98, :top,    :left),
+        (0.98, 0.02, :bottom, :right),
+        (0.02, 0.02, :bottom, :left),
+        (0.50, 0.98, :top,    :center),
+        (0.50, 0.02, :bottom, :center),
+        (0.98, 0.50, :center, :right),
+        (0.02, 0.50, :center, :left),
+        (0.80, 0.98, :top,    :center),
+        (0.20, 0.98, :top,    :center),
+        (0.80, 0.02, :bottom, :center),
+        (0.20, 0.02, :bottom, :center),
+        (0.98, 0.75, :center, :right),
+        (0.02, 0.75, :center, :left),
+        (0.98, 0.25, :center, :right),
+        (0.02, 0.25, :center, :left),
+    )
+)
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+
+    # ------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------
+    function _inflate_bbox(bb, pad)
+        return (
+            bb.x0 - pad,
+            bb.x1 + pad,
+            bb.y0 - pad,
+            bb.y1 + pad
+        )
+    end
+
+    function _point_inside_bbox(px, py, x0, x1, y0, y1)
+        return (x0 <= px <= x1) && (y0 <= py <= y1)
+    end
+
+    function _point_rect_distance(px, py, x0, x1, y0, y1)
+        dx = max(x0 - px, 0.0, px - x1)
+        dy = max(y0 - py, 0.0, py - y1)
+        return hypot(dx, dy)
+    end
+
+    function _segment_intersects_bbox(p1x, p1y, p2x, p2y, x0, x1, y0, y1)
+        # quick accept: endpoint inside
+        if _point_inside_bbox(p1x, p1y, x0, x1, y0, y1) ||
+           _point_inside_bbox(p2x, p2y, x0, x1, y0, y1)
+            return true
+        end
+
+        # Liang-Barsky style clipping
+        dx = p2x - p1x
+        dy = p2y - p1y
+
+        p = (-dx, dx, -dy, dy)
+        q = (p1x - x0, x1 - p1x, p1y - y0, y1 - p1y)
+
+        u1 = 0.0
+        u2 = 1.0
+
+        for i in 1:4
+            pi = p[i]
+            qi = q[i]
+            if pi == 0.0
+                if qi < 0.0
+                    return false
+                end
+            else
+                t = qi / pi
+                if pi < 0.0
+                    u1 = max(u1, t)
+                else
+                    u2 = min(u2, t)
+                end
+                if u1 > u2
+                    return false
+                end
+            end
+        end
+
+        return true
+    end
+
+    function _segment_rect_distance(p1x, p1y, p2x, p2y, x0, x1, y0, y1)
+        if _segment_intersects_bbox(p1x, p1y, p2x, p2y, x0, x1, y0, y1)
+            return 0.0
+        end
+
+        # approximate by endpoint distances + rect corner to segment distances
+        function point_segment_distance(px, py, ax, ay, bx, by)
+            vx = bx - ax
+            vy = by - ay
+            wx = px - ax
+            wy = py - ay
+            vv = vx*vx + vy*vy
+            if vv == 0.0
+                return hypot(px - ax, py - ay)
+            end
+            t = (wx*vx + wy*vy) / vv
+            t = clamp(t, 0.0, 1.0)
+            qx = ax + t*vx
+            qy = ay + t*vy
+            return hypot(px - qx, py - qy)
+        end
+
+        dmin = min(
+            _point_rect_distance(p1x, p1y, x0, x1, y0, y1),
+            _point_rect_distance(p2x, p2y, x0, x1, y0, y1),
+            point_segment_distance(x0, y0, p1x, p1y, p2x, p2y),
+            point_segment_distance(x0, y1, p1x, p1y, p2x, p2y),
+            point_segment_distance(x1, y0, p1x, p1y, p2x, p2y),
+            point_segment_distance(x1, y1, p1x, p1y, p2x, p2y),
+        )
+        return dmin
+    end
+
+    # ------------------------------------------------------------
+    # Transform points to display coordinates
+    # ------------------------------------------------------------
+    pts = isempty(x_points) ? zeros(0, 2) : ax.transData.transform(hcat(x_points, y_points))
+
+    # errorbar vertical segments in display coords
+    err_segments = Tuple{Float64,Float64,Float64,Float64}[]
+    if yerr_points !== nothing && !isempty(x_points)
+        ylo = y_points .- yerr_points
+        yhi = y_points .+ yerr_points
+        p_lo = ax.transData.transform(hcat(x_points, ylo))
+        p_hi = ax.transData.transform(hcat(x_points, yhi))
+        for i in eachindex(x_points)
+            push!(err_segments, (p_lo[i,1], p_lo[i,2], p_hi[i,1], p_hi[i,2]))
+        end
+    end
+
+    # curve polyline segments in display coords
+    crv_segments = Tuple{Float64,Float64,Float64,Float64}[]
+    if !isempty(x_curve) && length(x_curve) == length(y_curve) && length(x_curve) >= 2
+        crv = ax.transData.transform(hcat(x_curve, y_curve))
+        for i in 1:(size(crv,1)-1)
+            push!(crv_segments, (crv[i,1], crv[i,2], crv[i+1,1], crv[i+1,2]))
+        end
+    end
+
+    # axes bbox in display coords
+    axbb = ax.get_window_extent(renderer=renderer)
+
+    best = nothing
+    best_score = Inf
+
+    # pixel pads
+    pad = 8.0
+    near_pad = 18.0
+
+    for (xf, yf, va_sym, ha_sym) in prefer_order
+        # measure with final bbox included
+        t = ax.text(
+            xf, yf, text;
+            transform=ax.transAxes,
+            fontsize=fontsize,
+            va=String(va_sym),
+            ha=String(ha_sym),
+            alpha=0.0,
+            bbox=Dict(
+                "boxstyle"  => "round,pad=0.35",
+                "facecolor" => "white",
+                "alpha"     => 0.8,
+                "edgecolor" => "none"
+            )
+        )
+
+        bb = t.get_window_extent(renderer=renderer)
+        x0, x1, y0, y1 = _inflate_bbox(bb, pad)
+        t.remove()
+
+        score = 0.0
+
+        # penalty if text box goes outside axes region
+        if x0 < axbb.x0 || x1 > axbb.x1 || y0 < axbb.y0 || y1 > axbb.y1
+            score += 1e6
+        end
+
+        # point overlap + near-miss penalty
+        @inbounds for i in 1:size(pts, 1)
+            px = pts[i,1]
+            py = pts[i,2]
+
+            if _point_inside_bbox(px, py, x0, x1, y0, y1)
+                score += 500.0
+            else
+                d = _point_rect_distance(px, py, x0, x1, y0, y1)
+                if d < near_pad
+                    score += 20.0 * (1.0 - d / near_pad)
+                end
+            end
+        end
+
+        # errorbar overlap + near-miss penalty
+        for (xA, yA, xB, yB) in err_segments
+            d = _segment_rect_distance(xA, yA, xB, yB, x0, x1, y0, y1)
+            if d == 0.0
+                score += 1200.0
+            elseif d < near_pad
+                score += 60.0 * (1.0 - d / near_pad)
+            end
+        end
+
+        # curve overlap + near-miss penalty
+        for (xA, yA, xB, yB) in crv_segments
+            d = _segment_rect_distance(xA, yA, xB, yB, x0, x1, y0, y1)
+            if d == 0.0
+                score += 120.0
+            elseif d < near_pad
+                score += 8.0 * (1.0 - d / near_pad)
+            end
+        end
+
+        # slight bias toward higher positions, but very weak
+        score += 0.1 * abs(0.5 - yf)
+
+        if score < best_score
+            best_score = score
+            best = (xf, yf, va_sym, ha_sym)
+        end
+    end
+
+    if best === nothing
+        best = (0.02, 0.98, :top, :left)
+    end
+
+    xf, yf, va_sym, ha_sym = best
+
+    ax.text(
+        xf, yf, text;
+        transform=ax.transAxes,
+        fontsize=fontsize,
+        va=String(va_sym),
+        ha=String(ha_sym),
+        bbox=Dict(
+            "boxstyle"  => "round,pad=0.35",
+            "facecolor" => "white",
+            "alpha"     => 0.8,
+            "edgecolor" => "none"
+        )
+    )
+
+    return nothing
+end
+
+"""
     plot_convergence_result(
         a::Real,
         b::Real,
@@ -69,183 +433,187 @@ end
         estimates::Vector{Float64},
         errors::Vector{Float64},
         fit_result;
-        rule::Symbol = :newton_p3,
-        boundary::Symbol = :LU_ININ
+        rule::Symbol = :gauss_p3,
+        boundary::Symbol = :LU_ININ,
+        figs_dir::String = ".",
+        save_file::Bool = false
     ) -> Nothing
 
-Plot convergence data ``I(h)`` against ``h^{p}`` (where the leading exponent `p`
-is taken from `fit_result.powers`), overlay the fitted extrapolation curve,
-and visualize a *fit uncertainty band* propagated from the parameter covariance.
+Plot convergence data ``I(h)`` against ``h^{p}``, overlay the reconstructed fit curve,
+visualize the propagated fit-uncertainty band, and generate an additional log-log plot
+of the relative extrapolation error.
 
 # Function description
 This routine is a visualization companion to
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-It produces a convergence plot and saves it as a PNG file.
+It reconstructs the fitted convergence model directly from the stored fit result and
+produces two figures:
 
-The ``x``-axis is ``h^{p}``, where ``p = \\texttt{fit\\_result.powers[2]}``
-(the first non-constant exponent used by the fit), and the ``y``-axis is the raw
-quadrature estimate ``I(h)`` with pointwise error bars (absolute values are used).
+1. a main convergence plot of ``I(h)`` versus ``h^{p}``
+2. a log-log relative-error plot of ``\\dfrac{|I(h)-I_0|}{|I_0|}`` versus ``h^{p}``
 
-Although the ``x``-axis is plotted in ``h^{p}``, the fitted model is evaluated as a function of ``h``.
-Internally, the routine builds a dense grid in the plotted ``x`` coordinate
-(``x = h^{p}``), converts it back to ``h`` via ``h = x^{1/p}``,
-and evaluates the fitted model and its propagated uncertainty on that `h` grid.
+Here ``p`` is taken as the first non-constant power stored in `fit_result.powers`,
+namely `fit_result.powers[2]`.
+
+The plotted ``x`` coordinate is therefore
+
+```math
+x = h^{p},
+```
+
+while the fitted model itself is still evaluated as a function of `h`.
+Internally, a dense grid is constructed in ``x``, converted back to ``h`` via
+
+```math
+h = x^{1/p},
+```
+
+and then used to evaluate the reconstructed model and its propagated uncertainty.
 
 ## Model reconstruction (no refitting)
-This function does *not* refit anything. It reconstructs the model from the stored fit output:
-- `pvec   = fit_result.params`
-- `Cov    = fit_result.cov`
-- `I0     = fit_result.estimate`
-- `I0_err = fit_result.error_estimate`
 
-A convergence model is reconstructed using the exponent vector stored in `fit_result.powers`:
+This function does *not* refit the data. Instead, it reconstructs the model from:
+
+* `fit_result.params`
+* `fit_result.cov`
+* `fit_result.estimate`
+* `fit_result.error_estimate`
+* `fit_result.powers`
+
+The basis is reconstructed using the stored exponent vector:
+
 ```math
 I(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h),
 \\qquad
 \\varphi_1(h)=1,
 \\qquad
-\\varphi_i(h)=h^{\\texttt{powers[i]}} \\ (i\\ge 2),
+\\varphi_i(h)=h^{\\texttt{powers[i]}} \\quad (i \\ge 2),
 ```
-where `powers = fit_result.powers` and `length(powers) == length(pvec)` is required.
 
-### Requirement: `fit_result.powers`
+with `powers = fit_result.powers` and `length(powers) == length(params)` required.
 
-This routine requires `fit_result` to provide `powers` so that the basis used in
-the fit can be reconstructed exactly (no refitting). If `fit_result.powers` is
-missing, the function throws an error.
+## Main convergence plot
 
-## Fit curve and uncertainty band
+The main figure contains:
 
-For each point on a dense grid in `h`, the basis vector is constructed using the same exponents
-used by the fit (preferably `fit_result.powers`).
+* the reconstructed fit curve ``I_{\\mathrm{fit}}(h)``
+* a ``1\\,\\sigma`` fit band propagated from the parameter covariance
+* measured quadrature estimates with pointwise error bars
+* the extrapolated value at ``h^{p}=0`` with uncertainty `fit_result.error_estimate`
 
-The routine evaluates:
+The fit uncertainty is propagated as
 
-* fit curve: ``I_{\\text{fit}}(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h)``
-* ``1 \\, \\sigma`` prediction uncertainty from parameter covariance:
 ```math
-\\sigma_{\\text{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} \\, V \\, \\varphi(h),
+\\sigma_{\\mathrm{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} V \\varphi(h),
 ```
-where `V` is `fit_result.cov`. The plotted shaded band corresponds to
-``I_{\\text{fit}}(h) \\pm \\sigma_{\\text{fit}}(h)`` and includes parameter correlations.
 
-## Plot elements
+where ``V = \\texttt{fit_result.cov}``.
 
-The resulting figure contains:
+A smart text-placement helper is used to position the annotation box
+(``I_0`` and ``\\chi^2/\\mathrm{d.o.f.}``) while heuristically avoiding data points,
+error bars, and the fitted curve.
 
-* the fitted curve ``I_{\\text{fit}}(h)`` (line),
-* the fit uncertainty band ``\\pm \\sigma`` (shaded region),
-* the measured points with error bars,
-* the extrapolated point at ``h^{p} = 0`` with uncertainty `fit_result.error_estimate`.
+## Relative-error log-log plot
 
-A second figure is also produced: a log-log plot of the relative error ``\\dfrac{I(h) - I_0}{I_0}``
-versus ``h^p``, including propagated error bars for points, a propagated uncertainty band
-for the fitted curve, and a slope-1 reference guide line.
+A second figure is produced showing the relative convergence error
 
-## Additional output: relative-error log-log plot
-
-In addition to the main convergence plot, this routine also produces a second figure
-showing the **relative convergence error** on log-log axes:
 ```math
 r(h) = \\frac{|I(h)-I_0|}{|I_0|},
-\\qquad x = h^{p}.
+\\qquad x = h^{p},
 ```
 
-The fitted model is evaluated on the same dense grid (in ``x=h^{p}``) and converted back
-to ``h`` via ``h=x^{1/p}`` to compute the curve:
+on log-log axes.
+
+The corresponding fitted relative-error curve is
+
 ```math
-r_{\\text{fit}}(h) = \\frac{|I_{\\text{fit}}(h)-I_0|}{|I_0|}.
+r_{\\mathrm{fit}}(h) = \\frac{|I_{\\mathrm{fit}}(h)-I_0|}{|I_0|}.
 ```
 
-### Error bars for data points (propagated)
+### Error bars for measured points
 
-For each measured point, the plotted ``1 \\, \\sigma`` error bar on the relative error
-is computed by **first-order uncertainty propagation**, assuming independent uncertainties
-for the point estimate ``I(h)`` and the extrapolated limit ``I_0``:
+For each measured point, the relative-error uncertainty is propagated to first order,
+assuming independent uncertainties for ``I(h)`` and ``I_0``:
+
 ```math
 \\sigma_r^2 \\approx
 \\left(\\frac{\\sigma_I}{|I_0|}\\right)^2
 +
-\\left(\\frac{|I(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2,
+\\left(\\frac{|I(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2.
 ```
 
-where ``\\sigma_I`` is the provided pointwise error (from `errors`) and
-``\\sigma_{I_0}`` is `fit_result.error_estimate`.
+### Uncertainty band for the fitted curve
 
-### Uncertainty band for the fitted curve (propagated)
+The relative-error fit band is propagated as
 
-The shaded band around the fitted relative-error curve corresponds to:
 ```math
-r_{\\text{fit}}(h) \\pm \\sigma_{r,\\text{fit}}(h),
-```
-with
-```math
-\\sigma_{r,\\text{fit}}^2(h) \\approx
-\\left(\\frac{\\sigma_{\\text{fit}}(h)}{|I_0|}\\right)^2
+\\sigma_{r,\\mathrm{fit}}^2(h) \\approx
+\\left(\\frac{\\sigma_{\\mathrm{fit}}(h)}{|I_0|}\\right)^2
 +
-\\left(\\frac{|I_{\\text{fit}}(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2,
-```
-where ``\\sigma_{\\text{fit}}(h)`` is obtained from the parameter covariance:
-```math
-\\sigma_{\\text{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} V \\varphi(h) \\,.
+\\left(\\frac{|I_{\\mathrm{fit}}(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2.
 ```
 
-### Reference slope guide
+A dashed slope-1 reference line is also drawn in the ``x = h^{p}`` coordinate,
+corresponding to the expected leading-order behavior ``r \\propto h^{p}``.
 
-A gray dashed **reference line** with slope 1 in the ``x=h^{p}`` coordinate
-is drawn as a visual guide for the expected leading-order behavior:
+As in the main plot, the annotation box is placed automatically using the same
+smart overlap-avoidance helper.
 
-```math
-r(h) \\propto h^{p} \\quad \\Longleftrightarrow \\quad r \\propto x.
-```
+## Output files
 
-## Output
+When `save_file=true`, two PDF files are written under `figs_dir`:
 
-Two output files are saved:
 ```julia
-convergence_\$(name)_\$(rule)_\$(boundary).png
-convergence_\$(name)_\$(rule)_\$(boundary)_rel_log.png
+result_\$(name)_\$(rule)_\$(boundary)_extrap.pdf
+result_\$(name)_\$(rule)_\$(boundary)_reldiff.pdf
 ```
+
+If the external command `pdfcrop` is available, each saved PDF is cropped automatically.
 
 # Arguments
 
-* `a`, `b`:
-  Integration bounds (currently unused by this plotting routine; retained for API consistency).
-* `name`:
-  Label used in the output filename.
-* `hs`:
-  Step sizes `h` (typically ``\\displaystyle{h=\\frac{b-a}{N}}``).
-* `estimates`:
+* `a`, `b` :
+  Integration bounds. These are retained for API consistency, although the plotting
+  routine itself mainly uses the supplied `hs`, `estimates`, and `errors`.
+* `name` :
+  Label used in the output filenames.
+* `hs` :
+  Step sizes ``h``.
+* `estimates` :
   Quadrature estimates ``I(h)`` corresponding to `hs`.
-* `errors`:
-  Error estimates for ``I(h)`` (absolute values are used for plotting).
-* `fit_result`:
-  Fit object expected to provide:
+* `errors` :
+  Error estimates for ``I(h)``. Absolute values are used for plotting.
+* `fit_result` :
+  Fit object expected to provide at least:
 
   * `fit_result.params`
   * `fit_result.cov`
   * `fit_result.estimate`
   * `fit_result.error_estimate`
-  * `fit_result.powers` (required; used to reconstruct the fit basis exactly).
+  * `fit_result.powers`
 
 # Keyword arguments
 
-* `rule`:
-  Rule symbol used only for labeling the output filename.
-* `boundary`:
-  Boundary symbol used only for labeling the output filename.
+* `rule::Symbol=:gauss_p3` :
+  Rule label used in output filenames.
+* `boundary::Symbol=:LU_ININ` :
+  Boundary-condition label used in output filenames.
+* `figs_dir::String="."` :
+  Directory in which output PDFs are saved when `save_file=true`.
+* `save_file::Bool=false` :
+  If `true`, save the generated figures as PDF files.
 
 # Returns
 
-* `nothing`.
+* `nothing`
 
 # Errors
 
 * Throws an error if input lengths mismatch.
 * Throws an error if no valid points remain after filtering.
-* Throws an error if `fit_result.powers` exists but has a length mismatch with `fit_result.params`.
-* Propagates errors from downstream plotting and linear-algebra operations
-  (e.g. non-finite values after filtering, covariance not usable for propagation).
+* Throws an error if `fit_result.powers` is missing or its length does not match `fit_result.params`.
+* Throws an error if the relative-error plot is requested with ``I_0 = 0``.
+* Propagates errors from downstream plotting, file I/O, external cropping, and linear-algebra steps.
 """
 function plot_convergence_result(
     a::Real,
@@ -255,8 +623,10 @@ function plot_convergence_result(
     estimates::Vector{Float64},
     errors::Vector{Float64},
     fit_result;
-    rule::Symbol = :newton_p3,
-    boundary::Symbol = :LU_ININ
+    rule::Symbol = :gauss_p3,
+    boundary::Symbol = :LU_ININ,
+    figs_dir::String=".",
+    save_file::Bool=false
 )
 
     # ------------------------------------------------------------
@@ -408,12 +778,47 @@ function plot_convergence_result(
 
     # ax.set_xlabel(raw"$h^2$")
     ax.set_xlabel("\$h^{$(lead_pow)}\$")
-    ax.set_ylabel("Integral Estimate")
+    ax.set_ylabel("\$I(h)\$")
+
+    # ---- annotate plot 1 (I0 +/- err, chi2/dof) ----
+    chisq = hasproperty(fit_result, :chisq) ? fit_result.chisq : NaN
+    dof   = hasproperty(fit_result, :dof)   ? fit_result.dof   : NaN
+    red   = (isfinite(chisq) && isfinite(dof) && dof != 0) ? chisq / dof : NaN
+
+    # try pretty formatter
+    txt_I0 = try
+        I0_e2d = AvgErrFormatter.avgerr_e2d_from_float(I0, I0_err; latex_grouping=true)
+        "\$I_0 = $I0_e2d\$"
+    catch
+        @sprintf("\$I_0 = %.7g \\pm %.7g\$", I0, I0_err)
+    end
+
+    txt1 = txt_I0 * "\n" * @sprintf("\$\\chi^2/\\mathrm{d.o.f.} = \\texttt{%.7g}\$", red)
+
+    _smart_text_placement!(fig, ax;
+        text=txt1,
+        x_points=collect(hxp),
+        y_points=collect(estp),
+        yerr_points=collect(errp),
+        x_curve=collect(x_range),
+        y_curve=collect(y_fit),
+        fontsize=11
+    )
+
+    display(fig)
+
+    basename = "result_$(name)_$(String(rule))_$(String(boundary))_extrap"
+    resfile  = joinpath(figs_dir, "$basename.pdf")
+    cropped  = joinpath(figs_dir, "$basename-crop.pdf")
+    if save_file
+        PyPlot.savefig(resfile)
+        if Sys.which("pdfcrop") !== nothing
+            run(`pdfcrop $resfile`)
+            mv(cropped, resfile; force=true)
+        end
+    end
 
     fig.tight_layout()
-
-    outfile = "convergence_$(name)_$(String(rule))_$(String(boundary)).png"
-    fig.savefig(outfile)
     PyPlot.close(fig)
 
     # ============================================================
@@ -509,22 +914,44 @@ function plot_convergence_result(
     ax2.set_xlabel("\$h^{$(lead_pow)}\$")
     ax2.set_ylabel(raw"$|I(h)-I_0|/|I_0|$")
 
-    fig2.tight_layout()
+    # ---- annotate plot 2 (chi2/dof only) ----
+    txt_I0 = try
+        I0_e2d = AvgErrFormatter.avgerr_e2d_from_float(I0, I0_err; latex_grouping=true)
+        "\$I_0 = $I0_e2d\$"
+    catch
+        @sprintf("\$I_0 = %.7g \\pm %.7g\$", I0, I0_err)
+    end
 
-    outfile2 = "convergence_$(name)_$(String(rule))_$(String(boundary))_rel_log.png"
-    fig2.savefig(outfile2)
+    txt2 = txt_I0 * "\n" * @sprintf("\$\\chi^2/\\mathrm{d.o.f.} = \\texttt{%.7g}\$", red)
+
+    _smart_text_placement!(fig2, ax2;
+        text=txt2,
+        x_points=collect(hxp2),
+        y_points=collect(rel2),
+        yerr_points=collect(rerr2),
+        x_curve=collect(x_range2),
+        y_curve=collect(rel_fit),
+        fontsize=11
+    )
+
+    display(fig2)
+
+    basename = "result_$(name)_$(String(rule))_$(String(boundary))_reldiff"
+    resfile  = joinpath(figs_dir, "$basename.pdf")
+    cropped  = joinpath(figs_dir, "$basename-crop.pdf")
+    if save_file
+        PyPlot.savefig(resfile)
+        if Sys.which("pdfcrop") !== nothing
+            run(`pdfcrop $resfile`)
+            mv(cropped, resfile; force=true)
+        end
+    end
+
+    fig2.tight_layout()
     PyPlot.close(fig2)
 
     return nothing
 end
-
-# =============================================================================
-# Add to: src/plot/PlotTools.jl   (inside module PlotTools)
-# =============================================================================
-
-using ..Quadrature   # <-- add this line in PlotTools module imports
-
-export plot_quadrature_coverage_1d
 
 """
     plot_quadrature_coverage_1d(
@@ -536,11 +963,13 @@ export plot_quadrature_coverage_1d
         boundary::Symbol = :LU_ININ,
         ngrid_f::Int = 4000,
         ngrid_block::Int = 400,
-        name::String = "coverage",
+        name::String = "demo",
+        figs_dir::String = ".",
+        save_file::Bool = false
     ) -> Nothing
 
 Visualize **``1``-dimensional quadrature behavior** on ``[a,b]`` by plotting the true integrand ``f(x)``
-and an **pedagogical representation** of how the selected rule contributes to the integral.
+and a **pedagogical representation** of how the selected rule contributes to the integral.
 
 # What this routine draws
 
@@ -549,32 +978,38 @@ This function always draws:
 1. A dense curve of the true integrand ``f(x)`` over ``[a,b]``.
 2. Quadrature nodes/weights ``(xs, ws)`` obtained from
    [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
-3. A text annotation:
+3. A text annotation displaying the quadrature sum
    ```math
    \\hat I = \\sum_j w_j f(x_j)
-   ```
+   ````
 
 computed directly from the returned nodes/weights.
+
+Rather than being fixed at a hard-coded corner, this annotation is placed using
+[`_smart_text_placement!`](@ref), which heuristically searches candidate locations
+and tries to avoid overlap with plotted curves and node samples.
 
 Then it draws **one** of the following rule-specific visualizations:
 
 ## 1) B-spline rules (`is_bs == true`)
 
 For B-spline quadrature rules, this plotter reconstructs the **actual spline curve**
-implicitly assumed by your B-spline backend and fills its area:
+implicitly assumed by the B-spline backend and fills its area:
 
-* Sample data: ``y_j = f(x_j)`` at Greville nodes.
+* Sample data: `y_j = f(x_j)` at Greville nodes.
 * Reconstruct spline coefficients by solving the same collocation system used by the rule.
 * Plot the spline curve **piecewise per knot span** and fill the region under each span.
   (Each span gets its own color, and the fill color is matched to the span line color.)
 
 This visualization is meant to show *what curve the quadrature backend is effectively integrating*.
+The reconstructed spline curve is also passed to the smart annotation-placement helper
+so that the quadrature-sum label avoids covering the visually relevant spline shape.
 
 ## 2) Non-B-spline rules (`is_bs == false`)
 
 For Newton-Cotes and Gauss-family rules, this plotter uses a simple **mass-bar view**:
 
-* Each quadrature contribution is ``w_i f(x_i)``.
+* Each quadrature contribution is ``w_i \\, f(x_i)``.
 * A rectangle is drawn whose:
 
   * **width** is ``w_i``,
@@ -612,18 +1047,38 @@ by the backend.
 
 # Keyword arguments
 
-* `rule`, `boundary`: quadrature rule selector forwarded to the backend.
-* `ngrid_f`: number of points for drawing the true integrand curve.
-* `ngrid_block`: number of points per knot span (B-spline piecewise drawing only).
-* `name`: label used in the output PNG filename.
+* `rule`, `boundary`:
+  Quadrature rule selector forwarded to the backend.
+* `ngrid_f`:
+  Number of grid points used to draw the dense reference curve of the true integrand.
+* `ngrid_block`:
+  Number of grid points per knot span when drawing reconstructed B-spline pieces.
+* `name`:
+  Label used in the output filename stem.
+* `figs_dir`:
+  Directory used for saving the output PDF when `save_file=true`.
+* `save_file`:
+  If `true`, save the figure as a PDF file. If `pdfcrop` is available, the saved PDF
+  is cropped automatically.
+
+# Annotation placement
+
+The quadrature-sum annotation is positioned automatically using
+[`_smart_text_placement!`](@ref). For non-B-spline rules, the helper avoids overlap
+with the true integrand curve and finite node samples. For B-spline rules, it instead
+avoids overlap with the reconstructed spline curve and the sampled node values.
 
 # Output
 
-Saves:
+When `save_file=true`, saves:
 
 ```julia
-quad_coverage_\$(name)_\$(String(rule))_\$(String(boundary))_N\$(N).png
+pedagogical_1D_\$(name)_\$(String(rule))_\$(String(boundary))_N\$(N).pdf
 ```
+
+under `figs_dir`.
+
+If the external command `pdfcrop` is available, the saved PDF is cropped automatically.
 
 # Returns
 
@@ -638,7 +1093,9 @@ function plot_quadrature_coverage_1d(
     boundary::Symbol = :LU_ININ,
     ngrid_f::Int = 4000,
     ngrid_block::Int = 400,
-    name::String = "coverage",
+    name::String = "demo",
+    figs_dir::String=".",
+    save_file::Bool=false
 )::Nothing
 
     # -------------------------------
@@ -764,13 +1221,6 @@ function plot_quadrature_coverage_1d(
             I_hat += Float64(wj) * Float64(yj)
         end
     end
-    ax.text(
-        0.02, 0.98,
-        "Quadrature sum = $(I_hat)",
-        transform=ax.transAxes,
-        verticalalignment="top",
-        horizontalalignment="left"
-    )
 
     # ------------------------------------------------------------
     # BSpline: plot the actual spline curve s(x) and fill under it,
@@ -878,9 +1328,49 @@ function plot_quadrature_coverage_1d(
     ax.set_ylabel(is_ns ? raw"$f(x)$ / block interpolants" : raw"$f(x)$ and discrete contributions")
     ax.set_title("$(String(rule)), $(String(boundary)), N=$N")
 
+    # ------------------------------------------------------------
+    # Smart annotation placement for quadrature sum
+    # ------------------------------------------------------------
+    txt_quad = "Quadrature sum = $(I_hat)"
+
+    mask_nodes = isfinite.(xs) .& isfinite.(y_nodes)
+    x_pts = Float64.(xs[mask_nodes])
+    y_pts = Float64.(y_nodes[mask_nodes])
+
+    if is_bs
+        _smart_text_placement!(fig, ax;
+            text=txt_quad,
+            x_points=collect(x_pts),
+            y_points=collect(y_pts),
+            x_curve=collect(xg),
+            y_curve=collect(ys_spl),
+            fontsize=10
+        )
+    else
+        _smart_text_placement!(fig, ax;
+            text=txt_quad,
+            x_points=collect(x_pts),
+            y_points=collect(y_pts),
+            x_curve=collect(xg),
+            y_curve=collect(yg),
+            fontsize=10
+        )
+    end
+
+    display(fig)
+
+    basename = "pedagogical_1D_$(name)_$(String(rule))_$(String(boundary))_N$(N)"
+    resfile  = joinpath(figs_dir, "$basename.pdf")
+    cropped  = joinpath(figs_dir, "$basename-crop.pdf")
+    if save_file
+        PyPlot.savefig(resfile)
+        if Sys.which("pdfcrop") !== nothing
+            run(`pdfcrop $resfile`)
+            mv(cropped, resfile; force=true)
+        end
+    end
+
     fig.tight_layout()
-    outfile = "quad_coverage_$(name)_$(String(rule))_$(String(boundary))_N$(N).png"
-    fig.savefig(outfile)
     PyPlot.close(fig)
 
     return nothing

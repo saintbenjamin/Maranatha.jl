@@ -1,4 +1,5 @@
 .vscode
 *.png
+*.pdf
 SAVE
 docs/build*
