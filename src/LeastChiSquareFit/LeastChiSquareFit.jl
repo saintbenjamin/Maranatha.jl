@@ -10,9 +10,10 @@
 
 module LeastChiSquareFit
 
-using LinearAlgebra
-using Statistics
-using Printf
+using ..LinearAlgebra
+using ..Statistics
+using ..Printf
+
 using ..Utils.JobLoggerTools
 using ..Utils.AvgErrFormatter
 using ..Quadrature.NewtonCotes

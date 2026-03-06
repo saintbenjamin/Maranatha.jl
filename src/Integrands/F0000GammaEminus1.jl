@@ -24,9 +24,9 @@ export gtilde_F0000, g_F0000_raw
 # - Make branch comparisons Taylor-safe by using constant terms
 # ============================================================
 
-using TaylorSeries
-using ForwardDiff
-using FastDifferentiation
+using ..TaylorSeries
+using ..ForwardDiff
+using ..FastDifferentiation
 
 import SpecialFunctions: besseli
 

@@ -139,12 +139,14 @@ usage is primarily intended for controlled numerical studies.
 module Maranatha
 
 using Printf
+using Statistics
 using LinearAlgebra
 using TaylorSeries
 using Enzyme
 using ForwardDiff
 using FastDifferentiation
 # using Diffractor
+using PyPlot
 
 include("Utils/Utils.jl")
 using .Utils
