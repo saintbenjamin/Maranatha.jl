@@ -24,12 +24,12 @@ export run_Maranatha
         a,
         b;
         dim::Int = 1,
-        nsamples = [4, 8, 12, 16],
-        rule::Symbol = :newton_p3,
-        boundary::Symbol = :LU_ININ,
+        nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
+        rule::Symbol = :gauss_p4,
+        boundary::Symbol = :LU_EXEX,
         err_method::Symbol = :forwarddiff,
-        fit_terms::Int = 2,
-        nerr_terms::Int = 1,
+        fit_terms::Int = 4,
+        nerr_terms::Int = 3,
         ff_shift::Int = 0,
         use_threads::Bool = false,
         name_prefix::String = "Maranatha",
@@ -37,37 +37,59 @@ export run_Maranatha
         write_summary::Bool = true
     )
 
-High-level execution pipeline for n-dimensional quadrature
-and residual-based error modeling.
+Run a multi-resolution quadrature study, estimate an error scale at each resolution,
+and return the raw convergence data needed for later ``h \\to 0`` extrapolation.
+
+This is typically the **first step** in a standard `Maranatha.jl` workflow:
+first call `run_Maranatha`, then pass its output to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref), and optionally visualize
+the fitted result with [`Maranatha.PlotTools.plot_convergence_result`](@ref).
 
 # Function description
-`run_Maranatha` is the orchestration entry point that combines the core
-subsystems of `Maranatha.jl`:
 
-- [`Maranatha.Quadrature`](@ref)         : tensor-product quadrature dispatcher (Newton-Cotes / Gauss / B-spline backends)
-- [`Maranatha.ErrorEstimate`](@ref)      : residual-based derivative error scale models (midpoint expansion)
-- [`Maranatha.LeastChiSquareFit`](@ref)   : least-``\\chi^2`` fitting for ``h \\to 0`` extrapolation
+`run_Maranatha` is the high-level entry point for generating a convergence dataset from
+repeated quadrature evaluations at multiple resolutions.
 
-Threaded execution of the derivative-based backend can be enabled with `use_threads`.
+It orchestrates the first half of the `Maranatha.jl` workflow by combining:
+
+- [`Maranatha.Quadrature`](@ref):
+  tensor-product quadrature dispatch (Newton-Cotes / Gauss / B-spline backends)
+- [`Maranatha.ErrorEstimate`](@ref):
+  residual-based derivative error-scale modeling based on midpoint residual expansions
+
+The resulting dataset is then intended to be passed downstream to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+for weighted ``h \\to 0`` extrapolation.
 
 For each resolution `N` in `nsamples`, the runner performs:
 
-1. Compute step size ``\\displaystyle{h = \\frac{b-a}{N}}``.
+1. Compute the step size
+   ``\\displaystyle{h = \\frac{b-a}{N}}``.
 
-2. Evaluate the integral using the selected rule via [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref).
+2. Evaluate the quadrature estimate via
+   [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref).
 
-3. Estimate the integration error according to `err_method`.
-   Supported values are `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, and `:enzyme`.
-   This dispatches to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref) and forwards `nerr_terms`,
-   allowing optional inclusion of LO, NLO, and higher-order midpoint residual terms in the error model.
+3. Estimate the integration error scale via
+   [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
+   or
+   [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref),
+   depending on `use_threads`.
 
-4. Accumulate `(h, estimate, error)` triplets.
+4. Accumulate the triplets `(h, estimate, error_info)`.
 
-After processing all resolutions, the collected convergence data
-`(h, estimate, error)` are returned to the caller.
+After processing all requested resolutions, this function returns the collected
+raw convergence-study data as a single `NamedTuple`.
 
-If `save_path` is provided, the collected result structure is also written
-to disk using [`Maranatha.Utils.MaranathaIO.save_datapoint_results`](@ref).
+In a typical workflow, the returned object is used immediately as input to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
+for example through the fields
+`result.a`, `result.b`, `result.h`, `result.avg`, and `result.err`.
+
+This runner **does not perform the least-``\\chi^2`` fit itself**;
+it is responsible only for dataset generation (and optional saving).
+
+If `save_path` is provided, the returned result structure is also written to disk using
+[`Maranatha.Utils.MaranathaIO.save_datapoint_results`](@ref).
 
 The output filename has the form
 
@@ -76,81 +98,68 @@ result_\$(name_prefix)_\$(rule)_\$(boundary)_N_\$(nsamples[1])_N_\$(nsamples[end
 ```
 
 and is created inside the specified `save_path` directory.
-A TOML summary file is optionally written alongside the binary result file.
+If `write_summary = true`, a TOML summary file is written alongside the JLD2 file.
 
-These data are typically passed to
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
-to perform the weighted convergence extrapolation externally.
-
-The fitted convergence model is reconstructed from the stored exponent vector:
-```math
-I(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h),
-\\qquad
-\\varphi_i(h) = h^{\\texttt{powers[i]}} \\quad (i=1,\\dots,n),
-```
-where `powers = fit_result.powers` with `powers[1] = 0` for the constant term.
-
-
-Optionally, the fit may apply a **fitting-function-shift** (`ff_shift`) to skip the nominal leading residual power
-when the corresponding coefficient is expected to vanish for the given integrand (e.g. symmetry causes the
-leading derivative contribution to be zero). In that case, the fitter selects powers starting at
-`1 + ff_shift` in the residual-power list and stores the resulting basis in `fit_result.powers`.
+The fitting-related keywords `fit_terms` and `ff_shift` are stored in the returned result
+for downstream convenience, but they are **not used internally** by `run_Maranatha`
+to perform fitting.
 
 # Arguments
 
 * `integrand`:
   Callable integrand. May be a function, closure, or callable struct.
-  Must accept `dim` scalar positional arguments.
+  It must accept `dim` scalar positional arguments.
+
 * `a`, `b`:
-  Scalar bounds defining the hypercube domain ``[a,b]^n`` where `n` is the dimensionality.
+  Scalar bounds defining the hypercube domain `[a,b]^n`,
+  where `n` is the dimensionality.
 
 # Keyword arguments
 
 * `dim::Int = 1`:
   Dimensionality of the tensor-product quadrature.
-  Internally dispatched through [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref),
-  which supports specialized implementations (from ``1``-dimensional to ``4``-dimensional quadrature)
-  and a general ``n``-dimensional quadrature fallback.
+  Internally dispatched through
+  [`Maranatha.Quadrature.QuadratureDispatch.quadrature`](@ref),
+  which supports specialized implementations for low dimensions and a general fallback.
 
-* `nsamples = [4, 8, 12, 16]`:
-  Vector of subdivision counts `N`. Each value defines a different grid resolution used in the convergence study.
+* `nsamples = [2, 3, 4, 5, 6, 7, 8, 9]`:
+  Vector of subdivision counts `N`.
+  Each value defines a different resolution used in the convergence study.
 
-* `rule::Symbol = :newton_p3`:
-  Quadrature rule identifier forwarded to integration, error estimation, and fitting.
-  Examples include Newton-Cotes NS rules (`:newton_pK`) as well as Gauss-family and B-spline rule symbols
+* `rule::Symbol = :gauss_p4`:
+  Quadrature rule identifier forwarded to integration and error estimation.
+  Examples include Newton-Cotes, Gauss-family, and B-spline rule symbols
   supported by [`Maranatha.Quadrature`](@ref).
 
-* `boundary::Symbol = :LU_ININ`:
-  Boundary pattern for the composite rule assembly. Supported values are:
-  `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`.
-  This is forwarded consistently to integration, error estimation, and fitting.
+* `boundary::Symbol = :LU_EXEX`:
+  Boundary pattern for the composite rule assembly.
+  This is forwarded consistently to integration and error estimation.
 
-* `err_method`:
-  Backend used for derivative evaluation via [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative`](@ref).
-  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
-  (dispatching to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)).
-  This keyword is reserved for future error-estimation backends.
+* `err_method::Symbol = :forwarddiff`:
+  Derivative backend used by the error-estimation dispatcher.
+  Supported values currently include
+  `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, and `:enzyme`.
 
-* `fit_terms::Int = 2`:
-  Number of basis terms used in the convergence model (including the constant term).
-  This is forwarded as `nterms` to the least-``\\chi^2`` fitter.
-  The fitter selects `nterms-1` residual-derived exponents (optionally shifted by `ff_shift`)
-  and stores the full exponent vector (with leading `0`) in `fit_result.powers`.
+* `fit_terms::Int = 4`:
+  Suggested number of basis terms for a later least-``\\chi^2`` fit.
+  This value is stored in the returned result so that downstream fitting code can reuse
+  the same configuration without re-entering it manually.
 
-* `nerr_terms::Int = 1`:
+* `nerr_terms::Int = 3`:
   Number of midpoint residual terms used by the derivative-based error estimator.
-  This is forwarded to [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref) as `nerr_terms`.
 
-  * ``1``  uses LO only
-  * ``>1`` uses LO + NLO + ... up to `nerr_terms` terms (subject to the residual scan limit)
+  * `1`  uses LO only
+  * `>1` uses LO + NLO + ... up to `nerr_terms` terms
+    (subject to the residual scan limit)
 
 * `ff_shift::Int = 0`:
-  Forward shift applied inside the fitter when selecting residual-derived powers.
-  If `ff_shift = 1`, the fitter skips the first residual power and fits using the next ones, etc.
-  This is forwarded to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref) as `ff_shift`.
+  Suggested forward shift for later fit-power selection inside
+  [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+  Like `fit_terms`, this is stored in the returned result for downstream reuse rather than
+  being applied internally by `run_Maranatha`.
 
 * `use_threads::Bool = false`:
-  If `true`, dispatches to the threaded error-estimation backend ([`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref)).
+  If `true`, dispatches to the threaded error-estimation backend.
 
 * `name_prefix::String = "Maranatha"`:
   Prefix used when constructing the output filename if results are written to disk.
@@ -162,73 +171,112 @@ leading derivative contribution to be zero). In that case, the fitter selects po
 * `write_summary::Bool = true`:
   If `true`, a companion TOML summary file is written together with the JLD2 result file.
 
+# Typical next step
+
+A common downstream pattern is:
+
+1. call `run_Maranatha(...)` to generate `result`
+2. call [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref) using
+   `result.a`, `result.b`, `result.h`, `result.avg`, and `result.err`
+3. optionally call [`Maranatha.PlotTools.plot_convergence_result`](@ref)
+   to visualize the fitted convergence curve and uncertainty band
+
 # Returns
 
-A `NamedTuple` containing the raw convergence study data:
+A single `NamedTuple` containing the raw convergence-study data and associated metadata:
 
-* `a`, `b`
+* `a`, `b`:
   Integration bounds.
 
-* `h`
+* `h`:
   Step sizes corresponding to the tested resolutions.
 
-* `avg`
-  Quadrature estimates ``I(h)``.
+* `avg`:
+  Quadrature estimates `I(h)`.
 
-* `err`
+* `err`:
   Error-estimator outputs (NamedTuples returned by
   [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
   or its threaded variant).
 
-* `rule`, `boundary`
-  Normalized rule configuration used during execution.
+* `rule`, `boundary`:
+  Rule configuration used during execution.
 
-* `dim`
+* `dim`:
   Dimensionality of the tensor-product quadrature.
 
-* `err_method`
+* `err_method`:
   Derivative backend used for error estimation.
 
-* `nerr_terms`
+* `nerr_terms`:
   Number of midpoint residual terms included in the error model.
 
-* `fit_terms`, `ff_shift`
-  Suggested fitting parameters intended for
-  [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+* `fit_terms`, `ff_shift`:
+  Suggested fitting parameters stored for downstream use.
 
-* `use_threads`
+* `use_threads`:
   Indicates whether threaded error estimation was used.
-
-* `data::NamedTuple`:
-  Raw convergence data:
-
-  * `h`   : step sizes
-  * `avg` : integral estimates
-  * `err` : error estimates
 
 # Design notes
 
-* The runner is **dimension-agnostic** and supports arbitrary ``n \\ge 1`` subject to computational cost.
-* Error estimators provide a *scale model* rather than a strict truncation bound, enabling stable weighted fits.
-* Logging and timing are centralized through [`Maranatha.Utils.JobLoggerTools`](@ref).
-* Threaded error estimation is optionally enabled via `use_threads`, without affecting the fitting stage.
+* The runner is **dimension-agnostic** and supports arbitrary `n \\ge 1`
+  subject to computational cost.
+* Error estimators provide a *scale model* rather than a strict truncation bound,
+  enabling stable weighted fits downstream.
+* Logging and timing are centralized through
+  [`Maranatha.Utils.JobLoggerTools`](@ref).
+* Threaded error estimation is optionally enabled via `use_threads`,
+  without changing the returned result structure.
 
 # Example
+
+The example below demonstrates the standard three-step workflow:
+generate a convergence dataset, perform the downstream fit, and plot the resulting convergence curve.
+
 
 ```julia
 f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
 
-I0, fit, data = run_Maranatha(
+result = run_Maranatha(
     f,
     0.0, 1.0;
-    dim=4,
-    nsamples=[40, 44, 48, 52, 56, 60, 64],
-    rule=:newton_p5,
-    boundary=:LU_ININ,
-    err_method=:derivative,
-    fit_terms=4,
-    nerr_terms=2,
-    ff_shift=1
+    dim = 4,
+    nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    err_method = :forwarddiff,
+    fit_terms = 4,
+    nerr_terms = 3,
+    ff_shift = 0,
+    use_threads = false,
+    name_prefix = "4D_test",
+    save_path = ".",
+    write_summary = true
+)
+
+fit = least_chi_square_fit(
+    result.a,
+    result.b,
+    result.h,
+    result.avg,
+    result.err,
+    result.rule,
+    result.boundary;
+    nterms = result.fit_terms,
+    ff_shift = result.ff_shift,
+    nerr_terms = result.nerr_terms
+)
+
+plot_convergence_result(
+    result.a,
+    result.b,
+    "4D_test",
+    result.h,
+    result.avg,
+    result.err,
+    fit;
+    rule = result.rule,
+    boundary = result.boundary
 )
 ```
 
@@ -250,15 +298,6 @@ function run_Maranatha(
     save_path::Union{Nothing,AbstractString}=nothing,
     write_summary::Bool=true,
 )
-    jobid = nothing
-
-    # ------------------------------------------------------------
-    # Normalize legacy inputs (do this ONCE, early)
-    # ------------------------------------------------------------
-    rule = normalize_newton_rule(rule)
-    rule = normalize_bspline_rule(rule)
-    boundary = normalize_boundary(boundary)
-
     estimates = Float64[]      # List of quadrature results
     error_infos = NamedTuple[] # List of estimated error infos
     hs = Float64[]             # List of step sizes
@@ -323,12 +362,11 @@ function run_Maranatha(
         use_threads = use_threads,
     )
 
-    save_jld2_path = joinpath(
-        save_path,
-        "result_$(name_prefix)_$(rule)_$(boundary)_N_$(nsamples[1])_N_$(nsamples[end]).jld2"
-    )
-
     if save_path !== nothing
+        save_jld2_path = joinpath(
+            save_path,
+            "result_$(name_prefix)_$(rule)_$(boundary)_N_$(nsamples[1])_N_$(nsamples[end]).jld2"
+        )
         MaranathaIO.save_datapoint_results(
             save_jld2_path,
             result;
@@ -337,248 +375,6 @@ function run_Maranatha(
     end
 
     return result
-end
-
-"""
-    _DEPRECATION_WARNED :: Set{Symbol}
-
-Session-local registry of symbols that have already triggered a deprecation warning.
-
-# Description
-This set is used internally by Maranatha's normalization helpers
-(e.g. rule and boundary normalizers) to ensure that each deprecated
-symbol emits a warning **only once per Julia session**.
-
-When a legacy symbol is first encountered, it is inserted into this set
-after the warning is issued. Subsequent encounters of the same symbol
-are silently ignored to prevent repeated warning spam.
-
-# Notes
-- Intended for internal use only.
-- The registry is reset when the Julia session restarts.
-"""
-const _DEPRECATION_WARNED = Set{Symbol}()
-
-"""
-    _warn_once(
-        sym::Symbol, 
-        msg::String
-    ) -> Nothing
-
-Emit a deprecation warning only once per session for a given symbol.
-
-# Function description
-This helper is used internally by rule and boundary normalizers to avoid
-repeated warning spam when legacy symbols are encountered multiple times
-during a single Julia session.
-
-If `sym` has not yet triggered a warning, `msg` is emitted via `@warn`
-and the symbol is recorded. Subsequent calls with the same `sym` are ignored.
-
-# Arguments
-- `sym`: The legacy symbol that triggered the warning.
-- `msg`: Warning message to be emitted.
-
-# Notes
-- This function is intended for internal use.
-- The warning registry is session-local.
-"""
-@inline function _warn_once(
-    sym::Symbol, 
-    msg::String
-)::Nothing
-    if !(sym in _DEPRECATION_WARNED)
-        push!(_DEPRECATION_WARNED, sym)
-        @warn msg
-    end
-    return nothing
-end
-
-"""
-    normalize_newton_rule(
-        rule::Symbol; 
-        warn::Bool = true
-    ) -> Symbol
-
-Normalize legacy Newton-Cotes rule symbols to the current naming convention.
-
-# Function description
-This function converts deprecated Newton rule symbols of the form
-
-- `:ns_pK`
-
-into the current canonical format
-
-- `:newton_pK`
-
-where `K` denotes the polynomial degree.
-
-If `rule` is already in the new format or does not belong to the
-legacy Newton family, it is returned unchanged.
-
-# Arguments
-- `rule`: Quadrature rule symbol.
-- `warn`: If `true`, emit a deprecation warning (once per symbol).
-
-# Returns
-- `Symbol`: The normalized rule symbol.
-
-# Notes
-- This function should be called early in high-level runners
-  (e.g. `run_Maranatha`) to ensure internal consistency.
-"""
-function normalize_newton_rule(
-    rule::Symbol; 
-    warn::Bool = true
-)::Symbol
-    s = String(rule)
-
-    if startswith(s, "ns_p")
-        # preserve suffix verbatim (supports multi-digit like ns_p10)
-        suffix = s[length("ns_p")+1:end]  # e.g. "3", "10"
-        new_rule = Symbol("newton_p", suffix)
-
-        if warn
-            _warn_once(rule,
-                "Deprecated rule symbol `$rule` detected. " *
-                "Use `$new_rule` instead. It will be normalized automatically for now."
-            )
-        end
-        return new_rule
-    end
-
-    return rule
-end
-
-"""
-    normalize_bspline_rule(
-        rule::Symbol; 
-        warn::Bool = true
-    ) -> Symbol
-
-Normalize legacy B-spline rule symbols to the current naming convention.
-
-# Function description
-This function converts deprecated B-spline rule symbols:
-
-- `:bsplI_pK` → `:bspline_interp_pK`
-- `:bsplS_pK` → `:bspline_smooth_pK`
-
-where `K` is the spline degree.
-
-If `rule` is already in the new format or does not belong to the
-legacy B-spline family, it is returned unchanged.
-
-# Arguments
-- `rule`: Quadrature rule symbol.
-- `warn`: If `true`, emit a deprecation warning (once per symbol).
-
-# Returns
-- `Symbol`: The normalized rule symbol.
-
-# Notes
-- This function only renames the rule; it does not parse the spline degree.
-  Use `_parse_bspl_p` for degree extraction.
-"""
-function normalize_bspline_rule(
-    rule::Symbol; 
-    warn::Bool = true
-)::Symbol
-    s = String(rule)
-
-    if startswith(s, "bsplI_p")
-        deg = s[length("bsplI_p")+1:end]          # after "bsplI_p"
-        new_rule = Symbol("bspline_interp_p", deg)
-
-        if warn
-            _warn_once(rule,
-                "Deprecated B-spline rule symbol `$rule` detected. " *
-                "Use `$new_rule` instead. It will be normalized automatically for now."
-            )
-        end
-        return new_rule
-
-    elseif startswith(s, "bsplS_p")
-        deg = s[length("bsplS_p")+1:end]          # after "bsplS_p"
-        new_rule = Symbol("bspline_smooth_p", deg)
-
-        if warn
-            _warn_once(rule,
-                "Deprecated B-spline rule symbol `$rule` detected. " *
-                "Use `$new_rule` instead. It will be normalized automatically for now."
-            )
-        end
-        return new_rule
-    end
-
-    return rule
-end
-
-"""
-    normalize_boundary(
-        boundary::Symbol; 
-        warn::Bool = true
-    ) -> Symbol
-
-Normalize legacy boundary symbols to the current LU-based naming scheme.
-
-# Function description
-This function converts deprecated boundary symbols:
-
-- `:LCRC` → `:LU_ININ`
-- `:LORC` → `:LU_EXIN`
-- `:LCRO` → `:LU_INEX`
-- `:LORO` → `:LU_EXEX`
-
-where:
-
-- `IN` = include endpoint (closed)
-- `EX` = exclude endpoint (opened)
-
-If `boundary` already follows the `:LU_*` convention, it is returned unchanged.
-
-# Arguments
-- `boundary`: Boundary configuration symbol.
-- `warn`: If `true`, emit a deprecation warning (once per symbol).
-
-# Returns
-- `Symbol`: The normalized boundary symbol.
-
-# Notes
-- Normalization should occur before boundary decoding.
-- This function does not validate semantic consistency beyond renaming.
-"""
-function normalize_boundary(
-    boundary::Symbol; 
-    warn::Bool = true
-)::Symbol
-    s = String(boundary)
-
-    # already new format
-    if startswith(s, "LU_")
-        return boundary
-    end
-
-    new_boundary = if boundary === :LCRC
-        :LU_ININ
-    elseif boundary === :LORC
-        :LU_EXIN
-    elseif boundary === :LCRO
-        :LU_INEX
-    elseif boundary === :LORO
-        :LU_EXEX
-    else
-        boundary
-    end
-
-    if warn && (new_boundary !== boundary)
-        _warn_once(boundary,
-            "Deprecated boundary symbol `$boundary` detected. " *
-            "Use `$new_boundary` instead. It will be normalized automatically for now."
-        )
-    end
-
-    return new_boundary
 end
 
 end  # module Runner

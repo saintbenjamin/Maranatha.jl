@@ -9,11 +9,7 @@
 # ============================================================================
 
 using Test
-
-# Project-local includes (same as your entry script)
-include(joinpath(@__DIR__, "..", "src", "Maranatha.jl"))
-using .Maranatha
-using .Maranatha.PlotTools
+using Maranatha
 
 # ----------------------------------------------------------------------------
 # Optional plotting switch:
@@ -35,7 +31,7 @@ function maybe_plot(
     save_file::Bool
 )
     if DO_PLOT
-        PlotTools.plot_convergence_result(
+        plot_convergence_result(
             a, 
             b, 
             tag, 
@@ -94,6 +90,5 @@ end
 
     include("pedagogical_visualization_1D_test.jl")
 
-    include("Z_q_1D_F0000_test.jl")
-    include("Z_q_4D_test.jl")
+    include("complicated_1D_F0000_test.jl")
 end

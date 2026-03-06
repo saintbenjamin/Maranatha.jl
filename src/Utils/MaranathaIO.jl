@@ -20,15 +20,18 @@ using ..Utils.JobLoggerTools
 # ============================================================
 
 """
-    namedtuple_to_dict(res) -> Dict{String,Any}
+    namedtuple_to_dict(
+        res
+    ) -> Dict{String,Any}
 
 Convert a Maranatha result `NamedTuple` into a plain `Dict`
 structure suitable for serialization.
 
 # Function description
 
-The result produced by `run_Maranatha` contains nested `NamedTuple`
-structures, including a vector of per-sample error descriptions.
+The result produced by [`Maranatha.Runner.run_Maranatha`](@ref) 
+contains nested `NamedTuple` structures, 
+including a vector of per-sample error descriptions.
 This helper converts that structure into a dictionary composed only
 of standard serializable containers:
 
@@ -68,7 +71,9 @@ The resulting dictionary is therefore fully self-contained and can
 later be reconstructed into the original structure via
 [`dict_to_namedtuple`](@ref).
 """
-function namedtuple_to_dict(res)
+function namedtuple_to_dict(
+    res
+)
     return Dict(
         "a"           => res.a,
         "b"           => res.b,
@@ -89,7 +94,7 @@ function namedtuple_to_dict(res)
                 "derivatives" => collect(float.(e.derivatives)),
                 "terms"       => collect(float.(e.terms)),
                 "total"       => float(e.total),
-                "center"      => float(e.center),
+                "center"      => e.center isa Tuple ? collect(float.(e.center)) : float(e.center),
                 "h"           => float(e.h),
             ) for e in res.err
         ]
@@ -97,9 +102,11 @@ function namedtuple_to_dict(res)
 end
 
 """
-    dict_to_namedtuple(d) -> NamedTuple
+    dict_to_namedtuple(
+        d
+    ) -> NamedTuple
 
-Reconstruct a Maranatha result `NamedTuple` from a serialized dictionary.
+Reconstruct a quadrature result `NamedTuple` from a serialized dictionary.
 
 # Function description
 
@@ -107,7 +114,7 @@ This routine performs the inverse operation of
 [`namedtuple_to_dict`](@ref).
 
 It restores the original Julia data structure used internally by
-`run_Maranatha`, converting the serialized dictionary representation
+[`Maranatha.Runner.run_Maranatha`](@ref), converting the serialized dictionary representation
 back into a structured `NamedTuple`.
 
 # Reconstruction steps
@@ -119,12 +126,8 @@ The following conversions are applied:
 - each entry in `d["err"]` is reconstructed as a `NamedTuple`
 
 The resulting structure matches the layout expected by downstream
-analysis routines such as
-
-```
-least_chi_square_fit(...)
-```
-
+analysis routines such as 
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
 and can therefore be passed directly into fitting or diagnostic
 pipelines.
 
@@ -134,7 +137,9 @@ The dictionary `d` is assumed to originate from
 [`namedtuple_to_dict`](@ref).  No validation of external schema
 compatibility is performed.
 """
-function dict_to_namedtuple(d)
+function dict_to_namedtuple(
+    d
+)
     err = [
         (
             ks          = Vector{Int}(e["ks"]),
@@ -170,7 +175,9 @@ end
 # ============================================================
 
 """
-    generate_summary_dict(res) -> Dict{String,Any}
+    generate_summary_dict(
+        res
+    ) -> Dict{String,Any}
 
 Generate a human-readable summary dictionary for TOML export.
 
@@ -208,7 +215,9 @@ without requiring Julia to load the binary data.
 Unlike [`namedtuple_to_dict`](@ref), this function is not intended for
 lossless reconstruction of the original result structure.
 """
-function generate_summary_dict(res)
+function generate_summary_dict(
+    res
+)
     return Dict(
         "a"           => float(res.a),
         "b"           => float(res.b),
@@ -230,7 +239,7 @@ function generate_summary_dict(res)
                 "derivatives" => collect(float.(e.derivatives)),
                 "terms"       => collect(float.(e.terms)),
                 "total"       => float(e.total),
-                "center"      => float(e.center),
+                "center"      => e.center isa Number ? float(e.center) : collect(float.(e.center)),
                 "h"           => float(e.h),
             ) for e in res.err
         ]
@@ -243,13 +252,18 @@ end
 # ============================================================
 
 """
-    save_datapoint_results(path, res; write_summary=true) -> String
+    save_datapoint_results(
+        path, 
+        res; 
+        write_summary=true
+    ) -> String
 
 Save a Maranatha integration result to disk.
 
 # Function description
 
-This routine serializes the result produced by `run_Maranatha` into a
+This routine serializes the result produced by 
+[`Maranatha.Runner.run_Maranatha`](@ref) into a
 **JLD2 binary file**.
 
 Internally the result `NamedTuple` is first converted into a plain
@@ -261,31 +275,20 @@ that the stored structure contains only serialization-safe data types.
 Two files may be written:
 
 • **JLD2 file**
-
 ```
-
 path
-
 ```
-
 Contains the full result under the dataset key
-
 ```
-
 "datapoint_results"
-
 ```
 
 • **TOML summary (optional)**
 
 If `write_summary=true`, a companion file
-
 ```
-
 path → path with extension `.toml`
-
 ```
-
 is written containing a human-readable summary generated by
 [`generate_summary_dict`](@ref).
 
@@ -333,7 +336,9 @@ function save_datapoint_results(
 end
 
 """
-    load_datapoint_results(path) -> NamedTuple
+    load_datapoint_results(
+        path
+    ) -> NamedTuple
 
 Load a previously saved Maranatha integration result.
 
@@ -341,7 +346,7 @@ Load a previously saved Maranatha integration result.
 
 This routine reads a `.jld2` file produced by
 [`save_datapoint_results`](@ref) and reconstructs the original
-Maranatha result structure.
+quadrature result structure.
 
 The stored dictionary representation is converted back into a Julia
 `NamedTuple` via [`dict_to_namedtuple`](@ref), restoring
@@ -359,23 +364,20 @@ The stored dictionary representation is converted back into a Julia
 # Returns
 
 A `NamedTuple` compatible with downstream analysis routines such as
-
-```
-least_chi_square_fit(...)
-```
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
 
 # Notes
 
 The file must contain the dataset key
-
 ```
 "datapoint_results"
 ```
-
 which is the format produced by
 [`save_datapoint_results`](@ref).
 """
-function load_datapoint_results(path::AbstractString)
+function load_datapoint_results(
+    path::AbstractString
+)
     endswith(lowercase(path), ".jld2") || JobLoggerTools.error_benji(
         "load_datapoint_results expects a .jld2 path (got path=$path)"
     )

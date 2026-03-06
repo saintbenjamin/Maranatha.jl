@@ -94,8 +94,8 @@ end
         )
     ) -> Nothing
 
-Place a text box inside an axis while heuristically avoiding plotted data, fitted curves,
-and vertical error bars.
+Internal plotting helper that places a text box inside an axis while heuristically
+avoiding plotted data, fitted curves, and vertical error bars.
 
 This helper evaluates a list of candidate text-anchor locations given in axis-fraction
 coordinates and chooses the location with the lowest overlap score. The score is computed
@@ -439,21 +439,40 @@ end
         save_file::Bool = false
     ) -> Nothing
 
-Plot convergence data ``I(h)`` against ``h^{p}``, overlay the reconstructed fit curve,
-visualize the propagated fit-uncertainty band, and generate an additional log-log plot
-of the relative extrapolation error.
+Plot a fitted convergence study by showing ``I(h)`` against ``h^{p}``, overlaying the
+reconstructed fit curve and its propagated uncertainty band, and generating an additional
+log-log plot of the relative extrapolation error.
+
+This is typically the **third step** in a standard `Maranatha.jl` workflow:
+first generate `result` with [`Maranatha.Runner.run_Maranatha`](@ref),
+then fit with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
+and finally visualize the result with `plot_convergence_result`.
 
 # Function description
 This routine is a visualization companion to
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-It reconstructs the fitted convergence model directly from the stored fit result and
-produces two figures:
+
+It is designed to work with the same raw convergence-data structure returned by
+[`Maranatha.Runner.run_Maranatha`](@ref), together with a downstream fit result returned by
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+
+In a typical workflow, the inputs are passed almost directly from those earlier stages:
+`hs = result.h`, `estimates = result.avg`, `errors = result.err`, and
+`fit_result = fit`.
+
+In particular, the `errors` input is expected to be a collection of error-information
+objects where each entry provides a `.total` field used as the plotted pointwise
+error-bar magnitude.
+
+This routine reconstructs the fitted convergence model directly from the stored fit result
+without performing any new fit, and produces two figures:
 
 1. a main convergence plot of ``I(h)`` versus ``h^{p}``
 2. a log-log relative-error plot of ``\\dfrac{|I(h)-I_0|}{|I_0|}`` versus ``h^{p}``
 
 Here ``p`` is taken as the first non-constant power stored in `fit_result.powers`,
-namely `fit_result.powers[2]`.
+namely `fit_result.powers[2]`, so the horizontal axis reflects the leading fitted
+convergence scale rather than the raw step size ``h`` itself.
 
 The plotted ``x`` coordinate is therefore
 
@@ -472,13 +491,18 @@ and then used to evaluate the reconstructed model and its propagated uncertainty
 
 ## Model reconstruction (no refitting)
 
-This function does *not* refit the data. Instead, it reconstructs the model from:
+This function does *not* refit the data.
+Instead, it uses the already-computed fit result to reconstruct the model and its
+uncertainty directly from:
 
 * `fit_result.params`
 * `fit_result.cov`
 * `fit_result.estimate`
 * `fit_result.error_estimate`
 * `fit_result.powers`
+
+This makes the plotting stage reproducible and consistent with the actual fitted basis,
+including any forward-shift (`ff_shift`) that may have been applied during fitting.
 
 The basis is reconstructed using the stored exponent vector:
 
@@ -582,9 +606,16 @@ If the external command `pdfcrop` is available, each saved PDF is cropped automa
 * `estimates` :
   Quadrature estimates ``I(h)`` corresponding to `hs`.
 * `errors` :
-  Error estimates for ``I(h)``. Absolute values are used for plotting.
+  Collection of error-information objects associated with the sampled estimates.
+  In the current implementation, each entry is expected to provide a `.total` field
+  (for example, the objects stored in `result.err` returned by
+  [`Maranatha.Runner.run_Maranatha`](@ref)).
+  Absolute values of these `.total` entries are used for plotting the pointwise error bars.
 * `fit_result` :
-  Fit object expected to provide at least:
+  Fit object, typically the `NamedTuple` returned by
+  [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+
+  It is expected to provide at least:
 
   * `fit_result.params`
   * `fit_result.cov`
@@ -603,9 +634,21 @@ If the external command `pdfcrop` is available, each saved PDF is cropped automa
 * `save_file::Bool=false` :
   If `true`, save the generated figures as PDF files.
 
+# Typical workflow context
+
+A common usage pattern is:
+
+1. generate `result` with [`Maranatha.Runner.run_Maranatha`](@ref)
+2. generate `fit` with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+3. call [`plot_convergence_result`](@ref) using
+   `result.h`, `result.avg`, `result.err`, and `fit`
+
 # Returns
 
-* `nothing`
+`nothing`.
+
+This routine is used for its side effects: it displays the generated figures and,
+if `save_file = true`, also writes them to disk.
 
 # Errors
 
@@ -613,7 +656,56 @@ If the external command `pdfcrop` is available, each saved PDF is cropped automa
 * Throws an error if no valid points remain after filtering.
 * Throws an error if `fit_result.powers` is missing or its length does not match `fit_result.params`.
 * Throws an error if the relative-error plot is requested with ``I_0 = 0``.
-* Propagates errors from downstream plotting, file I/O, external cropping, and linear-algebra steps.
+* Propagates errors from downstream plotting, file I/O, optional external PDF cropping,
+  and internal linear-algebra operations used for covariance propagation.
+
+# Example
+
+The example below shows the standard final plotting step after generating a raw
+convergence dataset and a downstream fit result.
+
+```julia
+f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
+
+result = run_Maranatha(
+    f,
+    0.0, 1.0;
+    dim = 4,
+    nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    err_method = :forwarddiff,
+    fit_terms = 4,
+    nerr_terms = 3,
+    ff_shift = 0
+)
+
+fit = least_chi_square_fit(
+    result.a,
+    result.b,
+    result.h,
+    result.avg,
+    result.err,
+    result.rule,
+    result.boundary;
+    nterms = result.fit_terms,
+    ff_shift = result.ff_shift,
+    nerr_terms = result.nerr_terms
+)
+
+plot_convergence_result(
+    result.a,
+    result.b,
+    "4D_test",
+    result.h,
+    result.avg,
+    result.err,
+    fit;
+    rule = result.rule,
+    boundary = result.boundary
+)
+```
+
 """
 function plot_convergence_result(
     a::Real,
@@ -970,46 +1062,61 @@ end
         save_file::Bool = false
     ) -> Nothing
 
-Visualize **``1``-dimensional quadrature behavior** on ``[a,b]`` by plotting the true integrand ``f(x)``
-and a **pedagogical representation** of how the selected rule contributes to the integral.
+Visualize **``1``-dimensional quadrature behavior** on ``[a,b]`` by plotting the true
+integrand ``f(x)`` together with a **pedagogical representation** of how the selected
+quadrature rule contributes to the integral.
+
+Unlike [`Maranatha.PlotTools.plot_convergence_result`](@ref), this routine is not a
+fit-visualization tool. Instead, it is meant to help interpret the geometric or
+rule-structural meaning of a selected 1D quadrature construction.
 
 # What this routine draws
+
+This routine is primarily intended for inspection, intuition-building, and debugging of
+1D quadrature rules. It answers questions such as:
+
+* what nodes and weights the backend is using,
+* what effective curve is being integrated in the B-spline case,
+* and how signed contributions are being assembled in non-B-spline rules.
 
 This function always draws:
 
 1. A dense curve of the true integrand ``f(x)`` over ``[a,b]``.
 2. Quadrature nodes/weights ``(xs, ws)`` obtained from
    [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
-3. A text annotation displaying the quadrature sum
-   ```math
-   \\hat I = \\sum_j w_j f(x_j)
-   ````
+3. A text annotation displaying the quadrature sum computed directly from the returned
+   nodes and weights.
 
-computed directly from the returned nodes/weights.
+   In the current implementation, this is displayed as a plain text label summarizing
+   the numerical quadrature sum, rather than as a separately typeset mathematical object.
 
 Rather than being fixed at a hard-coded corner, this annotation is placed using
-[`_smart_text_placement!`](@ref), which heuristically searches candidate locations
-and tries to avoid overlap with plotted curves and node samples.
+[`_smart_text_placement!`](@ref), an internal plotting helper that heuristically
+searches candidate locations and tries to avoid overlap with plotted curves and
+sampled quadrature information.
 
 Then it draws **one** of the following rule-specific visualizations:
 
 ## 1) B-spline rules (`is_bs == true`)
 
-For B-spline quadrature rules, this plotter reconstructs the **actual spline curve**
-implicitly assumed by the B-spline backend and fills its area:
+For B-spline quadrature rules, this plotter reconstructs the **effective spline curve**
+implicitly used by the B-spline backend and fills its area:
 
 * Sample data: `y_j = f(x_j)` at Greville nodes.
 * Reconstruct spline coefficients by solving the same collocation system used by the rule.
 * Plot the spline curve **piecewise per knot span** and fill the region under each span.
   (Each span gets its own color, and the fill color is matched to the span line color.)
 
-This visualization is meant to show *what curve the quadrature backend is effectively integrating*.
+This visualization is meant to show *which effective curve the B-spline backend is integrating*.
 The reconstructed spline curve is also passed to the smart annotation-placement helper
 so that the quadrature-sum label avoids covering the visually relevant spline shape.
 
 ## 2) Non-B-spline rules (`is_bs == false`)
 
 For Newton-Cotes and Gauss-family rules, this plotter uses a simple **mass-bar view**:
+
+This view is intentionally schematic: it is designed to visualize signed quadrature
+contributions clearly, not to reproduce the original node geometry exactly.
 
 * Each quadrature contribution is ``w_i \\, f(x_i)``.
 * A rectangle is drawn whose:
@@ -1043,7 +1150,10 @@ by the backend.
 
 # Arguments
 
-* `f`: scalar integrand. If ``f(x)`` is not finite at a node, that node is skipped in ``\\hat I``.
+* `f`:
+  Scalar integrand to be sampled by the selected 1D quadrature rule.
+  If ``f(x)`` is not finite at a node, that node is skipped when accumulating the
+  displayed quadrature sum ``\\hat I``.
 * `a`, `b`: interval endpoints (finite, with ``b > a``).
 * `N`: subdivision count forwarded to the backend.
 
@@ -1063,6 +1173,15 @@ by the backend.
   If `true`, save the figure as a PDF file. If `pdfcrop` is available, the saved PDF
   is cropped automatically.
 
+# Typical use cases
+
+This routine is especially useful when:
+
+1. checking how a 1D rule samples the integrand,
+2. inspecting the effective reconstructed curve for B-spline quadrature,
+3. illustrating signed weight contributions in Newton-Cotes or Gauss-family rules,
+4. preparing pedagogical figures for notes, talks, or debugging workflows
+
 # Annotation placement
 
 The quadrature-sum annotation is positioned automatically using
@@ -1081,10 +1200,33 @@ pedagogical_1D_\$(name)_\$(String(rule))_\$(String(boundary))_N\$(N).pdf
 under `figs_dir`.
 
 If the external command `pdfcrop` is available, the saved PDF is cropped automatically.
+Only a single pedagogical figure is generated by this routine.
 
 # Returns
 
 `nothing`.
+
+This routine is used for its side effects: it displays the generated figure and,
+if `save_file = true`, also writes it to disk.
+
+# Example
+
+The example below generates a pedagogical 1D coverage plot for a Gauss-family rule.
+
+```julia
+f(x) = sin(3x) * exp(-x^2)
+
+plot_quadrature_coverage_1d(
+    f,
+    0.0,
+    1.0,
+    6;
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    name = "gauss_demo",
+    save_file = false
+)
+```
 """
 function plot_quadrature_coverage_1d(
     f,

@@ -79,7 +79,6 @@ makedocs(
                 "Integrands"         => "lib/Integrands.md",
                 "F0000GammaEminus1"  => "lib/F0000GammaEminus1.md",
                 "F0000Preset"        => "lib/F0000Preset.md",
-                "Z_q"                => "lib/Z_q.md",
             ],
             "Utils"                  => Any[
                 "Utils"              => "lib/Utils.md",

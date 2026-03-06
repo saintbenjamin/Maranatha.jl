@@ -18,8 +18,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -30,9 +32,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -44,7 +49,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
@@ -70,8 +75,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -82,9 +89,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -96,7 +106,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
@@ -122,8 +132,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -134,9 +146,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -148,7 +163,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
@@ -174,8 +189,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -186,9 +203,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -200,7 +220,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
@@ -226,8 +246,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -238,9 +260,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -252,7 +277,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
@@ -278,8 +303,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -290,9 +317,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -304,7 +334,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
@@ -330,8 +360,10 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_file=true
-        run_result = Maranatha.Runner.run_Maranatha(
+        save_path = "."
+        write_summary = true
+        save_file = true
+        run_result = run_Maranatha(
             ff, 
             bounds...; 
             dim=dim, 
@@ -342,9 +374,12 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads
+            use_threads=use_threads,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
         )
-        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+        fit_result = least_chi_square_fit(
             run_result.a,
             run_result.b,
             run_result.h,
@@ -356,7 +391,7 @@
             ff_shift=ff_shift,
             nerr_terms=nerr_terms
         )
-        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
         maybe_plot(
             bounds..., 
