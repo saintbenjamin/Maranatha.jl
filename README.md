@@ -359,14 +359,13 @@ Ongoing development focuses on:
 If you use **Maranatha.jl** in research, please cite:
 
 ```bibtex
-@software{benjamin_jaedon_choi_2026_18890717,
+@software{Choi:2026maranatha,
   author       = {Benjamin J. Choi},
   title        = {\href{https://doi.org/10.5281/zenodo.18890716}{Maranatha.jl: Numerical Quadrature Continuum Extrapolation Framework in Julia}},
   month        = mar,
   year         = 2026,
   note         = {If you use this software, please cite it as below.},
   publisher    = {Zenodo},
-  version      = {v0.9.1},
   doi          = {10.5281/zenodo.18890716}
 }
 ```
