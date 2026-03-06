@@ -1,4 +1,6 @@
-using .Maranatha.F0000GammaEminus1
+include("experiments/integrand_F0000GammaEminus1.jl")
+
+register_F0000_integrand!()
 
 ff_tilde(x)  = gtilde_F0000(x; p=4)
 ff(x)  = g_F0000_raw(x)
@@ -186,7 +188,7 @@ use_threads = false
         rule = :bspline_interp_p3
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 35
+        ns .+= 20
         err_method = :fastdifferentiation # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 1
         ff_shift = 0
@@ -265,7 +267,7 @@ use_threads = false
         write_summary = true
         save_file = true
         run_result = run_Maranatha(
-            ff, 
+            ff_here, 
             bounds...; 
             dim=dim, 
             nsamples=ns,

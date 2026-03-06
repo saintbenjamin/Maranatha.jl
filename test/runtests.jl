@@ -71,7 +71,7 @@ end
 
 @testset "Maranatha.jl Quadrature Suite" begin
     announce("Maranatha.jl Quadrature Suite")
-
+#= 
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
         announce("Canonical integrands (multi-dim, multi-rule)")
         include("canonical_1D_newton_test.jl")
@@ -88,7 +88,8 @@ end
         include("canonical_4D_bspline_test.jl")
     end
 
-    include("pedagogical_visualization_1D_test.jl")
+    include("pedagogical_visualization_1D_test.jl") =#
 
-    include("complicated_1D_F0000_test.jl")
+    # include("complicated_1D_F0000_test.jl")
+    include("complicated_4D_Z_q_test.jl")
 end

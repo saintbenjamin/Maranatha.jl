@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Integrands/F0000.jl
+# test/experiments/integrand_F0000GammaEminus1.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,12 +8,8 @@
 # License: MIT License
 # ============================================================================
 
-module F0000Preset
-
-using ..Integrands
-using ..F0000GammaEminus1
-
-export __register_F0000_integrand__
+using Maranatha.Integrands
+include("F0000GammaEminus1.jl")
 
 # ============================================================
 # Callable wrapper
@@ -68,7 +64,7 @@ Evaluate the F0000 transformed integrand at `t`.
 """
 function (f::F0000Integrand)(t)
     eps_t = convert(typeof(t), f.eps)
-    return F0000GammaEminus1.gtilde_F0000(t; p=f.p, eps=eps_t)
+    return gtilde_F0000(t; p=f.p, eps=eps_t)
 end
 
 # ============================================================
@@ -112,7 +108,7 @@ end
 # ============================================================
 
 """
-    __register_F0000_integrand__()
+    register_F0000_integrand!()
 
 Register the `:F0000` integrand factory into `Maranatha.Integrands`.
 
@@ -129,9 +125,7 @@ integrand registry, enabling the user-facing construction:
 - This is intended to be called once during package/module initialization
   (e.g., from `src/Maranatha.jl` after including this file).
 """
-function __register_F0000_integrand__()
+function register_F0000_integrand!()
     Integrands.register_integrand!(:F0000, factory_F0000)
     return nothing
 end
-
-end # module F0000Preset

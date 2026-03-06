@@ -75,11 +75,7 @@ makedocs(
             ],
             "LeastChiSquareFit"      => "lib/LeastChiSquareFit.md",
             "PlotTools"              => "lib/PlotTools.md",
-            "Integrands"             => Any[
-                "Integrands"         => "lib/Integrands.md",
-                "F0000GammaEminus1"  => "lib/F0000GammaEminus1.md",
-                "F0000Preset"        => "lib/F0000Preset.md",
-            ],
+            "Integrands"             => "lib/Integrands.md",
             "Utils"                  => Any[
                 "Utils"              => "lib/Utils.md",
                 "AvgErrFormatter"    => "lib/AvgErrFormatter.md",

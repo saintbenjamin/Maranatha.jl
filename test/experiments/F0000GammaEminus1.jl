@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Integrands/F0000GammaEminus1.jl
+# test/experiments/F0000GammaEminus1.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,15 +8,11 @@
 # License: MIT License
 # ============================================================================
 
-module F0000GammaEminus1
-
 # =========================
 # F0000 integral via Maranatha (1D quadrature on y ∈ [0, 1])
 # =========================
 
 using SpecialFunctions
-
-export gtilde_F0000, g_F0000_raw
 
 # ============================================================
 # TaylorSeries compatibility shims (local to this module)
@@ -24,9 +20,9 @@ export gtilde_F0000, g_F0000_raw
 # - Make branch comparisons Taylor-safe by using constant terms
 # ============================================================
 
-using ..TaylorSeries
-using ..ForwardDiff
-using ..FastDifferentiation
+using TaylorSeries
+using ForwardDiff
+using FastDifferentiation
 
 import SpecialFunctions: besseli
 
@@ -402,5 +398,3 @@ function gtilde_F0000(
     return T(p) * t^(p-1) * g_F0000_raw(y)
     # return g_F0000_raw(t)
 end
-
-end  # module F0000GammaEminus1
