@@ -19,7 +19,7 @@
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Estimate a ``1``-dimensional truncation-error *model* for a composite Newton-Cotes rule using
 the exact midpoint residual expansion derived from rational weight assembly.
@@ -46,6 +46,9 @@ The function collects the first `nerr_terms` nonzero residual orders
 E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 \\texttt{coeff}_{k_i}\\, h^{k_i+1}\\, f^{(k_i)}(\\bar{x}).
 ```
+
+The routine returns the full decomposition of the asymptotic error model,
+including individual residual contributions and their summed value.
 
 # Arguments
 
@@ -74,9 +77,15 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 
 # Returns
 
-* `Float64`:
-  The summed truncation-error model value (may be signed, following the model coefficients
-  and derivative signs).
+* `NamedTuple` with fields:
+
+  * `ks` - residual orders used in the model
+  * `coeffs` - midpoint residual coefficients
+  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
+  * `terms` - individual asymptotic error contributions
+  * `total` - summed truncation-error model value
+  * `center` - midpoint ``\\bar{x}``
+  * `h` - step size
 
 # Errors
 
@@ -104,27 +113,34 @@ function error_estimate_1d(
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
-
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
     aa = float(a)
     bb = float(b)
     h  = (bb - aa) / N
-
     x̄ = (aa + bb) / 2
 
-    # Collect residual terms (LO or LO+NLO+...)
     ks, coeffs, _center = _leading_residual_terms_any(
-        rule, boundary, N; 
-        nterms = nerr_terms, 
+        rule, boundary, N;
+        nterms = nerr_terms,
         kmax   = kmax
     )
 
-    err = 0.0
+    n = length(ks)
+
+    derivatives = Vector{Float64}(undef, n)
+    terms       = Vector{Float64}(undef, n)
 
     @inbounds for i in eachindex(ks)
         k = ks[i]
-        k == 0 && continue  # degenerate safety
+
+        if k == 0
+            derivatives[i] = 0.0
+            terms[i] = 0.0
+            continue
+        end
+
         coeff = coeffs[i]
 
         dx = nth_derivative(
@@ -135,10 +151,19 @@ function error_estimate_1d(
             err_method=err_method
         )
 
-        err += coeff * h^(k+1) * dx
+        derivatives[i] = dx
+        terms[i] = coeff * h^(k + 1) * dx
     end
 
-    return err
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = x̄,
+        h           = h
+    )
 end
 
 """
@@ -152,7 +177,7 @@ end
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Threaded variant of [`error_estimate_1d`](@ref) for 1D midpoint-residual truncation-error modeling.
 
@@ -211,21 +236,25 @@ function error_estimate_1d_threads(
     x̄ = (aa + bb) / 2
 
     ks, coeffs, _center = _leading_residual_terms_any(
-        rule, boundary, N; 
-        nterms = nerr_terms, 
+        rule, boundary, N;
+        nterms = nerr_terms,
         kmax   = kmax
     )
 
-    nt = Threads.maxthreadid()
+    n = length(ks)
 
-    # Each thread accumulates into its own slot; no atomics.
-    parts = zeros(Float64, nt)
+    derivatives = Vector{Float64}(undef, n)
+    terms       = Vector{Float64}(undef, n)
 
-    @inbounds Threads.@threads for i in eachindex(ks)
-        tid = Threads.threadid()
-
+    Threads.@threads for i in eachindex(ks)
         k = ks[i]
-        k == 0 && return
+
+        if k == 0
+            derivatives[i] = 0.0
+            terms[i] = 0.0
+            continue
+        end
+
         coeff = coeffs[i]
 
         dx = nth_derivative(
@@ -235,8 +264,17 @@ function error_estimate_1d_threads(
             err_method=err_method
         )
 
-        parts[tid] += coeff * h^(k + 1) * dx
+        derivatives[i] = dx
+        terms[i] = coeff * h^(k + 1) * dx
     end
 
-    return sum(parts)
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = x̄,
+        h           = h
+    )
 end

@@ -20,7 +20,7 @@
         dim::Int,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Estimate an axis-separable tensor-product truncation-error *model* for an arbitrary-dimensional
 composite Newton-Cotes rule on the hypercube ``[a,b]^\\texttt{dim}`` using the exact midpoint residual expansion.
@@ -53,6 +53,9 @@ I_{\\mu}^{(k)} =
 Numerically, each cross-axis integral is computed by enumerating the ``(\\texttt{dim}-1)``-fold
 tensor-product grid over the ``1``-dimensional nodes `xs`, accumulating the product weights, and evaluating
 [`nth_derivative`](@ref) on the resulting ``1``-dimensional slice (with the selected coordinate left as the differentiation variable).
+
+The routine returns the full decomposition of the asymptotic error model,
+including individual residual contributions and their summed value.
 
 Special case:
 
@@ -92,8 +95,15 @@ Special case:
 
 # Returns
 
-* `Float64`:
-  The summed axis-separable truncation-error model value.
+* `NamedTuple` with fields:
+
+  * `ks` - residual orders used in the model
+  * `coeffs` - midpoint residual coefficients
+  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
+  * `terms` - individual asymptotic error contributions
+  * `total` - summed truncation-error model value
+  * `center` - midpoint ``\\bar{x}``
+  * `h` - step size
 
 # Errors
 
@@ -120,12 +130,11 @@ function error_estimate_nd(
     rule::Symbol,
     boundary::Symbol;
     dim::Int,
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme,
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
-
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
 
     aa = float(a)
@@ -136,28 +145,40 @@ function error_estimate_nd(
 
     xs, ws = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
-    # helper: call f with axis value replaced by x (x may be Dual)
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
-    # Collect residual terms (LO or LO+NLO+...)
     ks, coeffs, _center = _leading_residual_terms_any(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
 
-    isempty(ks) && return 0.0
+    isempty(ks) && return (;
+        ks = Int[],
+        coeffs = Float64[],
+        derivatives = Float64[],
+        terms = Float64[],
+        total = 0.0,
+        center = ntuple(_ -> x̄, dim),
+        h = h
+    )
+
+    derivatives = Vector{Float64}(undef, length(ks))
+    terms       = Vector{Float64}(undef, length(ks))
 
     fixed = Vector{Float64}(undef, dim)
     idx   = ones(Int, dim - 1)
 
-    err_total = 0.0
-
     @inbounds for it in eachindex(ks)
         k = ks[it]
-        k == 0 && continue
+
+        if k == 0
+            derivatives[it] = 0.0
+            terms[it] = 0.0
+            continue
+        end
 
         coeff = coeffs[it]
         total_axes = 0.0
@@ -175,9 +196,11 @@ function error_estimate_nd(
                 )
             else
                 fill!(idx, 1)
+
                 while true
                     wprod = 1.0
                     t = 1
+
                     for d in 1:dim
                         if d == axis
                             continue
@@ -196,7 +219,6 @@ function error_estimate_nd(
                         err_method=err_method
                     )
 
-                    # odometer increment
                     q = dim - 1
                     while q >= 1
                         idx[q] += 1
@@ -214,10 +236,19 @@ function error_estimate_nd(
             total_axes += Iaxis
         end
 
-        err_total += coeff * h^(k+1) * total_axes
+        derivatives[it] = total_axes
+        terms[it] = coeff * h^(k + 1) * total_axes
     end
 
-    return err_total
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = ntuple(_ -> x̄, dim),
+        h           = h
+    )
 end
 
 """
@@ -232,7 +263,7 @@ end
         dim::Int,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Threaded variant of [`error_estimate_nd`](@ref) for nD midpoint-residual truncation-error modeling.
 
@@ -280,7 +311,7 @@ function error_estimate_nd_threads(
     rule::Symbol,
     boundary::Symbol;
     dim::Int,
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme,
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -305,24 +336,37 @@ function error_estimate_nd_threads(
         kmax   = kmax
     )
 
-    isempty(ks) && return 0.0
+    isempty(ks) && return (;
+        ks = Int[],
+        coeffs = Float64[],
+        derivatives = Float64[],
+        terms = Float64[],
+        total = 0.0,
+        center = ntuple(_ -> x̄, dim),
+        h = h
+    )
 
     nt = Threads.nthreads()
-    err_total = 0.0
+
+    derivatives = Vector{Float64}(undef, length(ks))
+    terms       = Vector{Float64}(undef, length(ks))
 
     @inbounds for it in eachindex(ks)
         k = ks[it]
-        k == 0 && continue
+
+        if k == 0
+            derivatives[it] = 0.0
+            terms[it] = 0.0
+            continue
+        end
 
         coeff = coeffs[it]
 
-        # per-thread accumulation (no atomics)
         axis_parts = zeros(Float64, nt)
 
         Threads.@threads for axis in 1:dim
             tid = Threads.threadid()
 
-            # thread-local buffers (MUST NOT be shared)
             fixed = Vector{Float64}(undef, dim)
             idx   = ones(Int, dim - 1)
 
@@ -338,6 +382,7 @@ function error_estimate_nd_threads(
                 )
             else
                 fill!(idx, 1)
+
                 while true
                     wprod = 1.0
                     t = 1
@@ -360,7 +405,6 @@ function error_estimate_nd_threads(
                         err_method=err_method
                     )
 
-                    # odometer increment over the (dim-1) free axes
                     q = dim - 1
                     while q >= 1
                         idx[q] += 1
@@ -378,8 +422,19 @@ function error_estimate_nd_threads(
             axis_parts[tid] += Iaxis
         end
 
-        err_total += coeff * h^(k + 1) * sum(axis_parts)
+        total_axes = sum(axis_parts)
+
+        derivatives[it] = total_axes
+        terms[it] = coeff * h^(k + 1) * total_axes
     end
 
-    return err_total
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = ntuple(_ -> x̄, dim),
+        h           = h
+    )
 end

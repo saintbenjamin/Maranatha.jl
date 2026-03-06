@@ -260,6 +260,11 @@ using .PlotTools
 const run_Maranatha = Runner.run_Maranatha
 export run_Maranatha
 
+# least chi-square fitting helper
+const least_chi_square_fit = LeastChiSquareFit.least_chi_square_fit
+export least_chi_square_fit
+
+
 # Convergence plotting helper
 const plot_convergence_result = PlotTools.plot_convergence_result
 export plot_convergence_result

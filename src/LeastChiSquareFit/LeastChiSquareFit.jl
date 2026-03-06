@@ -29,11 +29,12 @@ export least_chi_square_fit, print_fit_result
         b::Real,
         hs,
         estimates,
-        errors,
+        error_infos,
         rule::Symbol,
         boundary::Symbol;
         nterms::Int = 2,
-        ff_shift::Int = 0
+        ff_shift::Int = 0,
+        nerr_terms::Int=1
     )
 
 Perform a ``h \\to 0`` (zero step-size limit) extrapolation using least-``\\chi^2`` fitting
@@ -122,8 +123,11 @@ The ``1\\,\\sigma`` parameter errors are ``\\sqrt{\\mathrm{diag}(V)}``.
   Vector-like collection of step sizes ``h``.
 * `estimates`:
   Vector-like collection of quadrature estimates ``I(h)``.
-* `errors`:
-  Vector-like collection of error estimates for ``I(h)`` (absolute values are used internally).
+* `error_infos`:
+  Collection of error-estimator outputs (NamedTuples returned by
+  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)).
+  The leading residual contributions are summed internally to build
+  the effective uncertainty vector used in the weighted fit.
 * `rule`:
   Quadrature rule symbol used by the midpoint residual model.
 * `boundary`:
@@ -137,6 +141,11 @@ The ``1\\,\\sigma`` parameter errors are ``\\sqrt{\\mathrm{diag}(V)}``.
 * `ff_shift::Int = 0`:
   Forward shift applied to the candidate residual-power list before selecting `nterms-1` powers.
   Must satisfy `ff_shift```\\ge 0``. If the shift makes the requested slice impossible, an error is thrown.
+* `nerr_terms::Int = 1`:
+  Number of midpoint residual terms used when constructing the
+  effective error scale from the supplied `error_infos`.
+  The first `nerr_terms` residual contributions are summed to form
+  the uncertainty vector used in the weighted fit.
 
 # Returns
 
@@ -172,13 +181,14 @@ A `NamedTuple` with the following fields:
 function least_chi_square_fit(
     a::Real,
     b::Real,
-    hs, 
-    estimates, 
-    errors, 
+    hs,
+    estimates,
+    error_infos,
     rule::Symbol,
-    boundary::Symbol; 
+    boundary::Symbol;
     nterms::Int=2,
-    ff_shift::Int=0
+    ff_shift::Int=0,
+    nerr_terms::Int=1
 )
     # ------------------------------------------------------------
     # Determine leading convergence power automatically
@@ -245,7 +255,18 @@ function least_chi_square_fit(
 
     h = collect(float.(hs))
     y = collect(float.(estimates))
-    σ = abs.(float.(errors))
+
+    σ = Vector{Float64}(undef, length(error_infos))
+
+    for i in eachindex(error_infos)
+        terms = error_infos[i].terms
+        m = min(nerr_terms, length(terms))
+        σ[i] = abs(sum(@view terms[1:m]))
+    end
+
+    any(σ .<= 0) && JobLoggerTools.error_benji(
+        "Non-positive σ encountered in least_chi_square_fit"
+    )
 
     N = length(h)
 
@@ -268,48 +289,48 @@ function least_chi_square_fit(
     yw = W * y
 
     # ==================================================================
-    # # --- WLS solve ---
-    # params = Xw \ yw
+    # --- WLS solve ---
+    params = Xw \ yw
 
-    # # # --- covariance (Method 1) ---
-    # # # (Xᵀ W² X)^(-1)
-    # # # A = transpose(X) * (W^2) * X
-    # # # Cov = inv(A)
-    # # Cov = inv(transpose(X) * (W^2) * X)
-
-    # # param_errors = sqrt.(diag(Cov))
-
-    # # --- covariance (Method 2) ---
-    # # Build A = Xᵀ W² X
-    # A = transpose(X) * (W^2) * X
-
-    # Hess = 2.0 .* A
-    # F = cholesky(Symmetric(Hess))          # Hess must be SPD
-
-    # # Cov = 4 * inv(Hess) * A * inv(Hess)  (computed via solves)
-    # M   = F \ A                            # M = inv(Hess) * A
-    # Cov = 4.0 .* ((F \ transpose(M))')     # Cov = 4 * M * inv(Hess)
+    # # --- covariance (Method 1) ---
+    # # (Xᵀ W² X)^(-1)
+    # # A = transpose(X) * (W^2) * X
+    # # Cov = inv(A)
+    # Cov = inv(transpose(X) * (W^2) * X)
 
     # param_errors = sqrt.(diag(Cov))
-    # ==================================================================
-    # --- WLS solve (QR-based, numerically stable) ---
-    # Solve: minimize || W*(X*params - y) ||_2
-    # where W = Diagonal(1 ./ σ)
 
-    # Weighted design and response
-    Xw = W * X
-    yw = W * y
+    # --- covariance (Method 2) ---
+    # Build A = Xᵀ W² X
+    A = transpose(X) * (W^2) * X
 
-    # QR least squares (avoid normal equations)
-    Fqr = qr(Xw)
-    params = Fqr \ yw
+    Hess = 2.0 .* A
+    F = cholesky(Symmetric(Hess))          # Hess must be SPD
 
-    # Covariance of params: Cov ≈ inv(Xw'Xw)
-    # For QR: Xw = Q*R  =>  Xw'Xw = R'R  =>  inv(Xw'Xw) = inv(R)*inv(R') = inv(R'R)
-    R = Fqr.R
-    Cov = inv(transpose(R) * R)
+    # Cov = 4 * inv(Hess) * A * inv(Hess)  (computed via solves)
+    M   = F \ A                            # M = inv(Hess) * A
+    Cov = 4.0 .* ((F \ transpose(M))')     # Cov = 4 * M * inv(Hess)
 
     param_errors = sqrt.(diag(Cov))
+    # ==================================================================
+    # # --- WLS solve (QR-based, numerically stable) ---
+    # # Solve: minimize || W*(X*params - y) ||_2
+    # # where W = Diagonal(1 ./ σ)
+
+    # # Weighted design and response
+    # Xw = W * X
+    # yw = W * y
+
+    # # QR least squares (avoid normal equations)
+    # Fqr = qr(Xw)
+    # params = Fqr \ yw
+
+    # # Covariance of params: Cov ≈ inv(Xw'Xw)
+    # # For QR: Xw = Q*R  =>  Xw'Xw = R'R  =>  inv(Xw'Xw) = inv(R)*inv(R') = inv(R'R)
+    # R = Fqr.R
+    # Cov = inv(transpose(R) * R)
+
+    # param_errors = sqrt.(diag(Cov))
     # ==================================================================
 
     # diagnostics
@@ -321,15 +342,15 @@ function least_chi_square_fit(
     redchisq = chisq / dof
 
     return (;
-        estimate = params[1],
+        estimate       = params[1],
         error_estimate = param_errors[1],
-        params   = params,
-        param_errors = param_errors,
-        cov      = Cov,
-        powers   = vcat(0, powers), 
-        chisq    = chisq,
-        redchisq = redchisq,
-        dof      = dof
+        params         = params,
+        param_errors   = param_errors,
+        cov            = Cov,
+        powers         = vcat(0, powers), 
+        chisq          = chisq,
+        redchisq       = redchisq,
+        dof            = dof
     )
 end
 

@@ -22,9 +22,30 @@ using .Maranatha.PlotTools
 # ----------------------------------------------------------------------------
 const DO_PLOT = get(ENV, "MARANATHA_PLOT", "0") == "1"
 
-function maybe_plot(a, b, tag::AbstractString, h, avg, err, fit; rule::Symbol, boundary::Symbol)
+function maybe_plot(
+    a, 
+    b, 
+    tag::AbstractString, 
+    h, 
+    avg, 
+    err, 
+    fit; 
+    rule::Symbol, 
+    boundary::Symbol, 
+    save_file::Bool
+)
     if DO_PLOT
-        PlotTools.plot_convergence_result(a, b, tag, h, avg, err, fit; rule=rule, boundary=boundary)
+        PlotTools.plot_convergence_result(
+            a, 
+            b, 
+            tag, 
+            h, 
+            avg, 
+            err, 
+            fit; 
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file)
     end
     return nothing
 end
@@ -36,7 +57,7 @@ function assert_result_sane(res)
     @test length(res.h) == length(res.avg) == length(res.err)
     @test all(isfinite, res.h)
     @test all(isfinite, res.avg)
-    @test all(isfinite, res.err)
+    @test all(e -> isfinite(e.total), res.err)
     @test all(>(0.0), res.h)  # step sizes should be positive
 
     # NOTE:

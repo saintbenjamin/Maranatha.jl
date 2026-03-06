@@ -19,7 +19,7 @@
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Estimate a ``3``-dimensional tensor-product truncation-error *model* for a composite Newton-Cotes rule
 on the cube ``[a,b]^3`` using the exact midpoint residual expansion.
@@ -54,6 +54,9 @@ I_z^{(k)} = \\int\\limits_{a}^{b}\\!\\int\\limits_{a}^{b} dx\\,dy\\;
 Each cross-axis integral is evaluated numerically using the same ``1``-dimensional composite nodes/weights
 along the remaining axes.
 
+The routine returns the full decomposition of the asymptotic error model,
+including individual residual contributions and their summed value.
+
 # Arguments
 
 * `f`:
@@ -79,8 +82,15 @@ along the remaining axes.
 
 # Returns
 
-* `Float64`:
-  The summed axis-separable truncation-error model value.
+* `NamedTuple` with fields:
+
+  * `ks` - residual orders used in the model
+  * `coeffs` - midpoint residual coefficients
+  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
+  * `terms` - individual asymptotic error contributions
+  * `total` - summed truncation-error model value
+  * `center` - midpoint ``\\bar{x}``
+  * `h` - step size
 
 # Errors
 
@@ -99,13 +109,13 @@ along the remaining axes.
 * Coefficients are derived in exact rational arithmetic and converted to `Float64` only at the final stage.
 """
 function error_estimate_3d(
-    f, 
-    a::Real, 
-    b::Real, 
-    N::Int, 
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
     rule::Symbol,
     boundary::Symbol;
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -125,21 +135,28 @@ function error_estimate_3d(
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    # Collect residual terms (LO or LO+NLO+...)
     ks, coeffs, _center = _leading_residual_terms_any(
-        rule, boundary, N; 
-        nterms = nerr_terms, 
+        rule, boundary, N;
+        nterms = nerr_terms,
         kmax   = kmax
     )
 
-    err = 0.0
+    n = length(ks)
+
+    derivatives = Vector{Float64}(undef, n)
+    terms       = Vector{Float64}(undef, n)
 
     @inbounds for it in eachindex(ks)
         kk = ks[it]
-        kk == 0 && continue
+
+        if kk == 0
+            derivatives[it] = 0.0
+            terms[it] = 0.0
+            continue
+        end
+
         coeff = coeffs[it]
 
-        # X-axis contribution: d^kk/dx^kk then integrate over y,z
         I1 = 0.0
         for j in eachindex(ys)
             y = ys[j]
@@ -147,6 +164,7 @@ function error_estimate_3d(
             for k2 in eachindex(zs)
                 z = zs[k2]
                 gx(x) = f(x, y, z)
+
                 I1 += wyj * wz[k2] * nth_derivative(
                     gx, x̄, kk;
                     h=h, rule=rule, N=N, dim=3,
@@ -156,7 +174,6 @@ function error_estimate_3d(
             end
         end
 
-        # Y-axis contribution: d^kk/dy^kk then integrate over x,z
         I2 = 0.0
         for i in eachindex(xs)
             x = xs[i]
@@ -164,6 +181,7 @@ function error_estimate_3d(
             for k2 in eachindex(zs)
                 z = zs[k2]
                 gy(y) = f(x, y, z)
+
                 I2 += wxi * wz[k2] * nth_derivative(
                     gy, ȳ, kk;
                     h=h, rule=rule, N=N, dim=3,
@@ -173,7 +191,6 @@ function error_estimate_3d(
             end
         end
 
-        # Z-axis contribution: d^kk/dz^kk then integrate over x,y
         I3 = 0.0
         for i in eachindex(xs)
             x = xs[i]
@@ -181,6 +198,7 @@ function error_estimate_3d(
             for j in eachindex(ys)
                 y = ys[j]
                 gz(z) = f(x, y, z)
+
                 I3 += wxi * wy[j] * nth_derivative(
                     gz, z̄, kk;
                     h=h, rule=rule, N=N, dim=3,
@@ -190,10 +208,19 @@ function error_estimate_3d(
             end
         end
 
-        err += coeff * h^(kk+1) * (I1 + I2 + I3)
+        derivatives[it] = I1 + I2 + I3
+        terms[it] = coeff * h^(kk + 1) * derivatives[it]
     end
 
-    return err
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = (x̄, ȳ, z̄),
+        h           = h
+    )
 end
 
 """
@@ -207,7 +234,7 @@ end
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Threaded variant of [`error_estimate_3d`](@ref) for 3D midpoint-residual truncation-error modeling.
 
@@ -253,10 +280,11 @@ function error_estimate_3d_threads(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
+
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
@@ -273,25 +301,30 @@ function error_estimate_3d_threads(
     zs, wz = xs, wx
 
     ks, coeffs, _center = _leading_residual_terms_any(
-        rule, boundary, N; 
-        nterms = nerr_terms, 
+        rule, boundary, N;
+        nterms = nerr_terms,
         kmax   = kmax
     )
 
-    L  = length(xs)
-    nt = Threads.maxthreadid()
+    n = length(ks)
 
-    err_total = 0.0
+    derivatives = Vector{Float64}(undef, n)
+    terms       = Vector{Float64}(undef, n)
+
+    L = length(xs)
 
     @inbounds for it in eachindex(ks)
         kk = ks[it]
-        kk == 0 && continue
+
+        if kk == 0
+            derivatives[it] = 0.0
+            terms[it] = 0.0
+            continue
+        end
+
         coeff = coeffs[it]
 
-        # -----------------------------
-        # X-axis (sum over y,z)  idx -> (j,k2)
-        # -----------------------------
-        I1_parts = zeros(Float64, nt)
+        I1_parts = zeros(Float64, Threads.maxthreadid())
 
         Threads.@threads for idx in 1:(L^2)
             tid = Threads.threadid()
@@ -319,10 +352,7 @@ function error_estimate_3d_threads(
         end
         I1 = sum(I1_parts)
 
-        # -----------------------------
-        # Y-axis (sum over x,z)  idx -> (i,k2)
-        # -----------------------------
-        I2_parts = zeros(Float64, nt)
+        I2_parts = zeros(Float64, Threads.maxthreadid())
 
         Threads.@threads for idx in 1:(L^2)
             tid = Threads.threadid()
@@ -350,10 +380,7 @@ function error_estimate_3d_threads(
         end
         I2 = sum(I2_parts)
 
-        # -----------------------------
-        # Z-axis (sum over x,y)  idx -> (i,j)
-        # -----------------------------
-        I3_parts = zeros(Float64, nt)
+        I3_parts = zeros(Float64, Threads.maxthreadid())
 
         Threads.@threads for idx in 1:(L^2)
             tid = Threads.threadid()
@@ -381,8 +408,17 @@ function error_estimate_3d_threads(
         end
         I3 = sum(I3_parts)
 
-        err_total += coeff * h^(kk + 1) * (I1 + I2 + I3)
+        derivatives[it] = I1 + I2 + I3
+        terms[it] = coeff * h^(kk + 1) * derivatives[it]
     end
 
-    return err_total
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = (x̄, ȳ, z̄),
+        h           = h
+    )
 end

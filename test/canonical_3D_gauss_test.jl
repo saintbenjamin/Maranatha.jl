@@ -17,12 +17,44 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "3D"
-        est, fit, res = Maranatha.Runner.run_Maranatha(
-            ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+        save_file=true
+        run_result = Maranatha.Runner.run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_threads=use_threads
         )
-        assert_result_sane(res); @test isfinite(est)
-        maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
+        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        maybe_plot(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
     end
 
     @testset "Gauss 3-point LU_EXEX" begin
@@ -37,12 +69,44 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "3D"
-        est, fit, res = Maranatha.Runner.run_Maranatha(
-            ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+        save_file=true
+        run_result = Maranatha.Runner.run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_threads=use_threads
         )
-        assert_result_sane(res); @test isfinite(est)
-        maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
+        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        maybe_plot(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
     end
     
     @testset "Gauss 4-point LU_EXEX" begin
@@ -57,11 +121,43 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "3D"
-        est, fit, res = Maranatha.Runner.run_Maranatha(
-            ff, bounds...; dim=dim, nsamples=ns,
-            rule=rule, boundary=boundary, err_method=err_method, fit_terms=fit_terms, nerr_terms=nerr_terms, ff_shift=ff_shift, use_threads=use_threads
+        save_file=true
+        run_result = Maranatha.Runner.run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_threads=use_threads
         )
-        assert_result_sane(res); @test isfinite(est)
-        maybe_plot(bounds..., result_string, res.h, res.avg, res.err, fit; rule=rule, boundary=boundary)
+        fit_result = Maranatha.LeastChiSquareFit.least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        Maranatha.LeastChiSquareFit.print_fit_result(fit_result)
+        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        maybe_plot(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
     end
 end

@@ -431,7 +431,7 @@ end
         name::String,
         hs::Vector{Float64},
         estimates::Vector{Float64},
-        errors::Vector{Float64},
+        errors::Vector,
         fit_result;
         rule::Symbol = :gauss_p3,
         boundary::Symbol = :LU_ININ,
@@ -621,7 +621,7 @@ function plot_convergence_result(
     name::String,
     hs::Vector{Float64},
     estimates::Vector{Float64},
-    errors::Vector{Float64},
+    errors::Vector,
     fit_result;
     rule::Symbol = :gauss_p3,
     boundary::Symbol = :LU_ININ,
@@ -659,7 +659,9 @@ function plot_convergence_result(
     # x-axis = h^lead_pow
     hx = hs .^ lead_pow
 
-    errors_pos = abs.(errors)
+    errors_val = [e.total for e in errors]
+
+    errors_pos = abs.(errors_val)
 
     mask = (hx .> 0) .& isfinite.(hx) .& isfinite.(estimates) .& isfinite.(errors_pos)
 

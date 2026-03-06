@@ -33,8 +33,8 @@ export run_Maranatha
         use_threads::Bool = false        
     )
 
-High-level execution pipeline for ``n``-dimensional quadrature,
-error modeling, and convergence extrapolation.
+High-level execution pipeline for n-dimensional quadrature
+and residual-based error modeling.
 
 # Function description
 `run_Maranatha` is the orchestration entry point that combines the core
@@ -59,9 +59,12 @@ For each resolution `N` in `nsamples`, the runner performs:
 
 4. Accumulate `(h, estimate, error)` triplets.
 
-After processing all resolutions, a weighted convergence fit is performed using a
-**residual-informed exponent basis** derived from the rule-family residual model
-(dispatched internally based on `rule`) for `(rule, boundary)` and a representative subdivision count.
+After processing all resolutions, the collected convergence data
+`(h, estimate, error)` are returned to the caller.
+
+These data are typically passed to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+to perform the weighted convergence extrapolation externally.
 
 The fitted convergence model is reconstructed from the stored exponent vector:
 ```math
@@ -137,30 +140,42 @@ The final extrapolated estimate is returned together with the full fit object an
 
 # Returns
 
-A 3-tuple:
+# Returns
 
-* `final_estimate::Float64`:
-  Convenience alias for `fit_result.estimate`.
+A `NamedTuple` containing the raw convergence study data:
 
-* `fit_result::NamedTuple`:
-  Fit object returned by [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-  Key fields:
+* `a`, `b`
+  Integration bounds.
 
-  * `estimate::Float64`:
-    Extrapolated integral estimate ``I_0`` (the ``h \\to 0`` limit), equal to `params[1]`.
-  * `error_estimate::Float64`:
-    `1\\sigma` uncertainty of `estimate`, taken from `param_errors[1]`.
-  * `params::Vector{Float64}`:
-    Fitted parameter vector ``[I_0, C_1, C_2, \\ldots]``.
-  * `param_errors::Vector{Float64}`:
-    `1\\sigma` uncertainties for `params` (square roots of `diag(cov)`).
-  * `cov::Matrix{Float64}`:
-    Parameter covariance matrix, suitable for uncertainty propagation
-    (e.g. ``\\sigma_{\\mathrm{fit}}(h)^2 = \\varphi(h)^{\\top} \\, V \\, \\varphi(h)``).
-  * `powers::Vector{Int}`:
-    Exponent vector used in the fit basis (with `powers[1] = 0`), reflecting any `ff_shift` applied.
-  * `chisq::Float64`, `redchisq::Float64`, `dof::Int`:
-    Standard ``\\chi^2`` diagnostics.
+* `h`
+  Step sizes corresponding to the tested resolutions.
+
+* `avg`
+  Quadrature estimates ``I(h)``.
+
+* `err`
+  Error-estimator outputs (NamedTuples returned by
+  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
+  or its threaded variant).
+
+* `rule`, `boundary`
+  Normalized rule configuration used during execution.
+
+* `dim`
+  Dimensionality of the tensor-product quadrature.
+
+* `err_method`
+  Derivative backend used for error estimation.
+
+* `nerr_terms`
+  Number of midpoint residual terms included in the error model.
+
+* `fit_terms`, `ff_shift`
+  Suggested fitting parameters intended for
+  [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+
+* `use_threads`
+  Indicates whether threaded error estimation was used.
 
 * `data::NamedTuple`:
   Raw convergence data:
@@ -219,9 +234,9 @@ function run_Maranatha(
     rule = normalize_bspline_rule(rule)
     boundary = normalize_boundary(boundary)
 
-    estimates = Float64[]     # List of integral results
-    errors = Float64[]        # List of estimated errors
-    hs = Float64[]            # List of step sizes
+    estimates = Float64[]      # List of quadrature results
+    error_infos = NamedTuple[] # List of estimated error_infos
+    hs = Float64[]             # List of step sizes
 
     for N in nsamples
         # JobLoggerTools.log_stage_benji("N = $N in $nsamples", jobid)
@@ -231,29 +246,64 @@ function run_Maranatha(
         # # Step 1: Evaluate integral using selected rule
         # JobLoggerTools.log_stage_sub1_benji("quadrature() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
-        I = Quadrature.QuadratureDispatch.quadrature(integrand, a, b, N, dim, rule, boundary)
+        I = Quadrature.QuadratureDispatch.quadrature(
+                integrand, 
+                a, 
+                b, 
+                N, 
+                dim, 
+                rule, 
+                boundary
+            )
         # end
         # # Step 2: Estimate integration error
         # JobLoggerTools.log_stage_sub1_benji("error_estimate() ::", jobid)
         # JobLoggerTools.@logtime_benji jobid begin
         err = if use_threads
-            ErrorEstimate.ErrorDispatch.error_estimate_threads(integrand, a, b, N, dim, rule, boundary; err_method=err_method, nerr_terms=nerr_terms)
+            ErrorEstimate.ErrorDispatch.error_estimate_threads(
+                integrand, 
+                a, 
+                b, 
+                N, 
+                dim, 
+                rule, 
+                boundary; 
+                err_method=err_method, 
+                nerr_terms=nerr_terms
+            )
         else
-            ErrorEstimate.ErrorDispatch.error_estimate(integrand, a, b, N, dim, rule, boundary; err_method=err_method, nerr_terms=nerr_terms)
+            ErrorEstimate.ErrorDispatch.error_estimate(
+                integrand, 
+                a, 
+                b, 
+                N, 
+                dim, 
+                rule, 
+                boundary; 
+                err_method=err_method, 
+                nerr_terms=nerr_terms
+            )
         end
         # end
         push!(estimates, I)
-        push!(errors, err)
+        push!(error_infos, err)
     end
 
-    # Step 3: Perform least chi-square fit to extrapolate as h → 0
-    # JobLoggerTools.log_stage_benji("least_chi_square_fit() ::", jobid)
-    # JobLoggerTools.@logtime_benji jobid begin
-        fit_result = LeastChiSquareFit.least_chi_square_fit(a, b, hs, estimates, errors, rule, boundary; nterms=fit_terms, ff_shift=ff_shift)
-    # end
-    LeastChiSquareFit.print_fit_result(fit_result)
-
-    return fit_result.estimate, fit_result, (; h=hs, avg=estimates, err=errors)
+    return (;
+        a          = a,
+        b          = b,
+        h          = hs,
+        avg        = estimates,
+        err        = error_infos,
+        rule       = rule,
+        boundary   = boundary,
+        dim        = dim,
+        err_method = err_method,
+        nerr_terms = nerr_terms,
+        fit_terms  = fit_terms,
+        ff_shift   = ff_shift,
+        use_threads = use_threads
+    )
 end
 
 """

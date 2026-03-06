@@ -19,7 +19,7 @@
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Estimate a ``2``-dimensional tensor-product truncation-error *model* for a composite Newton-Cotes rule
 on the square domain ``[a,b]^2`` using the exact midpoint residual expansion.
@@ -44,6 +44,9 @@ I_x^{(k)} = \\int\\limits_{a}^{b} dy\\; \\frac{\\partial^k f}{\\partial x^k}(\\b
 I_y^{(k)} = \\int\\limits_{a}^{b} dx\\; \\frac{\\partial^k f}{\\partial y^k}(x, \\bar{y}),
 ```
 evaluated numerically using the same ``1``-dimensional composite nodes/weights.
+
+The routine returns the full decomposition of the asymptotic error model,
+including individual residual contributions and their summed value.
 
 # Arguments
 
@@ -70,8 +73,15 @@ evaluated numerically using the same ``1``-dimensional composite nodes/weights.
 
 # Returns
 
-* `Float64`:
-  The summed separable truncation-error model value.
+* `NamedTuple` with fields:
+
+  * `ks` - residual orders used in the model
+  * `coeffs` - midpoint residual coefficients
+  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
+  * `terms` - individual asymptotic error contributions
+  * `total` - summed truncation-error model value
+  * `center` - midpoint ``\\bar{x}``
+  * `h` - step size
 
 # Errors
 
@@ -91,17 +101,16 @@ evaluated numerically using the same ``1``-dimensional composite nodes/weights.
 * Coefficients are derived in exact rational arithmetic and converted to `Float64` only at the final stage.
 """
 function error_estimate_2d(
-    f, 
-    a::Real, 
-    b::Real, 
-    N::Int, 
+    f,
+    a::Real,
+    b::Real,
+    N::Int,
     rule::Symbol,
     boundary::Symbol;
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
-
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
@@ -114,25 +123,33 @@ function error_estimate_2d(
 
     xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
-    # Collect residual terms (LO or LO+NLO+...)
     ks, coeffs, _center = _leading_residual_terms_any(
-        rule, boundary, N; 
-        nterms = nerr_terms, 
+        rule, boundary, N;
+        nterms = nerr_terms,
         kmax   = kmax
     )
 
-    err = 0.0
+    n = length(ks)
+
+    derivatives = Vector{Float64}(undef, n)
+    terms       = Vector{Float64}(undef, n)
 
     @inbounds for it in eachindex(ks)
         k = ks[it]
-        k == 0 && continue
+
+        if k == 0
+            derivatives[it] = 0.0
+            terms[it] = 0.0
+            continue
+        end
+
         coeff = coeffs[it]
 
-        # X-axis contribution: apply k-th derivative in x, integrate over y
         I1 = 0.0
         for j in eachindex(xs)
             y = xs[j]
             gx(x) = f(x, y)
+
             I1 += wx[j] * nth_derivative(
                 gx, x̄, k;
                 h=h, rule=rule, N=N, dim=2,
@@ -141,11 +158,11 @@ function error_estimate_2d(
             )
         end
 
-        # Y-axis contribution: apply k-th derivative in y, integrate over x
         I2 = 0.0
         for i in eachindex(xs)
             x = xs[i]
             gy(y) = f(x, y)
+
             I2 += wx[i] * nth_derivative(
                 gy, ȳ, k;
                 h=h, rule=rule, N=N, dim=2,
@@ -154,10 +171,19 @@ function error_estimate_2d(
             )
         end
 
-        err += coeff * h^(k+1) * (I1 + I2)
+        derivatives[it] = I1 + I2
+        terms[it] = coeff * h^(k + 1) * derivatives[it]
     end
 
-    return err
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = (x̄, ȳ),
+        h           = h
+    )
 end
 
 """
@@ -171,7 +197,7 @@ end
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> Float64
+    ) -> NamedTuple
 
 Threaded variant of [`error_estimate_2d`](@ref) for 2D midpoint-residual truncation-error modeling.
 
@@ -216,7 +242,7 @@ function error_estimate_2d_threads(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -233,31 +259,36 @@ function error_estimate_2d_threads(
     xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     ks, coeffs, _center = _leading_residual_terms_any(
-        rule, boundary, N; 
-        nterms = nerr_terms, 
+        rule, boundary, N;
+        nterms = nerr_terms,
         kmax   = kmax
     )
 
-    L  = length(xs)
-    nt = Threads.maxthreadid()
+    n = length(ks)
 
-    err_total = 0.0
+    derivatives = Vector{Float64}(undef, n)
+    terms       = Vector{Float64}(undef, n)
+
+    L = length(xs)
 
     @inbounds for it in eachindex(ks)
         k = ks[it]
-        k == 0 && continue
+
+        if k == 0
+            derivatives[it] = 0.0
+            terms[it] = 0.0
+            continue
+        end
+
         coeff = coeffs[it]
 
-        # -----------------------------
-        # X-axis term (sum over y)
-        # -----------------------------
-        I1_parts = zeros(Float64, nt)
+        I1_parts = zeros(Float64, Threads.maxthreadid())
 
         Threads.@threads for j in 1:L
             tid = Threads.threadid()
 
-            y   = xs[j]
-            w   = wx[j]
+            y = xs[j]
+            w = wx[j]
 
             gx = let y=y
                 x -> f(x, y)
@@ -272,18 +303,16 @@ function error_estimate_2d_threads(
 
             I1_parts[tid] += w * dx
         end
+
         I1 = sum(I1_parts)
 
-        # -----------------------------
-        # Y-axis term (sum over x)
-        # -----------------------------
-        I2_parts = zeros(Float64, nt)
+        I2_parts = zeros(Float64, Threads.maxthreadid())
 
         Threads.@threads for i in 1:L
             tid = Threads.threadid()
 
-            x   = xs[i]
-            w   = wx[i]
+            x = xs[i]
+            w = wx[i]
 
             gy = let x=x
                 y -> f(x, y)
@@ -298,10 +327,18 @@ function error_estimate_2d_threads(
 
             I2_parts[tid] += w * dy
         end
-        I2 = sum(I2_parts)
 
-        err_total += coeff * h^(k + 1) * (I1 + I2)
+        derivatives[it] = I1 + I2
+        terms[it] = coeff * h^(k + 1) * derivatives[it]
     end
 
-    return err_total
+    return (;
+        ks          = ks,
+        coeffs      = coeffs,
+        derivatives = derivatives,
+        terms       = terms,
+        total       = sum(terms),
+        center      = (x̄, ȳ),
+        h           = h
+    )
 end
