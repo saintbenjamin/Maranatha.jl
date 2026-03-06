@@ -85,6 +85,7 @@ makedocs(
                 "Utils"              => "lib/Utils.md",
                 "AvgErrFormatter"    => "lib/AvgErrFormatter.md",
                 "JobLoggerTools"     => "lib/JobLoggerTools.md",
+                "MaranathaIO"        => "lib/MaranathaIO.md",
             ]
         ]
     ],

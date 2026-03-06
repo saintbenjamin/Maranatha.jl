@@ -146,6 +146,8 @@ using Enzyme
 using ForwardDiff
 using FastDifferentiation
 # using Diffractor
+using TOML
+using JLD2
 using PyPlot
 
 include("Utils/Utils.jl")

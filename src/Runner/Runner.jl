@@ -11,6 +11,7 @@
 module Runner
 
 using ..Utils.JobLoggerTools
+using ..Utils.MaranathaIO
 using ..Quadrature
 using ..ErrorEstimate
 using ..LeastChiSquareFit
@@ -26,11 +27,14 @@ export run_Maranatha
         nsamples = [4, 8, 12, 16],
         rule::Symbol = :newton_p3,
         boundary::Symbol = :LU_ININ,
-        err_method::Symbol = :derivative,
+        err_method::Symbol = :forwarddiff,
         fit_terms::Int = 2,
         nerr_terms::Int = 1,
         ff_shift::Int = 0,
-        use_threads::Bool = false        
+        use_threads::Bool = false,
+        name_prefix::String = "Maranatha",
+        save_path::Union{Nothing,AbstractString} = nothing,
+        write_summary::Bool = true
     )
 
 High-level execution pipeline for n-dimensional quadrature
@@ -62,6 +66,18 @@ For each resolution `N` in `nsamples`, the runner performs:
 After processing all resolutions, the collected convergence data
 `(h, estimate, error)` are returned to the caller.
 
+If `save_path` is provided, the collected result structure is also written
+to disk using [`Maranatha.Utils.MaranathaIO.save_datapoint_results`](@ref).
+
+The output filename has the form
+
+```julia
+result_\$(name_prefix)_\$(rule)_\$(boundary)_N_\$(nsamples[1])_N_\$(nsamples[end]).jld2
+```
+
+and is created inside the specified `save_path` directory.
+A TOML summary file is optionally written alongside the binary result file.
+
 These data are typically passed to
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
 to perform the weighted convergence extrapolation externally.
@@ -79,8 +95,6 @@ Optionally, the fit may apply a **fitting-function-shift** (`ff_shift`) to skip 
 when the corresponding coefficient is expected to vanish for the given integrand (e.g. symmetry causes the
 leading derivative contribution to be zero). In that case, the fitter selects powers starting at
 `1 + ff_shift` in the residual-power list and stores the resulting basis in `fit_result.powers`.
-
-The final extrapolated estimate is returned together with the full fit object and the raw data vectors.
 
 # Arguments
 
@@ -138,7 +152,15 @@ The final extrapolated estimate is returned together with the full fit object an
 * `use_threads::Bool = false`:
   If `true`, dispatches to the threaded error-estimation backend ([`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref)).
 
-# Returns
+* `name_prefix::String = "Maranatha"`:
+  Prefix used when constructing the output filename if results are written to disk.
+
+* `save_path::Union{Nothing,AbstractString} = nothing`:
+  Optional directory path where the runner writes the result file.
+  If `nothing`, no file is written.
+
+* `write_summary::Bool = true`:
+  If `true`, a companion TOML summary file is written together with the JLD2 result file.
 
 # Returns
 
@@ -224,6 +246,9 @@ function run_Maranatha(
     nerr_terms::Int = 1,
     ff_shift::Int = 0,
     use_threads::Bool = false,
+    name_prefix::String = "Maranatha",
+    save_path::Union{Nothing,AbstractString}=nothing,
+    write_summary::Bool=true,
 )
     jobid = nothing
 
@@ -235,75 +260,83 @@ function run_Maranatha(
     boundary = normalize_boundary(boundary)
 
     estimates = Float64[]      # List of quadrature results
-    error_infos = NamedTuple[] # List of estimated error_infos
+    error_infos = NamedTuple[] # List of estimated error infos
     hs = Float64[]             # List of step sizes
 
     for N in nsamples
-        # JobLoggerTools.log_stage_benji("N = $N in $nsamples", jobid)
         h = (b - a) / N
         push!(hs, h)
 
-        # # Step 1: Evaluate integral using selected rule
-        # JobLoggerTools.log_stage_sub1_benji("quadrature() ::", jobid)
-        # JobLoggerTools.@logtime_benji jobid begin
         I = Quadrature.QuadratureDispatch.quadrature(
-                integrand, 
-                a, 
-                b, 
-                N, 
-                dim, 
-                rule, 
-                boundary
-            )
-        # end
-        # # Step 2: Estimate integration error
-        # JobLoggerTools.log_stage_sub1_benji("error_estimate() ::", jobid)
-        # JobLoggerTools.@logtime_benji jobid begin
+            integrand,
+            a,
+            b,
+            N,
+            dim,
+            rule,
+            boundary
+        )
+
         err = if use_threads
             ErrorEstimate.ErrorDispatch.error_estimate_threads(
-                integrand, 
-                a, 
-                b, 
-                N, 
-                dim, 
-                rule, 
-                boundary; 
-                err_method=err_method, 
+                integrand,
+                a,
+                b,
+                N,
+                dim,
+                rule,
+                boundary;
+                err_method=err_method,
                 nerr_terms=nerr_terms
             )
         else
             ErrorEstimate.ErrorDispatch.error_estimate(
-                integrand, 
-                a, 
-                b, 
-                N, 
-                dim, 
-                rule, 
-                boundary; 
-                err_method=err_method, 
+                integrand,
+                a,
+                b,
+                N,
+                dim,
+                rule,
+                boundary;
+                err_method=err_method,
                 nerr_terms=nerr_terms
             )
         end
-        # end
+
         push!(estimates, I)
         push!(error_infos, err)
     end
 
-    return (;
-        a          = a,
-        b          = b,
-        h          = hs,
-        avg        = estimates,
-        err        = error_infos,
-        rule       = rule,
-        boundary   = boundary,
-        dim        = dim,
-        err_method = err_method,
-        nerr_terms = nerr_terms,
-        fit_terms  = fit_terms,
-        ff_shift   = ff_shift,
-        use_threads = use_threads
+    result = (;
+        a           = a,
+        b           = b,
+        h           = hs,
+        avg         = estimates,
+        err         = error_infos,
+        rule        = rule,
+        boundary    = boundary,
+        dim         = dim,
+        err_method  = err_method,
+        nerr_terms  = nerr_terms,
+        fit_terms   = fit_terms,
+        ff_shift    = ff_shift,
+        use_threads = use_threads,
     )
+
+    save_jld2_path = joinpath(
+        save_path,
+        "result_$(name_prefix)_$(rule)_$(boundary)_N_$(nsamples[1])_N_$(nsamples[end]).jld2"
+    )
+
+    if save_path !== nothing
+        MaranathaIO.save_datapoint_results(
+            save_jld2_path,
+            result;
+            write_summary = write_summary,
+        )
+    end
+
+    return result
 end
 
 """

@@ -66,12 +66,16 @@ Additional submodules may be introduced over time as the project evolves.
 """
 module Utils
 
+using ..TOML
+using ..JLD2
 using ..Printf
 
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
+include("MaranathaIO.jl")
 
 using .JobLoggerTools
 using .AvgErrFormatter
+using .MaranathaIO
 
 end  # module Utils
