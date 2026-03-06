@@ -66,6 +66,8 @@ Additional submodules may be introduced over time as the project evolves.
 """
 module Utils
 
+using ..Printf
+
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
 

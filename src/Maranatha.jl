@@ -138,6 +138,7 @@ usage is primarily intended for controlled numerical studies.
 """
 module Maranatha
 
+using Printf
 using LinearAlgebra
 using TaylorSeries
 using Enzyme
