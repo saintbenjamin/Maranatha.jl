@@ -1,12 +1,9 @@
 @testset "3D rules" begin
-    announce("3D rules")
-
     ff(x, y, z) = exp(-x^2 - y^2 - z^2)
     bounds = (0.0, 1.0)
     use_threads = false
 
     @testset "Trapezoidal LU_ININ" begin
-        announce("3D rules :: Trapezoidal LU_ININ")
         dim = 3
         rule = :newton_p2
         boundary = :LU_ININ
@@ -18,8 +15,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -50,7 +47,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -63,7 +60,6 @@
     end
 
     @testset "Trapezoidal LU_INEX" begin
-        announce("3D rules :: Trapezoidal LU_INEX")
         dim = 3
         rule = :newton_p2
         boundary = :LU_INEX
@@ -75,8 +71,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -107,7 +103,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -120,7 +116,6 @@
     end
 
     @testset "Trapezoidal LU_EXIN" begin
-        announce("3D rules :: Trapezoidal LU_EXIN")
         dim = 3
         rule = :newton_p2
         boundary = :LU_EXIN
@@ -132,8 +127,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -164,7 +159,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -177,7 +172,6 @@
     end
 
     @testset "Trapezoidal LU_EXEX" begin
-        announce("3D rules :: Trapezoidal LU_EXEX")
         dim = 3
         rule = :newton_p2
         boundary = :LU_EXEX
@@ -189,8 +183,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -221,7 +215,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -234,7 +228,6 @@
     end
 
     @testset "Simpson 1/3 LU_ININ" begin
-        announce("3D rules :: Simpson 1/3 LU_ININ")
         dim = 3
         rule = :newton_p3
         boundary = :LU_ININ
@@ -246,8 +239,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -278,7 +271,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -291,7 +284,6 @@
     end
 
     @testset "Simpson 1/3 LU_INEX" begin
-        announce("3D rules :: Simpson 1/3 LU_INEX")
         dim = 3
         rule = :newton_p3
         boundary = :LU_INEX
@@ -303,8 +295,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -335,7 +327,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -348,7 +340,6 @@
     end
 
     @testset "Simpson 1/3 LU_EXIN" begin
-        announce("3D rules :: Simpson 1/3 LU_EXIN")
         dim = 3
         rule = :newton_p3
         boundary = :LU_EXIN
@@ -360,8 +351,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -392,7 +383,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -405,7 +396,6 @@
     end
 
     @testset "Simpson 1/3 LU_EXEX" begin
-        announce("3D rules :: Simpson 1/3 LU_EXEX")
         dim = 3
         rule = :newton_p3
         boundary = :LU_EXEX
@@ -417,8 +407,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -449,7 +439,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -462,7 +452,6 @@
     end
 
     @testset "Simpson 3/8 LU_ININ" begin
-        announce("3D rules :: Simpson 3/8 LU_ININ")
         dim = 3
         rule = :newton_p4
         boundary = :LU_ININ
@@ -474,8 +463,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -506,7 +495,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -519,7 +508,6 @@
     end
 
     @testset "Simpson 3/8 LU_INEX" begin
-        announce("3D rules :: Simpson 3/8 LU_INEX")
         dim = 3
         rule = :newton_p4
         boundary = :LU_INEX
@@ -531,8 +519,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -563,7 +551,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -576,7 +564,6 @@
     end
 
     @testset "Simpson 3/8 LU_EXIN" begin
-        announce("3D rules :: Simpson 3/8 LU_EXIN")
         dim = 3
         rule = :newton_p4
         boundary = :LU_EXIN
@@ -588,8 +575,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -620,7 +607,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -633,7 +620,6 @@
     end
 
     @testset "Simpson 3/8 LU_EXEX" begin
-        announce("3D rules :: Simpson 3/8 LU_EXEX")
         dim = 3
         rule = :newton_p4
         boundary = :LU_EXEX
@@ -645,8 +631,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -677,7 +663,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -690,7 +676,6 @@
     end
 
     @testset "Bode LU_ININ" begin
-        announce("3D rules :: Bode LU_ININ")
         dim = 3
         rule = :newton_p5
         boundary = :LU_ININ
@@ -702,8 +687,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -734,7 +719,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -747,7 +732,6 @@
     end
 
     @testset "Bode LU_INEX" begin
-        announce("3D rules :: Bode LU_INEX")
         dim = 3
         rule = :newton_p5
         boundary = :LU_INEX
@@ -759,8 +743,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -791,7 +775,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -804,7 +788,6 @@
     end
 
     @testset "Bode LU_EXIN" begin
-        announce("3D rules :: Bode LU_EXIN")
         dim = 3
         rule = :newton_p5
         boundary = :LU_EXIN
@@ -816,8 +799,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -848,7 +831,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -861,7 +844,6 @@
     end
 
     @testset "Bode LU_EXEX" begin
-        announce("3D rules :: Bode LU_EXEX")
         dim = 3
         rule = :newton_p5
         boundary = :LU_EXEX
@@ -873,8 +855,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -905,7 +887,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 

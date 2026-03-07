@@ -9,10 +9,7 @@ bounds = (0.0, 1.0)
 use_threads = false
 
 @testset "F0000GammaEminus1 1D" begin
-    announce("F0000GammaEminus1 1D")
-
     @testset "Gauss LU_EXEX FastDifferentiation.jl" begin
-        announce("1D rules :: Gauss LU_EXEX FastDifferentiation.jl")
         dim = 1
         rule = :gauss_p2
         boundary = :LU_EXEX
@@ -24,8 +21,8 @@ use_threads = false
         fit_terms = 3
         result_string = "F0000_FastDiff"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -56,7 +53,7 @@ use_threads = false
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -69,7 +66,6 @@ use_threads = false
     end
 
     @testset "Gauss LU_EXEX ForwardDiff.jl" begin
-        announce("1D rules :: Gauss LU_EXEX ForwardDiff.jl")
         dim = 1
         rule = :gauss_p2
         boundary = :LU_EXEX
@@ -81,8 +77,8 @@ use_threads = false
         fit_terms = 3
         result_string = "F0000_FwrdDiff"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -113,7 +109,7 @@ use_threads = false
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -126,7 +122,6 @@ use_threads = false
     end
 
     @testset "Gauss LU_EXEX TaylorSeries.jl" begin
-        announce("1D rules :: Gauss LU_EXEX TaylorSeries.jl")
         dim = 1
         rule = :gauss_p2
         boundary = :LU_EXEX
@@ -138,8 +133,8 @@ use_threads = false
         fit_terms = 3
         result_string = "F0000_Taylor"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -170,7 +165,7 @@ use_threads = false
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -183,7 +178,6 @@ use_threads = false
     end
 
     @testset "B-spline 3-point LU_ININ" begin
-        announce("1D rules :: B-spline 3-point LU_ININ")
         dim = 1
         rule = :bspline_interp_p3
         boundary = :LU_ININ
@@ -195,8 +189,8 @@ use_threads = false
         fit_terms = 3
         result_string = "F0000"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -227,7 +221,7 @@ use_threads = false
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -249,10 +243,8 @@ bounds = (0.0, 1.0)
 use_threads = false
 
 @testset "Integrand preset API (F0000)" begin
-    announce("Integrand preset API (F0000)")
 
     @testset "Gauss LU_EXEX (preset)" begin
-        announce("1D rules :: Gauss LU_EXEX (preset)")
         dim = 1
         rule = :gauss_p2
         boundary = :LU_EXEX
@@ -264,8 +256,8 @@ use_threads = false
         fit_terms = 3
         result_string = "F0000_preset"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff_here, 
             bounds...; 
@@ -296,7 +288,7 @@ use_threads = false
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -310,7 +302,6 @@ use_threads = false
 end
 
 @testset "Preset vs raw integrand consistency (spot-check)" begin
-    announce("Preset vs raw integrand consistency (spot-check)")
 
     t = 0.37
     f_raw = t -> gtilde_F0000(t; p=4, eps=1e-15)

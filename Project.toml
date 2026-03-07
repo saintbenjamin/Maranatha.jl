@@ -1,6 +1,6 @@
 name = "Maranatha"
 uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
-version = "0.9.5"
+version = "0.9.6"
 authors = ["Benjamin J. Choi <benchoi@ccs.tsukuba.ac.jp>"]
 
 [deps]

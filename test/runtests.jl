@@ -18,34 +18,6 @@ using Maranatha
 # ----------------------------------------------------------------------------
 const DO_PLOT = get(ENV, "MARANATHA_PLOT", "0") == "1"
 
-function maybe_plot(
-    a, 
-    b, 
-    tag::AbstractString, 
-    h, 
-    avg, 
-    err, 
-    fit; 
-    rule::Symbol, 
-    boundary::Symbol, 
-    save_file::Bool
-)
-    if DO_PLOT
-        plot_convergence_result(
-            a, 
-            b, 
-            tag, 
-            h, 
-            avg, 
-            err, 
-            fit; 
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file)
-    end
-    return nothing
-end
-
 # ----------------------------------------------------------------------------
 # Smoke checks: basic sanity without assuming exact numbers
 # ----------------------------------------------------------------------------
@@ -55,41 +27,39 @@ function assert_result_sane(res)
     @test all(isfinite, res.avg)
     @test all(e -> isfinite(e.total), res.err)
     @test all(>(0.0), res.h)  # step sizes should be positive
-
+    @test issorted(res.h; rev=true)
     # NOTE:
     # res.err can be signed depending on the error estimator / fitting pipeline.
     # We only require it to be finite here.
     return nothing
 end
 
-function announce(title::AbstractString)
+function include_with_announce(path::AbstractString)
     println()
-    println("▶ ", title)
+    println("▶ running: ", path)
+    t0 = time_ns()
+    include(path)
+    dt = (time_ns() - t0) / 1e9
+    println("✓ done: ", path, " (", round(dt; digits=2), " s)")
     println()
     return nothing
 end
 
 @testset "Maranatha.jl Quadrature Suite" begin
-    announce("Maranatha.jl Quadrature Suite")
- 
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
-        announce("Canonical integrands (multi-dim, multi-rule)")
-        include("canonical_1D_newton_test.jl")
-        include("canonical_2D_newton_test.jl")
-        include("canonical_3D_newton_test.jl")
-        include("canonical_4D_newton_test.jl")
-        include("canonical_1D_gauss_test.jl")
-        include("canonical_2D_gauss_test.jl")
-        include("canonical_3D_gauss_test.jl")
-        include("canonical_4D_gauss_test.jl")
-        include("canonical_1D_bspline_test.jl")
-        include("canonical_2D_bspline_test.jl")
-        include("canonical_3D_bspline_test.jl")
-        include("canonical_4D_bspline_test.jl")
+        include_with_announce("canonical/1D_newton_test.jl")
+        include_with_announce("canonical/2D_newton_test.jl")
+        include_with_announce("canonical/3D_newton_test.jl")
+        include_with_announce("canonical/4D_newton_test.jl")
+        include_with_announce("canonical/1D_gauss_test.jl")
+        include_with_announce("canonical/2D_gauss_test.jl")
+        include_with_announce("canonical/3D_gauss_test.jl")
+        include_with_announce("canonical/4D_gauss_test.jl")
+        include_with_announce("canonical/1D_bspline_test.jl")
+        include_with_announce("canonical/2D_bspline_test.jl")
+        include_with_announce("canonical/3D_bspline_test.jl")
+        include_with_announce("canonical/4D_bspline_test.jl")
     end
-
-    include("pedagogical_visualization_1D_test.jl")
-
-    include("complicated_1D_F0000_test.jl")
-    include("complicated_4D_Z_q_test.jl")
+    include_with_announce("pedagogical/visualization_1D_test.jl")
+    include_with_announce("complicated/1D_F0000_test.jl")
 end

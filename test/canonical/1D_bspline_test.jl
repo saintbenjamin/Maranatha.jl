@@ -1,12 +1,9 @@
 @testset "1D rules" begin
-    announce("1D rules")
-
     ff(x) = sin(x)
     bounds = (0.0, π)
     use_threads = false
 
     @testset "1D B-spline 2-point interp LU_ININ" begin
-        announce("1D rules :: B-spline 2-point interp LU_ININ")
         dim = 1
         rule = :bspline_interp_p2
         boundary = :LU_ININ
@@ -18,8 +15,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -50,7 +47,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -63,7 +60,6 @@
     end
 
     @testset "1D B-spline 2-point smooth LU_ININ" begin
-        announce("1D rules :: B-spline 2-point smooth LU_ININ")
         dim = 1
         rule = :bspline_smooth_p2
         boundary = :LU_ININ
@@ -75,8 +71,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -107,7 +103,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -120,7 +116,6 @@
     end
 
     @testset "1D B-spline 3-point LU_ININ" begin
-        announce("1D rules :: B-spline 3-point LU_ININ")
         dim = 1
         rule = :bspline_interp_p3
         boundary = :LU_ININ
@@ -132,8 +127,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -164,7 +159,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -177,7 +172,6 @@
     end
 
     @testset "1D B-spline 4-point LU_ININ" begin
-        announce("1D rules :: B-spline 4-point LU_ININ")
         dim = 1
         rule = :bspline_interp_p4
         boundary = :LU_ININ
@@ -189,8 +183,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -221,7 +215,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -234,7 +228,6 @@
     end
 
     @testset "1D B-spline 5-point LU_ININ" begin
-        announce("1D rules :: B-spline 5-point LU_ININ")
         dim = 1
         rule = :bspline_interp_p5
         boundary = :LU_ININ
@@ -246,8 +239,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -278,7 +271,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -291,7 +284,6 @@
     end
 
     @testset "1D B-spline 6-point LU_ININ" begin
-        announce("1D rules :: B-spline 6-point LU_ININ")
         dim = 1
         rule = :bspline_interp_p6
         boundary = :LU_ININ
@@ -303,8 +295,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -335,7 +327,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -348,7 +340,6 @@
     end
 
     @testset "1D B-spline 7-point LU_ININ" begin
-        announce("1D rules :: B-spline 7-point LU_ININ")
         dim = 1
         rule = :bspline_interp_p7
         boundary = :LU_ININ
@@ -360,8 +351,8 @@
         fit_terms = 4
         result_string = "1D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -392,7 +383,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 

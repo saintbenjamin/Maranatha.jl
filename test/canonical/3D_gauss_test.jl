@@ -1,12 +1,9 @@
 @testset "3D rules" begin
-    announce("3D rules")
-
     ff(x, y, z) = exp(-x^2 - y^2 - z^2)
     bounds = (0.0, 1.0)
     use_threads = false
 
     @testset "Gauss 2-point LU_EXEX" begin
-        announce("3D rules :: Gauss 2-point LU_EXEX")
         dim = 3
         rule = :gauss_p2
         boundary = :LU_EXEX
@@ -18,8 +15,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -50,7 +47,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -63,7 +60,6 @@
     end
 
     @testset "Gauss 3-point LU_EXEX" begin
-        announce("3D rules :: Gauss 3-point LU_EXEX")
         dim = 3
         rule = :gauss_p3
         boundary = :LU_EXEX
@@ -75,8 +71,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -107,7 +103,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
@@ -120,7 +116,6 @@
     end
     
     @testset "Gauss 4-point LU_EXEX" begin
-        announce("3D rules :: Gauss 4-point LU_EXEX")
         dim = 3
         rule = :gauss_p4
         boundary = :LU_EXEX
@@ -132,8 +127,8 @@
         fit_terms = 4
         result_string = "3D"
         save_path = "."
-        write_summary = true
-        save_file = true
+        write_summary = false
+        save_file = false
         run_result = run_Maranatha(
             ff, 
             bounds...; 
@@ -164,7 +159,7 @@
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
-        maybe_plot(
+        DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
             run_result.h, 
