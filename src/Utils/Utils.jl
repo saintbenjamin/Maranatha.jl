@@ -74,9 +74,11 @@ import ..JLD2
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
 include("MaranathaIO.jl")
+include("MaranathaTOML.jl")
 
 using .JobLoggerTools
 using .AvgErrFormatter
 using .MaranathaIO
+using .MaranathaTOML
 
 end  # module Utils

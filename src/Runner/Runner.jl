@@ -10,8 +10,11 @@
 
 module Runner
 
+import ..TOML
+
 import ..Utils.JobLoggerTools
 import ..Utils.MaranathaIO
+import ..Utils.MaranathaTOML
 import ..Quadrature.QuadratureDispatch
 import ..ErrorEstimate.ErrorDispatch
 
@@ -519,6 +522,82 @@ function run_Maranatha(
     end
 
     return result
+end
+
+
+"""
+    run_Maranatha(
+        toml_path::AbstractString
+    )
+
+Run Maranatha from a TOML configuration file.
+
+# Function description
+
+This method provides a TOML-driven overload of [`run_Maranatha`](@ref).
+
+The workflow is:
+
+1. parse the TOML file via [`MaranathaTOML.parse_run_config_from_toml`](@ref)
+2. validate the parsed configuration via [`MaranathaTOML.validate_run_config`](@ref)
+3. load the user-defined integrand from file via [`MaranathaTOML.load_integrand_from_file`](@ref)
+4. forward all recovered options to the main
+   `run_Maranatha(integrand, a, b; ...)` method
+
+This allows users to keep the integrand itself in a separate Julia source file
+while storing numerical and output options in a reproducible TOML file.
+
+# Arguments
+
+`toml_path::AbstractString`
+: Path to the TOML configuration file.
+
+# Returns
+
+The result object returned by the main `run_Maranatha(integrand, a, b; ...)`
+execution path.
+
+# Errors
+
+* Propagates parsing errors from [`MaranathaTOML.parse_run_config_from_toml`](@ref).
+* Propagates validation errors from [`MaranathaTOML.validate_run_config`](@ref).
+* Propagates integrand-loading errors from [`MaranathaTOML.load_integrand_from_file`](@ref).
+* Propagates downstream execution errors from the main runner.
+
+# Notes
+
+The user-defined integrand file is evaluated in an isolated module so that its
+helper definitions do not pollute the main package namespace.
+"""
+function run_Maranatha(
+    toml_path::AbstractString
+)
+    cfg = MaranathaTOML.parse_run_config_from_toml(toml_path)
+    MaranathaTOML.validate_run_config(cfg)
+
+    integrand = MaranathaTOML.load_integrand_from_file(
+        cfg.integrand_file;
+        func_name = cfg.integrand_name
+    )
+
+    return Base.invokelatest(
+        run_Maranatha,
+        integrand,
+        cfg.a,
+        cfg.b;
+        dim           = cfg.dim,
+        nsamples      = cfg.nsamples,
+        rule          = cfg.rule,
+        boundary      = cfg.boundary,
+        err_method    = cfg.err_method,
+        fit_terms     = cfg.fit_terms,
+        nerr_terms    = cfg.nerr_terms,
+        ff_shift      = cfg.ff_shift,
+        use_threads   = cfg.use_threads,
+        name_prefix   = cfg.name_prefix,
+        save_path     = cfg.save_path,
+        write_summary = cfg.write_summary,
+    )
 end
 
 end  # module Runner

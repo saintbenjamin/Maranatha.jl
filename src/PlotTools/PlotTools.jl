@@ -16,6 +16,7 @@ import ..Printf: @sprintf
 
 import ..Utils.JobLoggerTools
 import ..Utils.AvgErrFormatter
+import ..Utils.MaranathaTOML
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline

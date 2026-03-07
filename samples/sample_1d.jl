@@ -1,0 +1,1 @@
+integrand(x) = sin(x)

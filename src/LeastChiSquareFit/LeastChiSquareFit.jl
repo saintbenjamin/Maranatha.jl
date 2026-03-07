@@ -583,6 +583,91 @@ function least_chi_square_fit(
 end
 
 """
+    least_chi_square_fit(
+        result;
+        nterms::Union{Nothing,Int} = nothing,
+        ff_shift::Union{Nothing,Int} = nothing,
+        nerr_terms::Union{Nothing,Int} = nothing,
+    )
+
+Run [`least_chi_square_fit`](@ref) directly from a Maranatha result object.
+
+# Function description
+
+This is a convenience overload that accepts the `result` object returned by
+[`Maranatha.Runner.run_Maranatha`](@ref) and forwards its stored fields to the
+main
+```julia
+least_chi_square_fit(a, b, hs, estimates, error_infos, rule, boundary; ...)
+````
+
+method.
+
+If keyword arguments are omitted, this helper reuses the corresponding values
+already stored in the result object.
+
+# Arguments
+
+`result`
+: Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
+
+# Keyword arguments
+
+`nterms::Union{Nothing,Int} = nothing`
+: Number of fit terms.  If omitted, `result.fit_terms` is used.
+
+`ff_shift::Union{Nothing,Int} = nothing`
+: Forward shift applied when selecting fit powers.  If omitted,
+`result.ff_shift` is used.
+
+`nerr_terms::Union{Nothing,Int} = nothing`
+: Number of error-model terms used to construct ``\\sigma``.  If omitted,
+`result.nerr_terms` is used.
+
+# Returns
+
+The same fit result object returned by the main
+[`least_chi_square_fit`](@ref) method.
+
+# Errors
+
+* Propagates errors from the main [`least_chi_square_fit`](@ref) method.
+* Throws an error if required fields are missing from the input result object.
+
+# Notes
+
+This helper assumes that the input result provides the standard Maranatha fields
+
+* `a`, `b`
+* `h`, `avg`, `err`
+* `rule`, `boundary`
+* `fit_terms`, `ff_shift`, `nerr_terms`
+"""
+function least_chi_square_fit(
+    result;
+    nterms::Union{Nothing,Int} = nothing,
+    ff_shift::Union{Nothing,Int} = nothing,
+    nerr_terms::Union{Nothing,Int} = nothing,
+)
+    fit_nterms = isnothing(nterms) ? result.fit_terms : nterms
+    fit_ff_shift = isnothing(ff_shift) ? result.ff_shift : ff_shift
+    fit_nerr_terms = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
+
+    return least_chi_square_fit(
+        result.a,
+        result.b,
+        result.h,
+        result.avg,
+        result.err,
+        result.rule,
+        result.boundary;
+        nterms = fit_nterms,
+        ff_shift = fit_ff_shift,
+        nerr_terms = fit_nerr_terms,
+    )
+end
+
+"""
     print_fit_result(
         fit
     ) -> Nothing

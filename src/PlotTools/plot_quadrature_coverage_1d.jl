@@ -470,3 +470,128 @@ function plot_quadrature_coverage_1d(
 
     return nothing
 end
+
+"""
+    plot_quadrature_coverage_1d(
+        toml_path::AbstractString;
+        N::Union{Nothing,Int} = nothing,
+        ngrid_f::Int = 4000,
+        ngrid_block::Int = 400,
+        name::Union{Nothing,String} = nothing,
+        figs_dir::Union{Nothing,String} = nothing,
+        save_file::Bool = false,
+    ) -> Nothing
+
+Plot pedagogical 1D quadrature coverage directly from a Maranatha TOML file.
+
+# Function description
+
+This is a TOML-driven convenience wrapper around
+[`plot_quadrature_coverage_1d`](@ref).
+
+The routine parses the TOML configuration, loads the user-defined integrand
+from the referenced Julia source file, and forwards the recovered arguments
+to the primary
+
+```julia
+plot_quadrature_coverage_1d(f, a, b, N; ...)
+```
+
+method.
+
+If `N` is provided, only that subdivision count is plotted.
+If `N === nothing`, the routine generates plots for all subdivision counts
+listed in the TOML field `[sampling].nsamples`.
+
+# Arguments
+
+`toml_path::AbstractString`
+: Path to the TOML configuration file.
+
+# Keyword arguments
+
+`N::Union{Nothing,Int} = nothing`
+: Subdivision count to plot.  If omitted, all `nsamples` in the TOML file are used.
+
+`ngrid_f::Int = 4000`
+: Number of dense sampling points used for plotting the true integrand curve.
+
+`ngrid_block::Int = 400`
+: Number of dense sampling points used per local block/span for pedagogical fills.
+
+`name::Union{Nothing,String} = nothing`
+: Plot name prefix.  If omitted, `cfg.name_prefix` from the TOML file is used.
+
+`figs_dir::Union{Nothing,String} = nothing`
+: Output directory for figures.  If omitted, `cfg.save_path` from the TOML file is used.
+
+`save_file::Bool = false`
+: Whether to save the generated figure files.
+
+# Returns
+
+Nothing.
+
+# Errors
+
+* Propagates parsing errors from [`MaranathaTOML.parse_run_config_from_toml`](@ref).
+* Propagates validation errors from [`MaranathaTOML.validate_run_config`](@ref).
+* Propagates integrand-loading errors from [`MaranathaTOML.load_integrand_from_file`](@ref).
+* Throws an error if the requested `N` is not present in `cfg.nsamples`.
+* Propagates downstream plotting errors from the primary
+  [`plot_quadrature_coverage_1d`](@ref) method.
+
+# Notes
+
+The user-defined integrand file is evaluated in an isolated module.
+Because the integrand is loaded dynamically, this wrapper uses
+`Base.invokelatest` when dispatching to the primary plotting routine.
+"""
+function plot_quadrature_coverage_1d(
+    toml_path::AbstractString;
+    N::Union{Nothing,Int} = nothing,
+    ngrid_f::Int = 4000,
+    ngrid_block::Int = 400,
+    name::Union{Nothing,String} = nothing,
+    figs_dir::Union{Nothing,String} = nothing,
+    save_file::Bool = false,
+)::Nothing
+    cfg = MaranathaTOML.parse_run_config_from_toml(toml_path)
+    MaranathaTOML.validate_run_config(cfg)
+
+    integrand = MaranathaTOML.load_integrand_from_file(
+        cfg.integrand_file;
+        func_name = cfg.integrand_name
+    )
+
+    plot_name = isnothing(name) ? cfg.name_prefix : name
+    plot_dir  = isnothing(figs_dir) ? cfg.save_path : figs_dir
+
+    Ns = if isnothing(N)
+        collect(Int.(cfg.nsamples))
+    else
+        N in cfg.nsamples || error(
+            "Requested N=$N is not present in TOML nsamples = $(cfg.nsamples)."
+        )
+        [N]
+    end
+
+    for Ni in Ns
+        Base.invokelatest(
+            plot_quadrature_coverage_1d,
+            integrand,
+            cfg.a,
+            cfg.b,
+            Ni;
+            rule = cfg.rule,
+            boundary = cfg.boundary,
+            ngrid_f = ngrid_f,
+            ngrid_block = ngrid_block,
+            name = plot_name,
+            figs_dir = plot_dir,
+            save_file = save_file,
+        )
+    end
+
+    return nothing
+end

@@ -771,3 +771,75 @@ function plot_convergence_result(
 
     return nothing
 end
+
+"""
+    plot_convergence_result(
+        result,
+        fit_result;
+        name::String = "Maranatha",
+        rule::Symbol = result.rule,
+        boundary::Symbol = result.boundary,
+        figs_dir::String = ".",
+        save_file::Bool = false,
+    ) -> Nothing
+
+Convenience wrapper around [`plot_convergence_result`](@ref) that accepts a
+Maranatha run result object.
+
+# Function description
+
+This method extracts the necessary fields from the `result` object returned by
+[`Maranatha.Runner.run_Maranatha`](@ref) and forwards them to the primary
+
+```julia
+plot_convergence_result(a, b, name, hs, estimates, errors, fit_result; ...)
+```
+
+method.
+
+This allows users to call the plotting routine directly from the run result
+without manually unpacking its components.
+
+# Arguments
+
+`result`
+: Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
+
+`fit_result`
+: Fit result returned by [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+
+# Keyword arguments
+
+Same as the primary [`plot_convergence_result`](@ref) method.
+
+# Returns
+
+Nothing.
+
+# Errors
+
+Same as the primary [`plot_convergence_result`](@ref) method.
+"""
+function plot_convergence_result(
+    result,
+    fit_result;
+    name::String = "Maranatha",
+    rule::Symbol = result.rule,
+    boundary::Symbol = result.boundary,
+    figs_dir::String = ".",
+    save_file::Bool = false,
+)
+    return plot_convergence_result(
+        result.a,
+        result.b,
+        name,
+        Vector{Float64}(result.h),
+        Vector{Float64}(result.avg),
+        result.err,
+        fit_result;
+        rule = rule,
+        boundary = boundary,
+        figs_dir = figs_dir,
+        save_file = save_file,
+    )
+end

@@ -1,0 +1,30 @@
+[integrand]
+file = "sample_1d.jl"
+name = "integrand"
+
+[domain]
+a = 0.0
+b = 3.141592653589793
+dim = 1
+
+[sampling]
+nsamples = [2, 3, 4, 5, 6, 7, 8, 9]
+
+[quadrature]
+rule = "gauss_p4"
+boundary = "LU_EXEX"
+
+[error]
+err_method = "forwarddiff"
+fit_terms = 4
+nerr_terms = 3
+ff_shift = 0
+
+[execution]
+use_threads = true
+
+[output]
+name_prefix = "1D"
+save_path = "."
+write_summary = true
+save_file = true
