@@ -233,12 +233,14 @@ if `save_file = true`, also writes them to disk.
 * Propagates errors from downstream plotting, file I/O, optional external PDF cropping,
   and internal linear-algebra operations used for covariance propagation.
 
-# Example
+# Examples
 
 The example below shows the standard final plotting step after generating a raw
 convergence dataset and a downstream fit result.
 
 ```julia
+using Maranatha
+
 f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
 
 result = run_Maranatha(
@@ -251,7 +253,11 @@ result = run_Maranatha(
     err_method = :forwarddiff,
     fit_terms = 4,
     nerr_terms = 3,
-    ff_shift = 0
+    ff_shift = 0,
+    use_threads = false,
+    name_prefix = "4D_test",
+    save_path = ".",
+    write_summary = true
 )
 
 fit = least_chi_square_fit(
@@ -267,6 +273,8 @@ fit = least_chi_square_fit(
     nerr_terms = result.nerr_terms
 )
 
+print_fit_result(fit)
+
 plot_convergence_result(
     result.a,
     result.b,
@@ -277,6 +285,149 @@ plot_convergence_result(
     fit;
     rule = result.rule,
     boundary = result.boundary
+)
+```
+
+If a long convergence study is executed in multiple partial runs
+(for example, due to wall-time limits or interrupted sessions),
+the saved `.jld2` files can later be merged with
+[`Maranatha.Utils.MaranathaIO.merge_datapoint_result_files`](@ref)
+or [`Maranatha.Utils.MaranathaIO.merge_datapoint_results`](@ref),
+and the merged result can be passed to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+in exactly the same way as a single-run result.
+
+```julia
+using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    "result_part1.jld2",
+    "result_part2.jld2",
+    "result_part3.jld2";
+    output_path = "result_merged.jld2",
+    write_summary = true,
+)
+
+merged = load_datapoint_results(merged_path)
+
+fit = least_chi_square_fit(
+    merged.a,
+    merged.b,
+    merged.h,
+    merged.avg,
+    merged.err,
+    merged.rule,
+    merged.boundary;
+    nterms = merged.fit_terms,
+    ff_shift = merged.ff_shift,
+    nerr_terms = merged.nerr_terms
+)
+```
+
+The merged output path may also be generated automatically from the
+actual subdivision counts present in the merged result:
+
+```julia
+using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    "result_part1.jld2",
+    "result_part2.jld2",
+    "result_part3.jld2";
+    write_summary = true,
+    output_dir = ".",
+    name_prefix = "merged"
+)
+
+merged = load_datapoint_results(merged_path)
+```
+
+Then the output filename is automatically constructed as
+
+```julia
+result_merged_\$(rule)_\$(boundary)_N_2_3_4_5_6_7.jld2
+```
+
+Selected subdivision counts can also be removed from an existing result
+file before fitting. This is useful when very coarse resolutions are
+considered unreliable or visually inconsistent with the main trend.
+
+```julia
+using Maranatha
+
+filtered_path = drop_nsamples_from_file(
+    "result_full.jld2",
+    [2, 3];
+    write_summary = true,
+    output_dir = ".",
+    name_prefix = "filtered"
+)
+```
+
+Then the returned `filtered_path` points to a new file containing the same result data but with the specified `N` values removed, so that only the remaining resolutions are included in the downstream fit.
+
+```julia
+[2,3,4,5,6,7] -> [4,5,6,7]
+```
+
+You may then load the filtered result and pass it to the fitting routine as usual:
+
+```julia
+filtered = load_datapoint_results(filtered_path)
+
+fit = least_chi_square_fit(
+    filtered.a,
+    filtered.b,
+    filtered.h,
+    filtered.avg,
+    filtered.err,
+    filtered.rule,
+    filtered.boundary;
+    nterms = filtered.fit_terms,
+    ff_shift = filtered.ff_shift,
+    nerr_terms = filtered.nerr_terms
+)
+```
+
+Before fitting, it can be useful to inspect only the raw datapoints in a
+chosen `h^p` coordinate in order to check apparent linearity, oscillation,
+or resolution-dependent irregularities.
+
+```julia
+using Maranatha
+
+plot_datapoints_result(
+    "merged_test",
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :linear,
+    yscale = :linear,
+    ymode = :value,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)
+```
+
+A relative-difference diagnostic view can also be drawn on log-log axes
+once a reference value is available:
+
+```julia
+using Maranatha
+
+plot_datapoints_result(
+    "merged_test",
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :log,
+    yscale = :log,
+    ymode = :reldiff,
+    reference_value = fit.estimate,
+    rule = merged.rule,
+    boundary = merged.boundary,
 )
 ```
 

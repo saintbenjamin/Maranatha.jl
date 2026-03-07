@@ -141,7 +141,7 @@ along with the corresponding scaled coefficients ``\\displaystyle{\\frac{\\textt
 # Implementation notes
 
 * Nodes/weights are generated on ``[0, N_\\texttt{sub}]`` by calling
-  [`Quadrature.BSpline.bspline_nodes_weights`](@ref) with `N = Nsub` so the
+  [`BSpline.bspline_nodes_weights`](@ref) with `N = Nsub` so the
   dimensionless length matches the composite tiling parameter.
 * Factorial scaling is tracked incrementally via `inv_fact = 1/k!` updated as:
   `inv_fact /= (k+1)`. If `inv_fact` underflows to `0.0`, the scan stops early.

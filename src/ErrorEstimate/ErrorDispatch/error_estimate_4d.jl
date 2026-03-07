@@ -104,7 +104,7 @@ including individual residual contributions and their summed value.
 
   * composite weight assembly / midpoint residual extraction,
   * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
+* Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
   insufficient nonzero residual terms exist up to `kmax`.
 
 # Notes

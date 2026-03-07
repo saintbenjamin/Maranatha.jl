@@ -26,7 +26,7 @@ Currently included:
 
 - [`Maranatha.Utils.JobLoggerTools`](@ref)  
   Timestamped logging utilities, structured stage delimiters, assertion
-  helpers, and the [`Maranatha.Utils.JobLoggerTools.@logtime_benji`](@ref) macro for execution timing with
+  helpers, and the [`JobLoggerTools.@logtime_benji`](@ref) macro for execution timing with
   allocation reporting.
 
 - [`Maranatha.Utils.AvgErrFormatter`](@ref)  

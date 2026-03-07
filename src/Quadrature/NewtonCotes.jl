@@ -125,7 +125,7 @@ exact moment vector on ``[0, w]``.
 - `Int`: The local width `w` in units of `h`.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `kind` is unknown.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `kind` is unknown.
 """
 @inline function _local_width(
     p::Int, 
@@ -323,7 +323,7 @@ If invalid, it throws with a message that includes nearby valid ``N_\\text{sub}`
 - `wR::Int`: Right block width in units of ``h``.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if constraints are violated.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if constraints are violated.
 """
 function _check_condition(
     p::Int, 
@@ -523,7 +523,7 @@ This function extracts and validates `p` from the symbol.
 - `Int`: Parsed node count `p` (guaranteed ``p \\ge 2`` if successful).
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if the symbol does not start with `"newton_p"`
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if the symbol does not start with `"newton_p"`
   or if the parsed `p` is invalid.
 """
 function _parse_newton_p(

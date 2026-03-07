@@ -109,16 +109,16 @@ Boundary controls endpoint clamping.
 
 Provides:
 
-- [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref)
+- [`QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref)
 - Tensor-product evaluation routines:
-    - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_1d`](@ref)
-    - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_2d`](@ref)
-    - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_3d`](@ref)
-    - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_4d`](@ref)
-    - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_nd`](@ref)
+    - [`QuadratureDispatch.quadrature_1d`](@ref)
+    - [`QuadratureDispatch.quadrature_2d`](@ref)
+    - [`QuadratureDispatch.quadrature_3d`](@ref)
+    - [`QuadratureDispatch.quadrature_4d`](@ref)
+    - [`QuadratureDispatch.quadrature_nd`](@ref)
 - Unified front-end:
 
-    - [`quadrature`](@ref Maranatha.Quadrature.QuadratureDispatch.quadrature)`(f, a, b, N, dim, rule, boundary)`
+    - [`QuadratureDispatch.quadrature`](@ref)`(f, a, b, N, dim, rule, boundary)`
 
 ------------------------------------------------------------------------
 
@@ -175,8 +175,8 @@ These patterns determine:
 
 Primary entry points:
 
-- [`quadrature`](@ref Maranatha.Quadrature.QuadratureDispatch.quadrature)`(...)`
-- [`get_quadrature_1d_nodes_weights`](@ref Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights)`(...)`
+- [`QuadratureDispatch.quadrature`](@ref)`(...)`
+- [`QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref)`(...)`
 
 ------------------------------------------------------------------------
 
@@ -193,8 +193,6 @@ module Quadrature
 import ..LinearAlgebra
 
 import ..Utils.JobLoggerTools
-
-export quadrature, get_quadrature_1d_nodes_weights
 
 include("NewtonCotes.jl")
 include("Gauss.jl")

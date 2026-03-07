@@ -106,12 +106,12 @@ Unified dispatch layer that:
 - Normalizes residual backends into a common interface:
   `(ks, coeffs_float, center)`
 - Provides dimension-specific estimators:
-  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_1d`](@ref), 
-  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_2d`](@ref), 
-  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_3d`](@ref), 
-  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_4d`](@ref)
+  [`ErrorDispatch.error_estimate_1d`](@ref), 
+  [`ErrorDispatch.error_estimate_2d`](@ref), 
+  [`ErrorDispatch.error_estimate_3d`](@ref), 
+  [`ErrorDispatch.error_estimate_4d`](@ref)
 - Provides dimension-generic estimators:
-  [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_nd`](@ref) (and threaded variants)
+  [`ErrorDispatch.error_estimate_nd`](@ref) (and threaded variants)
 - Exposes threaded implementations using [`Base.Threads`](https://docs.julialang.org/en/v1/base/multi-threading/)
 
 This is the layer that the public API calls.
@@ -120,7 +120,7 @@ This is the layer that the public API calls.
 
 # Derivative backends and safety policy
 
-High-order derivatives are computed by a shared safe wrapper, [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative`](@ref):
+High-order derivatives are computed by a shared safe wrapper, [`ErrorDispatch.nth_derivative`](@ref):
 
 - Primary backend: [`ForwardDiff.derivative`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative) (closure-chain for higher orders)
 - Fallback backend: [`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1-Union{Tuple{T},%20Tuple{Type{T},%20Int64}}%20where%20T%3C:Number) expansion (single-pass coefficient extraction)
@@ -144,8 +144,8 @@ can support alternative centers without breaking downstream signatures.
 
 Primary entry points:
 
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)`(f, a, b, N, dim, rule, boundary; nerr_terms=1)`
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref)`(f, a, b, N, dim, rule, boundary; nerr_terms=1)`
+- [`ErrorDispatch.error_estimate`](@ref)`(f, a, b, N, dim, rule, boundary; nerr_terms=1)`
+- [`ErrorDispatch.error_estimate_threads`](@ref)`(f, a, b, N, dim, rule, boundary; nerr_terms=1)`
 
 Both entry points:
 
@@ -182,7 +182,5 @@ using .ErrorNewtonCotes
 using .ErrorGauss
 using .ErrorBSpline
 using .ErrorDispatch
-
-export error_estimate, error_estimate_threads
 
 end  # module ErrorEstimate

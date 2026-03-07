@@ -347,7 +347,7 @@ routes the request according to `err_method`:
 - `:enzyme`              → [`nth_derivative_enzyme`](@ref)
 
 If an unknown `err_method` is provided, the function aborts via
-[`Maranatha.Utils.JobLoggerTools.error_benji`](@ref) with a context-rich message.
+[`JobLoggerTools.error_benji`](@ref) with a context-rich message.
 
 This interface is shared across 1D/2D/3D/4D and general nD error estimators.
 

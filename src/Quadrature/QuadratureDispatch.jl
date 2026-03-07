@@ -99,7 +99,7 @@ The return types are `Vector{Float64}` for both nodes and weights.
 
 # Errors
 - Throws `ArgumentError` if ``N < 1``.
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid,
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid,
   if the composite constraint fails, or if `rule` is unsupported.
 
 # Notes

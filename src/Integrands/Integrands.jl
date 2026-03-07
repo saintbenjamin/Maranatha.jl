@@ -12,8 +12,6 @@ module Integrands
 
 import ..Utils.JobLoggerTools
 
-export integrand, register_integrand!, available_integrands
-
 # ============================================================
 # Registry: name => factory
 #

@@ -21,11 +21,10 @@ import ..Quadrature.Gauss
 import ..Quadrature.BSpline
 import ..Quadrature.QuadratureDispatch
 
-export set_pyplot_latex_style, plot_convergence_result, plot_quadrature_coverage_1d
-
 include("set_pyplot_latex_style.jl")
 include("_smart_text_placement.jl")
 include("plot_convergence_result.jl")
+include("plot_datapoints_result.jl")
 include("plot_quadrature_coverage_1d.jl")
 
 end  # module PlotTools

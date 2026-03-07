@@ -17,7 +17,7 @@ Visualize **``1``-dimensional quadrature behavior** on ``[a,b]`` by plotting the
 integrand ``f(x)`` together with a **pedagogical representation** of how the selected
 quadrature rule contributes to the integral.
 
-Unlike [`Maranatha.PlotTools.plot_convergence_result`](@ref), this routine is not a
+Unlike [`plot_convergence_result`](@ref), this routine is not a
 fit-visualization tool. Instead, it is meant to help interpret the geometric or
 rule-structural meaning of a selected 1D quadrature construction.
 
@@ -34,7 +34,7 @@ This function always draws:
 
 1. A dense curve of the true integrand ``f(x)`` over ``[a,b]``.
 2. Quadrature nodes/weights ``(xs, ws)`` obtained from
-   [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
+   [`QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
 3. A text annotation displaying the quadrature sum computed directly from the returned
    nodes and weights.
 
@@ -91,9 +91,9 @@ Negative weights:
 
 The rule family is detected by:
 
-* [`Maranatha.Quadrature.NewtonCotes._is_newton_cotes_rule`](@ref)
-* [`Maranatha.Quadrature.Gauss._is_gauss_rule`](@ref)
-* [`Maranatha.Quadrature.BSpline._is_bspline_rule`](@ref)
+* [`NewtonCotes._is_newton_cotes_rule`](@ref)
+* [`Gauss._is_gauss_rule`](@ref)
+* [`BSpline._is_bspline_rule`](@ref)
 
 The `(rule, boundary)` pair is passed unchanged to the quadrature dispatcher, and any
 validity constraints (e.g., composability constraints for composite rules) are enforced

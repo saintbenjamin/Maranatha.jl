@@ -74,7 +74,7 @@ This routine returns the first `nterms` detected `(k, coeff(k))` pairs as aligne
 
 * `rule`: Quadrature rule symbol. Supported:
 
-  * `:newton_pK` (exact composite Newton–Cotes; handled by `NewtonCotes` + `ErrorNewtonCotes`)
+  * `:newton_pK` (exact composite Newton-Cotes; handled by `NewtonCotes` + `ErrorNewtonCotes`)
   * `:gauss_pK` (composite Gauss family; handled by `Gauss` + `ErrorGauss`)
 * `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
   This is validated by `QuadratureDispatch._decode_boundary(boundary)`.

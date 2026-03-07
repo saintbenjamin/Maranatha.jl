@@ -53,7 +53,7 @@ midpoint-based convergence/error heuristics.
 
 # Arguments
 - `β`: Exact rational composite coefficient vector ``\\beta`` (length ``N_{\\text{sub}} + 1``), typically produced by
-  [`Maranatha.Quadrature.NewtonCotes._assemble_composite_beta_rational`](@ref). The entry `β[j+1]` corresponds to node ``j``.
+  [`NewtonCotes._assemble_composite_beta_rational`](@ref). The entry `β[j+1]` corresponds to node ``j``.
 - `Nsub`: Number of subintervals defining the `u`-grid ``0, \\ldots, N_{\\text{sub}}``.
 - `kmax`: Maximum derivative order ``k`` to scan (inclusive).
 
@@ -62,7 +62,7 @@ midpoint-based convergence/error heuristics.
 - `coeff::NewtonCotes.RBig`: The exact rational Taylor coefficient ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}``.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `kmax < 0`.
 - Throws if no nonzero residual is found up to `kmax`.
 """
 function _leading_midpoint_residual_term_from_beta(
@@ -109,11 +109,11 @@ Build exact composite weights for `(rule, boundary, Nsub)` and extract the leadi
 
 # Function description
 This helper is a convenience wrapper around
-[`Maranatha.Quadrature.NewtonCotes._assemble_composite_beta_rational`](@ref) and
+[`NewtonCotes._assemble_composite_beta_rational`](@ref) and
 [`_leading_midpoint_residual_term_from_beta`](@ref).
 
 Workflow:
-1) Validate `boundary` via [`Maranatha.Quadrature.QuadratureDispatch._decode_boundary`](@ref).
+1) Validate `boundary` via [`QuadratureDispatch._decode_boundary`](@ref).
 2) Require `rule` to be of NS form `:newton_pK` (midpoint residual model is defined for these).
 3) Parse ``p`` from `rule` and assemble the exact rational ``\\beta``.
 4) Scan for the first nonzero midpoint residual term `(k, coeff)`.
@@ -128,7 +128,7 @@ Workflow:
 - `(k, coeff)`: The leading nonzero residual order and its exact coefficient.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
   if `Nsub` is invalid for the boundary tiling, or if no term is found up to `kmax`.
 """
 function _leading_midpoint_residual_term(
@@ -190,7 +190,7 @@ nonzero residual orders are needed (*e.g.* fitting several powers).
 - `center::Symbol`: Expansion center indicator. Currently always `:mid`.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if it cannot collect `nterms` values up to `kmax`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if it cannot collect `nterms` values up to `kmax`.
 - Propagates errors from exact ``\\beta`` assembly if `(rule, boundary, Nsub)` is invalid.
 """
 function _leading_residual_ks_with_center(
@@ -267,7 +267,7 @@ For each ``k = 0 , \\ldots , k_{\\max}``, it computes:
 Whenever ``\\texttt{diff}_k \\neq 0``, the pair `(k, coeff(k))` is appended.
 The function stops once `nterms` pairs have been collected.
 
-All outputs remain in exact rational arithmetic ([`Maranatha.Quadrature.NewtonCotes.RBig`](@ref)).
+All outputs remain in exact rational arithmetic ([`NewtonCotes.RBig`](@ref)).
 
 # Arguments
 - `β`: Exact rational coefficient vector of length ``N_\\text{sub} + 1`` (index `β[j+1]` corresponds to node `j`).
@@ -280,7 +280,7 @@ All outputs remain in exact rational arithmetic ([`Maranatha.Quadrature.NewtonCo
 - `coeffs::Vector{NewtonCotes.RBig}`: Exact Taylor coefficients `diff(k)/k!`, aligned with `ks`.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
 - Throws if fewer than `nterms` nonzero terms exist up to `kmax`.
 """
 function _leading_midpoint_residual_terms_from_beta(
@@ -343,12 +343,12 @@ This helper is the public-facing (within `ErrorEstimate`) convenience wrapper
 for midpoint residual extraction.
 
 Workflow:
-1) Validate `boundary` via [`Maranatha.Quadrature.QuadratureDispatch._decode_boundary`](@ref) (catches typos early).
+1) Validate `boundary` via [`QuadratureDispatch._decode_boundary`](@ref) (catches typos early).
 2) Require `rule` to be an NS rule (`:newton_pK`) because the residual/``\\beta`` construction
    is defined in terms of the exact-rational NS assembly.
 3) Parse `p` from `rule`.
 4) Assemble exact rational composite coefficients `βR` using
-   [`Maranatha.Quadrature.NewtonCotes._assemble_composite_beta_rational`](@ref)`(p, boundary, Nsub)`.
+   [`NewtonCotes._assemble_composite_beta_rational`](@ref)`(p, boundary, Nsub)`.
 5) Extract the first `nterms` nonzero midpoint residual pairs `(k, coeff)` via
    [`_leading_midpoint_residual_terms_from_beta`](@ref).
 
@@ -364,7 +364,7 @@ Workflow:
 - `coeffs::Vector{NewtonCotes.RBig}`: Exact rational coefficients ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}`` `diff(k)/k!` aligned with `ks`.
 
 # Errors
-- Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
   if `Nsub` violates composite constraints, or if insufficient nonzero terms exist up to `kmax`.
 """
 function _leading_midpoint_residual_terms(

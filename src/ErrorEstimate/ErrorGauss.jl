@@ -100,7 +100,7 @@ M_k^{\\texttt{quad}}  = \\sum_i W_i \\, \\left( U_i - c \\right)^k \\,,
 ```
 
 where ``(U, W)`` are produced by
-[`Quadrature.Gauss._composite_gauss_u_grid`](@ref) and ``c = \\dfrac{N}{2}`` is the midpoint shift.
+[`Gauss._composite_gauss_u_grid`](@ref) and ``c = \\dfrac{N}{2}`` is the midpoint shift.
 
 The difference is:
 

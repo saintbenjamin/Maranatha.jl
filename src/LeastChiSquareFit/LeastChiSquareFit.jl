@@ -19,9 +19,7 @@ import ..Utils.AvgErrFormatter
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
-import ..ErrorEstimate
-
-export least_chi_square_fit, print_fit_result
+import ..ErrorEstimate.ErrorDispatch
 
 """
     least_chi_square_fit(
@@ -59,14 +57,14 @@ that depends on `(rule, boundary)` and a representative subdivision count `Nref`
 derived from the smallest step size in `hs`.
 
 A list of candidate residual indices is obtained via
-[`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref),
+[`ErrorDispatch._leading_residual_ks_with_center_any`](@ref),
 then mapped to fit powers in `h` depending on the rule family, and finally sliced using
 the optional `ff_shift`.
 
 ## Exponent selection (midpoint residual model + forward shift)
 
 First, a list of candidate residual indices is obtained via
-[`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref)
+[`ErrorDispatch._leading_residual_ks_with_center_any`](@ref)
 as `ks`.
 
 These `ks` are then mapped to the fit powers in `h` depending on the rule family:
@@ -209,12 +207,14 @@ A `NamedTuple` with the following fields:
   the available data points, so the fit may still return parameters but the reduced
   ``\\chi^2`` diagnostic is no longer informative.
 
-# Example
+# Examples
 
 The example below shows the standard downstream fitting step after generating
 a raw convergence dataset with [`Maranatha.Runner.run_Maranatha`](@ref).
 
 ```julia
+using Maranatha
+
 f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
 
 result = run_Maranatha(
@@ -261,6 +261,150 @@ plot_convergence_result(
     boundary = result.boundary
 )
 ```
+
+If a long convergence study is executed in multiple partial runs
+(for example, due to wall-time limits or interrupted sessions),
+the saved `.jld2` files can later be merged with
+[`Maranatha.Utils.MaranathaIO.merge_datapoint_result_files`](@ref)
+or [`Maranatha.Utils.MaranathaIO.merge_datapoint_results`](@ref),
+and the merged result can be passed to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+in exactly the same way as a single-run result.
+
+```julia
+using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    "result_part1.jld2",
+    "result_part2.jld2",
+    "result_part3.jld2";
+    output_path = "result_merged.jld2",
+    write_summary = true,
+)
+
+merged = load_datapoint_results(merged_path)
+
+fit = least_chi_square_fit(
+    merged.a,
+    merged.b,
+    merged.h,
+    merged.avg,
+    merged.err,
+    merged.rule,
+    merged.boundary;
+    nterms = merged.fit_terms,
+    ff_shift = merged.ff_shift,
+    nerr_terms = merged.nerr_terms
+)
+```
+
+The merged output path may also be generated automatically from the
+actual subdivision counts present in the merged result:
+
+```julia
+using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    "result_part1.jld2",
+    "result_part2.jld2",
+    "result_part3.jld2";
+    write_summary = true,
+    output_dir = ".",
+    name_prefix = "merged"
+)
+
+merged = load_datapoint_results(merged_path)
+```
+
+Then the output filename is automatically constructed as
+
+```julia
+result_merged_\$(rule)_\$(boundary)_N_2_3_4_5_6_7.jld2
+```
+
+Selected subdivision counts can also be removed from an existing result
+file before fitting. This is useful when very coarse resolutions are
+considered unreliable or visually inconsistent with the main trend.
+
+```julia
+using Maranatha
+
+filtered_path = drop_nsamples_from_file(
+    "result_full.jld2",
+    [2, 3];
+    write_summary = true,
+    output_dir = ".",
+    name_prefix = "filtered"
+)
+```
+
+Then the returned `filtered_path` points to a new file containing the same result data but with the specified `N` values removed, so that only the remaining resolutions are included in the downstream fit.
+
+```julia
+[2,3,4,5,6,7] -> [4,5,6,7]
+```
+
+You may then load the filtered result and pass it to the fitting routine as usual:
+
+```julia
+filtered = load_datapoint_results(filtered_path)
+
+fit = least_chi_square_fit(
+    filtered.a,
+    filtered.b,
+    filtered.h,
+    filtered.avg,
+    filtered.err,
+    filtered.rule,
+    filtered.boundary;
+    nterms = filtered.fit_terms,
+    ff_shift = filtered.ff_shift,
+    nerr_terms = filtered.nerr_terms
+)
+```
+
+Before fitting, it can be useful to inspect only the raw datapoints in a
+chosen `h^p` coordinate in order to check apparent linearity, oscillation,
+or resolution-dependent irregularities.
+
+```julia
+using Maranatha
+
+plot_datapoints_result(
+    "merged_test",
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :linear,
+    yscale = :linear,
+    ymode = :value,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)
+```
+
+A relative-difference diagnostic view can also be drawn on log-log axes
+once a reference value is available:
+
+```julia
+using Maranatha
+
+plot_datapoints_result(
+    "merged_test",
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :log,
+    yscale = :log,
+    ymode = :reldiff,
+    reference_value = fit.estimate,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)
+```
+
 """
 function least_chi_square_fit(
     a::Real,
@@ -281,7 +425,7 @@ function least_chi_square_fit(
 
     Nref = round(Int, (b - a) / minimum(float.(hs)))
 
-    ks, _center = ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any(
+    ks, _center = ErrorDispatch._leading_residual_ks_with_center_any(
         rule, boundary, Nref; nterms=nterms, kmax=256
     )
 
@@ -446,13 +590,13 @@ end
 Print a formatted summary of a least-``\\chi^2`` convergence fit.
 
 This routine is typically called immediately after
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref) to display the fitted
+[`least_chi_square_fit`](@ref) to display the fitted
 parameters, uncertainties, and ``\\chi^2`` diagnostics in a compact human-readable form.
 
 # Function description
 This routine prints each fitted parameter ``\\lambda_k`` together with its
 ``1 \\,\\sigma`` uncertainty using
-[`Maranatha.Utils.AvgErrFormatter.avgerr_e2d_from_float`](@ref).
+[`AvgErrFormatter.avgerr_e2d_from_float`](@ref).
 
 The output includes:
 
@@ -468,7 +612,7 @@ and are easy to compare in logs or analysis notebooks.
 # Arguments
 - `fit`:
   Fit result object, typically the `NamedTuple` returned by
-  [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+  [`least_chi_square_fit`](@ref).
 
   The object is expected to provide at least the following fields:
     - `estimate::Float64`:
@@ -489,16 +633,31 @@ and are easy to compare in logs or analysis notebooks.
 This routine is used for its side effect: it prints a formatted summary of the
 fit result to the standard output.
 
-# Example
+# Examples
+
+The example below shows the standard downstream fitting step after generating
+a raw convergence dataset with [`Maranatha.Runner.run_Maranatha`](@ref).
 
 ```julia
+using Maranatha
+
+f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
+
 result = run_Maranatha(
     f,
     0.0, 1.0;
     dim = 4,
-    nsamples = [2,3,4,5,6,7,8,9],
+    nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
     rule = :gauss_p4,
-    boundary = :LU_EXEX
+    boundary = :LU_EXEX,
+    err_method = :forwarddiff,
+    fit_terms = 4,
+    nerr_terms = 3,
+    ff_shift = 0,
+    use_threads = false,
+    name_prefix = "4D_test",
+    save_path = ".",
+    write_summary = true
 )
 
 fit = least_chi_square_fit(
@@ -508,11 +667,170 @@ fit = least_chi_square_fit(
     result.avg,
     result.err,
     result.rule,
-    result.boundary
+    result.boundary;
+    nterms = result.fit_terms,
+    ff_shift = result.ff_shift,
+    nerr_terms = result.nerr_terms
 )
 
 print_fit_result(fit)
+
+plot_convergence_result(
+    result.a,
+    result.b,
+    "4D_test",
+    result.h,
+    result.avg,
+    result.err,
+    fit;
+    rule = result.rule,
+    boundary = result.boundary
+)
 ```
+
+If a long convergence study is executed in multiple partial runs
+(for example, due to wall-time limits or interrupted sessions),
+the saved `.jld2` files can later be merged with
+[`Maranatha.Utils.MaranathaIO.merge_datapoint_result_files`](@ref)
+or [`Maranatha.Utils.MaranathaIO.merge_datapoint_results`](@ref),
+and the merged result can be passed to
+[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+in exactly the same way as a single-run result.
+
+```julia
+using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    "result_part1.jld2",
+    "result_part2.jld2",
+    "result_part3.jld2";
+    output_path = "result_merged.jld2",
+    write_summary = true,
+)
+
+merged = load_datapoint_results(merged_path)
+
+fit = least_chi_square_fit(
+    merged.a,
+    merged.b,
+    merged.h,
+    merged.avg,
+    merged.err,
+    merged.rule,
+    merged.boundary;
+    nterms = merged.fit_terms,
+    ff_shift = merged.ff_shift,
+    nerr_terms = merged.nerr_terms
+)
+```
+
+The merged output path may also be generated automatically from the
+actual subdivision counts present in the merged result:
+
+```julia
+using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    "result_part1.jld2",
+    "result_part2.jld2",
+    "result_part3.jld2";
+    write_summary = true,
+    output_dir = ".",
+    name_prefix = "merged"
+)
+
+merged = load_datapoint_results(merged_path)
+```
+
+Then the output filename is automatically constructed as
+
+```julia
+result_merged_\$(rule)_\$(boundary)_N_2_3_4_5_6_7.jld2
+```
+
+Selected subdivision counts can also be removed from an existing result
+file before fitting. This is useful when very coarse resolutions are
+considered unreliable or visually inconsistent with the main trend.
+
+```julia
+using Maranatha
+
+filtered_path = drop_nsamples_from_file(
+    "result_full.jld2",
+    [2, 3];
+    write_summary = true,
+    output_dir = ".",
+    name_prefix = "filtered"
+)
+```
+
+Then the returned `filtered_path` points to a new file containing the same result data but with the specified `N` values removed, so that only the remaining resolutions are included in the downstream fit.
+
+```julia
+[2,3,4,5,6,7] -> [4,5,6,7]
+```
+
+You may then load the filtered result and pass it to the fitting routine as usual:
+
+```julia
+filtered = load_datapoint_results(filtered_path)
+
+fit = least_chi_square_fit(
+    filtered.a,
+    filtered.b,
+    filtered.h,
+    filtered.avg,
+    filtered.err,
+    filtered.rule,
+    filtered.boundary;
+    nterms = filtered.fit_terms,
+    ff_shift = filtered.ff_shift,
+    nerr_terms = filtered.nerr_terms
+)
+```
+
+Before fitting, it can be useful to inspect only the raw datapoints in a
+chosen `h^p` coordinate in order to check apparent linearity, oscillation,
+or resolution-dependent irregularities.
+
+```julia
+using Maranatha
+
+plot_datapoints_result(
+    "merged_test",
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :linear,
+    yscale = :linear,
+    ymode = :value,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)
+```
+
+A relative-difference diagnostic view can also be drawn on log-log axes
+once a reference value is available:
+
+```julia
+using Maranatha
+
+plot_datapoints_result(
+    "merged_test",
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :log,
+    yscale = :log,
+    ymode = :reldiff,
+    reference_value = fit.estimate,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)
+```
+
 """
 function print_fit_result(
     fit
