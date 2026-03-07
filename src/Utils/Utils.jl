@@ -75,10 +75,12 @@ include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
 include("MaranathaIO.jl")
 include("MaranathaTOML.jl")
+include("Wizard.jl")
 
 using .JobLoggerTools
 using .AvgErrFormatter
 using .MaranathaIO
 using .MaranathaTOML
+using .Wizard
 
 end  # module Utils

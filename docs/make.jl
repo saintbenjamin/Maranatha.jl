@@ -82,6 +82,7 @@ makedocs(
                 "JobLoggerTools"     => "lib/JobLoggerTools.md",
                 "MaranathaIO"        => "lib/MaranathaIO.md",
                 "MaranathaTOML"      => "lib/MaranathaTOML.md",
+                "Wizard"             => "lib/Wizard.md",
             ]
         ]
     ],

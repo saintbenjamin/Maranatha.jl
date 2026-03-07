@@ -405,4 +405,7 @@ export plot_convergence_result, plot_datapoints_result, plot_quadrature_coverage
 import .Utils.MaranathaIO: load_datapoint_results, merge_datapoint_result_files, drop_nsamples_from_file
 export load_datapoint_results, merge_datapoint_result_files, drop_nsamples_from_file
 
+import .Utils.Wizard: run_wizard
+export run_wizard
+
 end  # module Maranatha
