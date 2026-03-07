@@ -12,7 +12,8 @@
 module ErrorNewtonCotes
 
 import ..JobLoggerTools
-import ..Quadrature
+import ..Quadrature.NewtonCotes
+import ..Quadrature.QuadratureDispatch
 
 # ----------------------------
 # helper: collect first nonzero midpoint residual term
@@ -22,10 +23,10 @@ import ..Quadrature
 
 """
     _leading_midpoint_residual_term_from_beta(
-        β::Vector{Quadrature.NewtonCotes.RBig},
+        β::Vector{NewtonCotes.RBig},
         Nsub::Int;
         kmax::Int = 64
-    ) -> Tuple{Int, Quadrature.NewtonCotes.RBig}
+    ) -> Tuple{Int, NewtonCotes.RBig}
 
 Find the first nonzero midpoint residual term `(k, coeff)` from exact composite weights ``\\beta``.
 
@@ -58,37 +59,37 @@ midpoint-based convergence/error heuristics.
 
 # Returns
 - `k::Int`: The first order with nonzero residual moment.
-- `coeff::Quadrature.NewtonCotes.RBig`: The exact rational Taylor coefficient ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}``.
+- `coeff::NewtonCotes.RBig`: The exact rational Taylor coefficient ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}``.
 
 # Errors
 - Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `kmax < 0`.
 - Throws if no nonzero residual is found up to `kmax`.
 """
 function _leading_midpoint_residual_term_from_beta(
-    β::Vector{Quadrature.NewtonCotes.RBig},
+    β::Vector{NewtonCotes.RBig},
     Nsub::Int;
     kmax::Int = 64
-)::Tuple{Int, Quadrature.NewtonCotes.RBig}
+)::Tuple{Int, NewtonCotes.RBig}
 
     kmax >= 0 || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    c = Quadrature.NewtonCotes.RBig(BigInt(Nsub), 2)  # Nsub/2
-    Nrb = Quadrature.NewtonCotes.RBig(BigInt(Nsub), 1)
+    c = NewtonCotes.RBig(BigInt(Nsub), 2)  # Nsub/2
+    Nrb = NewtonCotes.RBig(BigInt(Nsub), 1)
 
     for k in 0:kmax
         # exact = ∫_0^{Nsub} (u-c)^k du
-        exact = ((Nrb - c)^(k+1) - (Quadrature.NewtonCotes.RBig(0) - c)^(k+1)) / Quadrature.NewtonCotes.RBig(BigInt(k+1), 1)
+        exact = ((Nrb - c)^(k+1) - (NewtonCotes.RBig(0) - c)^(k+1)) / NewtonCotes.RBig(BigInt(k+1), 1)
 
-        approx = Quadrature.NewtonCotes.RBig(0)
+        approx = NewtonCotes.RBig(0)
         @inbounds for j in 0:Nsub
             wj = β[j+1]
             wj == 0 && continue
-            approx += wj * (Quadrature.NewtonCotes.RBig(BigInt(j), 1) - c)^k
+            approx += wj * (NewtonCotes.RBig(BigInt(j), 1) - c)^k
         end
 
         diff = exact - approx
         if diff != 0
-            coeff = diff / Quadrature.NewtonCotes.RBig(factorial(big(k)), 1)
+            coeff = diff / NewtonCotes.RBig(factorial(big(k)), 1)
             return k, coeff
         end
     end
@@ -102,7 +103,7 @@ end
         boundary::Symbol,
         Nsub::Int;
         kmax::Int = 64
-    ) -> Tuple{Int, Quadrature.NewtonCotes.RBig}
+    ) -> Tuple{Int, NewtonCotes.RBig}
 
 Build exact composite weights for `(rule, boundary, Nsub)` and extract the leading midpoint residual term.
 
@@ -135,17 +136,17 @@ function _leading_midpoint_residual_term(
     boundary::Symbol,
     Nsub::Int;
     kmax::Int = 64
-)::Tuple{Int, Quadrature.NewtonCotes.RBig}
+)::Tuple{Int, NewtonCotes.RBig}
 
     # boundary validation (also catches typos early)
-    Quadrature.QuadratureDispatch._decode_boundary(boundary)
+    QuadratureDispatch._decode_boundary(boundary)
 
-    Quadrature.NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji("midpoint residual model currently expects :newton_pK rules (got rule=$rule)")
+    NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji("midpoint residual model currently expects :newton_pK rules (got rule=$rule)")
 
-    p = Quadrature.NewtonCotes._parse_newton_p(rule)
+    p = NewtonCotes._parse_newton_p(rule)
 
     # exact β (rational) from your assembly
-    βR = Quadrature.NewtonCotes._assemble_composite_beta_rational(p, boundary, Nsub)
+    βR = NewtonCotes._assemble_composite_beta_rational(p, boundary, Nsub)
 
     return _leading_midpoint_residual_term_from_beta(βR, Nsub; kmax=kmax)
 end
@@ -205,18 +206,18 @@ function _leading_residual_ks_with_center(
     center = :mid
 
     while length(ks) < nterms
-        β = Quadrature.NewtonCotes._assemble_composite_beta_rational(Quadrature.NewtonCotes._parse_newton_p(rule), boundary, Nsub)
-        c = Quadrature.NewtonCotes.RBig(BigInt(Nsub), 2)
+        β = NewtonCotes._assemble_composite_beta_rational(NewtonCotes._parse_newton_p(rule), boundary, Nsub)
+        c = NewtonCotes.RBig(BigInt(Nsub), 2)
         # scan k upward and collect first n nonzero midpoint residuals
         center = :mid
         while length(ks) < nterms && k <= kmax
             # exact ∫ (u-c)^k
-            exact = ((Quadrature.NewtonCotes.RBig(BigInt(Nsub),1) - c)^(k+1) - (Quadrature.NewtonCotes.RBig(0) - c)^(k+1)) /
-                    Quadrature.NewtonCotes.RBig(BigInt(k+1),1)
-            approx = Quadrature.NewtonCotes.RBig(0)
+            exact = ((NewtonCotes.RBig(BigInt(Nsub),1) - c)^(k+1) - (NewtonCotes.RBig(0) - c)^(k+1)) /
+                    NewtonCotes.RBig(BigInt(k+1),1)
+            approx = NewtonCotes.RBig(0)
             for j in 0:Nsub
                 wj = β[j+1]; wj == 0 && continue
-                approx += wj * (Quadrature.NewtonCotes.RBig(BigInt(j),1) - c)^k
+                approx += wj * (NewtonCotes.RBig(BigInt(j),1) - c)^k
             end
             if exact - approx != 0
                 push!(ks, k)
@@ -232,11 +233,11 @@ end
 
 """
     _leading_midpoint_residual_terms_from_beta(
-        β::Vector{Quadrature.NewtonCotes.RBig},
+        β::Vector{NewtonCotes.RBig},
         Nsub::Int;
         nterms::Int = 2,
         kmax::Int = 128
-    ) -> Tuple{Vector{Int}, Vector{Quadrature.NewtonCotes.RBig}}
+    ) -> Tuple{Vector{Int}, Vector{NewtonCotes.RBig}}
 
 Collect the first `nterms` nonzero midpoint residual terms `(k, coeff)` from exact weights ``\\beta``.
 
@@ -276,45 +277,45 @@ All outputs remain in exact rational arithmetic ([`Maranatha.Quadrature.NewtonCo
 
 # Returns
 - `ks::Vector{Int}`: Collected residual orders `k` (ascending by scan).
-- `coeffs::Vector{Quadrature.NewtonCotes.RBig}`: Exact Taylor coefficients `diff(k)/k!`, aligned with `ks`.
+- `coeffs::Vector{NewtonCotes.RBig}`: Exact Taylor coefficients `diff(k)/k!`, aligned with `ks`.
 
 # Errors
 - Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
 - Throws if fewer than `nterms` nonzero terms exist up to `kmax`.
 """
 function _leading_midpoint_residual_terms_from_beta(
-    β::Vector{Quadrature.NewtonCotes.RBig},
+    β::Vector{NewtonCotes.RBig},
     Nsub::Int;
     nterms::Int = 2,
     kmax::Int = 128
-)::Tuple{Vector{Int}, Vector{Quadrature.NewtonCotes.RBig}}
+)::Tuple{Vector{Int}, Vector{NewtonCotes.RBig}}
 
     (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    c   = Quadrature.NewtonCotes.RBig(BigInt(Nsub), 2)  # c = Nsub/2
-    Nrb = Quadrature.NewtonCotes.RBig(BigInt(Nsub), 1)  # N as rational
+    c   = NewtonCotes.RBig(BigInt(Nsub), 2)  # c = Nsub/2
+    Nrb = NewtonCotes.RBig(BigInt(Nsub), 1)  # N as rational
 
     ks     = Int[]
-    coeffs = Quadrature.NewtonCotes.RBig[]
+    coeffs = NewtonCotes.RBig[]
 
     for k in 0:kmax
         # Exact moment: ∫_0^N (u-c)^k du
-        exact = ((Nrb - c)^(k+1) - (Quadrature.NewtonCotes.RBig(0) - c)^(k+1)) /
-                Quadrature.NewtonCotes.RBig(BigInt(k+1), 1)
+        exact = ((Nrb - c)^(k+1) - (NewtonCotes.RBig(0) - c)^(k+1)) /
+                NewtonCotes.RBig(BigInt(k+1), 1)
 
         # Quadrature moment: Σ β[j] * (j-c)^k
-        approx = Quadrature.NewtonCotes.RBig(0)
+        approx = NewtonCotes.RBig(0)
         @inbounds for j in 0:Nsub
             wj = β[j+1]
             wj == 0 && continue
-            approx += wj * (Quadrature.NewtonCotes.RBig(BigInt(j), 1) - c)^k
+            approx += wj * (NewtonCotes.RBig(BigInt(j), 1) - c)^k
         end
 
         diff = exact - approx
         if diff != 0
             # Convert moment residual to Taylor coefficient: diff/k!
-            coeff = diff / Quadrature.NewtonCotes.RBig(factorial(big(k)), 1)
+            coeff = diff / NewtonCotes.RBig(factorial(big(k)), 1)
             push!(ks, k)
             push!(coeffs, coeff)
             length(ks) == nterms && return ks, coeffs
@@ -333,7 +334,7 @@ end
         Nsub::Int;
         nterms::Int = 2,
         kmax::Int = 128
-    ) -> Tuple{Vector{Int}, Vector{Quadrature.NewtonCotes.RBig}}
+    ) -> Tuple{Vector{Int}, Vector{NewtonCotes.RBig}}
 
 Build exact composite weights for `(rule, boundary, Nsub)` and collect the first `nterms` midpoint residual terms.
 
@@ -360,7 +361,7 @@ Workflow:
 
 # Returns
 - `ks::Vector{Int}`: First `nterms` nonzero residual orders.
-- `coeffs::Vector{Quadrature.NewtonCotes.RBig}`: Exact rational coefficients ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}`` `diff(k)/k!` aligned with `ks`.
+- `coeffs::Vector{NewtonCotes.RBig}`: Exact rational coefficients ``\\displaystyle{\\frac{\\texttt{diff}_k}{k!}}`` `diff(k)/k!` aligned with `ks`.
 
 # Errors
 - Throws (via [`Maranatha.Utils.JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid, if `rule` is not `:newton_pK`,
@@ -372,20 +373,20 @@ function _leading_midpoint_residual_terms(
     Nsub::Int;
     nterms::Int = 2,
     kmax::Int = 128
-)::Tuple{Vector{Int}, Vector{Quadrature.NewtonCotes.RBig}}
+)::Tuple{Vector{Int}, Vector{NewtonCotes.RBig}}
 
     # Validate boundary symbol (also catches typos early)
-    Quadrature.QuadratureDispatch._decode_boundary(boundary)
+    QuadratureDispatch._decode_boundary(boundary)
 
     # This residual construction currently assumes ns rules
-    Quadrature.NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji(
+    NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji(
         "midpoint residual model currently expects :newton_pK rules (got rule=$rule)"
     )
 
-    p  = Quadrature.NewtonCotes._parse_newton_p(rule)
+    p  = NewtonCotes._parse_newton_p(rule)
 
     # Exact rational global weights β[0..Nsub] for the chosen boundary pattern
-    βR = Quadrature.NewtonCotes._assemble_composite_beta_rational(p, boundary, Nsub)
+    βR = NewtonCotes._assemble_composite_beta_rational(p, boundary, Nsub)
 
     return _leading_midpoint_residual_terms_from_beta(βR, Nsub; nterms=nterms, kmax=kmax)
 end

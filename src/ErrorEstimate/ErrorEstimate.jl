@@ -163,15 +163,15 @@ Both entry points:
 """
 module ErrorEstimate
 
-using ..LinearAlgebra
-using ..TaylorSeries
-using ..Enzyme
-using ..ForwardDiff
-using ..FastDifferentiation
-# using ..Diffractor
+import ..LinearAlgebra
+import ..TaylorSeries
+import ..Enzyme
+import ..ForwardDiff
+import ..FastDifferentiation
+# import ..Diffractor
 
-using ..Utils.JobLoggerTools
-using ..Quadrature
+import ..Utils.JobLoggerTools
+import ..Quadrature
 
 include("ErrorNewtonCotes.jl")
 include("ErrorGauss.jl")

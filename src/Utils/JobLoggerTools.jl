@@ -1,5 +1,12 @@
 # ============================================================================
-# src/JobLoggerTools/JobLoggerTools.jl (Benji: taken from Deborah.Sarah)
+# src/JobLoggerTools/JobLoggerTools.jl
+#
+# Shared module mirrored between Maranatha.jl and Deborah.jl.
+# Historical origin: Deborah.jl
+#
+# The two copies are maintained as mirrored implementations and may evolve
+# independently for short periods. Changes made here should be reviewed
+# against the corresponding Deborah.jl file and synchronized as appropriate.
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -10,8 +17,8 @@
 
 module JobLoggerTools
 
-import Printf: @sprintf
-import Dates
+import ..Printf: @sprintf
+import ..Dates
 
 """
     @logtime_benji(

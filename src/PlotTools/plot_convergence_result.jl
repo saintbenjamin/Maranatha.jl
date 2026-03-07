@@ -348,7 +348,7 @@ function plot_convergence_result(
     Cov = fit_result.cov
 
     # [PATCH] enforce symmetry for numerical stability
-    CovS = Symmetric(Matrix(Cov))
+    CovS = LinearAlgebra.Symmetric(Matrix(Cov))
 
     # --------------------------------------------
     # Determine model exponents used by the fit
@@ -373,10 +373,10 @@ function plot_convergence_result(
 
     function model_and_err(h)
         φ = basis_vec(h)
-        y = dot(pvec, φ)
+        y = LinearAlgebra.dot(pvec, φ)
 
         # [PATCH] prediction variance = φ' Cov φ, clipped at 0
-        var = dot(φ, CovS * φ)
+        var = LinearAlgebra.dot(φ, CovS * φ)
         # σ = sqrt(max(var, 0.0))
         σ = sqrt(abs(var))
         return y, σ

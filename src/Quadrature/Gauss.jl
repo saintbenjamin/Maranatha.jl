@@ -10,9 +10,9 @@
 
 module Gauss
 
-using ..LinearAlgebra
+import ..LinearAlgebra
 
-using ..JobLoggerTools
+import ..JobLoggerTools
 
 """
     _legendre_Pn_Pn1(
@@ -226,7 +226,7 @@ function gauss_legendre_nodes_weights_float(
     #   a_k = 0
     #   b_k = k / sqrt(4k^2 - 1),  k=1..n-1
     #
-    # J = SymTridiagonal(a, b)
+    # J = LinearAlgebra.SymTridiagonal(a, b)
     # nodes = eigenvalues(J)
     # weights = μ0 * (v1_i)^2, μ0 = ∫_{-1}^{1} 1 dx = 2
     a = zeros(Float64, n)
@@ -235,8 +235,8 @@ function gauss_legendre_nodes_weights_float(
         b[k] = k / sqrt(4.0*k*k - 1.0)
     end
 
-    J = SymTridiagonal(a, b)
-    E = eigen(J)  # sorted ascending
+    J = LinearAlgebra.SymTridiagonal(a, b)
+    E = LinearAlgebra.eigen(J)  # sorted ascending
     t = Vector{Float64}(E.values)
     V = E.vectors
     w = Vector{Float64}(undef, n)

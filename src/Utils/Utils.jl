@@ -66,9 +66,10 @@ Additional submodules may be introduced over time as the project evolves.
 """
 module Utils
 
-using ..TOML
-using ..JLD2
-using ..Printf
+import ..Printf
+import ..Dates
+import ..TOML
+import ..JLD2
 
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")

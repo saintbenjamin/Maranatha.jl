@@ -190,9 +190,9 @@ Primary entry points:
 """
 module Quadrature
 
-using ..LinearAlgebra
+import ..LinearAlgebra
 
-using ..Utils.JobLoggerTools
+import ..Utils.JobLoggerTools
 
 export quadrature, get_quadrature_1d_nodes_weights
 

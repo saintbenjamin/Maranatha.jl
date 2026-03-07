@@ -10,8 +10,8 @@
 
 module ErrorBSpline
 
-import ..Quadrature
 import ..JobLoggerTools
+import ..Quadrature.BSpline
 
 # ------------------------------------------------------------
 # Float64 midpoint residual terms for composite B-spline rules
@@ -163,9 +163,9 @@ function _leading_midpoint_residual_terms_bspline_float(
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
     (Nsub >= 1)   || JobLoggerTools.error_benji("Nsub must be ≥ 1 (got Nsub=$Nsub)")
 
-    Quadrature.BSpline._is_bspline_rule(rule) || JobLoggerTools.error_benji("expected :bspline_interp_pK or :bspline_smooth_pK (got $rule)")
-    p    = Quadrature.BSpline._parse_bspline_p(rule)
-    kind = Quadrature.BSpline._bspline_kind(rule)  # :interp or :smooth
+    BSpline._is_bspline_rule(rule) || JobLoggerTools.error_benji("expected :bspline_interp_pK or :bspline_smooth_pK (got $rule)")
+    p    = BSpline._parse_bspline_p(rule)
+    kind = BSpline._bspline_kind(rule)  # :interp or :smooth
 
     # Build B-spline quadrature on [0, Nsub].
     # We set N = Nsub so the "resolution parameter" matches the dimensionless tiling length.
@@ -173,10 +173,10 @@ function _leading_midpoint_residual_terms_bspline_float(
     b = Float64(Nsub)
 
     xs, ws = if kind === :interp
-        Quadrature.BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind=:interp)
+        BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind=:interp)
     else
         (λ >= 0.0) || JobLoggerTools.error_benji("λ must be ≥ 0 for smoothing spline (got λ=$λ)")
-        Quadrature.BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind=:smooth, λ=λ)
+        BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind=:smooth, λ=λ)
     end
 
     c = Float64(Nsub) / 2.0

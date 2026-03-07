@@ -10,16 +10,16 @@
 
 module LeastChiSquareFit
 
-using ..LinearAlgebra
-using ..Statistics
-using ..Printf
+import ..LinearAlgebra
+import ..Statistics
+import ..Printf: @sprintf
 
-using ..Utils.JobLoggerTools
-using ..Utils.AvgErrFormatter
-using ..Quadrature.NewtonCotes
-using ..Quadrature.Gauss
-using ..Quadrature.BSpline
-using ..ErrorEstimate
+import ..Utils.JobLoggerTools
+import ..Utils.AvgErrFormatter
+import ..Quadrature.NewtonCotes
+import ..Quadrature.Gauss
+import ..Quadrature.BSpline
+import ..ErrorEstimate
 
 export least_chi_square_fit, print_fit_result
 
@@ -367,7 +367,7 @@ function least_chi_square_fit(
     X = hcat(cols...)
 
     # weights
-    W = Diagonal(1.0 ./ σ)
+    W = LinearAlgebra.Diagonal(1.0 ./ σ)
 
     Xw = W * X
     yw = W * y
@@ -389,24 +389,24 @@ function least_chi_square_fit(
     A = transpose(X) * (W^2) * X
 
     Hess = 2.0 .* A
-    F = cholesky(Symmetric(Hess))          # Hess must be SPD
+    F = LinearAlgebra.cholesky(LinearAlgebra.Symmetric(Hess))  # Hess must be SPD
 
     # Cov = 4 * inv(Hess) * A * inv(Hess)  (computed via solves)
     M   = F \ A                            # M = inv(Hess) * A
     Cov = 4.0 .* ((F \ transpose(M))')     # Cov = 4 * M * inv(Hess)
 
-    param_errors = sqrt.(diag(Cov))
+    param_errors = sqrt.(LinearAlgebra.diag(Cov))
     # ==================================================================
     # # --- WLS solve (QR-based, numerically stable) ---
     # # Solve: minimize || W*(X*params - y) ||_2
-    # # where W = Diagonal(1 ./ σ)
+    # # where W = LinearAlgebra.Diagonal(1 ./ σ)
 
     # # Weighted design and response
     # Xw = W * X
     # yw = W * y
 
     # # QR least squares (avoid normal equations)
-    # Fqr = qr(Xw)
+    # Fqr = LinearAlgebra.qr(Xw)
     # params = Fqr \ yw
 
     # # Covariance of params: Cov ≈ inv(Xw'Xw)
@@ -414,7 +414,7 @@ function least_chi_square_fit(
     # R = Fqr.R
     # Cov = inv(transpose(R) * R)
 
-    # param_errors = sqrt.(diag(Cov))
+    # param_errors = sqrt.(LinearAlgebra.diag(Cov))
     # ==================================================================
 
     # diagnostics

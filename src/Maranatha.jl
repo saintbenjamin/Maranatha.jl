@@ -164,17 +164,18 @@ usage is primarily intended for controlled numerical studies.
 """
 module Maranatha
 
-using Printf
-using Statistics
-using LinearAlgebra
-using TaylorSeries
-using Enzyme
-using ForwardDiff
-using FastDifferentiation
-# using Diffractor
-using TOML
-using JLD2
-using PyPlot
+import Printf
+import Dates
+import Statistics
+import LinearAlgebra
+import TaylorSeries
+import Enzyme
+import ForwardDiff
+import FastDifferentiation
+# import Diffractor
+import TOML
+import JLD2
+import PyPlot
 
 include("Utils/Utils.jl")
 include("Quadrature/Quadrature.jl")
@@ -192,20 +193,16 @@ using .Integrands
 using .Runner
 using .PlotTools
 
-const run_Maranatha = Runner.run_Maranatha
+import .Runner: run_Maranatha
 export run_Maranatha
 
-const least_chi_square_fit = LeastChiSquareFit.least_chi_square_fit
-export least_chi_square_fit
-const print_fit_result = LeastChiSquareFit.print_fit_result
-export print_fit_result
+import .LeastChiSquareFit: least_chi_square_fit, print_fit_result
+export least_chi_square_fit, print_fit_result
 
-const plot_convergence_result = PlotTools.plot_convergence_result
-export plot_convergence_result
-const plot_quadrature_coverage_1d = PlotTools.plot_quadrature_coverage_1d
-export plot_quadrature_coverage_1d
+import .PlotTools: plot_convergence_result, plot_quadrature_coverage_1d
+export plot_convergence_result, plot_quadrature_coverage_1d
 
-const load_datapoint_results = Maranatha.Utils.MaranathaIO.load_datapoint_results
+import .Utils.MaranathaIO: load_datapoint_results
 export load_datapoint_results
 
 end  # module Maranatha

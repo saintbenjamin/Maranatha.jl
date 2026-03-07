@@ -10,9 +10,9 @@
 
 module BSpline
 
-using ..LinearAlgebra
+import ..LinearAlgebra
 
-using ..JobLoggerTools
+import ..JobLoggerTools
 
 """
     _is_bspline_rule(

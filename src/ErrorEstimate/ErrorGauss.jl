@@ -11,7 +11,7 @@
 module ErrorGauss
 
 import ..JobLoggerTools
-import ..Quadrature
+import ..Quadrature.Gauss
 
 # ------------------------------------------------------------
 # Float64 midpoint residual terms for composite GAUSS rules
@@ -178,11 +178,11 @@ function _leading_midpoint_residual_terms_gauss_float(
     (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    Quadrature.Gauss._is_gauss_rule(rule) || JobLoggerTools.error_benji("expected :gauss_pK (got $rule)")
-    npts = Quadrature.Gauss._parse_gauss_p(rule)
+    Gauss._is_gauss_rule(rule) || JobLoggerTools.error_benji("expected :gauss_pK (got $rule)")
+    npts = Gauss._parse_gauss_p(rule)
 
     # dimensionless u-grid for composite Gauss on [0, Nsub]
-    U, W = Quadrature.Gauss._composite_gauss_u_grid(Nsub, npts, boundary)
+    U, W = Gauss._composite_gauss_u_grid(Nsub, npts, boundary)
 
     c = Float64(Nsub) / 2.0
 

@@ -10,11 +10,11 @@
 
 module Runner
 
-using ..Utils.JobLoggerTools
-using ..Utils.MaranathaIO
-using ..Quadrature
-using ..ErrorEstimate
-using ..LeastChiSquareFit
+import ..Utils.JobLoggerTools
+import ..Utils.MaranathaIO
+import ..Quadrature.QuadratureDispatch
+import ..ErrorEstimate.ErrorDispatch
+import ..LeastChiSquareFit
 
 export run_Maranatha
 
@@ -306,7 +306,7 @@ function run_Maranatha(
         h = (b - a) / N
         push!(hs, h)
 
-        I = Quadrature.QuadratureDispatch.quadrature(
+        I = QuadratureDispatch.quadrature(
             integrand,
             a,
             b,
@@ -317,7 +317,7 @@ function run_Maranatha(
         )
 
         err = if use_threads
-            ErrorEstimate.ErrorDispatch.error_estimate_threads(
+            ErrorDispatch.error_estimate_threads(
                 integrand,
                 a,
                 b,
@@ -329,7 +329,7 @@ function run_Maranatha(
                 nerr_terms=nerr_terms
             )
         else
-            ErrorEstimate.ErrorDispatch.error_estimate(
+            ErrorDispatch.error_estimate(
                 integrand,
                 a,
                 b,

@@ -1,5 +1,12 @@
 # ============================================================================
-# src/AvgErrFormatter/AvgErrFormatter.jl (Benji: taken from src/Sarah/AvgErrFormatter.jl of Deborah.jl)
+# src/AvgErrFormatter/AvgErrFormatter.jl
+#
+# Shared module mirrored between Maranatha.jl and Deborah.jl.
+# Historical origin: Deborah.jl/src/Sarah/AvgErrFormatter.jl
+#
+# This file is maintained as a shared counterpart, not as a permanently
+# authoritative source. Changes made here should be reviewed against the
+# corresponding Deborah.jl file and synchronized as appropriate.
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -10,7 +17,7 @@
 
 module AvgErrFormatter
 
-using ..Printf
+import ..Printf: @sprintf, Printf
 
 """
     round_sig(

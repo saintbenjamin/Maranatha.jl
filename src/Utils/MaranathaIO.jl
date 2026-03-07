@@ -10,10 +10,10 @@
 
 module MaranathaIO
 
-using ..TOML
-using ..JLD2
+import ..TOML
+import ..JLD2
 
-using ..Utils.JobLoggerTools
+import ..Utils.JobLoggerTools
 
 # ============================================================
 # 1. Serialization helpers
@@ -323,7 +323,7 @@ function save_datapoint_results(
 
     d = namedtuple_to_dict(res)
 
-    jldsave(path; datapoint_results=d)
+    JLD2.jldsave(path; datapoint_results=d)
 
     if write_summary
         toml_path = replace(path, r"\.jld2$" => ".toml")

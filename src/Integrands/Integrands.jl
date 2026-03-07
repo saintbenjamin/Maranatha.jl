@@ -10,7 +10,7 @@
 
 module Integrands
 
-using ..Utils.JobLoggerTools
+import ..Utils.JobLoggerTools
 
 export integrand, register_integrand!, available_integrands
 

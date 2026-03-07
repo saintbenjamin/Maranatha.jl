@@ -205,13 +205,13 @@ function plot_quadrature_coverage_1d(
     (bb > aa) || JobLoggerTools.error_benji("Require b > a (got a=$a, b=$b)")
 
     # Identify rule family (must match your existing modules)
-    is_ns   = Quadrature.NewtonCotes._is_newton_cotes_rule(rule)
-    is_gaus = Quadrature.Gauss._is_gauss_rule(rule)
-    is_bs   = Quadrature.BSpline._is_bspline_rule(rule)
+    is_ns   = NewtonCotes._is_newton_cotes_rule(rule)
+    is_gaus = Gauss._is_gauss_rule(rule)
+    is_bs   = BSpline._is_bspline_rule(rule)
     (is_ns || is_gaus || is_bs) || JobLoggerTools.error_benji("Unsupported rule family: rule=$rule")
 
     # Build global nodes/weights (single source of truth)
-    xs, ws = Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, ws = QuadratureDispatch.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
     (length(xs) == length(ws)) || JobLoggerTools.error_benji("Internal: xs/ws length mismatch")
 
     # -------------------------------
@@ -235,17 +235,17 @@ function plot_quadrature_coverage_1d(
         rule::Symbol,
         boundary::Symbol
     )::Tuple{Vector{Float64}, Int, Vector{Float64}}
-        p    = Quadrature.BSpline._parse_bspline_p(rule)
-        kind = Quadrature.BSpline._bspline_kind(rule)  # :interp or :smooth
+        p    = BSpline._parse_bspline_p(rule)
+        kind = BSpline._bspline_kind(rule)  # :interp or :smooth
 
-        t  = Quadrature.BSpline._build_knots_uniform(a, b, N, p, boundary)
+        t  = BSpline._build_knots_uniform(a, b, N, p, boundary)
         nb = length(t) - p - 1
         (length(xs) == nb) || JobLoggerTools.error_benji("BSpline internal mismatch: length(xs)=$(length(xs)) nb=$nb")
 
         # Build A[j,i] = B_i(xs[j])
         A = Matrix{Float64}(undef, nb, nb)
         @inbounds for j in 1:nb
-            Bj = Quadrature.BSpline._bspline_basis_all(xs[j], t, p)
+            Bj = BSpline._bspline_basis_all(xs[j], t, p)
             @inbounds for i in 1:nb
                 A[j,i] = Bj[i]
             end
@@ -257,7 +257,7 @@ function plot_quadrature_coverage_1d(
         else
             # Keep consistent with your dispatch (λ fixed to 0.0 for now)
             λ = 0.0
-            R = Quadrature.BSpline._roughness_R_second_diff(nb)
+            R = BSpline._roughness_R_second_diff(nb)
             M = transpose(A) * A + λ * R
             c = M \ (transpose(A) * y)
             return t, p, c
@@ -270,8 +270,8 @@ function plot_quadrature_coverage_1d(
         p::Int,
         c::Vector{Float64}
     )::Float64
-        B = Quadrature.BSpline._bspline_basis_all(x, t, p)
-        return dot(c, B)
+        B = BSpline._bspline_basis_all(x, t, p)
+        return LinearAlgebra.dot(c, B)
     end
 
     # -------------------------------

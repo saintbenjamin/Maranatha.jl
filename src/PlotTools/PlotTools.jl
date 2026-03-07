@@ -10,14 +10,16 @@
 
 module PlotTools
 
-using ..PyPlot
-using ..LinearAlgebra
-using ..Printf
+import ..PyPlot
+import ..LinearAlgebra
+import ..Printf: @sprintf
 
-using ..Utils.JobLoggerTools
-using ..Utils.AvgErrFormatter
-using ..Quadrature
-using ..ErrorEstimate
+import ..Utils.JobLoggerTools
+import ..Utils.AvgErrFormatter
+import ..Quadrature.NewtonCotes
+import ..Quadrature.Gauss
+import ..Quadrature.BSpline
+import ..Quadrature.QuadratureDispatch
 
 export set_pyplot_latex_style, plot_convergence_result, plot_quadrature_coverage_1d
 
