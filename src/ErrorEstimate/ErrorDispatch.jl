@@ -30,12 +30,6 @@ import ..ErrorEstimate.ErrorBSpline
 
 include("ErrorDispatch/nth_derivative.jl")
 
-# ------------------------------------------------------------
-# Unified residual-term collector (NS exact OR GAUSS float)
-# returns (ks, coeffs_float, center_symbol)
-# center is currently always :mid
-# ------------------------------------------------------------
-
 """
     _leading_residual_terms_any(
         rule::Symbol,
@@ -46,19 +40,19 @@ include("ErrorDispatch/nth_derivative.jl")
     ) -> (ks, coeffs_float, center)
 
 Collect the first `nterms` nonzero **midpoint-shifted residual coefficients**
-for either an NS (exact-rational) composite Newton–Cotes rule or a Float64 composite Gauss-family rule.
+for either an (exact-rational) composite Newton-Cotes rule or a `Float64` composite Gauss-family rule.
 
 # Function description
 This is a unified internal helper that normalizes the two residual backends into a common return type:
 
-- **NS rules** (`:newton_pK`):
+- **Newton-Cotes rules** (`:newton_pK`):
   Uses exact rational moment-matching residual coefficients computed from the exact-assembled
   composite Newton–Cotes coefficients `β`. The resulting residual coefficients are exact rationals
   internally, then converted to `Float64` in this wrapper.
 
-- **GAUSS rules** (`:gauss_pK`):
-  Uses Float64 probing of midpoint-shifted monomial moments on the composite dimensionless grid
-  `u ∈ [0, Nsub]` (via `Gauss._composite_gauss_u_grid`) and identifies nonzero residual moments
+- **Gauss rules** (`:gauss_pK`):
+  Uses `Float64` probing of midpoint-shifted monomial moments on the composite dimensionless grid
+  `u ∈ [0, Nsub]` (via [`Gauss._composite_gauss_u_grid`](@ref)) and identifies nonzero residual moments
   using tolerance-based criteria (see the Gauss backend implementation).
 
 The residual is defined in terms of the midpoint shift `c` (currently always the midpoint):
@@ -77,7 +71,7 @@ This routine returns the first `nterms` detected `(k, coeff(k))` pairs as aligne
   * `:newton_pK` (exact composite Newton-Cotes; handled by `NewtonCotes` + `ErrorNewtonCotes`)
   * `:gauss_pK` (composite Gauss family; handled by `Gauss` + `ErrorGauss`)
 * `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  This is validated by `QuadratureDispatch._decode_boundary(boundary)`.
+  This is validated by [`QuadratureDispatch._decode_boundary`](@ref)`(boundary)`.
 * `Nsub`: Number of unit blocks in the dimensionless tiling domain `u ∈ [0, Nsub]`.
 
 # Keyword arguments
@@ -92,17 +86,17 @@ This routine returns the first `nterms` detected `(k, coeff(k))` pairs as aligne
 * `coeffs_float::Vector{Float64}`:
   Factorial-scaled residual coefficients `diff(k)/k!`, returned as `Float64` (length `nterms`).
 
-  * For NS rules, these originate as exact rationals and are converted to Float64 here.
-  * For GAUSS rules, these are produced directly in Float64.
+  * For Newton-Cotes rules, these originate as exact rationals and are converted to Float64 here.
+  * For Gauss rules, these are produced directly in Float64.
 * `center::Symbol`:
   Centering convention symbol. Currently always `:mid`.
 
 # Errors
 
-* Throws (via `JobLoggerTools.error_benji`) if:
+* Throws (via [`JobLoggerTools.error_benji`](@ref)) if:
 
   * `boundary` is invalid,
-  * `rule` is neither NS nor GAUSS,
+  * `rule` is neither Newton-Cotes nor Gauss,
   * or the backend fails to collect the requested number of terms within `kmax`.
 
 # Notes
@@ -168,29 +162,29 @@ moment indices `k` where a nonzero residual is detected, plus the center symbol.
 
 Two backends are supported:
 
-## (A) NS rules (`:newton_pK`) — exact rational detection
-For NS composite Newton–Cotes rules, this routine assembles the exact rational composite
-coefficient vector `β` and tests exact nonzero-ness:
+## (A) Newton-Cotes rules (`:newton_pK`) — exact rational detection
+For composite Newton-Cotes rules, this routine assembles the exact rational composite
+coefficient vector ``\\beta`` and tests exact nonzero-ness:
 ```math
 \\mathrm{diff}(k)=\\int_{0}^{N}(u-c)^k\\,du-\\sum_{j=0}^{N}\\beta_j\\,(j-c)^k,
 \\quad \\text{(exact rational)}
 ```
 
-A moment index `k` is recorded when `diff(k) != 0` in exact arithmetic.
+A moment index ``k`` is recorded when ``\\mathrm{diff}(k) \\neq 0`` in exact arithmetic.
 
-## (B) GAUSS rules (`:gauss_pK`) — Float64 tolerance detection
+## (B) Gauss rules (`:gauss_pK`) — Float64 tolerance detection
 
 For composite Gauss-family rules, this routine constructs the dimensionless grid
-`(U, W)` on `u ∈ [0, Nsub]` and tests nonzero residual with a tolerance condition:
+``(U, W)`` on ``u \\in [0, N_\\text{sub}]`` and tests nonzero residual with a tolerance condition:
 
 ```math
-|\\mathrm{diff}(k)| > \\texttt{tol_abs} + \\texttt{tol_rel}\\,|\\mathrm{exact}|.
+|\\mathrm{diff}(k)| > \\texttt{tol\\_abs} + \\texttt{tol\\_rel}\\,|\\mathrm{exact}|.
 ```
 
 The center is currently fixed as:
 
 ```math
-c = Nsub/2
+c = \\frac{N_\\text{sub}}{2}
 ```
 
 and returned as `:mid`.
@@ -208,8 +202,8 @@ and returned as `:mid`.
 
 * `nterms`: Number of leading residual indices to return (must satisfy `nterms ≥ 1`).
 * `kmax`: Maximum moment order to scan (must satisfy `kmax ≥ 0`).
-* `tol_abs`: Absolute tolerance for GAUSS nonzero detection (Float64-only path).
-* `tol_rel`: Relative tolerance for GAUSS nonzero detection (Float64-only path).
+* `tol_abs`: Absolute tolerance for Gauss nonzero detection (Float64-only path).
+* `tol_rel`: Relative tolerance for Gauss nonzero detection (Float64-only path).
 
 # Returns
 
@@ -231,8 +225,8 @@ and returned as `:mid`.
 
 * This is intended for quickly selecting convergence powers / error-model orders without
   paying the cost of also collecting coefficient magnitudes.
-* For GAUSS rules, the numerical decision boundary is controlled by `tol_abs`/`tol_rel`.
-  For NS rules, the decision is exact (`diff != 0`).
+* For Gauss rules, the numerical decision boundary is controlled by `tol_abs`/`tol_rel`.
+  For Newton-Cotes rules, the decision is exact (`diff != 0`).
 """
 function _leading_residual_ks_with_center_any(
     rule::Symbol,
@@ -251,7 +245,7 @@ function _leading_residual_ks_with_center_any(
     center = :mid
 
     # ------------------------------------------------------------
-    # NS rules: exact rational test (diff != 0)
+    # Newton-Cotes rules: exact rational test (diff != 0)
     # ------------------------------------------------------------
     if NewtonCotes._is_newton_cotes_rule(rule)
         ks = Int[]
@@ -276,11 +270,11 @@ function _leading_residual_ks_with_center_any(
             end
         end
 
-        JobLoggerTools.error_benji("Could not collect nterms=$nterms NS residual ks up to kmax=$kmax")
+        JobLoggerTools.error_benji("Could not collect nterms=$nterms Newton-Cotes residual ks up to kmax=$kmax")
     end
 
     # ------------------------------------------------------------
-    # GAUSS rules: Float64 test with tolerances
+    # Gauss rules: Float64 test with tolerances
     # ------------------------------------------------------------
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)
@@ -335,10 +329,10 @@ function _leading_residual_ks_with_center_any(
         end
 
         if !isempty(ks) && ks[1] == 0
-            JobLoggerTools.error_benji("GAUSS residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$boundary Nsub=$Nsub")
+            JobLoggerTools.error_benji("Gauss residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$boundary Nsub=$Nsub")
         end
 
-        JobLoggerTools.error_benji("Could not collect nterms=$nterms GAUSS residual ks up to kmax=$kmax")
+        JobLoggerTools.error_benji("Could not collect nterms=$nterms Gauss residual ks up to kmax=$kmax")
     end
 
     if BSpline._is_bspline_rule(rule)
@@ -385,7 +379,7 @@ Dispatches to the corresponding dimension-specific estimator:
 - `dim >= 5` ``\\rightarrow`` [`error_estimate_nd`](@ref)
 
 All estimators use the exact midpoint residual expansion derived from rational weight assembly
-for NS-style composite rules. When `nerr_terms > 1`, the model includes LO plus additional
+for Newton-Cotes-style composite rules. When `nerr_terms > 1`, the model includes LO plus additional
 nonzero midpoint residual terms (LO+NLO+...).
 
 # Arguments

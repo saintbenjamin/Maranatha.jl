@@ -192,3 +192,74 @@ function plot_datapoints_result(
 
     return nothing
 end
+
+"""
+    plot_datapoints_result(
+        result;
+        name::String = "Maranatha",
+        h_power::Real = 1,
+        xscale::Symbol = :linear,
+        yscale::Symbol = :linear,
+        rule::Symbol = result.rule,
+        boundary::Symbol = result.boundary,
+        figs_dir::String = ".",
+        save_file::Bool = false,
+    ) -> Nothing
+
+Convenience wrapper around [`plot_datapoints_result`](@ref) that accepts a
+Maranatha run result object.
+
+# Function description
+
+This method extracts the necessary fields from the `result` object returned by
+[`Maranatha.Runner.run_Maranatha`](@ref) and forwards them to the primary
+```julia
+plot_datapoints_result(name, hs, estimates, errors; ...)
+```
+method.
+
+This allows users to inspect the raw convergence datapoints directly from the run result
+without manually unpacking its components.
+
+# Arguments
+
+result
+: Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
+
+# Keyword arguments
+
+Same as the primary [`plot_datapoints_result`](@ref) method.
+
+# Returns
+
+Nothing.
+
+# Errors
+
+Same as the primary [`plot_datapoints_result`](@ref) method.
+"""
+function plot_datapoints_result(
+    result;
+    name::String = "Maranatha",
+    h_power::Real = 1,
+    xscale::Symbol = :linear,
+    yscale::Symbol = :linear,
+    rule::Symbol = result.rule,
+    boundary::Symbol = result.boundary,
+    figs_dir::String = ".",
+    save_file::Bool = false,
+)
+    return plot_datapoints_result(
+        name,
+        Vector{Float64}(result.h),
+        Vector{Float64}(result.avg),
+        result.err;
+        h_power = h_power,
+        xscale = xscale,
+        yscale = yscale,
+        rule = rule,
+        boundary = boundary,
+        figs_dir = figs_dir,
+        save_file = save_file,
+    )
+end

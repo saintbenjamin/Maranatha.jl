@@ -39,7 +39,7 @@ It is **not** intended to provide strict error bounds.
 1. Build a composite quadrature rule on a dimensionless tiling grid
    ``u \\in [0, N_{\\texttt{sub}}]`` with midpoint shift ``c = \\dfrac{N_{\\texttt{sub}}}{2}``.
 2. Detect the first nonzero residual moment orders ``k`` using either:
-   - **exact rational arithmetic** (Newton-Cotes NS rules), or
+   - **exact rational arithmetic** (Newton-Cotes rules), or
    - **tolerance-based Float64 probing** (Gauss-family rules and B-spline rules).
 3. Convert each detected residual into a factorial-scaled coefficient
    ``\\texttt{coeff}_k = \\dfrac{\\texttt{diff}_k}{k!}``.
@@ -62,7 +62,7 @@ The module is structured into three residual backends plus a unified dispatch la
 
 ## 1. [`Maranatha.ErrorEstimate.ErrorNewtonCotes`](@ref)
 
-Exact-rational residual extraction for NS-style composite Newton-Cotes rules (`:newton_pK`).
+Exact-rational residual extraction for Newton-Cotes-style composite Newton-Cotes rules (`:newton_pK`).
 
 Features:
 

@@ -46,14 +46,14 @@ Exact-rational composite Newton-Cotes construction.
 Features:
 
 - `Rational{BigInt}` exact local moment matching
-- Exact global `\\beta` coefficient assembly
+- Exact global ``\\beta`` coefficient assembly
 - Composite boundary tiling validation
 - `Float64` conversion only at final stage
 - Process-local caching of assembled weights
 
 Supported rule symbols:
 
-    :newton_pK    (e.g., :newton_p3, :newton_p5, ...)
+    :newton_p3, :newton_p4, :newton_p5, ...
 
 Boundary patterns:
 
@@ -73,7 +73,7 @@ Composite repetition over uniform subintervals is supported.
 
 Supported rule symbols:
 
-    :gauss_pN
+    :gauss_p2, :gauss_p3, :gauss_p4, ...
 
 Boundary selects family:
 
@@ -98,8 +98,8 @@ B-spline-based quadrature using:
 
 Supported rule symbols:
 
-    :bspline_interp_pK -> interpolation
-    :bspline_smooth_pK -> smoothing
+    :bspline_interp_p2, :bspline_interp_p3, ... -> interpolation
+    :bspline_smooth_p2, :bspline_smooth_p3, ... -> smoothing
 
 Boundary controls endpoint clamping.
 

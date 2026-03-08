@@ -14,7 +14,7 @@ import ..JobLoggerTools
 import ..Quadrature.Gauss
 
 # ------------------------------------------------------------
-# Float64 midpoint residual terms for composite GAUSS rules
+# Float64 midpoint residual terms for composite Gauss rules
 # u ∈ [0, Nsub], center c = Nsub/2
 # diff(k)  = ∫_0^N (u-c)^k du - Σ_i W[i]*(U[i]-c)^k
 # coeff(k) = diff(k) / k!
@@ -217,7 +217,7 @@ function _leading_midpoint_residual_terms_gauss_float(
         end
     end
 
-    JobLoggerTools.error_benji("Could not collect nterms=$nterms GAUSS residual terms up to kmax=$kmax (Nsub=$Nsub).")
+    JobLoggerTools.error_benji("Could not collect nterms=$nterms Gauss residual terms up to kmax=$kmax (Nsub=$Nsub).")
 end
 
 end  #  module ErrorGauss

@@ -114,7 +114,7 @@ This helper is a convenience wrapper around
 
 Workflow:
 1) Validate `boundary` via [`QuadratureDispatch._decode_boundary`](@ref).
-2) Require `rule` to be of NS form `:newton_pK` (midpoint residual model is defined for these).
+2) Require `rule` to be of Newton-Cotes form `:newton_pK` (midpoint residual model is defined for these).
 3) Parse ``p`` from `rule` and assemble the exact rational ``\\beta``.
 4) Scan for the first nonzero midpoint residual term `(k, coeff)`.
 
@@ -163,7 +163,7 @@ end
 Collect the first `nterms` nonzero midpoint residual orders `k` (ascending) and report the expansion center.
 
 # Function description
-This helper searches the midpoint-centered residual moments for a composite NS rule,
+This helper searches the midpoint-centered residual moments for a composite Newton-Cotes rule,
 and returns the first `nterms` derivative orders `k` for which the residual moment is nonzero.
 
 It uses:
@@ -344,8 +344,8 @@ for midpoint residual extraction.
 
 Workflow:
 1) Validate `boundary` via [`QuadratureDispatch._decode_boundary`](@ref) (catches typos early).
-2) Require `rule` to be an NS rule (`:newton_pK`) because the residual/``\\beta`` construction
-   is defined in terms of the exact-rational NS assembly.
+2) Require `rule` to be an Newton-Cotes rule (`:newton_pK`) because the residual/``\\beta`` construction
+   is defined in terms of the exact-rational Newton-Cotes assembly.
 3) Parse `p` from `rule`.
 4) Assemble exact rational composite coefficients `βR` using
    [`NewtonCotes._assemble_composite_beta_rational`](@ref)`(p, boundary, Nsub)`.

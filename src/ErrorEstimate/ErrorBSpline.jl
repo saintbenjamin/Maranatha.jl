@@ -20,7 +20,7 @@ import ..Quadrature.BSpline
 # diff(k)  = ∫_0^N (u-c)^k du - Σ_i w[i]*(x[i]-c)^k
 # coeff(k) = diff(k) / k!
 #
-# We detect nonzero residuals by a tolerance test (like GAUSS path).
+# We detect nonzero residuals by a tolerance test (like Gauss path).
 # ------------------------------------------------------------
 
 """

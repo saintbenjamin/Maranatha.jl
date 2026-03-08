@@ -487,7 +487,7 @@ Return `true` if `rule` is a composite exact-assembly Newton-Cotes rule symbol o
 
 # Function description
 This helper recognizes the new composite exact-rational rules introduced in this module.
-A rule is considered an *NS rule* if its symbol string begins with `"newton_p"` (e.g. `:newton_p3`, `:newton_p5`).
+A rule is considered an *Newton-Cotes rule* if its symbol string begins with `"newton_p"` (e.g. `:newton_p3`, `:newton_p5`).
 
 # Arguments
 - `rule`: Quadrature rule symbol.
@@ -506,7 +506,7 @@ end
         rule::Symbol
     ) -> Int
 
-Parse the local node count `p` from an NS rule symbol `:newton_pK`.
+Parse the local node count `p` from an Newton-Cotes rule symbol `:newton_pK`.
 
 # Function description
 For composite exact-assembly Newton-Cotes rules, the rule symbol encodes the

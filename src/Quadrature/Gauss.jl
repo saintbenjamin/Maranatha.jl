@@ -49,7 +49,7 @@ This is a low-level helper used by Newton iterations in Radau/Lobatto root solve
 
 # Notes
 
-* This is **not** the orthonormal Legendre basis; it is the conventional `P_n`.
+* This is **not** the orthonormal Legendre basis; it is the conventional ``P_n``.
 """
 @inline function _legendre_Pn_Pn1(
     n::Int, 

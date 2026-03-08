@@ -35,7 +35,7 @@ Loop ordering and accumulation are preserved exactly as implemented.
 - `N`: Number of intervals per axis.
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  Required for NS rules.
+  Required for New rules.
 
 # Returns
 - Estimated integral value as a `Float64`.

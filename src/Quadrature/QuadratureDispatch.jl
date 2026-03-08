@@ -42,7 +42,7 @@ Supported boundary patterns are:
 - `(Ltype, Rtype)`: A tuple of symbols, each either `:closed` or `:opened`.
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `boundary` is not one of the supported symbols.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is not one of the supported symbols.
 """
 @inline function _decode_boundary(
     boundary::Symbol
@@ -62,49 +62,88 @@ end
 
 """
     get_quadrature_1d_nodes_weights(
-        a::Real, 
-        b::Real, 
-        N::Int, 
-        rule::Symbol, 
+        a::Real,
+        b::Real,
+        N::Int,
+        rule::Symbol,
         boundary::Symbol
     ) -> (xs, ws)
 
-Construct ``1``-dimensional quadrature nodes and weights on ``[a, b]`` for composite Newton-Cotes rules.
+Construct ``1``-dimensional quadrature nodes and weights on ``[a,b]`` for a
+rule-dispatched quadrature backend.
 
 # Function description
-This function is the public ``1``-dimensional node/weight generator used by the integration dispatchers.
 
-It supports:
+This routine is the public node/weight generator used by the quadrature
+dispatchers. The implementation selects the appropriate backend according
+to the rule family specified by `rule`.
 
-## Composite exact-assembly rules `:newton_pK`
-If `rule` is recognized as an NS rule, this routine:
-1) Parses `p` from `rule`,
-2) Builds (or fetches) the coefficient vector `β` for `(p, boundary, N)`,
-3) Forms nodes ``\\texttt{xs}_j = a + j \\, h`` for ``j = 0 , \\ldots , N``,
-4) Forms weights ``\\texttt{ws}_j = \\beta_j \\, h``, where ``\\displaystyle{h = \\frac{b-a}{N}}``.
+Currently supported rule families:
 
-The return types are `Vector{Float64}` for both nodes and weights.
+## Newton-Cotes rules (`:newton_p*`)
+Composite Newton-Cotes rules are constructed through the exact-moment
+coefficient assembly used by [`Maranatha.Quadrature.NewtonCotes`](@ref).
+
+For a rule such as `:newton_p4`, this routine:
+
+1. Parses the order `p` from `rule`,
+2. Builds (or retrieves) the composite coefficient vector ``\\beta`` for `(p, boundary, N)`,
+3. Generates nodes ``x_j = a + j \\, h`` for ``j = 0,\\ldots,N``,
+4. Forms weights ``w_j = \\beta_j \\, h`` where ``h = \\dfrac{b-a}{N}``.
+
+## Gauss-family rules (`:gauss_p*`)
+Composite Gauss rules subdivide the interval into `N` blocks and place
+`p` Gauss nodes within each block. The implementation is delegated to
+[`Maranatha.Quadrature.Gauss`](@ref).
+
+## B-spline rules (`:bspline_*`)
+B-spline-based quadrature rules are constructed using spline interpolation
+or smoothing strategies implemented in [`Maranatha.Quadrature.BSpline`](@ref).
+
+Currently these rules require `boundary = :LU_ININ` (clamped endpoints).
 
 # Arguments
-- `a`, `b`: Lower/upper bounds of the 1D interval.
-- `N`: Number of subintervals (must satisfy ``N \\ge 1`` and composite constraints for the selected boundary).
-- `rule`: Rule symbol. Supported:
-  - New rules: `:newton_p3`, `:newton_p4`, `:newton_p5`, ...
-- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  Required for NS rules.
+
+- `a`, `b`  
+  Lower and upper bounds of the interval.
+
+- `N`  
+  Number of composite blocks / subintervals (must satisfy ``N \\ge 1`` and
+  any rule-specific composite constraints).
+
+- `rule`  
+  Quadrature rule symbol, such as
+
+  - `:newton_p3`, `:newton_p4`, ...
+  - `:gauss_p2`, `:gauss_p4`, ...
+  - `:bspline_interp_p4`, `:bspline_smooth_p4`, ...
+
+- `boundary`  
+  Boundary pattern selector for composite rules:
+
+  `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`.
 
 # Returns
-- `xs::Vector{Float64}`: Nodes of length ``N+1``.
-- `ws::Vector{Float64}`: Weights of length ``N+1``.
+
+- `xs::Vector{Float64}`  
+  Quadrature nodes.
+
+- `ws::Vector{Float64}`  
+  Corresponding quadrature weights.
 
 # Errors
+
 - Throws `ArgumentError` if ``N < 1``.
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid,
-  if the composite constraint fails, or if `rule` is unsupported.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if
+
+  - the boundary pattern is invalid,
+  - composite constraints are violated,
+  - or the rule family is unsupported.
 
 # Notes
-- This function currently errors on non-NS rules unless you extend the fallback branch
-  with your pre-existing implementation.
+
+This function serves as the **rule-dispatched 1D quadrature generator**
+for higher-level tensor-product integration routines.
 """
 function get_quadrature_1d_nodes_weights(
     a::Real,
@@ -119,7 +158,7 @@ function get_quadrature_1d_nodes_weights(
     # boundary validation early
     _decode_boundary(boundary)
 
-    # --- composite NS branch ---
+    # --- composite Newton-Cotes branch ---
     if NewtonCotes._is_newton_cotes_rule(rule)
         p = NewtonCotes._parse_newton_p(rule)
         β = NewtonCotes._get_beta_float(p, boundary, N)
@@ -136,7 +175,7 @@ function get_quadrature_1d_nodes_weights(
         return xs, ws
     end
 
-    # --- composite GAUSS branch ---
+    # --- composite Gauss branch ---
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)  # points per block
         return Gauss._composite_gauss_nodes_weights(a, b, N, npts, boundary)
@@ -187,12 +226,12 @@ include("QuadratureDispatch/quadrature_nd.jl")
         boundary
     ) -> Float64
 
-Evaluate a tensor-product Newton-Cotes quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
+Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
 
 # Function description
 This function serves as the unified integration dispatcher within the `Maranatha.jl` pipeline.
 
-1) It builds the **1D nodes and weights** for the selected Newton-Cotes `rule`
+1) It builds the **1D nodes and weights** for the selected Newton-Cotes/Gauss/B-spline `rule`
    on ``[a,b]`` with resolution `N`.
 2) It evaluates the **tensor-product quadrature** in `dim` dimensions by
    enumerating the multi-index over the 1D nodes and accumulating the weighted
