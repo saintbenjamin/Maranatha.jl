@@ -14,7 +14,7 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_path = "."
+        save_path = nothing
         write_summary = false
         save_file = false
         run_result = run_Maranatha(
@@ -70,7 +70,7 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_path = "."
+        save_path = nothing
         write_summary = false
         save_file = false
         run_result = run_Maranatha(
@@ -126,7 +126,7 @@
         ff_shift = 0
         fit_terms = 4
         result_string = "4D"
-        save_path = "."
+        save_path = nothing
         write_summary = false
         save_file = false
         run_result = run_Maranatha(
