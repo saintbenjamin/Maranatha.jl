@@ -21,7 +21,7 @@
 Evaluate a ``1``-dimensional quadrature over ``[a,b]``.
 
 # Function description
-This routine generates `1`-dimensional nodes and weights using
+This routine generates ``1``-dimensional nodes and weights using
 [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
 ```math
 \\sum_i w_i f(x_i).
@@ -30,7 +30,7 @@ This routine generates `1`-dimensional nodes and weights using
 Rule-specific validation is centralized in the node/weight generator.
 
 # Arguments
-- `f`: Integrand callable `f(x)`.
+- `f`: Integrand callable ``f(x)``.
 - `a`, `b`: Integration bounds.
 - `N`: Number of intervals / blocks.
 - `rule`: Integration rule symbol.

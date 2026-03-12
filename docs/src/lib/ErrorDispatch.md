@@ -69,7 +69,8 @@ backend and emits a context-rich fatal error if the selector is invalid.
 
 ### Included backend helpers
 
-The included `nth_derivative.jl` file defines the backend-specific helpers:
+[`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative`](@ref) 
+defines the backend-specific helpers:
 
 - [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_forwarddiff`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_taylor`](@ref)
@@ -89,7 +90,7 @@ Each backend has slightly different strengths:
 
 The included estimator files implement two layers:
 
-### Specialized estimators for `1D`–`4D`
+### Specialized estimators for ``d = 1,2,3,4``
 
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_1d`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_2d`](@ref)
@@ -106,7 +107,7 @@ and their threaded companions:
 These versions use explicit loop structures and are meant to keep the common
 low-dimensional cases transparent and easy to inspect.
 
-### Generic `nd` estimators
+### Generic ``n``-dimensional estimators
 
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_nd`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_nd_threads`](@ref)
@@ -122,12 +123,19 @@ All error estimators use the same conceptual model:
 
 ```math
 E \approx \sum_{i=1}^{n_{\text{err}}}
-\texttt{coeff}_{k_i} h^{k_i+1}
+\texttt{coeff}_{k_i} \, h^{k_i+1} \,
 \sum_{\mu=1}^{\texttt{dim}} I_\mu^{(k_i)},
 ```
 
-where each `I_μ^(k)` is a cross-axis integral containing a `k`-th derivative
-along one selected axis and midpoint insertion along that axis.
+where each ``I_μ^{(k_i)}`` is a cross-axis integral containing a ``k_i``-th derivative
+along one selected axis and midpoint insertion along that axis,
+```math
+I_{\mu}^{(k_i)} =
+\int\limits_a^b \cdots \int\limits_a^b
+\left( \prod_{\nu \neq \mu} dx_{\nu} \right)
+\; \frac{\partial^{k_i} f}{\partial x_{\mu}^{k_i}}
+\left( x_1, \ldots, x_{\mu}=\bar{x}, \ldots, x_{\texttt{dim}} \right) \,.
+```
 
 This means the model is always **axis-separable**. Mixed derivatives are not
 the main target of this layer and are intentionally omitted as higher-order
@@ -142,15 +150,15 @@ versions, but parallelize the dominant summation loops.
 
 Typical policy:
 
-- distribute independent node or axis loops via `Threads.@threads`,
+- distribute independent node or axis loops via [`Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads),
 - accumulate partial sums into thread-local buffers,
 - reduce those partial sums at the end.
 
 The exact parallelization pattern differs by dimension:
 
-- in `1D`, threading is over residual-term loops,
-- in `2D`, `3D`, and `4D`, threading is over flattened tensor-product index grids,
-- in generic `nd`, threading is over axis contributions.
+- in ``d = 1``, threading is over residual-term loops,
+- in ``d = 2, 3`` and ``4``, threading is over flattened tensor-product index grids,
+- in generic `n` dimension, threading is over axis contributions.
 
 This design favors simple thread safety and deterministic local work partitioning
 rather than aggressive optimization.

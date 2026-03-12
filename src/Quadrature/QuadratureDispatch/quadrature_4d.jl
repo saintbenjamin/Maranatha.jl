@@ -21,15 +21,15 @@
 Evaluate a ``4``-dimensional tensor-product quadrature over ``[a,b]^4``.
 
 # Function description
-This routine generates `1`-dimensional nodes and weights using
+This routine generates ``1``-dimensional nodes and weights using
 [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
 the tensor-product sum:
 ```math
-\\sum_i \\sum_j \\sum_k \\sum_\ell w_i w_j w_k w_\\ell f(x_i, y_j, z_k, t_\\ell).
+\\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell f(x_i, y_j, z_k, t_\\ell).
 ```
 
 # Arguments
-- `f`: Integrand callable `f(x, y, z, t)`.
+- `f`: Integrand callable ``f(x, y, z, t)``.
 - `a`, `b`: Bounds used on all axes.
 - `N`: Number of intervals / blocks per axis.
 - `rule`: Integration rule symbol.

@@ -21,18 +21,21 @@
         kmax::Int = 128
     )
 
-Estimate a `2`-dimensional axis-separable midpoint-residual truncation-error model.
+Estimate a ``2``-dimensional axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This routine applies the `1`-dimensional midpoint error operator along each axis
+This routine applies the ``1``-dimensional midpoint error operator along each axis
 of the square domain `[a,b]^2` and integrates the resulting derivative slices
 over the remaining axis.
 
-For each collected residual order `k`, it forms the model contribution
-`coeff_k * h^(k+1) * (I_x^(k) + I_y^(k))`.
+For each collected residual order ``k``, it forms the model contribution
+```math
+E \\approx \\sum_{i=1}^{n_{\\text{err}}}
+\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, \\left( I_x^{(k_i)} + I_y^{(k_i)} \\right) \\, .
+```
 
 # Arguments
-- `f`: Scalar callable integrand `f(x, y)`.
+- `f`: Scalar callable integrand ``f(x, y)``.
 - `a::Real`: Lower bound.
 - `b::Real`: Upper bound.
 - `N::Int`: Number of subintervals per axis.
@@ -55,7 +58,7 @@ For each collected residual order `k`, it forms the model contribution
   - `h`
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes
@@ -161,26 +164,26 @@ end
         kmax::Int = 128
     )
 
-Threaded variant of `error_estimate_2d`.
+Threaded variant of [`error_estimate_2d`](@ref).
 
 # Function description
 This routine preserves the same 2D midpoint-residual model as
-`error_estimate_2d` but parallelizes the dominant axis-wise summation loops.
+[`error_estimate_2d`](@ref) but parallelizes the dominant axis-wise summation loops.
 
 Each axis integral is accumulated through thread-local partial sums and reduced
 after the threaded loop completes.
 
 # Arguments
-- Same as `error_estimate_2d`.
+- Same as [`error_estimate_2d`](@ref).
 
 # Keyword arguments
-- Same as `error_estimate_2d`.
+- Same as [`error_estimate_2d`](@ref).
 
 # Returns
-- Same `NamedTuple` structure as `error_estimate_2d`.
+- Same `NamedTuple` structure as [`error_estimate_2d`](@ref).
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes

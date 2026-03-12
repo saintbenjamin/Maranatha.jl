@@ -118,7 +118,7 @@ the quadrature weights are obtained from the transposed solve
 w = A^{-T} b.
 ```
 
-In the implementation this appears as a solve against `transpose(A)`.
+In the implementation this appears as a solve against [`transpose(A)`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/#Base.transpose).
 
 ---
 
@@ -154,7 +154,7 @@ especially under certain boundary or smoothing configurations.
 To avoid hard failure, the implementation uses a robust helper:
 
 - first try the standard dense solve,
-- if that fails with `LinearAlgebra.SingularException`, fall back to an
+- if that fails with [`LinearAlgebra.SingularException`](https://docs.julialang.org/en/v1/stdlib/LinearAlgebra/#LinearAlgebra.SingularException), fall back to an
   SVD-based pseudo-inverse solve,
 - return the minimum-norm solution on the retained singular subspace.
 

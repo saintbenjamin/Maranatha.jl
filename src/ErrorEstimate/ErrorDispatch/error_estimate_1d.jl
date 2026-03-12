@@ -21,19 +21,22 @@
         kmax::Int = 128
     )
 
-Estimate a `1`-dimensional midpoint-residual truncation-error model.
+Estimate a ``1``-dimensional midpoint-residual truncation-error model.
 
 # Function description
 This routine builds the axis-separable asymptotic error model for the
-`1`-dimensional case using the leading nonzero midpoint residual terms of the
+``1``-dimensional case using the leading nonzero midpoint residual terms of the
 selected composite rule.
 
-For each collected residual order `k`, it evaluates the `k`-th derivative of
-`f` at the physical midpoint and forms the contribution
-`coeff_k * h^(k+1) * f^(k)(x̄)`.
+For each collected residual order ``k_i``, it evaluates the ``k_i``-th derivative of
+``f`` at the physical midpoint and forms the contribution
+```math
+E \\approx \\sum_{i=1}^{n_{\\text{err}}}
+\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, f^{(k_i)}(\\bar{x}) \\, .
+```
 
 # Arguments
-- `f`: Scalar callable integrand.
+- `f`: Scalar callable integrand ``f(x)``.
 - `a::Real`: Lower bound.
 - `b::Real`: Upper bound.
 - `N::Int`: Number of subintervals.
@@ -56,7 +59,7 @@ For each collected residual order `k`, it evaluates the `k`-th derivative of
   - `h`
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates residual-extraction and derivative-evaluation errors.
 
 # Notes
@@ -140,26 +143,26 @@ end
         kmax::Int = 128
     )
 
-Threaded variant of `error_estimate_1d`.
+Threaded variant of [`error_estimate_1d`](@ref).
 
 # Function description
-This routine keeps the same mathematical model as `error_estimate_1d` but
+This routine keeps the same mathematical model as [`error_estimate_1d`](@ref) but
 parallelizes the loop over collected residual terms using Julia threading.
 
 Each term is evaluated independently, and the final result is assembled into the
 same return structure as the non-threaded version.
 
 # Arguments
-- Same as `error_estimate_1d`.
+- Same as [`error_estimate_1d`](@ref).
 
 # Keyword arguments
-- Same as `error_estimate_1d`.
+- Same as [`error_estimate_1d`](@ref).
 
 # Returns
-- Same `NamedTuple` structure as `error_estimate_1d`.
+- Same `NamedTuple` structure as [`error_estimate_1d`](@ref).
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates residual-extraction and derivative-evaluation errors.
 
 # Notes

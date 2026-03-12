@@ -27,7 +27,7 @@ This routine builds the `1`-dimensional nodes and weights using
 enumerates all tensor-product index tuples with an odometer-style update.
 
 For each multi-index ``(i_1, \\ldots, i_{\\texttt{dim}})``, it forms the weight
-product and evaluates the integrand as `f(x₁, x₂, ..., x_dim)` using splatting.
+product and evaluates the integrand as ``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})`` using splatting.
 
 # Arguments
 - `f`: Integrand callable accepting `dim` scalar arguments.
@@ -41,7 +41,7 @@ product and evaluates the integrand as `f(x₁, x₂, ..., x_dim)` using splatti
 - `Float64`: Estimated integral value.
 
 # Errors
-- Throws `ArgumentError` if `dim < 1`.
+- Throws `ArgumentError` if ``\\texttt{dim} < 1``.
 - Propagates any error thrown by
   [`get_quadrature_1d_nodes_weights`](@ref).
 - Propagates any error thrown by `f`.

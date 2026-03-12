@@ -45,7 +45,7 @@ const RBig = Rational{BigInt}
 Cache for `Float64` composite Newton-Cotes coefficient vectors.
 
 # Description
-This dictionary stores previously constructed global coefficient vectors `β`
+This dictionary stores previously constructed global coefficient vectors ``\\beta``
 (after conversion to `Float64`) so that repeated calls with the same
 configuration do not repeat the expensive exact-rational assembly.
 
@@ -62,14 +62,14 @@ const _NS_BETA_CACHE = Dict{Tuple{Int,Symbol,Int}, Vector{Float64}}()
         kind::Symbol
     ) -> Int
 
-Return the local block width in units of `h` for a Newton-Cotes block.
+Return the local block width in units of ``h`` for a Newton-Cotes block.
 
 # Function description
 In the exact composite assembly, a local Newton-Cotes block covers a dimensionless
-interval `[0, w]`, where the width depends on the block kind:
+interval ``[0, w]``, where the width depends on the block kind:
 
-- `:closed`  -> `w = p - 1`
-- `:opened`  -> `w = p`
+- `:closed`  -> ``w = p - 1``
+- `:opened`  -> ``w = p``
 
 This width is used when validating the composite tiling constraint and when
 constructing exact local moments.
@@ -79,7 +79,7 @@ constructing exact local moments.
 - `kind`: Local block type. Must be either `:closed` or `:opened`.
 
 # Returns
-- `Int`: Local block width `w` in units of `h`.
+- `Int`: Local block width `w` in units of ``h``.
 
 # Errors
 - Throws via [`JobLoggerTools.error_benji`](@ref) if `kind` is unknown.
@@ -100,7 +100,7 @@ end
         which_open::Symbol
     ) -> Vector{RBig}
 
-Construct the local node positions (dimensionless `u`) for a Newton-Cotes block.
+Construct the local node positions (dimensionless ``u``) for a Newton-Cotes block.
 
 # Function description
 This helper returns the exact rational node locations used in local moment matching.
@@ -108,7 +108,7 @@ For closed blocks, the nodes are `0:(p-1)`. For opened blocks, the node placemen
 depends on the opening direction.
 
 # Arguments
-- `p`: Number of local nodes. Must satisfy `p >= 2`.
+- `p`: Number of local nodes. Must satisfy ``p \\geq 2``.
 - `kind`: Block type, either `:closed` or `:opened`.
 - `which_open`: Opening direction for opened blocks. Must be `:backward` or `:forward`.
 
@@ -116,7 +116,7 @@ depends on the opening direction.
 - `Vector{RBig}`: Exact local node positions in dimensionless units.
 
 # Errors
-- Throws via [`JobLoggerTools.error_benji`](@ref) if `p < 2`.
+- Throws via [`JobLoggerTools.error_benji`](@ref) if ``p < 2``.
 - Throws via [`JobLoggerTools.error_benji`](@ref) if `kind` is invalid.
 - Throws via [`JobLoggerTools.error_benji`](@ref) if `which_open` is invalid for an opened block.
 """
@@ -183,13 +183,13 @@ end
         which_open::Symbol
     ) -> (nodes, α, w_int)
 
-Compute local Newton-Cotes weights `α` on the dimensionless interval `[0, w]`.
+Compute local Newton-Cotes weights ``\\alpha`` on the dimensionless interval ``[0, w]``.
 
 # Function description
 This helper builds and solves the exact moment-matching system for a local block.
 The local nodes are chosen from [`_local_nodes`](@ref), the interval width is
 obtained from [`_local_width`](@ref), and the local weights are determined from
-exact monomial moments on `[0, w]`.
+exact monomial moments on ``[0, w]``.
 
 # Arguments
 - `p`: Number of nodes in the local block.
@@ -199,7 +199,7 @@ exact monomial moments on `[0, w]`.
 # Returns
 - `nodes::Vector{RBig}`: Exact local node positions.
 - `α::Vector{RBig}`: Exact local Newton-Cotes weights.
-- `w_int::Int`: Local block width in units of `h`.
+- `w_int::Int`: Local block width in units of ``h``.
 
 # Errors
 - Propagates validation errors from [`_local_width`](@ref) and [`_local_nodes`](@ref).
@@ -240,23 +240,23 @@ end
 Validate and decode the composite tiling constraint for exact Newton-Cotes assembly.
 
 # Function description
-The global interval must be tiled by one left boundary block, `m` interior closed
+The global interval must be tiled by one left boundary block, ``m`` interior closed
 blocks, and one right boundary block. Their widths must satisfy the composite
-constraint implied by `p`, `boundary`, and `Nsub`.
+constraint implied by ``p``, `boundary`, and `Nsub`.
 
 # Arguments
-- `p`: Local node count. Must satisfy `p >= 2`.
+- `p`: Local node count. Must satisfy ``p \\geq 2``.
 - `boundary`: Boundary pattern symbol.
-- `Nsub`: Number of global subintervals. Must satisfy `Nsub >= 1`.
+- `Nsub`: Number of global subintervals. Must satisfy ``N_\\text{sub} \\geq 1``.
 
 # Returns
 - `m::Int`: Number of interior closed blocks.
-- `wL::Int`: Width of the left boundary block in units of `h`.
-- `wR::Int`: Width of the right boundary block in units of `h`.
+- `wL::Int`: Width of the left boundary block in units of ``h``.
+- `wR::Int`: Width of the right boundary block in units of ``h``.
 
 # Errors
-- Throws via [`JobLoggerTools.error_benji`](@ref) if `p < 2`.
-- Throws via [`JobLoggerTools.error_benji`](@ref) if `Nsub < 1`.
+- Throws via [`JobLoggerTools.error_benji`](@ref) if ``p < 2``.
+- Throws via [`JobLoggerTools.error_benji`](@ref) if ``N_\\text{sub} < 1``.
 - Throws via [`JobLoggerTools.error_benji`](@ref) if the boundary tiling constraint is not satisfied.
 """
 function _check_condition(
@@ -315,7 +315,7 @@ Assemble the global composite Newton-Cotes coefficient vector `β` in exact rati
 This is the core exact assembly routine. It validates the composite tiling,
 constructs the left boundary block, appends interior closed blocks, constructs
 the right boundary block, and accumulates all contributions into a single exact
-coefficient vector `β`.
+coefficient vector ``\\beta``.
 
 # Arguments
 - `p`: Local node count.
@@ -323,12 +323,12 @@ coefficient vector `β`.
 - `Nsub`: Number of global subintervals.
 
 # Returns
-- `Vector{RBig}`: Exact global coefficient vector `β` of length `Nsub + 1`.
+- `Vector{RBig}`: Exact global coefficient vector ``\\beta`` of length `Nsub + 1`.
 
 # Errors
 - Propagates validation errors from [`_check_condition`](@ref).
 - Throws via [`JobLoggerTools.error_benji`](@ref) if an internal assembly mismatch is detected.
-- May emit a warning for large `p` because exact rational weights can become extremely large.
+- May emit a warning for large ``p`` because exact rational weights can become extremely large.
 """
 function _assemble_composite_beta_rational(
     p::Int, 
@@ -430,7 +430,7 @@ end
         rule::Symbol
     ) -> Int
 
-Parse the local node count `p` from a Newton-Cotes rule symbol `:newton_pK`.
+Parse the local node count `p` from a Newton-Cotes rule symbol `:newton_p2`, `:newton_p3`, etc.
 
 # Function description
 This helper extracts the integer suffix from a symbol such as `:newton_p3`
@@ -464,7 +464,7 @@ end
         Nsub::Int
     ) -> Vector{Float64}
 
-Get the global composite coefficient vector `β` in `Float64`, with caching.
+Get the global composite coefficient vector ``\\beta`` in `Float64`, with caching.
 
 # Function description
 This routine wraps the exact rational assembly in a `Float64`-facing interface.
@@ -477,7 +477,7 @@ vector if necessary, converts it to `Float64`, stores it in the cache, and retur
 - `Nsub`: Number of global subintervals.
 
 # Returns
-- `Vector{Float64}`: Global coefficient vector `β` in `Float64` form.
+- `Vector{Float64}`: Global coefficient vector ``\\beta`` in `Float64` form.
 
 # Errors
 - Propagates validation and assembly errors from [`_assemble_composite_beta_rational`](@ref).

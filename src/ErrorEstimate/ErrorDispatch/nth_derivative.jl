@@ -15,12 +15,13 @@
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at `x`
-using a Taylor-series expansion.
+Compute the ``n``-th derivative of a scalar callable `f` at `x`
+using a Taylor-series expansion via [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/).
 
 # Function description
 This routine expands ``f(x + t)``` around the scalar point ``x`` using
-`TaylorSeries.Taylor1` up to order ``n``, then extracts the ``n``-th derivative
+[`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1) 
+up to order ``n``, then extracts the ``n``-th derivative
 from the resulting series.
 
 Unlike repeated first-derivative application, this backend performs the
@@ -60,12 +61,12 @@ end
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at `x`
-using repeated `Enzyme.gradient` application.
+Compute the ``n``-th derivative of a scalar callable `f` at `x`
+using repeated [`Enzyme.gradient`](https://enzyme.mit.edu/index.fcgi/julia/stable/api/#Enzyme.gradient-Union{Tuple{N},%20Tuple{ty_0},%20Tuple{ST},%20Tuple{CS},%20Tuple{StrongZero},%20Tuple{RuntimeActivity},%20Tuple{ErrIfFuncWritten},%20Tuple{ABI},%20Tuple{ReturnPrimal},%20Tuple{F},%20Tuple{ForwardMode{ReturnPrimal,%20ABI,%20ErrIfFuncWritten,%20RuntimeActivity,%20StrongZero},%20F,%20ty_0,%20Vararg{Any,%20N}}}%20where%20{F,%20ReturnPrimal,%20ABI,%20ErrIfFuncWritten,%20RuntimeActivity,%20StrongZero,%20CS,%20ST,%20ty_0,%20N}) application.
 
 # Function description
 This routine builds a nested closure chain of length `n`. Each layer replaces
-the current callable by its first derivative computed through Enzyme reverse-mode
+the current callable by its first derivative computed through [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/) reverse-mode
 automatic differentiation. The final nested callable is then evaluated at `x`.
 
 # Arguments
@@ -77,7 +78,7 @@ automatic differentiation. The final nested callable is then evaluated at `x`.
 - The `n`-th derivative value ``f^{(n)}(x)``.
 
 # Errors
-- No explicit validation is performed here; backend errors from Enzyme are
+- No explicit validation is performed here; backend errors from [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/) are
   propagated if the differentiation chain fails.
 
 # Notes
@@ -106,8 +107,8 @@ end
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at `x`
-using repeated `ForwardDiff.derivative`.
+Compute the ``n``-th derivative of a scalar callable `f` at `x`
+using repeated [`ForwardDiff.derivative`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative).
 
 # Function description
 This routine constructs a nested derivative closure chain of length ``n``,
@@ -126,7 +127,7 @@ It is intentionally written to accept any Julia callable, not only subtypes of
 
 # Errors
 - No explicit validation is performed here; any differentiation failure from
-  `ForwardDiff` is propagated.
+  [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/ is propagated.
 
 # Notes
 - This is the default practical backend in the current error-estimation stack.
@@ -152,8 +153,8 @@ end
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at `x`
-using symbolic differentiation via `FastDifferentiation.jl`.
+Compute the ``n``-th derivative of a scalar callable `f` at `x`
+using symbolic differentiation via [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/).
 
 # Function description
 This routine evaluates `f` on a symbolic variable, constructs the symbolic
@@ -166,7 +167,7 @@ function, and evaluates it at `x`.
 - `n::Int`: Derivative order.
 
 # Returns
-- The `n`-th derivative value `f^{(n)}(x)`.
+- The `n`-th derivative value ``f^{(n)}(x)``.
 
 # Errors
 - Throws `ArgumentError` if `n < 0`.
@@ -310,7 +311,7 @@ routes the request according to `err_method`:
 If an unknown `err_method` is provided, the function aborts via
 [`JobLoggerTools.error_benji`](@ref) with a context-rich message.
 
-This interface is shared across 1D/2D/3D/4D and general nD error estimators.
+This interface is shared across ``1``/``2``/``3``/``4``-dimensional and general ``n``-dimensional error estimators.
 
 # Keyword arguments
 - `h`          : Grid spacing.

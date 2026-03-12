@@ -72,7 +72,7 @@ This helper calls [`_prompt`](@ref), then parses the resulting string as
 - Propagates any I/O errors from [`_prompt`](@ref).
 
 # Notes
-- Intended for numeric `TOML` fields such as `a` and `b`.
+- Intended for numeric [`TOML`](https://toml.io/en/) fields such as `a` and `b`.
 """
 function _prompt_float(
     msg::String, 
@@ -195,10 +195,10 @@ end
 """
     _build_toml(cfg) -> String
 
-Construct a `TOML` configuration string from a wizard configuration bundle.
+Construct a [`TOML`](https://toml.io/en/) configuration string from a wizard configuration bundle.
 
 # Function description
-This helper converts a configuration container into a `TOML`-formatted string
+This helper converts a configuration container into a [`TOML`](https://toml.io/en/)-formatted string
 with a fixed section order.
 
 The generated sections are:
@@ -216,13 +216,13 @@ The generated sections are:
   template.
 
 # Returns
-- `String`: `TOML` representation of the configuration.
+- `String`: [`TOML`](https://toml.io/en/) representation of the configuration.
 
 # Errors
 - Missing-field errors are propagated from property access on `cfg`.
 
 # Notes
-- The `TOML` string is assembled manually to preserve predictable ordering and
+- The [`TOML`](https://toml.io/en/) string is assembled manually to preserve predictable ordering and
   readability.
 """
 function _build_toml(cfg)
@@ -370,11 +370,11 @@ end
         output_path::AbstractString = "maranatha.toml"
     ) -> Nothing
 
-Launch the interactive Maranatha `TOML` configuration wizard.
+Launch the interactive Maranatha [`TOML`](https://toml.io/en/) configuration wizard.
 
 # Function description
 This routine interactively collects configuration values from the user,
-constructs a `TOML` configuration string, writes it to disk, and optionally
+constructs a [`TOML`](https://toml.io/en/) configuration string, writes it to disk, and optionally
 writes a sample integrand source file.
 
 The wizard gathers information about:
@@ -388,14 +388,14 @@ The wizard gathers information about:
 - output configuration.
 
 # Keyword arguments
-- `output_path::AbstractString`: Destination path of the generated `TOML` file.
+- `output_path::AbstractString`: Destination path of the generated [`TOML`](https://toml.io/en/) file.
 
 # Returns
 - `Nothing`.
 
 # Errors
 - Propagates input-parsing errors from the `_prompt_*` helpers.
-- Propagates file-writing errors when writing the `TOML` or sample integrand file.
+- Propagates file-writing errors when writing the [`TOML`](https://toml.io/en/) or sample integrand file.
 
 # Notes
 - If the selected sample integrand file already exists, the wizard asks whether

@@ -79,7 +79,7 @@ For each subdivision count `N` in `nsamples`, this routine:
 3. evaluates a derivative-informed error-scale model via
    [`ErrorDispatch.error_estimate`](@ref) or
    [`ErrorDispatch.error_estimate_threads`](@ref),
-4. stores the resulting `(h, estimate, error_info)` triplet.
+4. records the resulting step size, estimate, and error information for later aggregation into the returned dataset.
 
 The collected results are returned as a single `NamedTuple` and can also be
 written to disk for later reuse.
@@ -130,7 +130,7 @@ written to disk for later reuse.
   Output directory for optional result saving. If `nothing`, no file is written.
 
 * `write_summary::Bool = true`:
-  If `true`, write a `TOML` summary alongside the saved `JLD2` dataset.
+  If `true`, write a [`TOML`](https://toml.io/en/) summary alongside the saved `JLD2` dataset.
 
 # Returns
 
@@ -151,10 +151,10 @@ If `save_path` is provided, the result is written using
 The output filename has the form
 
 ```julia
-result_\$(name_prefix)_\$(rule)_\$(boundary)_N_\$(nsamples[1])_N_\$(nsamples[end]).jld2
+result_\$(name_prefix)_\$(rule)_\$(boundary)_N_\$(join(sort(nsamples), "_")).jld2
 ```
 
-If `write_summary = true`, a `TOML` summary file is written alongside it.
+If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is written alongside it.
 
 # Notes
 
@@ -202,12 +202,12 @@ function run_Maranatha(
     a,
     b;
     dim=1,
-    nsamples=[4,8,12,16],
-    rule=:newton_p3,
-    boundary=:LU_ININ,
+    nsamples=[2, 3, 4, 5, 6, 7, 8, 9],
+    rule=:gauss_p4,
+    boundary=:LU_EXEX,
     err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
-    fit_terms::Int = 2,
-    nerr_terms::Int = 1,
+    fit_terms::Int = 4,
+    nerr_terms::Int = 3,
     ff_shift::Int = 0,
     use_threads::Bool = false,
     name_prefix::String = "Maranatha",
@@ -299,31 +299,31 @@ end
         toml_path::AbstractString
     )
 
-Run Maranatha from a `TOML` configuration file.
+Run Maranatha from a [`TOML`](https://toml.io/en/) configuration file.
 
 # Function description
 
-This method provides a `TOML`-driven overload of [`run_Maranatha`](@ref).
+This method provides a [`TOML`](https://toml.io/en/)-driven overload of [`run_Maranatha`](@ref).
 
 The workflow is:
 
-1. parse the `TOML` file via [`MaranathaTOML.parse_run_config_from_toml`](@ref)
+1. parse the [`TOML`](https://toml.io/en/) file via [`MaranathaTOML.parse_run_config_from_toml`](@ref)
 2. validate the parsed configuration via [`MaranathaTOML.validate_run_config`](@ref)
 3. load the user-defined integrand from file via [`MaranathaTOML.load_integrand_from_file`](@ref)
 4. forward all recovered options to the main
    `run_Maranatha(integrand, a, b; ...)` method
 
 This allows users to keep the integrand itself in a separate Julia source file
-while storing numerical and output options in a reproducible `TOML` file.
+while storing numerical and output options in a reproducible [`TOML`](https://toml.io/en/) file.
 
 # Arguments
 
 `toml_path::AbstractString`
-: Path to the `TOML` configuration file.
+: Path to the [`TOML`](https://toml.io/en/) configuration file.
 
 # Returns
 
-The result object returned by the main `run_Maranatha(integrand, a, b; ...)`
+The result object returned by the main [`run_Maranatha`](@ref)`(integrand, a, b; ...)`
 execution path.
 
 # Errors

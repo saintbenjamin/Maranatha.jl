@@ -9,7 +9,7 @@ Its responsibilities are broader than simple file saving. It also supports:
 
 - structured round-trip conversion between internal result objects and
   serialization-friendly dictionaries,
-- human-readable `TOML` summaries,
+- human-readable [`TOML`](https://toml.io/en/) summaries,
 - inferred subdivision-count recovery from stored step sizes,
 - merging partial result blocks,
 - dropping selected datapoints from existing result files.
@@ -37,7 +37,7 @@ analysis representation.
 ## Summary export
 
 The helper [`Maranatha.Utils.MaranathaIO.generate_summary_dict`](@ref) builds a human-readable summary view
-intended for `TOML` output.
+intended for [`TOML`](https://toml.io/en/) output.
 
 This summary is not primarily meant for exact round-trip reconstruction. Its
 purpose is quick inspection of:

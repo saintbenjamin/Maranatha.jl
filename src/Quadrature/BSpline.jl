@@ -56,8 +56,8 @@ Decode the B-spline rule kind from a rule symbol.
 # Function description
 Given a rule symbol of the form:
 
-- `:bspline_interp_pK`
-- `:bspline_smooth_pK`
+- `:bspline_interp_p2`, `:bspline_interp_p3`, ...
+- `:bspline_smooth_p2`, `:bspline_smooth_p3`, ...
 
 this helper returns the corresponding kind tag:
 
@@ -96,20 +96,20 @@ Parse the spline degree `p` from a B-spline rule symbol.
 # Function description
 This helper extracts the integer degree `p` from rule symbols:
 
-- `:bspline_interp_pK`
-- `:bspline_smooth_pK`
+- `:bspline_interp_p2`, `:bspline_interp_p3`, ...
+- `:bspline_smooth_p2`, `:bspline_smooth_p3`, ...
 
-where `K` is a nonnegative integer degree.
+where `2`, `3`, etc. are nonnegative integer degrees.
 
 # Arguments
 - `rule`: B-spline rule symbol.
 
 # Returns
-- `Int`: Parsed spline degree `p` (guaranteed `p ≥ 0` if successful).
+- `Int`: Parsed spline degree `p` (guaranteed ``p \\geq 0`` if successful).
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `rule` is not a B-spline rule,
-  or if the parsed degree is invalid (`p < 0`).
+  or if the parsed degree is invalid (``p < 0``).
 """
 @inline function _parse_bspline_p(
     rule::Symbol
@@ -141,7 +141,7 @@ Construct a uniform knot vector with endpoint clamping controlled by `boundary`.
 
 # Function description
 This routine builds a uniform knot line on ``[a, b]`` with step size
-``h = \frac{b-a}{N}`` and a simple extended knot sequence. Endpoint clamping is
+``h = \\dfrac{b-a}{N}`` and a simple extended knot sequence. Endpoint clamping is
 then enforced according to `boundary`:
 
 - left clamp  if `boundary ∈ { :LU_ININ, :LU_INEX }`
@@ -205,12 +205,12 @@ end
 Compute Greville abscissae for a B-spline basis defined by knots `t` and degree `p`.
 
 # Function description
-For degree `p ≥ 1`, the Greville points are the averages of consecutive interior
-knots. For the special case `p == 0`, this routine uses knot-span midpoints.
+For degree ``p \\geq 1``, the Greville points are the averages of consecutive interior
+knots. For the special case ``p = 0``, this routine uses knot-span midpoints.
 
 # Arguments
 - `t`: Knot vector.
-- `p`: Spline degree (`p ≥ 0`).
+- `p`: Spline degree (``p \\geq 0``).
 
 # Returns
 - `Vector{Float64}`: Greville points `xs` of length `nbasis`.
@@ -257,13 +257,13 @@ Evaluate all B-spline basis functions ``B_{i,p}(x)`` at a point `x`.
 
 # Function description
 This routine returns the full vector of basis values for the knot vector `t`
-and degree `p`. It starts from degree-`0` indicator functions and elevates the
+and degree `p`. It starts from degree-``0`` indicator functions and elevates the
 basis degree iteratively using the Cox-de Boor recursion.
 
 # Arguments
 - `x`: Evaluation point.
 - `t`: Knot vector.
-- `p`: Spline degree (`p ≥ 0`).
+- `p`: Spline degree (``p \\geq 0``).
 
 # Returns
 - `Vector{Float64}`: Basis values at `x` (length `nbasis`).
@@ -332,7 +332,7 @@ returns the vector of basis integrals using the standard closed-form expression.
 
 # Arguments
 - `t`: Knot vector.
-- `p`: Spline degree (`p ≥ 0`).
+- `p`: Spline degree (``p \\geq 0``).
 
 # Returns
 - `Vector{Float64}`: Basis integrals `bI` (length `nbasis`).
@@ -455,7 +455,7 @@ end
         λ::Float64 = 0.0
     ) -> (xs::Vector{Float64}, ws::Vector{Float64})
 
-Construct B-spline quadrature nodes and weights on `[a, b]`.
+Construct B-spline quadrature nodes and weights on ``[a, b]``.
 
 # Function description
 This is the public entry point that produces a quadrature rule
@@ -475,9 +475,9 @@ Two modes are supported:
 
 # Arguments
 - `a`: Left endpoint.
-- `b`: Right endpoint. Must satisfy `b > a`.
+- `b`: Right endpoint. Must satisfy ``b > a``.
 - `N`: Number of uniform subintervals defining knot spacing.
-- `p`: B-spline degree (`p ≥ 0`).
+- `p`: B-spline degree (``p \\geq 0``).
 - `boundary`: Boundary pattern controlling endpoint clamping.
 
 # Keyword arguments

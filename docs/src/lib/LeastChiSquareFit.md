@@ -21,8 +21,8 @@ The fitter assumes a convergence model that is linear in its coefficients:
 I(h) = I_0 + C_1 h^{p_1} + C_2 h^{p_2} + \cdots
 ```
 
-Here, `I_0` is the extrapolated continuum-limit estimate, and the exponents
-`p_1, p_2, ...` are inferred automatically from the midpoint-residual structure
+Here, ``I_0`` is the extrapolated continuum-limit estimate, and the exponents
+``p_1, p_2, \\ldots`` are inferred automatically from the midpoint-residual structure
 associated with the chosen quadrature rule and boundary pattern.
 
 The module provides:
@@ -93,8 +93,8 @@ I(h) = I_0 + C_1 h^{p_1} + C_2 h^{p_2} + \cdots + C_{m} h^{p_m}.
 
 The design matrix therefore has:
 
-- column `1`: the constant term `1`
-- column `t+1`: `h^(powers[t])`
+- column ``\\texttt{1}``: the constant term ``\\texttt{1}``
+- column ``\texttt{t+1}``: ``h^\texttt{powers[t]}``
 
 ### 5. Construct the uncertainty vector
 
@@ -111,10 +111,10 @@ This matches the runner-side interpretation of the stored residual model.
 
 ### 6. Solve the weighted least-squares problem
 
-Let `X` be the design matrix, `y` the estimate vector, and
+Let ``X`` be the design matrix, ``y`` the estimate vector, and
 
 ```math
-W = \mathrm{diag}(1/\sigma).
+W = \mathrm{diag}(\frac{1}{\sigma}).
 ```
 
 The implementation solves the weighted least-squares system
@@ -195,9 +195,9 @@ fit_result = least_chi_square_fit(run_result; ff_shift=1)
 
 [`print_fit_result`](@ref) prints:
 
-- each fitted parameter `λ_k` with its uncertainty,
+- each fitted parameter ``\lambda_k`` with its uncertainty,
 - the total ``\chi^2`` and reduced ``\chi^2``,
-- the extrapolated continuum value `I(h \to 0)`.
+- the extrapolated continuum value ``I(h \to 0)``.
 
 The output is intentionally compact and log-friendly.
 

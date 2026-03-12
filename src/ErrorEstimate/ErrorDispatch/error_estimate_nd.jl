@@ -25,12 +25,12 @@
 Estimate an arbitrary-dimensional axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This routine provides the generic `nd` version of the midpoint-residual model on
+This routine provides the generic ``n``-dimensional version of the midpoint-residual model on
 the hypercube `[a,b]^dim`.
 
-For each collected residual order `k`, it sums the axis-wise contributions
+For each collected residual order ``k``, it sums the axis-wise contributions
 obtained by inserting the midpoint along one differentiation axis and
-integrating over the remaining `dim-1` axes through an odometer-style
+integrating over the remaining ``\\texttt{dim} - 1`` axes through an odometer-style
 tensor-product traversal.
 
 # Arguments
@@ -210,28 +210,28 @@ end
         kmax::Int = 128
     )
 
-Threaded variant of `error_estimate_nd`.
+Threaded variant of [`error_estimate_nd`](@ref).
 
 # Function description
 This routine preserves the same generic `nd` midpoint-residual model as
-`error_estimate_nd` but parallelizes the accumulation over differentiation
+[`error_estimate_nd`](@ref) but parallelizes the accumulation over differentiation
 axes.
 
-Each worker performs the full `(dim-1)`-dimensional odometer-style summation for
+Each worker performs the full ``(\\texttt{dim} - 1)``-dimensional odometer-style summation for
 its assigned axis using thread-local buffers.
 
 # Arguments
-- Same as `error_estimate_nd`.
+- Same as [`error_estimate_nd`](@ref).
 
 # Keyword arguments
-- Same as `error_estimate_nd`.
+- Same as [`error_estimate_nd`](@ref).
 
 # Returns
-- Same `NamedTuple` structure as `error_estimate_nd`.
+- Same `NamedTuple` structure as [`error_estimate_nd`](@ref).
 
 # Errors
 - Throws `ArgumentError` if `dim < 1`.
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1`.
 - Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes

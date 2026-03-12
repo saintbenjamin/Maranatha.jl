@@ -1,6 +1,6 @@
 # Maranatha.jl
 
-**Maranatha.jl** is a numerical framework for **deterministic quadrature-based
+**`Maranatha.jl`** is a numerical framework for **deterministic quadrature-based
 continuum extrapolation** on hypercube domains ``[a,b]^n``.
 
 Many numerical integration tools rely on stochastic sampling
@@ -13,11 +13,9 @@ with resolution scaling and continuum extrapolation**.
 
 By evaluating the integral at multiple step sizes and fitting the expected
 convergence behavior, the framework estimates the continuum limit
-
 ```math
 h \to 0
 ```
-
 together with a model-informed uncertainty.
 
 This approach is particularly useful for **controlled numerical studies**
@@ -154,8 +152,8 @@ for continuum extrapolation.
 
 The primary plotting routines include:
 
-- `plot_convergence_result`
-- `plot_quadrature_coverage_1d`
+- [`Maranatha.PlotTools.plot_convergence_result`](@ref)
+- [`Maranatha.PlotTools.plot_quadrature_coverage_1d`](@ref)
 
 The convergence plot displays the fitted model and its covariance-based
 uncertainty band.
@@ -167,7 +165,7 @@ uncertainty band.
 The example below demonstrates a minimal end-to-end workflow
 using a configuration file and a simple integrand definition.
 
-### Step 1 — define an integrand
+### Step 1 :: define an integrand
 
 First define a small integrand in a Julia souce file
 
@@ -179,7 +177,7 @@ integrand(x) = sin(x)
 
 ---
 
-### Step 2 — prepare configuration file
+### Step 2 :: prepare configuration file
 
 Next prepare a configuration file describing the integration
 domain, sampling sequence, quadrature rule, and output options.
@@ -217,7 +215,7 @@ Assume that `sample_1d.jl` and `sample_1d.toml` are located in the current worki
 
 ---
 
-### Step 3 — run quadrature pipeline
+### Step 3 :: run quadrature pipeline
 
 The quadrature pipeline can then be executed using the
 high-level runner, producing a dataset
@@ -231,7 +229,7 @@ run_result = run_Maranatha("sample_1d.toml")
 
 ---
 
-### Step 4 — perform continuum extrapolation
+### Step 4 :: perform continuum extrapolation
 
 Once the dataset has been generated, the continuum limit ``h \to 0`` can be estimated by performing a least ``\chi^2`` fit.
 
@@ -248,7 +246,7 @@ print_fit_result(fit_result)
 
 ---
 
-### Step 5 — visualize convergence
+### Step 5 :: visualize convergence
 
 Finally, the convergence behaviour and fitted uncertainty
 can be visualized using the plotting utilities.

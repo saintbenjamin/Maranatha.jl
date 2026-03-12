@@ -338,13 +338,13 @@ pedagogical_1D_$(name)_$(rule)_$(boundary)_N$(N).pdf
 
 under `figs_dir`, again using `pdfcrop` when available.
 
-#### `TOML` wrapper
+#### [`TOML`](https://toml.io/en/) wrapper
 
-A second method accepts a Maranatha `TOML` file.
+A second method accepts a Maranatha [`TOML`](https://toml.io/en/) file.
 
 That wrapper:
 
-1. parses the `TOML` configuration
+1. parses the [`TOML`](https://toml.io/en/) configuration
 2. validates it
 3. loads the integrand from the referenced Julia file
 4. dispatches to the primary plotting method

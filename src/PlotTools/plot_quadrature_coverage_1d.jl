@@ -52,7 +52,7 @@ quadrature construction.
 - This routine is intended for intuition-building, inspection, and debugging of 1D rules.
 - Non-B-spline rules use a signed contribution view, while B-spline rules visualize the
   reconstructed effective spline curve.
-- A `TOML`-driven convenience wrapper is also provided.
+- A [`TOML`](https://toml.io/en/)-driven convenience wrapper is also provided.
 """
 function plot_quadrature_coverage_1d(
     f,
@@ -357,13 +357,13 @@ end
         save_file::Bool = false,
     ) -> Nothing
 
-Convenience wrapper that loads a Maranatha `TOML` configuration, imports the user
+Convenience wrapper that loads a Maranatha [`TOML`](https://toml.io/en/) configuration, imports the user
 integrand, and forwards the recovered inputs to the primary
 `plot_quadrature_coverage_1d` method.
 
 # Arguments
 - `toml_path::AbstractString`:
-  Path to the `TOML` configuration file.
+  Path to the [`TOML`](https://toml.io/en/) configuration file.
 
 # Keyword arguments
 - `N::Union{Nothing,Int} = nothing`:
@@ -373,9 +373,9 @@ integrand, and forwards the recovered inputs to the primary
 - `ngrid_block::Int = 400`:
   Number of dense plotting points per local block / span.
 - `name::Union{Nothing,String} = nothing`:
-  Optional basename overriding the `TOML` configuration.
+  Optional basename overriding the [`TOML`](https://toml.io/en/) configuration.
 - `figs_dir::Union{Nothing,String} = nothing`:
-  Optional output directory overriding the `TOML` configuration.
+  Optional output directory overriding the [`TOML`](https://toml.io/en/) configuration.
 - `save_file::Bool = false`:
   If `true`, save the generated figures.
 
@@ -383,7 +383,7 @@ integrand, and forwards the recovered inputs to the primary
 - `Nothing`.
 
 # Errors
-- Propagates `TOML` parsing, validation, and integrand-loading errors.
+- Propagates [`TOML`](https://toml.io/en/) parsing, validation, and integrand-loading errors.
 - Throws an error if an explicitly requested `N` is not contained in `cfg.nsamples`.
 - Propagates all plotting errors from the primary method.
 

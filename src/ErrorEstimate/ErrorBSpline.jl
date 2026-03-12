@@ -36,7 +36,7 @@ Compute the exact shifted monomial moment ``\\displaystyle{\\int\\limits_0^N \\l
 This helper returns the closed-form shifted moment over the dimensionless
 interval ``u \\in [0, N]`` with `N = Nsub`:
 ```math
-\\int_0^{N} (u-c)^k\\,du
+\\int\\limits_0^{N} (u-c)^k\\,du
 = \\frac{(N-c)^{k+1} - (0-c)^{k+1}}{k+1} \\,.
 ```
 
@@ -82,14 +82,14 @@ end
     ) -> (ks::Vector{Int}, coeffs::Vector{Float64})
 
 Collect the first `nterms` detected nonzero midpoint-shifted residual coefficients
-for composite B-spline quadrature rules on ``u \\in [0, \\texttt{Nsub}]``.
+for composite B-spline quadrature rules on ``u \\in [0, N_{\\texttt{sub}}]``.
 
 # Function description
 This routine detects midpoint-centered residual terms for B-spline quadrature
 rules of the form:
 
-- `:bspline_interp_pK`
-- `:bspline_smooth_pK`
+- `:bspline_interp_p2`, `:bspline_interp_p3`, ... 
+- `:bspline_smooth_p2`, `:bspline_smooth_p3`, ...
 
 Using the midpoint
 ```math
@@ -97,7 +97,7 @@ c = \\frac{N_{\\texttt{sub}}}{2},
 ```
 it compares the exact shifted monomial moment
 ```math
-\\int_0^N (u-c)^k \\, du
+\\int\\limits_0^N du \\; (u-c)^k 
 ```
 against the quadrature-induced moment
 ```math
@@ -108,13 +108,13 @@ For each detected nonzero residual,
 ```math
 \\texttt{diff}_k
 =
-\\int_0^N (u-c)^k \\, du
+\\int\\limits_0^N du \\; (u-c)^k 
 -
 \\sum_i w_i (x_i-c)^k,
 ```
 the routine records the factorial-scaled coefficient
 ```math
-\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}.
+\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!} \\, .
 ```
 
 The first `nterms` detected pairs are returned.
@@ -133,7 +133,7 @@ The first `nterms` detected pairs are returned.
 
 # Returns
 - `ks::Vector{Int}`: Detected residual indices `k`.
-- `coeffs::Vector{Float64}`: Residual coefficients `diff_k / k!` aligned with `ks`.
+- `coeffs::Vector{Float64}`: Residual coefficients `\\dfrac{\\texttt{diff}_k}{k!}``` aligned with `ks`.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1`, `kmax < 0`, or `Nsub < 1`.

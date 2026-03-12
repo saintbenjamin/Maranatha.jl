@@ -34,7 +34,7 @@ in `Float64`.
 # Function description
 This helper returns the closed-form shifted moment
 ```math
-\\int_0^N (u-c)^k \\, du
+\\int\\limits_0^N (u-c)^k \\, du
 =
 \\frac{(N-c)^{k+1} - (0-c)^{k+1}}{k+1},
 ```
@@ -45,8 +45,8 @@ It is used by [`_leading_midpoint_residual_terms_gauss_float`](@ref) to compare
 the exact midpoint-shifted monomial moment against the quadrature-induced one.
 
 # Arguments
-- `Nsub`: Number of composite unit blocks, so the domain is ``u \\in [0, N_{\\text{sub}}]``.
-- `c`: Shift value, typically the midpoint ``N_{\\text{sub}} / 2``.
+- `Nsub`: Number of composite unit blocks, so the domain is ``u \\in [0, N_{\\texttt{sub}}]``.
+- `c`: Shift value, typically the midpoint ``\\dfrac{N_{\\texttt{sub}}}{2}``.
 - `k`: Nonnegative integer power.
 
 # Returns
@@ -85,12 +85,12 @@ Detect the leading nonzero midpoint-shifted residual terms for a composite Gauss
 # Function description
 This routine probes the midpoint-centered residual structure of a composite
 Gauss-family quadrature rule on the dimensionless interval
-``u \\in [0, N_{\\text{sub}}]``.
+``u \\in [0, N_{\\texttt{sub}}]``.
 
-It compares, for each scanned order `k`,
+It compares, for each scanned order ``k``,
 
 ```math
-M_k^{\\texttt{exact}} = \\int_0^N (u-c)^k \\, du
+M_k^{\\texttt{exact}} = \\int\\limits_0^N du \\; (u-c)^k
 ```
 
 against
@@ -101,7 +101,7 @@ M_k^{\\texttt{quad}} = \\sum_i W_i (U_i-c)^k,
 
 where `(U, W)` is the composite Gauss grid returned by
 [`Gauss._composite_gauss_u_grid`](@ref) and
-``c = N / 2`` is the midpoint.
+``c = \\dfrac{N}{2}`` is the midpoint.
 
 The residual
 ```math
@@ -116,7 +116,7 @@ The function returns the first `nterms` detected nonzero residual terms as
 aligned vectors `(ks, coeffs)`.
 
 # Arguments
-- `rule`: Gauss-family rule symbol of the form `:gauss_pK`.
+- `rule`: Gauss-family rule symbol of the form `:gauss_p2`, `:gauss_p3`, etc.
 - `boundary`: Boundary-family selector passed to the Gauss backend.
 - `Nsub`: Number of composite unit blocks on the dimensionless grid.
 

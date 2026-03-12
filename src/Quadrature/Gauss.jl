@@ -29,7 +29,7 @@ recurrence and returns the pair ``(P_n(x), P_{n-1}(x))``. It is mainly used insi
 Newton iterations for Gauss-Radau and Gauss-Lobatto root solves.
 
 # Arguments
-- `n`: Polynomial order (must satisfy `n ≥ 0`).
+- `n`: Polynomial order (must satisfy ``n \\geq 0``).
 - `x`: Evaluation point.
 
 # Returns
@@ -75,7 +75,7 @@ for Legendre polynomials. It is used in Newton iterations for Radau and Lobatto
 root finding.
 
 # Arguments
-- `n`: Polynomial order (must satisfy `n ≥ 0`).
+- `n`: Polynomial order (must satisfy ``n \\geq 0``).
 - `x`: Evaluation point.
 
 # Returns
@@ -154,14 +154,14 @@ Golub-Welsch algorithm, i.e. the eigen-decomposition of the symmetric tridiagona
 Jacobi matrix associated with the Legendre weight ``w(x)=1``.
 
 # Arguments
-- `n`: Number of quadrature points (must satisfy `n ≥ 1`).
+- `n`: Number of quadrature points (must satisfy ``n \\geq 1``).
 
 # Returns
 - `nodes::Vector{Float64}`: Length-`n` node vector on ``[-1,1]``, sorted ascending.
 - `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
-- Throws `error("n must be ≥ 1")` if `n < 1`.
+- Throws `error("n must be ≥ 1")` if ``n < 1``.
 
 # Notes
 - This function returns the single-interval rule only. Composite repetition is handled
@@ -224,14 +224,14 @@ endpoint is fixed, while the remaining ``n-1`` interior nodes are obtained as ro
 standard closed-form Radau formulas.
 
 # Arguments
-- `n`: Number of quadrature points (must satisfy `n ≥ 2`).
+- `n`: Number of quadrature points (must satisfy ``n \\geq 2``).
 
 # Returns
 - `nodes::Vector{Float64}`: Length-`n` node vector, sorted ascending, including `-1.0`.
 - `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
-- Throws `error("Radau needs n ≥ 2 ...")` if `n < 2`.
+- Throws `error("Radau needs n ≥ 2 ...")` if ``n < 2``.
 
 # Notes
 - Newton iterates are clamped by [`_clamp_open`](@ref) for numerical safety.
@@ -293,14 +293,14 @@ endpoint is fixed, while the remaining ``n-1`` interior nodes are obtained as ro
 standard closed-form Radau formulas.
 
 # Arguments
-- `n`: Number of quadrature points (must satisfy `n ≥ 2`).
+- `n`: Number of quadrature points (must satisfy ``n \\geq 2``).
 
 # Returns
 - `nodes::Vector{Float64}`: Length-`n` node vector, sorted ascending, including `+1.0`.
 - `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
-- Throws `error("Radau needs n ≥ 2 ...")` if `n < 2`.
+- Throws `error("Radau needs n ≥ 2 ...")` if ``n < 2``.
 
 # Notes
 - Newton iterates are clamped by [`_clamp_open`](@ref) for numerical safety.
@@ -369,14 +369,14 @@ Lobatto interior equation solved by Newton iteration. The corresponding weights 
 assembled from the standard closed-form formulas.
 
 # Arguments
-- `n`: Number of quadrature points (must satisfy `n ≥ 2`).
+- `n`: Number of quadrature points (must satisfy ``n \\geq 2``).
 
 # Returns
 - `nodes::Vector{Float64}`: Length-`n` node vector, sorted ascending, including `±1.0`.
 - `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
-- Throws `error("Lobatto needs n ≥ 2 ...")` if `n < 2`.
+- Throws `error("Lobatto needs n ≥ 2 ...")` if ``n < 2``.
 
 # Notes
 - If `n == 2`, this returns the endpoint-only rule.
@@ -479,7 +479,7 @@ This helper validates the naming prefix and extracts the integer point count enc
 `rule`.
 
 # Arguments
-- `rule`: Rule symbol expected to follow the `:gauss_pN` pattern.
+- `rule`: Rule symbol expected to follow the `:gauss_p2`, `:gauss_p3`, ... pattern.
 
 # Returns
 - `Int`: Parsed number of points `n`.
@@ -704,10 +704,10 @@ Build a dimensionless composite Gauss grid on ``u \\in [0,N]``.
 # Function description
 This is the dimensionless analogue of [`_composite_gauss_nodes_weights`](@ref). It maps
 an `npts`-point Gauss-family rule from ``[-1,1]`` to each unit block ``[m,m+1]`` and
-returns the concatenated nodes and weights on the `u` grid.
+returns the concatenated nodes and weights on the ``u`` grid.
 
 # Arguments
-- `N`: Number of unit blocks (must satisfy `N ≥ 1`).
+- `N`: Number of unit blocks (must satisfy ``N \\geq 1``).
 - `npts`: Number of points per block.
 - `boundary`: Global boundary selector.
 
@@ -716,7 +716,7 @@ returns the concatenated nodes and weights on the `u` grid.
 - `W::Vector{Float64}`: Dimensionless composite weights aligned with `U`.
 
 # Errors
-- Throws `ArgumentError("N must be ≥ 1")` if `N < 1`.
+- Throws `ArgumentError("N must be ≥ 1")` if ``N < 1``.
 - Propagates any error from [`_gauss_family_nodes_weights`](@ref).
 """
 function _composite_gauss_u_grid(

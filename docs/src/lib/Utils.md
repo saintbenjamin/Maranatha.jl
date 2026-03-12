@@ -43,9 +43,9 @@ shared by multiple higher-level components.
 
 ### [`Maranatha.Utils.MaranathaTOML`](@ref)
 
-Provides `TOML`-related helpers and configuration parsing support.
+Provides [`TOML`](https://toml.io/en/)-related helpers and configuration parsing support.
 
-This is part of the utility layer because `TOML` configuration handling is a
+This is part of the utility layer because [`TOML`](https://toml.io/en/) configuration handling is a
 package-wide concern rather than belonging to any one numerical subsystem.
 
 ### [`Maranatha.Utils.Wizard`](@ref)

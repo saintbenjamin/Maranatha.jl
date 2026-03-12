@@ -39,7 +39,7 @@ The dispatch flow is:
 2. validate / decode the boundary mode,
 3. retrieve the composite global coefficient vector ``\beta``,
 4. generate uniform nodes on ``[a,b]``,
-5. convert coefficients into physical weights via ``w_j = \beta_j h``.
+5. convert coefficients into physical weights via ``w_j = \beta_j \, h``.
 
 This keeps the exact-rational assembly isolated in the Newton-Cotes backend.
 
@@ -52,7 +52,7 @@ Rules of the form:
 are delegated to [`Maranatha.Quadrature.Gauss`](@ref).
 
 That backend constructs composite Gauss-family nodes and weights by repeating a
-single-block Gauss rule across `N` uniform subintervals, with endpoint-sensitive
+single-block Gauss rule across ``N`` uniform subintervals, with endpoint-sensitive
 variants applied only where the global boundary actually touches the interval edge.
 
 ### B-spline family
@@ -86,7 +86,7 @@ boundary convention centralized and consistent across the stack.
 
 ## Tensor-product strategy
 
-After `1`-dimensional nodes and weights are constructed, this module evaluates the
+After ``1``-dimensional nodes and weights are constructed, this module evaluates the
 full quadrature by explicit tensor-product accumulation.
 
 ### Specialized low-dimensional paths
@@ -152,11 +152,11 @@ the package.
 
 ## Complexity note
 
-If the `1`-dimensional rule has `M = length(xs)` nodes, then the tensor-product
+If the ``1``-dimensional rule has `length(xs)` nodes, then the tensor-product
 cost scales as:
 
 ```math
-\mathcal{O}(M^{\texttt{dim}}).
+\mathcal{O}(\texttt{length(xs)}^{\texttt{dim}}).
 ```
 
 This is appropriate for structured deterministic quadrature experiments, but it

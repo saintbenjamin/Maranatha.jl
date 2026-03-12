@@ -21,7 +21,7 @@
 Evaluate a ``3``-dimensional tensor-product quadrature over ``[a,b]^3``.
 
 # Function description
-This routine generates `1`-dimensional nodes and weights using
+This routine generates ``1``-dimensional nodes and weights using
 [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
 the tensor-product sum:
 ```math
@@ -29,7 +29,7 @@ the tensor-product sum:
 ```
 
 # Arguments
-- `f`: Integrand callable `f(x, y, z)`.
+- `f`: Integrand callable ``f(x, y, z)``.
 - `a`, `b`: Bounds used on all axes.
 - `N`: Number of intervals / blocks per axis.
 - `rule`: Integration rule symbol.

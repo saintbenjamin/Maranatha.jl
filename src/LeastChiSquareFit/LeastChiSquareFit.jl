@@ -266,7 +266,7 @@ end
         nerr_terms::Union{Nothing,Int} = nothing,
     )
 
-Run [`least_chi_square_fit`](@ref) directly from a Maranatha result object.
+Run [`least_chi_square_fit`](@ref) directly from a [Maranatha.Runner.run_Maranatha](@ref) result object.
 
 If a keyword argument is omitted, the corresponding value stored in `result`
 is reused.

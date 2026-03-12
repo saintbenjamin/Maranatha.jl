@@ -31,35 +31,35 @@ Find the first nonzero midpoint residual term `(k, coeff)` from exact composite 
 
 # Function description
 This helper scans the midpoint-centered residual expansion induced by a composite
-Newton-Cotes rule assembled on the integer ``u``-grid ``j = 0, \\ldots, N_{\\text{sub}}``.
+Newton-Cotes rule assembled on the integer ``u``-grid ``j = 0, \\ldots, N_{\\texttt{sub}}``.
 
 Using the midpoint
 ```math
-c = \\frac{N_{\\text{sub}}}{2},
+c = \\frac{N_{\\texttt{sub}}}{2},
 ```
 it computes, for each `k`,
 ```math
 \\texttt{diff}_k
 =
-\\int_0^{N_{\\text{sub}}} (u-c)^k \\, du
+\\int\\limits_0^{N_{\\texttt{sub}}} (u-c)^k \\, du
 -
-\\sum_{j=0}^{N_{\\text{sub}}} \\beta_j (j-c)^k,
+\\sum_{j=0}^{N_{\\texttt{sub}}} \\beta_j (j-c)^k,
 ```
 and the exact rational Taylor coefficient
 ```math
 \\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}.
 ```
 
-The first `k` with `diff_k != 0` is returned together with `coeff_k`.
+The first `k` with `diff_k != 0` is returned together with ``\\texttt{coeff}_k``.
 
 # Arguments
-- `β`: Exact rational composite coefficient vector ``\\beta`` of length ``N_{\\text{sub}}+1``.
+- `β`: Exact rational composite coefficient vector ``\\beta`` of length ``N_{\\texttt{sub}}+1``.
 - `Nsub`: Number of subintervals on the dimensionless composite grid.
 - `kmax`: Maximum order to scan.
 
 # Returns
 - `k::Int`: First order with nonzero midpoint residual.
-- `coeff::NewtonCotes.RBig`: Exact rational coefficient `diff_k / k!`.
+- `coeff::NewtonCotes.RBig`: Exact rational coefficient ``\\dfrac{\\texttt{diff}_k}{k!}``.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `kmax < 0`.
@@ -112,12 +112,12 @@ This is a convenience wrapper around
 [`NewtonCotes._assemble_composite_beta_rational`](@ref) and
 [`_leading_midpoint_residual_term_from_beta`](@ref).
 
-It validates the boundary, requires a `:newton_pK` rule, assembles the exact
+It validates the boundary, requires a `:newton_p2`, `:newton_p3`... rule, assembles the exact
 rational coefficient vector ``\\beta``, and returns the first nonzero midpoint
 residual term `(k, coeff)`.
 
 # Arguments
-- `rule`: Newton-Cotes rule symbol of the form `:newton_pK`.
+- `rule`: Newton-Cotes rule symbol of the form `:newton_p2`, `:newton_p3`, etc.
 - `boundary`: Boundary pattern symbol.
 - `Nsub`: Number of composite subintervals.
 - `kmax`: Maximum order to scan.
@@ -127,7 +127,7 @@ residual term `(k, coeff)`.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid.
-- Throws if `rule` is not of the form `:newton_pK`.
+- Throws if `rule` is not of the form `:newton_p2`, `:newton_p3`, etc.
 - Propagates composite-assembly errors and failure-to-find-term errors.
 """
 function _leading_midpoint_residual_term(
@@ -163,13 +163,13 @@ Collect the first `nterms` nonzero midpoint residual orders and report the expan
 
 # Function description
 This helper scans midpoint-centered residual moments for a composite Newton-Cotes
-rule and records the first `nterms` derivative orders `k` for which the residual
+rule and records the first `nterms` derivative orders ``k`` for which the residual
 moment is nonzero.
 
 The returned center tag is currently always `:mid`.
 
 # Arguments
-- `rule`: Newton-Cotes rule symbol `:newton_pK`.
+- `rule`: Newton-Cotes rule symbol `:newton_p2`, `:newton_p3`, etc.
 - `boundary`: Boundary pattern symbol.
 - `Nsub`: Number of composite subintervals.
 - `nterms`: Number of nonzero orders to collect.
@@ -235,13 +235,14 @@ Collect the first `nterms` nonzero midpoint residual terms `(k, coeff)` from exa
 This generalizes [`_leading_midpoint_residual_term_from_beta`](@ref) by collecting
 multiple nonzero midpoint residual terms.
 
-For each scanned order `k`, it computes the exact midpoint-centered moment,
+For each scanned order ``k``, it computes the exact midpoint-centered moment,
 the quadrature moment induced by ``\\beta``, and the Taylor coefficient
-`diff_k / k!`. Every nonzero residual is appended until `nterms` terms have
+``\\dfrac{\\texttt{diff}_k}{k!}``. 
+Every nonzero residual is appended until `nterms` terms have
 been collected.
 
 # Arguments
-- `β`: Exact rational coefficient vector of length ``N_{\\text{sub}}+1``.
+- `β`: Exact rational coefficient vector of length ``N_{\\texttt{sub}}+1``.
 - `Nsub`: Number of subintervals on the dimensionless composite grid.
 - `nterms`: Number of nonzero terms to collect.
 - `kmax`: Maximum order to scan.
@@ -310,12 +311,12 @@ end
 Build exact composite weights for `(rule, boundary, Nsub)` and collect the first `nterms` midpoint residual terms.
 
 # Function description
-This helper validates the boundary, requires a `:newton_pK` rule, assembles the
+This helper validates the boundary, requires a `:newton_p2`, `:newton_p3`... rule, assembles the
 exact rational composite coefficients, and extracts the first `nterms` nonzero
 midpoint residual pairs `(k, coeff)`.
 
 # Arguments
-- `rule`: Newton-Cotes rule symbol `:newton_pK`.
+- `rule`: Newton-Cotes rule symbol `:newton_p2`, `:newton_p3`, etc.
 - `boundary`: Boundary pattern symbol.
 - `Nsub`: Number of composite subintervals.
 - `nterms`: Number of nonzero residual terms to collect.

@@ -140,7 +140,7 @@ inside convergence scans or plotting workflows.
 ## Practical notes
 
 - This backend prioritizes exactness and transparency over raw speed.
-- Large `p` may produce very large exact rational coefficients and can become
+- Large ``p`` may produce very large exact rational coefficients and can become
   computationally heavy.
 - The cache is local to the Julia process and is not serialized.
 - No adaptive quadrature or parallelism is introduced at this layer.

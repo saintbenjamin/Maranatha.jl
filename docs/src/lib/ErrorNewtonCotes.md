@@ -16,22 +16,22 @@ that decision exactly rather than through floating-point tolerances.
 
 ## Core residual model
 
-For a composite rule on the dimensionless grid ``u \in [0, N_{\text{sub}}]``,
+For a composite rule on the dimensionless grid ``u \in [0, N_{\texttt{sub}}]``,
 the midpoint is
 
 ```math
-c = \frac{N_{\text{sub}}}{2}.
+c = \frac{N_{\texttt{sub}}}{2}.
 ```
 
 For each order `k`, the backend compares:
 
 - the exact shifted monomial moment
   ```math
-  \int\limits_0^{N_{\text{sub}}} du \, (u-c)^k \, ,
+  \int\limits_0^{N_{\texttt{sub}}} du \, (u-c)^k \, ,
   ```
 - the quadrature-induced moment
   ```math
-  \sum_{j=0}^{N_{\text{sub}}} \beta_j \, (j-c)^k.
+  \sum_{j=0}^{N_{\texttt{sub}}} \beta_j \, (j-c)^k.
   ```
 
 Their difference defines the residual moment:
@@ -39,9 +39,9 @@ Their difference defines the residual moment:
 ```math
 \texttt{diff}_k
 =
-\int\limits_0^{N_{\text{sub}}} du \, (u-c)^k 
+\int\limits_0^{N_{\texttt{sub}}} du \, (u-c)^k 
 -
-\sum_{j=0}^{N_{\text{sub}}} \beta_j (j-c)^k.
+\sum_{j=0}^{N_{\texttt{sub}}} \beta_j (j-c)^k.
 ```
 
 The corresponding Taylor-style coefficient is

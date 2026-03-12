@@ -21,18 +21,21 @@
         kmax::Int = 128
     )
 
-Estimate a `4`-dimensional axis-separable midpoint-residual truncation-error model.
+Estimate a ``4``-dimensional axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This routine applies the `1`-dimensional midpoint error operator along each axis
-of the hypercube `[a,b]^4` and integrates the resulting derivative slices over
+This routine applies the ``1``-dimensional midpoint error operator along each axis
+of the hypercube ``[a,b]^4`` and integrates the resulting derivative slices over
 the remaining three axes.
 
-For each collected residual order `k`, it forms the model contribution
-`coeff_k * h^(k+1) * (I_x^(k) + I_y^(k) + I_z^(k) + I_t^(k))`.
+For each collected residual order ``k``, it forms the model contribution
+```math
+E \\approx \\sum_{i=1}^{n_{\\text{err}}}
+\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, \\left( I_x^{(k_i)} + I_y^{(k_i)} + I_z^{(k_i)} + I_t^{(k_i)} \\right) \\, .
+```
 
 # Arguments
-- `f`: Scalar callable integrand `f(x, y, z, t)`.
+- `f`: Scalar callable integrand ``f(x, y, z, t)``.
 - `a::Real`: Lower bound.
 - `b::Real`: Upper bound.
 - `N::Int`: Number of subintervals per axis.
@@ -55,7 +58,7 @@ For each collected residual order `k`, it forms the model contribution
   - `h`
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes
@@ -221,26 +224,26 @@ end
         kmax::Int = 128
     )
 
-Threaded variant of `error_estimate_4d`.
+Threaded variant of [`error_estimate_4d`](@ref).
 
 # Function description
 This routine preserves the same 4D midpoint-residual model as
-`error_estimate_4d` but parallelizes the dominant flattened 3D index-grid loops
+[`error_estimate_4d`](@ref) but parallelizes the dominant flattened 3D index-grid loops
 used in the axis-wise cross integrals.
 
 Thread-local partial sums are reduced after each axis contribution is computed.
 
 # Arguments
-- Same as `error_estimate_4d`.
+- Same as [`error_estimate_4d`](@ref).
 
 # Keyword arguments
-- Same as `error_estimate_4d`.
+- Same as [`error_estimate_4d`](@ref).
 
 # Returns
-- Same `NamedTuple` structure as `error_estimate_4d`.
+- Same `NamedTuple` structure as [`error_estimate_4d`](@ref).
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes

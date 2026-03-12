@@ -1,6 +1,6 @@
 # Maranatha.Runner
 
-`Maranatha.Runner` provides the dataset-construction layer of the package.
+[`Maranatha.Runner`](@ref) provides the dataset-construction layer of the package.
 Its job is not to perform the final ``h \to 0`` fit, but to build the raw
 multi-resolution convergence data that the fitter and plotter consume later.
 
@@ -38,10 +38,10 @@ This page is a better place for broader narrative material such as:
 
 - the role of the runner inside the package architecture,
 - the standard end-to-end workflow,
-- `TOML`-oriented usage patterns,
+- [`TOML`](https://toml.io/en/)-oriented usage patterns,
 - pedagogical explanations and longer examples.
 
-That keeps the in-source docstring readable in the REPL while still allowing the
+That keeps the in-source docstring readable in the `REPL` while still allowing the
 manual page to provide fuller context.
 
 ---
@@ -86,7 +86,7 @@ run_result = run_Maranatha(
 
 ---
 
-## `TOML`-based usage
+## [`TOML`](https://toml.io/en/)-based usage
 
 The runner can also be used through a configuration file.
 A small example is shown below.
@@ -97,7 +97,7 @@ A small example is shown below.
 integrand(x) = sin(x)
 ```
 
-### Example `TOML` file
+### Example [`TOML`](https://toml.io/en/) file
 
 ```toml
 [integrand]

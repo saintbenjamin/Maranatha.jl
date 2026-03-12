@@ -15,7 +15,7 @@ import ..TOML
 """
     VALID_ERR_METHODS :: Set{Symbol}
 
-Set of supported error-method identifiers for `TOML`-driven runs.
+Set of supported error-method identifiers for [`TOML`](https://toml.io/en/)-driven runs.
 
 # Description
 This constant enumerates the allowed values of the `err_method`
@@ -99,24 +99,24 @@ end
         toml_path::AbstractString
     ) -> NamedTuple
 
-Parse a Maranatha `TOML` configuration file into a normalized run configuration.
+Parse a Maranatha [`TOML`](https://toml.io/en/) configuration file into a normalized run configuration.
 
 # Function description
-This helper reads a `TOML` configuration file, extracts the supported sections,
+This helper reads a [`TOML`](https://toml.io/en/) configuration file, extracts the supported sections,
 normalizes path-like entries, and converts selected option values into the
 forms expected by the Maranatha run pipeline.
 
-In particular, relative paths are interpreted relative to the `TOML` file
+In particular, relative paths are interpreted relative to the [`TOML`](https://toml.io/en/) file
 location rather than the current working directory.
 
 # Arguments
-- `toml_path::AbstractString`: Path to the `TOML` configuration file.
+- `toml_path::AbstractString`: Path to the [`TOML`](https://toml.io/en/) configuration file.
 
 # Returns
 - `NamedTuple`: Normalized run-configuration bundle.
 
 # Errors
-- Throws if the `TOML` file does not exist.
+- Throws if the [`TOML`](https://toml.io/en/) file does not exist.
 - Throws if required fields such as `[integrand].file`, `[domain].a`,
   `[domain].b`, `[sampling].nsamples`, `[quadrature].rule`, or
   `[quadrature].boundary` are missing.

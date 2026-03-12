@@ -97,7 +97,7 @@ these rules are restricted to `boundary = :LU_ININ`.
 
 # Arguments
 - `a`, `b`: Lower and upper bounds of the interval.
-- `N`: Number of composite blocks / subintervals (`N ≥ 1`).
+- `N`: Number of composite blocks / subintervals (``N \\ge 1``).
 - `rule`: Quadrature rule symbol.
 - `boundary`: Boundary pattern selector.
 
@@ -106,7 +106,7 @@ these rules are restricted to `boundary = :LU_ININ`.
 - `ws::Vector{Float64}`: Corresponding quadrature weights.
 
 # Errors
-- Throws `ArgumentError` if `N < 1`.
+- Throws `ArgumentError` if ``N < 1``.
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if the boundary is invalid,
   if rule-specific constraints fail, or if `rule` is unsupported.
 """
@@ -191,7 +191,7 @@ include("QuadratureDispatch/quadrature_nd.jl")
         boundary
     ) -> Float64
 
-Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\texttt{dim}}``.
+Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
 
 # Function description
 This is the unified integration dispatcher for the quadrature layer.
@@ -207,7 +207,7 @@ tensor-product evaluator:
 - [`quadrature_nd`](@ref) otherwise
 
 All axes use the same interval ``[a,b]``, so the integration domain is the
-hypercube ``[a,b]^{\texttt{dim}}``.
+hypercube ``[a,b]^{\\texttt{dim}}``.
 
 # Arguments
 - `integrand`: Callable accepting exactly `dim` positional arguments.
@@ -221,7 +221,7 @@ hypercube ``[a,b]^{\texttt{dim}}``.
 - `Float64`: Estimated integral value.
 
 # Errors
-- Throws an error if `dim < 1`.
+- Throws an error if ``\\texttt{dim} < 1``.
 - Throws any rule-validation or backend error propagated from the selected
   quadrature generator.
 - Propagates any error thrown by `integrand`.
