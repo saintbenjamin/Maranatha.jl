@@ -16,53 +16,36 @@ Unified utility bundle used across `Maranatha.jl`.
 # Overview
 
 `Maranatha.Utils` serves as a lightweight aggregation layer for reusable helper
-submodules that are shared throughout the `Maranatha.jl` codebase.
+submodules shared throughout the codebase.
 
-Rather than placing miscellaneous helper functions in a single large file,
-this module groups logically separated utilities into dedicated submodules
-and re-exposes them under a common namespace.
+Rather than collecting unrelated helpers in one large file, this module groups
+utilities into dedicated submodules and re-exposes them under a common
+namespace.
 
 Currently included:
 
-- [`Maranatha.Utils.JobLoggerTools`](@ref)  
-  Timestamped logging utilities, structured stage delimiters, assertion
-  helpers, and the [`JobLoggerTools.@logtime_benji`](@ref) macro for execution timing with
-  allocation reporting.
+- [`Maranatha.Utils.JobLoggerTools`](@ref)
+- [`Maranatha.Utils.AvgErrFormatter`](@ref)
+- [`Maranatha.Utils.MaranathaIO`](@ref)
+- [`Maranatha.Utils.MaranathaTOML`](@ref)
+- [`Maranatha.Utils.Wizard`](@ref)
 
-- [`Maranatha.Utils.AvgErrFormatter`](@ref)  
-  Compact formatting utilities for central values and uncertainties,
-  producing parenthetical notation such as `"1.23(45)"`, suitable for
-  numerical analysis output and publication-style reporting.
+# Design philosophy
 
-# Design Philosophy
-
-- Keep utilities **modular and dependency-light**.
+- Keep utilities modular and dependency-light.
 - Avoid monolithic helper files.
-- Provide a stable namespace (`Maranatha.Utils.*`) for shared infrastructure.
-- Allow future extensions by adding new submodules without breaking
-  existing interfaces.
+- Provide a stable shared namespace.
+- Allow future extension by adding submodules without breaking existing interfaces.
 
-`Maranatha.Utils` is intentionally infrastructural and contains no numerical
-algorithms. Its purpose is to support logging, formatting, and other
-cross-cutting concerns used by higher-level modules such as
-[`Maranatha.Quadrature`](@ref), 
-[`Maranatha.ErrorEstimate`](@ref), 
-and [`Maranatha.LeastChiSquareFit`](@ref).
+`Maranatha.Utils` is intentionally infrastructural and does not implement the
+main numerical algorithms of the package.
 
-# Example
+# Notes
 
-```julia
-using Maranatha.Utils
-
-Utils.JobLoggerTools.log_stage_benji("Starting computation")
-
-result = Utils.JobLoggerTools.@logtime_benji(nothing, sum(rand(10^6)))
-
-formatted = Utils.JobLoggerTools.avgerr_e2d_from_float(1.234, 0.056)
-Utils.JobLoggerTools.println_benji("Fit result = \$formatted")
-```
-
-Additional submodules may be introduced over time as the project evolves.
+- This module primarily exists to group logging, formatting, I/O, TOML, and
+  helper workflow utilities under one namespace.
+- Higher-level modules may import individual submodules or access them through
+  `Maranatha.Utils.*`.
 """
 module Utils
 

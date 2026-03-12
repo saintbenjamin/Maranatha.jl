@@ -20,29 +20,31 @@ import ..Quadrature.BSpline
         boundary::Symbol
     ) -> Tuple{Symbol,Symbol}
 
-Decode a composite boundary pattern symbol into the left/right local rule kinds.
+Decode a composite boundary selector into left/right local endpoint kinds.
 
 # Function description
-This helper maps the global boundary pattern used by the exact-rational
-composite Newton-Cotes assembly into the *local* endpoint kinds:
+This helper maps the global boundary pattern into a pair of local endpoint tags
+used by the Newton-Cotes composite assembly:
 
 - `:closed` means the local block includes the endpoint node.
-- `:opened` means the local block is shifted (open-type block).
+- `:opened` means the local block uses the shifted open-type construction.
 
-Supported boundary patterns are:
-- `:LU_ININ` (Left Closed, Right Closed)
-- `:LU_EXIN` (Left Opened, Right Closed)
-- `:LU_INEX` (Left Closed, Right Opened)
-- `:LU_EXEX` (Left Opened, Right Opened)
+Supported patterns are:
+
+- `:LU_ININ` -> `(:closed, :closed)`
+- `:LU_EXIN` -> `(:opened, :closed)`
+- `:LU_INEX` -> `(:closed, :opened)`
+- `:LU_EXEX` -> `(:opened, :opened)`
 
 # Arguments
 - `boundary`: Boundary pattern symbol.
 
 # Returns
-- `(Ltype, Rtype)`: A tuple of symbols, each either `:closed` or `:opened`.
+- `Tuple{Symbol,Symbol}`: `(Ltype, Rtype)`, each equal to `:closed` or `:opened`.
 
 # Errors
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is not one of the supported symbols.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is not one of
+  `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, or `:LU_EXEX`.
 """
 @inline function _decode_boundary(
     boundary::Symbol
@@ -73,77 +75,40 @@ Construct ``1``-dimensional quadrature nodes and weights on ``[a,b]`` for a
 rule-dispatched quadrature backend.
 
 # Function description
+This routine is the public node/weight generator used by the tensor-product
+quadrature drivers. It dispatches to the appropriate backend according to
+`rule`.
 
-This routine is the public node/weight generator used by the quadrature
-dispatchers. The implementation selects the appropriate backend according
-to the rule family specified by `rule`.
+Supported rule families:
 
-Currently supported rule families:
+- `:newton_p*` -> exact-rational composite Newton-Cotes assembly
+- `:gauss_p*` -> composite Gauss-family rules
+- `:bspline_*` -> spline-based quadrature rules
 
-## Newton-Cotes rules (`:newton_p*`)
-Composite Newton-Cotes rules are constructed through the exact-moment
-coefficient assembly used by [`Maranatha.Quadrature.NewtonCotes`](@ref).
+For Newton-Cotes rules, the routine parses `p`, retrieves the composite
+coefficient vector ``\\beta``, generates uniform nodes on ``[a,b]``, and forms
+weights ``w_j = \\beta_j h`` with ``h = \\dfrac{b-a}{N}``.
 
-For a rule such as `:newton_p4`, this routine:
+For Gauss-family rules, the routine delegates to the composite Gauss backend,
+which applies the requested family blockwise.
 
-1. Parses the order `p` from `rule`,
-2. Builds (or retrieves) the composite coefficient vector ``\\beta`` for `(p, boundary, N)`,
-3. Generates nodes ``x_j = a + j \\, h`` for ``j = 0,\\ldots,N``,
-4. Forms weights ``w_j = \\beta_j \\, h`` where ``h = \\dfrac{b-a}{N}``.
-
-## Gauss-family rules (`:gauss_p*`)
-Composite Gauss rules subdivide the interval into `N` blocks and place
-`p` Gauss nodes within each block. The implementation is delegated to
-[`Maranatha.Quadrature.Gauss`](@ref).
-
-## B-spline rules (`:bspline_*`)
-B-spline-based quadrature rules are constructed using spline interpolation
-or smoothing strategies implemented in [`Maranatha.Quadrature.BSpline`](@ref).
-
-Currently these rules require `boundary = :LU_ININ` (clamped endpoints).
+For B-spline rules, the routine delegates to the spline backend. At present,
+these rules are restricted to `boundary = :LU_ININ`.
 
 # Arguments
-
-- `a`, `b`  
-  Lower and upper bounds of the interval.
-
-- `N`  
-  Number of composite blocks / subintervals (must satisfy ``N \\ge 1`` and
-  any rule-specific composite constraints).
-
-- `rule`  
-  Quadrature rule symbol, such as
-
-  - `:newton_p3`, `:newton_p4`, ...
-  - `:gauss_p2`, `:gauss_p4`, ...
-  - `:bspline_interp_p4`, `:bspline_smooth_p4`, ...
-
-- `boundary`  
-  Boundary pattern selector for composite rules:
-
-  `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`.
+- `a`, `b`: Lower and upper bounds of the interval.
+- `N`: Number of composite blocks / subintervals (`N ≥ 1`).
+- `rule`: Quadrature rule symbol.
+- `boundary`: Boundary pattern selector.
 
 # Returns
-
-- `xs::Vector{Float64}`  
-  Quadrature nodes.
-
-- `ws::Vector{Float64}`  
-  Corresponding quadrature weights.
+- `xs::Vector{Float64}`: Quadrature nodes on ``[a,b]``.
+- `ws::Vector{Float64}`: Corresponding quadrature weights.
 
 # Errors
-
-- Throws `ArgumentError` if ``N < 1``.
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if
-
-  - the boundary pattern is invalid,
-  - composite constraints are violated,
-  - or the rule family is unsupported.
-
-# Notes
-
-This function serves as the **rule-dispatched 1D quadrature generator**
-for higher-level tensor-product integration routines.
+- Throws `ArgumentError` if `N < 1`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if the boundary is invalid,
+  if rule-specific constraints fail, or if `rule` is unsupported.
 """
 function get_quadrature_1d_nodes_weights(
     a::Real,
@@ -226,35 +191,40 @@ include("QuadratureDispatch/quadrature_nd.jl")
         boundary
     ) -> Float64
 
-Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
+Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\texttt{dim}}``.
 
 # Function description
-This function serves as the unified integration dispatcher within the `Maranatha.jl` pipeline.
+This is the unified integration dispatcher for the quadrature layer.
 
-1) It builds the **1D nodes and weights** for the selected Newton-Cotes/Gauss/B-spline `rule`
-   on ``[a,b]`` with resolution `N`.
-2) It evaluates the **tensor-product quadrature** in `dim` dimensions by
-   enumerating the multi-index over the 1D nodes and accumulating the weighted
-   sum of ``\\texttt{integrand}(x_1,\\,\\ldots,\\,x_{\\texttt{dim}})``.
+It first builds the underlying ``1``-dimensional nodes and weights through
+[`get_quadrature_1d_nodes_weights`](@ref), then chooses a dimension-specific
+tensor-product evaluator:
 
-The same bounds ``[a,b]`` are applied along every axis, i.e. the integration domain
-is ``[a,b]^{\\texttt{dim}}``.
+- [`quadrature_1d`](@ref) for `dim == 1`
+- [`quadrature_2d`](@ref) for `dim == 2`
+- [`quadrature_3d`](@ref) for `dim == 3`
+- [`quadrature_4d`](@ref) for `dim == 4`
+- [`quadrature_nd`](@ref) otherwise
+
+All axes use the same interval ``[a,b]``, so the integration domain is the
+hypercube ``[a,b]^{\texttt{dim}}``.
 
 # Arguments
-- `integrand`: A callable that accepts exactly `dim` positional arguments
-  (function, closure, or callable struct).
-- `a`, `b`: Lower/upper bounds applied to every axis.
-- `N`: Number of subintervals per axis (rule-specific constraints apply).
-- `dim`: Dimensionality (must satisfy `dim ≥ 1`).
-- `rule`: Quadrature rule symbol (e.g. `:simpson13_close`, `:simpson38_open`, `:bode_close`, ...).
+- `integrand`: Callable accepting exactly `dim` positional arguments.
+- `a`, `b`: Lower and upper bounds applied to every axis.
+- `N`: Number of subintervals / blocks per axis.
+- `dim`: Number of dimensions.
+- `rule`: Quadrature rule symbol.
+- `boundary`: Boundary pattern selector.
 
 # Returns
 - `Float64`: Estimated integral value.
 
 # Errors
 - Throws an error if `dim < 1`.
-- Throws an error if `rule` is unknown or if `N` violates rule-specific constraints.
-- Any error thrown by `integrand` during evaluation is propagated.
+- Throws any rule-validation or backend error propagated from the selected
+  quadrature generator.
+- Propagates any error thrown by `integrand`.
 """
 function quadrature(
     integrand, 

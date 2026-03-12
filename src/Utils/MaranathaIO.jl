@@ -24,52 +24,36 @@ import ..Utils.JobLoggerTools
         res
     ) -> Dict{String,Any}
 
-Convert a Maranatha result `NamedTuple` into a plain `Dict`
-structure suitable for serialization.
+Convert a Maranatha result `NamedTuple` into a serialization-friendly dictionary.
 
 # Function description
+This helper converts the structured result object produced by the Maranatha
+workflow into a plain dictionary composed of standard container and scalar
+types.
 
-The result produced by [`Maranatha.Runner.run_Maranatha`](@ref) 
-contains nested `NamedTuple` structures, 
-including a vector of per-sample error descriptions.
-This helper converts that structure into a dictionary composed only
-of standard serializable containers:
+The conversion preserves the full stored content, including:
 
-- `Dict`
-- `Vector`
-- `Int`
-- `Float64`
-- `String`
+- global integration metadata,
+- step sizes and averages,
+- detailed per-datapoint error descriptors.
 
-This representation is intended for use with external storage formats
-such as **JLD2** and **TOML**, which do not reliably preserve
-Julia-specific structures like `NamedTuple` with symbolic fields.
+The resulting structure is suitable for storage in formats such as `JLD2` or
+other external representations that do not naturally preserve Julia
+`NamedTuple` layout.
 
-# Structure
+# Arguments
+- `res`: Result object to convert.
 
-The conversion preserves the full information contained in the result:
+# Returns
+- `Dict{String,Any}`: Dictionary representation of the result.
 
-- global integration metadata (`a`, `b`, `rule`, `boundary`, etc.)
-- step sizes `h`
-- quadrature estimates `avg`
-- detailed per-sample error decomposition
+# Errors
+- No explicit validation is performed; field-access errors will propagate if
+  `res` does not match the expected result layout.
 
-Each element of `res.err` (originally a `NamedTuple`) is converted into
-a `Dict` containing
-
-```
-ks          residual moment indices
-coeffs      residual coefficients
-derivatives evaluated derivatives of the integrand
-terms       individual error contributions
-total       summed truncation estimate
-center      expansion center
-h           step size used for the estimate
-```
-
-The resulting dictionary is therefore fully self-contained and can
-later be reconstructed into the original structure via
-[`dict_to_namedtuple`](@ref).
+# Notes
+- Each entry of `res.err` is converted into a plain dictionary.
+- This helper is intended to pair with [`dict_to_namedtuple`](@ref).
 """
 function namedtuple_to_dict(
     res
@@ -106,40 +90,32 @@ end
         d
     ) -> NamedTuple
 
-Reconstruct a quadrature result `NamedTuple` from a serialized dictionary.
+Reconstruct a Maranatha result `NamedTuple` from a serialized dictionary.
 
 # Function description
+This helper performs the inverse conversion of [`namedtuple_to_dict`](@ref).
 
-This routine performs the inverse operation of
-[`namedtuple_to_dict`](@ref).
+It restores the internal result structure expected by downstream analysis code,
+including:
 
-It restores the original Julia data structure used internally by
-[`Maranatha.Runner.run_Maranatha`](@ref), converting the serialized dictionary representation
-back into a structured `NamedTuple`.
+- numeric vectors,
+- symbolic rule / boundary metadata,
+- the vector of per-datapoint error descriptors.
 
-# Reconstruction steps
+# Arguments
+- `d`: Dictionary representation of a result object.
 
-The following conversions are applied:
+# Returns
+- `NamedTuple`: Reconstructed Maranatha result object.
 
-- numeric vectors (`h`, `avg`) are restored as `Vector{Float64}`
-- rule and boundary identifiers are restored as `Symbol`
-- each entry in `d["err"]` is reconstructed as a `NamedTuple`
-- the stored error-expansion center `center` is restored as either
-  a scalar `Float64` or a tuple of `Float64`, depending on whether
-  the serialized representation corresponds to a one-dimensional or
-  multi-dimensional expansion center
-
-The resulting structure matches the layout expected by downstream
-analysis routines such as 
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
-and can therefore be passed directly into fitting or diagnostic
-pipelines.
+# Errors
+- No explicit schema validation is performed.
+- Missing-key or incompatible-type errors will propagate if `d` does not match
+  the expected serialized layout.
 
 # Notes
-
-The dictionary `d` is assumed to originate from
-[`namedtuple_to_dict`](@ref).  No validation of external schema
-compatibility is performed.
+- The stored `center` field is reconstructed as either a scalar `Float64` or a
+  tuple of `Float64`, depending on the serialized representation.
 """
 function dict_to_namedtuple(
     d
@@ -183,41 +159,36 @@ end
         res
     ) -> Dict{String,Any}
 
-Generate a human-readable summary dictionary for TOML export.
+Generate a human-readable summary dictionary for `TOML` export.
 
 # Function description
+This helper builds a simplified dictionary view of a Maranatha result for
+inspection and diagnostics.
 
-This helper constructs a simplified representation of a Maranatha.jl
-integration result intended for **inspection and diagnostics**, rather
-than exact reconstruction.
+The summary includes:
 
-The produced dictionary contains
+- integration metadata,
+- step sizes,
+- quadrature estimates,
+- total error estimates,
+- full per-datapoint error decomposition.
 
-- integration metadata (`rule`, `boundary`, `dim`, etc.)
-- step sizes `h`
-- quadrature estimates `avg`
-- total error estimates for each sample
-- full error decomposition entries
+Unlike [`namedtuple_to_dict`](@ref), this representation is intended mainly for
+human-readable summary export rather than structured round-trip recovery.
 
-This representation is later written to a `*.toml` file via
-`TOML.print`.
+# Arguments
+- `res`: Result object to summarize.
 
-# Purpose
+# Returns
+- `Dict{String,Any}`: Summary dictionary suitable for `TOML` printing.
 
-While JLD2 files preserve the full binary representation of the result,
-the TOML summary serves as a **human-readable companion file** that
-allows quick inspection of
+# Errors
+- No explicit validation is performed; field-access errors propagate if `res`
+  does not match the expected result layout.
 
-- convergence behaviour
-- estimated error scales
-- integration configuration
-
-without requiring Julia to load the binary data.
-
-# Relationship to serialization
-
-Unlike [`namedtuple_to_dict`](@ref), this function is not intended for
-lossless reconstruction of the original result structure.
+# Notes
+- This summary is commonly written as a companion `.toml` file next to a `JLD2`
+  result file.
 """
 function generate_summary_dict(
     res
@@ -262,59 +233,33 @@ end
         write_summary=true
     ) -> String
 
-Save a Maranatha integration result to disk.
+Save a Maranatha result object to disk.
 
 # Function description
+This routine serializes a result object into a `.jld2` file after first
+converting it into a plain dictionary representation via
+[`namedtuple_to_dict`](@ref).
 
-This routine serializes the result produced by 
-[`Maranatha.Runner.run_Maranatha`](@ref) into a
-**JLD2 binary file**.
-
-Internally the result `NamedTuple` is first converted into a plain
-dictionary representation using [`namedtuple_to_dict`](@ref), ensuring
-that the stored structure contains only serialization-safe data types.
-
-# File outputs
-
-Two files may be written:
-
-• **JLD2 file**
-```
-path
-```
-Contains the full result under the dataset key
-```
-"datapoint_results"
-```
-
-• **TOML summary (optional)**
-
-If `write_summary=true`, a companion file
-```
-path → path with extension `.toml`
-```
-is written containing a human-readable summary generated by
+Optionally, it also writes a human-readable `TOML` summary generated by
 [`generate_summary_dict`](@ref).
 
 # Arguments
+- `path`: Destination `.jld2` path.
+- `res`: Result object to save.
 
-`path`
-: Destination `.jld2` file.
-
-`res`
-: Result `NamedTuple` produced by `run_Maranatha`.
-
-`write_summary`
-: Whether to additionally write a TOML summary file.
+# Keyword arguments
+- `write_summary`: Whether to also write a companion `.toml` summary file.
 
 # Returns
+- `String`: Path to the written `.jld2` file.
 
-The path to the written `.jld2` file.
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `path` does not end with
+  `.jld2`.
+- Propagates file-writing and serialization errors from `JLD2` / `TOML` output.
 
 # Notes
-
-The function enforces that `path` ends with `.jld2`, since the stored
-data structure is intended for JLD2 serialization.
+- The `JLD2` dataset key is `"datapoint_results"`.
 """
 function save_datapoint_results(
     path::AbstractString,
@@ -344,40 +289,26 @@ end
         path
     ) -> NamedTuple
 
-Load a previously saved Maranatha integration result.
+Load a previously saved Maranatha result from disk.
 
 # Function description
-
-This routine reads a `.jld2` file produced by
-[`save_datapoint_results`](@ref) and reconstructs the original
-quadrature result structure.
-
-The stored dictionary representation is converted back into a Julia
-`NamedTuple` via [`dict_to_namedtuple`](@ref), restoring
-
-- quadrature estimates
-- step-size sequence
-- detailed error decomposition
-- integration metadata
+This routine reads a `.jld2` file produced by [`save_datapoint_results`](@ref),
+loads the stored dictionary payload, and reconstructs the internal result
+structure via [`dict_to_namedtuple`](@ref).
 
 # Arguments
-
-`path`
-: Path to a `.jld2` file containing a stored result.
+- `path`: Path to a `.jld2` file containing a stored result.
 
 # Returns
+- `NamedTuple`: Reconstructed result object.
 
-A `NamedTuple` compatible with downstream analysis routines such as
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `path` does not end with
+  `.jld2`.
+- Propagates `JLD2` loading and reconstruction errors.
 
 # Notes
-
-The file must contain the dataset key
-```
-"datapoint_results"
-```
-which is the format produced by
-[`save_datapoint_results`](@ref).
+- The file is expected to contain the dataset key `"datapoint_results"`.
 """
 function load_datapoint_results(
     path::AbstractString
@@ -396,55 +327,36 @@ end
         atol=1e-10
     ) -> Vector{Int}
 
-Infer the subdivision counts ``N`` from the stored step sizes ``h``
-contained in a Maranatha result object.
+Infer subdivision counts `N` from the stored step sizes `h`.
 
 # Function description
+This helper reconstructs the effective subdivision counts from the standard
+relation
 
-This helper reconstructs the effective sample counts used in
-[`Maranatha.Runner.run_Maranatha`](@ref) from the relation
 ```math
-N = \\frac{b-a}{h} \\,.
+N = \\frac{b-a}{h}.
 ```
 
-Since the result object stores step sizes ``h`` rather than the original
-input vector `nsamples`, this routine provides a convenient way to
-recover the corresponding integer subdivision counts for inspection,
-diagnostics, or file naming.
-
-# Reconstruction rule
-
-For each stored step size `h_i`, the routine computes
-```math
-N_i = \\mathrm{round}\\!\\left(\\frac{b-a}{h_i}\\right)
-```
-and verifies that the floating-point value is sufficiently close to an
-integer within the tolerance specified by `atol`.
+It is useful when a result object stores only `h` values but the corresponding
+integer sample counts are needed for inspection, diagnostics, or filename
+construction.
 
 # Arguments
+- `res`: Result object containing `a`, `b`, and stored step sizes `h`.
 
-`res`
-: Result object produced by [`Maranatha.Runner.run_Maranatha`](@ref)
-or reconstructed by [`load_datapoint_results`](@ref).
-
-`atol`
-: Absolute tolerance used when checking whether ``\\dfrac{b-a}{h}``
-is numerically consistent with an integer.
+# Keyword arguments
+- `atol`: Absolute tolerance used when checking numerical consistency with an
+  integer subdivision count.
 
 # Returns
+- `Vector{Int}`: Inferred subdivision counts.
 
-A vector of inferred integer subdivision counts.
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if a stored step size is not
+  numerically consistent with an integer `N`.
 
 # Notes
-
-This routine assumes that each stored ``h`` truly arose from the standard
-Maranatha convention
-```math
-h = \\frac{b-a}{N} \\,.
-```
-
-If the stored step sizes are inconsistent with that relation, an error
-is raised.
+- This helper assumes the standard Maranatha convention `h = (b-a)/N`.
 """
 function infer_nsamples(
     res;
@@ -472,48 +384,27 @@ end
         Ns
     ) -> String
 
-Construct a filename-friendly suffix that explicitly lists the subdivision
-counts ``N`` present in a result.
+Construct a filename-friendly suffix from subdivision counts.
 
 # Function description
+This internal helper converts a collection of subdivision counts into a compact
+suffix of the form
 
-This internal helper converts a collection of subdivision counts into the
-compact string form used by Maranatha result filenames.
+    N_2_3_4_5
 
-For example,
-
-```julia
-[2, 3, 4, 5, 6, 7]
-```
-
-is converted into
-
-```julia
-"N_2_3_4_5_6_7"
-```
-
-This makes saved result files reflect the actual datapoints present in the
-dataset, rather than only the first and last sample counts.
+for use in default result filenames.
 
 # Arguments
-
-`Ns`
-: Collection of subdivision counts to encode into a filename suffix.
+- `Ns`: Collection of subdivision counts.
 
 # Returns
+- `String`: Filename-friendly `N_...` suffix.
 
-A string of the form
-
-```julia
-N_\$(N1)_\$(N2)_\$(N3)_...
-```
-
-suitable for inclusion in `.jld2` and `.toml` result filenames.
+# Errors
+- No explicit validation is performed.
 
 # Notes
-
-This helper is intended for internal path construction utilities such as
-[`_default_result_path`](@ref).
+- This helper is intended for internal path-construction workflows.
 """
 function _build_nsamples_suffix(
     Ns
@@ -530,60 +421,29 @@ end
         Ns
     ) -> String
 
-Construct the default output path for a Maranatha result file.
+Construct the default output path for a saved result file.
 
 # Function description
-
-This internal helper builds a standard `.jld2` filename using
-
-* a target directory
-* a user-facing name prefix
-* the quadrature rule label
-* the boundary label
-* the explicit list of subdivision counts present in the result
-
-The subdivision-count portion of the filename is generated via
-[`_build_nsamples_suffix`](@ref), so that the saved path records the
-actual datapoints contained in the file.
-
-For example, a result with
-
-* `name_prefix = "merged"`
-* `rule = :gauss_p4`
-* `boundary = :LU_EXEX`
-* `Ns = [2,3,4,5,6,7]`
-
-produces a path ending in
-
-```julia
-result_merged_gauss_p4_LU_EXEX_N_2_3_4_5_6_7.jld2
-```
+This helper builds a standard `.jld2` filename from the output directory,
+user-facing prefix, rule label, boundary label, and explicit list of stored
+subdivision counts.
 
 # Arguments
-
-`save_dir`
-: Directory in which the result file should be placed.
-
-`name_prefix`
-: User-facing filename prefix describing the dataset.
-
-`rule`
-: Quadrature rule label.
-
-`boundary`
-: Boundary-condition label.
-
-`Ns`
-: Collection of subdivision counts present in the result.
+- `save_dir`: Output directory.
+- `name_prefix`: User-facing prefix for the dataset.
+- `rule`: Quadrature rule label.
+- `boundary`: Boundary-condition label.
+- `Ns`: Collection of subdivision counts.
 
 # Returns
+- `String`: Full default output path.
 
-A full path to the default `.jld2` output file.
+# Errors
+- No explicit validation is performed.
 
 # Notes
-
-This helper only constructs the path string.  It does not create any files
-or directories by itself.
+- This helper only constructs a path string; it does not create files or
+  directories.
 """
 function _default_result_path(
     save_dir::AbstractString,
@@ -605,55 +465,29 @@ end
         results
     ) -> Nothing
 
-Check that multiple Maranatha result objects are mutually compatible
-for datapoint-level merging.
+Check that multiple result objects are mutually compatible for merging.
 
 # Function description
+This helper verifies that a collection of result objects shares the same global
+integration metadata before datapoint arrays are merged.
 
-This internal helper verifies that a collection of result blocks shares
-the same global integration metadata before their datapoint arrays are
-combined by [`merge_datapoint_results`](@ref).
-
-The merge operation is only valid when all input results correspond to
-the same computational setup, differing only in the specific set of
-step sizes ``h`` (or equivalently, subdivision counts ``N``) that were
-evaluated.
-
-# Checked fields
-
-The following fields must agree across all input results:
-
-- `a`
-- `b`
-- `dim`
-- `rule`
-- `boundary`
-- `err_method`
-- `nerr_terms`
-- `fit_terms`
-- `ff_shift`
-- `use_threads`
-
-If any mismatch is detected, an error is raised with a message
-indicating which field failed and at which result index.
+The merge is considered valid only when all inputs correspond to the same
+overall computational setup and differ only in their sampled datapoints.
 
 # Arguments
-
-`results`
-: A collection of result objects produced by
-  [`Maranatha.Runner.run_Maranatha`](@ref) or loaded via
-  [`load_datapoint_results`](@ref).
+- `results`: Collection of result objects to compare.
 
 # Returns
+- `nothing`
 
-`nothing`
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if fewer than two results
+  are supplied.
+- Throws if any required metadata field differs between result objects.
 
 # Notes
-
-This helper checks structural compatibility of the stored metadata,
-but it does not and cannot prove that the original integrand object
-was identical across runs.  It therefore serves as a metadata-based
-merge safety check, not a full semantic identity check.
+- This helper checks metadata compatibility only; it cannot prove semantic
+  identity of the original integrand.
 """
 function _assert_same_result_shape(
     results
@@ -708,47 +542,28 @@ end
         atol=1e-12
     ) -> Nothing
 
-Check that a collection of step sizes ``h`` contains no duplicate entries
-up to a specified absolute tolerance.
+Check that a collection of step sizes contains no duplicate values.
 
 # Function description
+This helper sorts the supplied step sizes and checks adjacent values for
+numerical duplication within the specified absolute tolerance.
 
-This internal helper is used during datapoint-result merging to prevent
-multiple result blocks from contributing the same effective sample
-location more than once.
-
-Since Maranatha stores convergence data as aligned arrays of
-
-- step sizes ``h``
-- quadrature estimates `avg`
-- error descriptors `err`
-
-duplicated `h` values would generally indicate overlapping runs, such as
-two files both containing results for the same subdivision count ``N``.
-
-# Detection rule
-
-The input step sizes are first sorted, after which adjacent values are
-compared using `isapprox(...; atol=atol, rtol=0.0)`.  If any pair is
-found to be numerically identical within tolerance, an error is raised.
+It is used as a merge-safety check when combining datapoint result blocks.
 
 # Arguments
-
-`hs`
-: Collection of step sizes to be checked.
-
-`atol`
-: Absolute tolerance used when comparing nearby sorted values.
+- `hs`: Collection of step sizes.
+- `atol`: Absolute tolerance used for duplicate detection.
 
 # Returns
+- `nothing`
 
-`nothing`
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if a duplicate step size is
+  detected within tolerance.
 
 # Notes
-
-This helper is intentionally conservative.  Its purpose is not to merge
-nearby points, but to reject potentially ambiguous duplicate entries
-before constructing a combined result object.
+- This helper is conservative by design and rejects ambiguous overlapping
+  datapoints.
 """
 function _assert_no_duplicate_h(
     hs;
@@ -773,63 +588,41 @@ end
         allow_duplicate_h=false
     ) -> NamedTuple
 
-Merge multiple Maranatha datapoint result blocks into a single combined
-result object.
+Merge multiple compatible datapoint result blocks into one result object.
 
 # Function description
+This routine concatenates the aligned datapoint arrays
 
-This routine combines several compatible result objects, each typically
-produced by separate calls to [`Maranatha.Runner.run_Maranatha`](@ref),
-into one unified result with concatenated datapoint arrays.
+- `h`
+- `avg`
+- `err`
 
-A common use case is to evaluate a long sequence of subdivision counts
-in several batches, for example
+from several compatible result objects, optionally checks for duplicate step
+sizes, and optionally sorts the merged datapoints by descending `h`.
 
-```julia
-[2,3], [4,5], [6,7,8]
-```
+Global metadata fields are copied from the first input result after shape
+compatibility has been verified.
 
-and then merge the separately saved results into one object equivalent
-to a single run over
-
-```julia
-[2,3,4,5,6,7,8] .
-```
-
-# Merge rule
-
-For each input result, the following aligned arrays are concatenated:
-
-* ``h``
-* `avg`
-* `err`
-
-All global metadata fields are copied from the first result after
-compatibility is verified via [`_assert_same_result_shape`](@ref).
+# Arguments
+- `results...`: Compatible result objects to merge.
 
 # Keyword arguments
-
-`sort_by_h`
-: If `true`, the merged datapoints are sorted by descending `h`
-(equivalently, from smaller `N` to larger `N` under the standard
-relation `h=(b-a)/N`).
-
-`allow_duplicate_h`
-: If `false`, duplicate step sizes are rejected via
-[`_assert_no_duplicate_h`](@ref).  If `true`, overlapping `h`
-values are allowed and preserved as-is.
+- `sort_by_h`: Whether to sort the merged datapoints by descending `h`.
+- `allow_duplicate_h`: Whether duplicate `h` values are allowed.
 
 # Returns
+- `NamedTuple`: Merged result object.
 
-A merged result `NamedTuple` having the same structure as the output of
-[`Maranatha.Runner.run_Maranatha`](@ref).
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if fewer than two results
+  are provided.
+- Throws if result metadata is incompatible or if aligned datapoint arrays have
+  inconsistent lengths.
+- Throws if duplicate `h` values are found and `allow_duplicate_h == false`.
 
 # Notes
-
-This routine performs metadata-based compatibility checks, but it does
-not verify the identity of the original integrand object itself.
-Therefore, it should only be used when the caller knows that all input
-results came from the same physical or numerical problem setup.
+- This helper performs metadata-based safety checks, not full semantic identity
+  checks on the originating problem.
 """
 function merge_datapoint_results(
     results...;
@@ -902,49 +695,37 @@ end
         name_prefix::String = "merged",
     ) -> String
 
-Load multiple saved Maranatha result files, merge them, and write the
-combined result back to disk.
+Load multiple saved result files, merge them, and write the combined result.
 
 # Function description
-
-This routine is a file-based convenience wrapper around
+This is a file-based convenience wrapper around
 [`merge_datapoint_results`](@ref).
 
-Each input path is first loaded via [`load_datapoint_results`](@ref),
-after which the resulting objects are merged in memory.  The combined
-result is then written to `output_path` using
-[`save_datapoint_results`](@ref).
+It loads each input `.jld2` file, merges the corresponding in-memory result
+objects, determines the final output path, and saves the merged result back to
+disk.
 
-# Typical use case
-
-This helper is intended for cases where a larger convergence run was
-split across multiple partial jobs, for example due to time limits,
-batch execution, or interrupted sessions, and the partial `.jld2`
-results later need to be reassembled into one complete dataset.
+# Arguments
+- `paths...`: Input result-file paths.
 
 # Keyword arguments
-
-`output_path`
-: Destination path of the merged `.jld2` file.
-
-`write_summary`
-: Whether to additionally write the companion TOML summary file.
-
-`sort_by_h`
-: Whether to sort the merged datapoints by descending `h`.
-
-`allow_duplicate_h`
-: Whether duplicate `h` values are permitted during merging.
+- `output_path`: Destination `.jld2` file path, or `nothing` to auto-generate.
+- `write_summary`: Whether to write a companion `TOML` summary.
+- `sort_by_h`: Whether to sort merged datapoints by descending `h`.
+- `allow_duplicate_h`: Whether duplicate `h` values are allowed.
+- `output_dir::String`: Output directory used when generating a default path.
+- `name_prefix::String`: Filename prefix used when generating a default path.
 
 # Returns
+- `String`: Output path of the written merged `.jld2` file.
 
-The output path of the written merged `.jld2` file.
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if fewer than two input
+  files are supplied.
+- Propagates loading, merging, path-construction, and saving errors.
 
 # Notes
-
-This routine treats the saved `.jld2` files as the authoritative source
-and regenerates the merged TOML summary from the merged in-memory result,
-rather than attempting any direct TOML-to-TOML merge.
+- The merged `TOML` summary is regenerated from the merged in-memory result.
 """
 function merge_datapoint_result_files(
     paths::AbstractString...;
@@ -996,63 +777,31 @@ end
         atol=1e-10
     ) -> NamedTuple
 
-Remove selected subdivision counts ``N`` from a Maranatha result object.
+Remove selected subdivision counts from a result object.
 
 # Function description
-
-This helper constructs a filtered copy of an existing result produced by
-[`Maranatha.Runner.run_Maranatha`](@ref), removing datapoints corresponding
-to specified subdivision counts ``N``.
-
-The original result stores only the step sizes ``h`` rather than the input
-vector `nsamples`.  The corresponding subdivision counts are therefore
-reconstructed internally using
-```math
-N = \\frac{b-a}{h}
-```
-via [`infer_nsamples`](@ref).  Any datapoint whose inferred `N` belongs
-to `Ns_to_drop` is excluded from the returned result.
-
-All datapoint-aligned arrays
-
-* `h`
-* `avg`
-* `err`
-
-are filtered consistently using the same mask.
+This helper reconstructs the stored subdivision counts from the step sizes via
+[`infer_nsamples`](@ref), builds a keep-mask, and returns a filtered copy of
+the input result with the corresponding datapoint-aligned arrays reduced
+consistently.
 
 # Arguments
-
-`res`
-: Result object produced by [`Maranatha.Runner.run_Maranatha`](@ref)
-or reconstructed via [`load_datapoint_results`](@ref).
-
-`Ns_to_drop`
-: Collection of subdivision counts `N` that should be removed
-from the result.
+- `res`: Result object to filter.
+- `Ns_to_drop`: Collection of subdivision counts to remove.
 
 # Keyword arguments
-
-`atol`
-: Absolute tolerance used when reconstructing subdivision counts
-from the stored step sizes `h`.
+- `atol`: Absolute tolerance used when reconstructing subdivision counts.
 
 # Returns
-
-A new result `NamedTuple` with the same metadata as the input result
-but with the specified datapoints removed.
+- `NamedTuple`: Filtered result object.
 
 # Errors
-
-* Throws an error if the filtering would remove **all datapoints**.
-* Propagates errors from [`infer_nsamples`](@ref) if the stored step
-  sizes are inconsistent with the relation `h=(b-a)/N`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if filtering would remove
+  all datapoints.
+- Propagates reconstruction errors from [`infer_nsamples`](@ref).
 
 # Notes
-
-This routine modifies only the datapoint arrays.  All global metadata
-fields (`rule`, `boundary`, `dim`, etc.) are copied unchanged from the
-original result.
+- Global metadata fields are copied unchanged from the original result.
 """
 function drop_nsamples_from_result(
     res,
@@ -1091,7 +840,7 @@ function drop_nsamples_from_result(
 end
 
 """
-    function drop_nsamples_from_file(
+    drop_nsamples_from_file(
         input_path::AbstractString,
         Ns_to_drop;
         output_path::Union{Nothing,AbstractString} = nothing,
@@ -1101,60 +850,38 @@ end
         name_prefix::String = "dropped",
     ) -> String
 
-Remove selected subdivision counts `N` from a saved Maranatha result file.
+Remove selected subdivision counts from a saved result file.
 
 # Function description
-
-This routine is a file-level convenience wrapper around
+This is a file-level convenience wrapper around
 [`drop_nsamples_from_result`](@ref).
 
-It loads an existing `.jld2` result file produced by
-[`save_datapoint_results`](@ref), removes datapoints corresponding to the
-specified subdivision counts `N`, and writes the filtered result back
-to disk.
-
-# Workflow
-
-The procedure consists of three steps:
-
-1. load the result via [`load_datapoint_results`](@ref)
-2. filter datapoints using [`drop_nsamples_from_result`](@ref)
-3. write the filtered result via [`save_datapoint_results`](@ref)
+It loads an existing result file, filters out datapoints corresponding to the
+specified subdivision counts, determines the final output path, and writes the
+filtered result back to disk.
 
 # Arguments
-
-`input_path`
-: Path to the source `.jld2` result file.
-
-`Ns_to_drop`
-: Collection of subdivision counts `N` to be removed.
+- `input_path::AbstractString`: Source `.jld2` result file.
+- `Ns_to_drop`: Collection of subdivision counts to remove.
 
 # Keyword arguments
-
-`output_path`
-: Destination `.jld2` file containing the filtered result.
-
-`write_summary`
-: Whether to write the companion TOML summary file.
-
-`atol`
-: Absolute tolerance used when reconstructing subdivision counts
-from stored step sizes.
+- `output_path::Union{Nothing,AbstractString}`: Destination `.jld2` file path,
+  or `nothing` to auto-generate one.
+- `write_summary::Bool`: Whether to write a companion `TOML` summary.
+- `atol::Float64`: Absolute tolerance used when reconstructing subdivision counts.
+- `output_dir::String`: Output directory used when generating a default path.
+- `name_prefix::String`: Filename prefix used when generating a default path.
 
 # Returns
-
-The output path of the written `.jld2` file.
+- `String`: Output path of the written filtered `.jld2` file.
 
 # Errors
-
-* Throws an error if the filtering would remove **all datapoints**.
-* Propagates errors from the underlying load, filtering, or save
-  routines.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if filtering would remove
+  all datapoints.
+- Propagates loading, filtering, path-construction, and saving errors.
 
 # Notes
-
-The resulting file preserves all global metadata fields from the
-original result while containing only the selected subset of datapoints.
+- The filtered result preserves all global metadata from the original file.
 """
 function drop_nsamples_from_file(
     input_path::AbstractString,

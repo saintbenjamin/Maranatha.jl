@@ -16,40 +16,27 @@ import ..JobLoggerTools
 
 """
     _legendre_Pn_Pn1(
-        n::Int, 
+        n::Int,
         x::Float64
     ) -> (P_n, P_{n-1})
 
-Evaluate the *standard* (non-normalized) Legendre polynomial ``P_n(x)`` and the
-previous order ``P_{n-1}(x)`` at a scalar point ``x \\in \\mathbb{R}``.
+Evaluate the standard Legendre polynomial ``P_n(x)`` and the previous-order value
+``P_{n-1}(x)`` at a scalar point ``x``.
 
 # Function description
-This routine uses the classic three-term recurrence:
-```math
-P_0(x)=1,\\quad P_1(x)=x,\\quad
-P_k(x)=\\frac{(2k-1) \\, x \\, P_{k-1}(x) - (k-1) \\, P_{k-2}(x)}{k}.
-```
-
-and returns the pair ``(P_n(x), P_{n-1}(x))``.
-
-This is a low-level helper used by Newton iterations in Radau/Lobatto root solves.
+This low-level helper evaluates Legendre polynomials using the standard three-term
+recurrence and returns the pair ``(P_n(x), P_{n-1}(x))``. It is mainly used inside
+Newton iterations for Gauss-Radau and Gauss-Lobatto root solves.
 
 # Arguments
-
-* `n`: Order (must satisfy `n ≥ 0`).
-* `x`: Evaluation point.
+- `n`: Polynomial order (must satisfy `n ≥ 0`).
+- `x`: Evaluation point.
 
 # Returns
-
-* `Tuple{Float64,Float64}`: ``(P_n(x), P_{n-1}(x))``.
+- `Tuple{Float64,Float64}`: The pair ``(P_n(x), P_{n-1}(x))``.
 
 # Errors
-
-* Throws `error("n must be ≥ 0")` if `n < 0`.
-
-# Notes
-
-* This is **not** the orthonormal Legendre basis; it is the conventional ``P_n``.
+- Throws `error("n must be ≥ 0")` if `n < 0`.
 """
 @inline function _legendre_Pn_Pn1(
     n::Int, 
@@ -75,36 +62,32 @@ end
 
 """
     _legendre_Pn_deriv(
-        n::Int, 
+        n::Int,
         x::Float64
     ) -> (P_n, P_n′)
 
 Evaluate the standard Legendre polynomial ``P_n(x)`` and its derivative ``P_n^\\prime(x)``.
 
 # Function description
-
-This routine computes ``P_n(x)`` (and ``P_{n-1}(x)``) via [`_legendre_Pn_Pn1`](@ref),
-then uses the identity:
-```math
-P_n^\\prime(x) = \\frac{n}{x^2 - 1}\\left( x \\, P_n(x) - P_{n-1}(x) \\right) \\,.
-```
-
-This formula is numerically sensitive very near ``x = \\pm 1`` due to division by ``x^2-1``.
-Callers should avoid evaluating exactly at endpoints during Newton steps (see
-[`_clamp_open`](@ref)).
+This helper first evaluates ``P_n(x)`` and ``P_{n-1}(x)`` via
+[`_legendre_Pn_Pn1`](@ref), then computes the derivative using the standard identity
+for Legendre polynomials. It is used in Newton iterations for Radau and Lobatto
+root finding.
 
 # Arguments
-
-* `n`: Order (must satisfy `n ≥ 0`).
-* `x`: Evaluation point.
+- `n`: Polynomial order (must satisfy `n ≥ 0`).
+- `x`: Evaluation point.
 
 # Returns
+- `Tuple{Float64,Float64}`: The pair ``(P_n(x), P_n^\\prime(x))``.
 
-* `Tuple{Float64,Float64}`: ``(P_n(x), P_n^\\prime(x))``.
+# Errors
+- Propagates any error from [`_legendre_Pn_Pn1`](@ref), including invalid `n`.
 
 # Notes
-
-* For `n == 0`, returns `(1.0, 0.0)`.
+- For `n == 0`, this returns `(1.0, 0.0)`.
+- Near ``x = \\pm 1``, the derivative formula is numerically delicate because it
+  contains a factor proportional to ``(x^2 - 1)^{-1}``.
 """
 @inline function _legendre_Pn_deriv(
     n::Int, 
@@ -130,31 +113,18 @@ end
 Clamp a Newton iterate away from the singular endpoints ``x = \\pm 1``.
 
 # Function description
-
-Several derivative identities used in Gauss-family root finding contain the factor
-``\\dfrac{1}{x^2 - 1}``, which becomes singular at ``x = \\pm 1``. During Newton iterations, it is
-common to step extremely close to endpoints due to roundoff.
-
-This helper clamps ``x`` into the open interval:
-
-```math
-(-1 + \\varepsilon,\\; 1 - \\varepsilon)
-```
-
-where `ε = 64*eps(Float64)`.
+Several derivative identities used in Gauss-family root finding become singular at
+``x = \\pm 1``. This helper clamps a floating-point iterate into a safe open interval
+strictly inside ``[-1,1]`` for numerical stability during Newton updates.
 
 # Arguments
-
-* `x`: Newton iterate.
+- `x`: Newton iterate.
 
 # Returns
+- `Float64`: Clamped value lying inside a small open neighborhood of ``(-1,1)``.
 
-* `Float64`: Clamped value in the safe open interval.
-
-# Notes
-
-* This is purely numerical hygiene; it does not change the mathematical definition
-  of the quadrature family.
+# Errors
+- This function does not throw explicitly.
 """
 @inline function _clamp_open(
     x::Float64
@@ -176,46 +146,26 @@ end
         n::Int
     ) -> (nodes, weights)
 
-Compute ``n``-point Gauss-Legendre quadrature nodes and weights on ``[-1, 1]``
-in `Float64`.
+Compute the ``n``-point Gauss-Legendre rule on ``[-1,1]`` in `Float64`.
 
 # Function description
-
-This implementation uses the Golub-Welsch algorithm (eigen-decomposition of a
-symmetric tridiagonal Jacobi matrix).
-
-For Legendre weight ``w(x)=1`` on ``[-1,1]``, the orthonormal recurrence has:
-
-* ``a_k = 0``
-* ``b_k = \\dfrac{k}{\\sqrt{4 \\, k^2 - 1}}`` for ``k = 1 , \\ldots , n-1``
-
-Construct:
-```math
-J = \\mathrm{SymTridiagonal}(a, b),
-```
-then:
-
-* nodes ``t_i`` are eigenvalues of ``J``,
-* weights ``w_i = \\mu_0 (v_{1,i})^2`` where ``\\mu_0 = \\int\\limits_{-1}^{+1} dx \\; 1 = 2``
-  and ``v_{1,i}`` is the first component of the ``i``-th normalized eigenvector.
+This routine constructs the single-interval Gauss-Legendre quadrature rule using the
+Golub-Welsch algorithm, i.e. the eigen-decomposition of the symmetric tridiagonal
+Jacobi matrix associated with the Legendre weight ``w(x)=1``.
 
 # Arguments
-
-* `n`: Number of quadrature points (must satisfy `n ≥ 1`).
+- `n`: Number of quadrature points (must satisfy `n ≥ 1`).
 
 # Returns
-
-* `nodes::Vector{Float64}`: Length ``n``, sorted ascending.
-* `weights::Vector{Float64}`: Length ``n``, aligned with `nodes`.
+- `nodes::Vector{Float64}`: Length-`n` node vector on ``[-1,1]``, sorted ascending.
+- `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
-
-* Throws `error("n must be ≥ 1")` if `n < 1`.
+- Throws `error("n must be ≥ 1")` if `n < 1`.
 
 # Notes
-
-* This returns the *single-interval* Gauss-Legendre rule on ``[-1,1]``.
-  Composite usage is handled by [`_composite_gauss_nodes_weights`](@ref) / [`_composite_gauss_u_grid`](@ref).
+- This function returns the single-interval rule only. Composite repetition is handled
+  by higher-level helpers such as [`_composite_gauss_nodes_weights`](@ref).
 """
 function gauss_legendre_nodes_weights_float(
     n::Int
@@ -264,55 +214,27 @@ end
         n::Int
     ) -> (nodes, weights)
 
-Compute ``n``-point Gauss-Radau quadrature on ``[-1,1]`` that **includes the left endpoint** ``x=-1``
-in `Float64`.
+Compute the ``n``-point Gauss-Radau rule on ``[-1,1]`` that includes the left endpoint
+``x=-1``.
 
 # Function description
-
-For Legendre weight ``w(x)=1``:
-
-* One node is fixed at ``x=-1``.
-* The remaining ``n-1`` interior nodes are roots of:
-
-```math
-F(x) = P_n(x) + P_{n-1}(x).
-```
-
-This routine finds those roots by Newton iteration, using Gauss-Legendre ``(n-1)`` nodes
-as initial guesses (a practical robust choice).
-
-Weights:
-
-* Endpoint weight:
-
-```math
-w_1 = \\frac{2}{n^2}
-```
-
-* Interior weights:
-
-```math
-w_i = \\frac{1 + x_i}{n^2 \\, \\left[ P_{n-1}(x_i) \\right]^2}.
-```
+This routine constructs the left-Radau rule for Legendre weight ``w(x)=1``. The left
+endpoint is fixed, while the remaining ``n-1`` interior nodes are obtained as roots of
+``P_n(x) + P_{n-1}(x)`` via Newton iteration. Interior weights are then computed from
+standard closed-form Radau formulas.
 
 # Arguments
-
-* `n`: Number of quadrature points (must satisfy `n ≥ 2`).
+- `n`: Number of quadrature points (must satisfy `n ≥ 2`).
 
 # Returns
-
-* `nodes::Vector{Float64}`: Length `n`, sorted ascending, includes `-1.0`.
-* `weights::Vector{Float64}`: Length `n`, aligned with `nodes`.
+- `nodes::Vector{Float64}`: Length-`n` node vector, sorted ascending, including `-1.0`.
+- `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
+- Throws `error("Radau needs n ≥ 2 ...")` if `n < 2`.
 
-* Throws `error("Radau needs n ≥ 2 ...")` if `n < 2`.
-
-# Numerical notes
-
-* Newton steps are clamped away from ``\\pm 1`` via [`_clamp_open`](@ref) to avoid
-  derivative singularities.
-* The iteration budget is fixed (80 steps); it breaks early when ``\\left| dx \\right|`` is small.
+# Notes
+- Newton iterates are clamped by [`_clamp_open`](@ref) for numerical safety.
 """
 function gauss_radau_left_nodes_weights_float(
     n::Int
@@ -361,53 +283,27 @@ end
         n::Int
     ) -> (nodes, weights)
 
-Compute ``n``-point Gauss-Radau quadrature on ``[-1,1]`` that **includes the right endpoint** ``x=+1``
-in `Float64`.
+Compute the ``n``-point Gauss-Radau rule on ``[-1,1]`` that includes the right endpoint
+``x=+1``.
 
 # Function description
-
-For Legendre weight ``w(x)=1``:
-
-* One node is fixed at ``x=+1``.
-* The remaining ``n-1`` interior nodes are roots of:
-
-```math
-F(x) = P_n(x) - P_{n-1}(x).
-```
-
-This routine finds those roots by Newton iteration, using Gauss-Legendre ``n-1`` nodes
-as initial guesses.
-
-Weights:
-
-* Endpoint weight:
-
-```math
-w_n = \\frac{2}{n^2}
-```
-
-* Interior weights:
-
-```math
-w_i = \\frac{1 - x_i}{n^2 \\, \\left[ P_{n-1}(x_i) \\right]^2}.
-```
+This routine constructs the right-Radau rule for Legendre weight ``w(x)=1``. The right
+endpoint is fixed, while the remaining ``n-1`` interior nodes are obtained as roots of
+``P_n(x) - P_{n-1}(x)`` via Newton iteration. Interior weights are then computed from
+standard closed-form Radau formulas.
 
 # Arguments
-
-* `n`: Number of quadrature points (must satisfy `n ≥ 2`).
+- `n`: Number of quadrature points (must satisfy `n ≥ 2`).
 
 # Returns
-
-* `nodes::Vector{Float64}`: Length `n`, sorted ascending, includes `+1.0`.
-* `weights::Vector{Float64}`: Length `n`, aligned with `nodes`.
+- `nodes::Vector{Float64}`: Length-`n` node vector, sorted ascending, including `+1.0`.
+- `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
+- Throws `error("Radau needs n ≥ 2 ...")` if `n < 2`.
 
-* Throws `error("Radau needs n ≥ 2 ...")` if `n < 2`.
-
-# Numerical notes
-
-* Newton steps are clamped away from ``\\pm 1`` via [`_clamp_open`](@ref).
+# Notes
+- Newton iterates are clamped by [`_clamp_open`](@ref) for numerical safety.
 """
 function gauss_radau_right_nodes_weights_float(
     n::Int
@@ -464,57 +360,26 @@ end
         n::Int
     ) -> (nodes, weights)
 
-Compute ``n``-point Gauss-Lobatto quadrature on ``[-1,1]`` that **includes both endpoints**
-``x=-1`` and ``x=+1``, in `Float64`.
+Compute the ``n``-point Gauss-Lobatto rule on ``[-1,1]`` that includes both endpoints.
 
 # Function description
-
-For Legendre weight ``w(x)=1``:
-
-* Endpoints are fixed nodes: ``x_1 = -1``, ``x_n = +1``.
-* The interior ``n-2`` nodes are roots of ``P^\\prime_{n-1}(x)=0``.
-  This implementation instead solves the equivalent equation:
-
-```math
-G(x) = P_{n-2}(x) - x \\, P_{n-1}(x) = 0 \\,,
-```
-since:
-```math
-(1-x^2)P^\\prime_{n-1}(x) = (n-1) \\left( P_{n-2}(x) - x \\, P_{n-1}(x)\\right) \\,.
-```
-
-Roots are found by Newton iteration with Gauss-Legendre ``n-2`` nodes as seeds.
-
-Weights:
-
-* Endpoint weights:
-
-```math
-w_1 = w_n = \\frac{2}{n \\, (n-1)}.
-```
-
-* Interior weights:
-
-```math
-w_i = \\frac{2}{n \\, (n-1) \\, \\left[ P_{n-1}(x_i) \\right]^2}.
-```
+This routine constructs the Lobatto rule for Legendre weight ``w(x)=1``. The endpoints
+``-1`` and ``+1`` are fixed, and the interior nodes are obtained from the zeros of the
+Lobatto interior equation solved by Newton iteration. The corresponding weights are then
+assembled from the standard closed-form formulas.
 
 # Arguments
-
-* `n`: Number of quadrature points (must satisfy `n ≥ 2`).
+- `n`: Number of quadrature points (must satisfy `n ≥ 2`).
 
 # Returns
-
-* `nodes::Vector{Float64}`: Length `n`, sorted ascending, includes `±1.0`.
-* `weights::Vector{Float64}`: Length `n`, aligned with `nodes`.
+- `nodes::Vector{Float64}`: Length-`n` node vector, sorted ascending, including `±1.0`.
+- `weights::Vector{Float64}`: Length-`n` weight vector aligned with `nodes`.
 
 # Errors
+- Throws `error("Lobatto needs n ≥ 2 ...")` if `n < 2`.
 
-* Throws `error("Lobatto needs n ≥ 2 ...")` if `n < 2`.
-
-# Special cases
-
-* If `n == 2`, returns only endpoints with equal weights.
+# Notes
+- If `n == 2`, this returns the endpoint-only rule.
 """
 function gauss_lobatto_nodes_weights_float(
     n::Int
@@ -568,29 +433,11 @@ end
 """
     _GAUSS_CACHE :: Dict{Tuple{Int,Symbol}, (nodes, weights)}
 
-Process-local cache for single-interval Gauss-family nodes/weights on ``[-1,1]``.
+Process-local cache for single-interval Gauss-family nodes and weights on ``[-1,1]``.
 
 # Description
-
-This cache stores the output of [`_gauss_family_nodes_weights`](@ref) for a given pair:
-
-* `n`       : number of points in the Gauss family rule,
-* `boundary`: which family (`:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`).
-
-The stored value is:
-
-* `(nodes::Vector{Float64}, weights::Vector{Float64})` on ``[-1,1]``.
-
-# Purpose
-
-Computing nodes/weights can be moderately expensive (eigen-decomposition, Newton solves).
-Caching avoids repeated recomputation when composite quadrature repeatedly requests the same
-family configuration.
-
-# Notes
-
-* This cache is not persistent across `Julia` sessions.
-* Keys are intentionally small: `(n, boundary)`.
+This cache stores previously constructed Gauss-family rules keyed by `(n, boundary)`.
+It avoids repeated eigen-solves or Newton root-finding for identical requests.
 """
 const _GAUSS_CACHE = Dict{Tuple{Int,Symbol}, Tuple{Vector{Float64},Vector{Float64}}}()
 
@@ -602,25 +449,17 @@ const _GAUSS_CACHE = Dict{Tuple{Int,Symbol}, Tuple{Vector{Float64},Vector{Float6
 Return `true` if `rule` is a Gauss-family rule symbol of the form `:gauss_pK`.
 
 # Function description
-
-This module encodes "number of Gauss points per block" into the symbol string:
-
-* `:gauss_p2`, `:gauss_p3`, ...
-
-This helper checks whether the symbol string begins with `"gauss_p"`.
+This helper checks whether a rule symbol belongs to the Gauss-family naming scheme used
+in this module.
 
 # Arguments
-
-* `rule`: Rule symbol.
+- `rule`: Rule symbol.
 
 # Returns
+- `Bool`: `true` if `rule` starts with `"gauss_p"`, else `false`.
 
-* `Bool`: `true` if `rule` starts with `"gauss_p"`, else `false`.
-
-# Notes
-
-* This only validates the *prefix*; parsing the integer is handled by
-  [`_parse_gauss_p`](@ref).
+# Errors
+- This function does not throw explicitly.
 """
 @inline function _is_gauss_rule(
     rule::Symbol
@@ -633,35 +472,21 @@ end
         rule::Symbol
     ) -> Int
 
-Parse the number of points ``n`` from a Gauss-family rule symbol `:gauss_pN`.
+Parse the number of Gauss points from a rule symbol of the form `:gauss_pN`.
 
 # Function description
-
-Expected encoding:
-
-* `:gauss_p1`, `:gauss_p2`, `:gauss_p3`, ...
-
-This function:
-
-1. verifies the prefix via [`_is_gauss_rule`](@ref),
-2. parses the substring after `"gauss_p"` as an integer `n`,
-3. validates `n ≥ 1`.
+This helper validates the naming prefix and extracts the integer point count encoded in
+`rule`.
 
 # Arguments
-
-* `rule`: Rule symbol.
+- `rule`: Rule symbol expected to follow the `:gauss_pN` pattern.
 
 # Returns
-
-* `Int`: Parsed point count `n`.
+- `Int`: Parsed number of points `n`.
 
 # Errors
-
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if prefix is wrong or `n` is invalid.
-
-# Notes
-
-* This helper is typically used by a higher-level quadrature dispatcher.
+- Throws via [`JobLoggerTools.error_benji`](@ref) if the symbol does not start with
+  `"gauss_p"` or if the parsed point count is invalid.
 """
 function _parse_gauss_p(
     rule::Symbol
@@ -675,38 +500,28 @@ end
 
 """
     _gauss_family_nodes_weights(
-        n::Int, 
+        n::Int,
         boundary::Symbol
     ) -> (nodes, weights)
 
-Return the single-interval Gauss-family nodes/weights on ``[-1,1]``
-for a specified boundary pattern.
+Return the single-interval Gauss-family nodes and weights on ``[-1,1]`` for a given
+boundary selector.
 
 # Function description
-
-This routine chooses among the supported Gauss families:
-
-* `boundary == :LU_EXEX` : Gauss-Legendre (no endpoints included)
-* `boundary == :LU_INEX` : Gauss-Radau (left endpoint ``-1`` included)
-* `boundary == :LU_EXIN` : Gauss-Radau (right endpoint ``+1`` included)
-* `boundary == :LU_ININ` : Gauss-Lobatto (both endpoints included)
-
-It uses and populates the cache [`_GAUSS_CACHE`](@ref) keyed by `(n, boundary)`.
+This dispatcher selects among Gauss-Legendre, left-Radau, right-Radau, and Lobatto
+according to `boundary`. Results are cached in [`_GAUSS_CACHE`](@ref).
 
 # Arguments
-
-* `n`: Points per rule (Legendre: ``n \\ge 1``, Radau/Lobatto: ``n \\ge 2``).
-* `boundary`: One of `:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`.
+- `n`: Number of points per rule.
+- `boundary`: One of `:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, or `:LU_ININ`.
 
 # Returns
-
-* `nodes::Vector{Float64}`: Nodes on ``[-1,1]`` (sorted).
-* `weights::Vector{Float64}`: Weights on ``[-1,1]`` aligned with nodes.
+- `nodes::Vector{Float64}`: Nodes on ``[-1,1]``.
+- `weights::Vector{Float64}`: Weights aligned with `nodes`.
 
 # Errors
-
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid or if `n` is too small
-  for the requested family.
+- Throws via [`JobLoggerTools.error_benji`](@ref) if `boundary` is invalid or if `n` is
+  too small for the requested family.
 """
 function _gauss_family_nodes_weights(
     n::Int,
@@ -743,47 +558,25 @@ end
         N::Int
     ) -> Symbol
 
-Translate a *global* boundary selection into the boundary rule used for a
-specific subinterval in composite Gauss quadrature.
+Translate a global boundary selection into the per-block boundary rule used in
+composite Gauss quadrature.
 
-# What it does
-In the Maranatha quadrature interface, `boundary` describes the behavior of the
-**entire integration interval** `[a,b]`. However, composite Gauss rules apply a
-quadrature rule separately on each subinterval (block). This helper determines
-which Gauss-family rule should be used for a given block index.
-
-Interior blocks always use the standard Gauss–Legendre rule (`:LU_EXEX`).
-Endpoint-sensitive rules are applied only where the global interval actually
-touches the boundary.
-
-# Block policy
-- `:LU_EXEX`  
-  All blocks use Gauss-Legendre.
-
-- `:LU_INEX`  
-  First block uses Gauss-Radau (left endpoint included), all others use
-  Gauss-Legendre.
-
-- `:LU_EXIN`  
-  Last block uses Gauss-Radau (right endpoint included), all others use
-  Gauss-Legendre.
-
-- `:LU_ININ`  
-  First block uses left Radau, last block uses right Radau, interior blocks
-  use Gauss-Legendre.
+# Function description
+In the Maranatha interface, `boundary` is interpreted as a property of the whole
+integration interval. This helper maps that global choice to the boundary condition
+actually used on an individual composite block, so that only the true outermost blocks
+receive endpoint-sensitive Radau behavior while interior blocks remain Legendre.
 
 # Arguments
-- `boundary`: Global boundary mode requested by the quadrature driver.
-- `blk`: Zero-based index of the current subinterval.
-- `N`: Total number of subintervals.
+- `boundary`: Global boundary selector.
+- `blk`: Zero-based block index.
+- `N`: Total number of blocks.
 
 # Returns
-- `Symbol`: The Gauss-family boundary mode that should be used for this block.
+- `Symbol`: Per-block boundary selector.
 
-# Notes
-This function prevents Radau/Lobatto rules from being applied to *every*
-subinterval, which would incorrectly treat internal block boundaries as true
-integration endpoints.
+# Errors
+- Throws via [`JobLoggerTools.error_benji`](@ref) if `boundary` is invalid.
 """
 @inline function _local_boundary_for_block(
     boundary::Symbol,
@@ -830,50 +623,35 @@ end
 
 """
     _composite_gauss_nodes_weights(
-        a, 
-        b, 
-        N, 
-        npts, 
+        a,
+        b,
+        N,
+        npts,
         boundary
     ) -> (xs, ws)
 
-Construct **composite** Gauss-family nodes and weights on ``[a,b]`` by repeating an `npts`-point
-rule on each of ``N`` uniform subintervals.
+Construct composite Gauss-family nodes and weights on ``[a,b]`` by repeating an
+`npts`-point rule over `N` uniform subintervals.
 
 # Function description
-
-This routine:
-
-1. converts ``(a,b)`` to `Float64`,
-2. defines uniform subinterval width ``h = \\dfrac{b-a}{N}``,
-3. obtains the reference nodes/weights `(t,w)` on ``[-1,1]`` for the chosen family
-   via [`_gauss_family_nodes_weights`](@ref),
-4. maps the rule to each block `[xL, xR]` with the affine transform:
-
-```math
-x = \\bar{x} + \\texttt{scale}\\,t,\\quad
-dx = \\texttt{scale}\\,dt,\\quad
-\\bar{x}=\\frac{x_L+x_R}{2},\\quad \\texttt{scale}=\\frac{x_R-x_L}{2}=\\frac{h}{2}.
-```
-
-The output arrays have length `npts*N`, containing *all* per-block nodes and weights.
+This helper maps a single-block Gauss-family rule from ``[-1,1]`` to each uniform block
+of the global interval and concatenates all nodes and weights into flat arrays. The
+boundary treatment is applied only to the true first and last blocks through
+[`_local_boundary_for_block`](@ref).
 
 # Arguments
-
-* `a`, `b`: Global integration interval endpoints (converted to `Float64`).
-* `N`: Number of uniform blocks (`N ≥ 1` expected by caller).
-* `npts`: Number of Gauss points per block (family-dependent constraints apply).
-* `boundary`: Family selector (`:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`).
+- `a`, `b`: Global interval endpoints.
+- `N`: Number of uniform blocks.
+- `npts`: Number of Gauss points per block.
+- `boundary`: Global boundary selector.
 
 # Returns
+- `xs::Vector{Float64}`: Composite node array on ``[a,b]``.
+- `ws::Vector{Float64}`: Composite weight array aligned with `xs`.
 
-* `xs::Vector{Float64}`: Length `npts*N`, composite nodes on ``[a,b]``.
-* `ws::Vector{Float64}`: Length `npts*N`, composite weights.
-
-# Notes
-
-* This is “composite Gauss” in the sense of *repeating a fixed high-order rule* on each block,
-  not “Gaussian quadrature on the whole interval at once”.
+# Errors
+- Does not validate `N` explicitly; invalid inputs may fail downstream.
+- Propagates any error from [`_gauss_family_nodes_weights`](@ref).
 """
 function _composite_gauss_nodes_weights(
     a::Real,
@@ -916,44 +694,30 @@ end
 
 """
     _composite_gauss_u_grid(
-        N, 
-        npts, 
+        N,
+        npts,
         boundary
     ) -> (U, W)
 
-Build a *dimensionless* composite Gauss grid on ``u \\in [0, N]`` by repeating an `npts`-point
-rule on each unit block ``[m, m+1]``.
+Build a dimensionless composite Gauss grid on ``u \\in [0,N]``.
 
 # Function description
-
-This is the dimensionless analogue of [`_composite_gauss_nodes_weights`](@ref), intended for
-pipelines that factor the mapping ``[a,b] \\leftrightarrow u`` separately.
-
-For each block index ``m = 0 \\ldots N-1``, map reference rule `(t,w)` on ``[-1,1]`` to ``[m, m+1]`` via:
-```math
-u = m + \\frac{t+1}{2} \\,, \\quad du = \\frac{1}{2}dt \\,.
-```
-
-Thus, weights are scaled by ``\\dfrac{1}{2}``.
+This is the dimensionless analogue of [`_composite_gauss_nodes_weights`](@ref). It maps
+an `npts`-point Gauss-family rule from ``[-1,1]`` to each unit block ``[m,m+1]`` and
+returns the concatenated nodes and weights on the `u` grid.
 
 # Arguments
-
-* `N`: Number of unit blocks (must satisfy `N ≥ 1`).
-* `npts`: Points per block (family-dependent constraints apply).
-* `boundary`: Family selector (`:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, `:LU_ININ`).
+- `N`: Number of unit blocks (must satisfy `N ≥ 1`).
+- `npts`: Number of points per block.
+- `boundary`: Global boundary selector.
 
 # Returns
-
-* `U::Vector{Float64}`: Length `npts*N`, nodes on ``[0,N]``.
-* `W::Vector{Float64}`: Length `npts*N`, weights such that ``\\displaystyle{\\int\\limits_0^N du \\; f(u) \\approx \\sum_i W_i f(U_i)}``.
+- `U::Vector{Float64}`: Dimensionless composite nodes on ``[0,N]``.
+- `W::Vector{Float64}`: Dimensionless composite weights aligned with `U`.
 
 # Errors
-
-* Throws `ArgumentError("N must be ≥ 1")` if `N < 1`.
-
-# Notes
-
-* This function does *not* include any global scaling by ``(b-a)``; it is purely on the `u` grid.
+- Throws `ArgumentError("N must be ≥ 1")` if `N < 1`.
+- Propagates any error from [`_gauss_family_nodes_weights`](@ref).
 """
 function _composite_gauss_u_grid(
     N::Int,

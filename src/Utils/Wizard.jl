@@ -16,39 +16,28 @@ module Wizard
         default::AbstractString
     ) -> String
 
-Prompt the user for a string value, with a default fallback.
+Prompt the user for a string value with a default fallback.
 
 # Function description
-
 This helper prints an interactive prompt of the form
 
     msg [default]:
 
-and reads a single line from standard input.
-
-If the user enters an empty string, the stripped default value is returned.
-Otherwise, the stripped user input is returned.
+reads one line from standard input, and returns either the stripped user input
+or the stripped default value if the input is empty.
 
 # Arguments
-
-`msg::String`
-: Prompt message shown to the user.
-
-`default::AbstractString`
-: Default value used when the user presses Enter without typing anything.
+- `msg::String`: Prompt message shown to the user.
+- `default::AbstractString`: Default value used when the user presses Enter.
 
 # Returns
-
-A stripped `String` containing either the user input or the default value.
+- `String`: Stripped user input or stripped default value.
 
 # Errors
-
-This function does not perform validation beyond basic input reading.
-Any I/O errors from `readline()` are propagated.
+- Propagates I/O errors from `readline()`.
 
 # Notes
-
-This is a low-level helper used by the TOML wizard input routines.
+- This is a low-level helper used by the wizard input routines.
 """
 function _prompt(
     msg::String, 
@@ -68,32 +57,22 @@ end
 Prompt the user for a floating-point value.
 
 # Function description
-
-This helper calls [`_prompt`](@ref) to obtain a string input and then parses
-the result as `Float64`.
-
-If the user presses Enter without typing anything, the provided default value
-is used.
+This helper calls [`_prompt`](@ref), then parses the resulting string as
+`Float64`.
 
 # Arguments
-
-`msg::String`
-: Prompt message shown to the user.
-
-`default::Float64`
-: Default floating-point value.
+- `msg::String`: Prompt message shown to the user.
+- `default::Float64`: Default floating-point value.
 
 # Returns
-
-A `Float64` parsed from the entered or default string.
+- `Float64`: Parsed floating-point value.
 
 # Errors
-
-Throws an error if the entered value cannot be parsed as `Float64`.
+- Throws if the entered value cannot be parsed as `Float64`.
+- Propagates any I/O errors from [`_prompt`](@ref).
 
 # Notes
-
-This helper is intended for TOML fields such as `a` and `b`.
+- Intended for numeric `TOML` fields such as `a` and `b`.
 """
 function _prompt_float(
     msg::String, 
@@ -112,33 +91,22 @@ end
 Prompt the user for an integer value.
 
 # Function description
-
-This helper calls [`_prompt`](@ref) to obtain a string input and then parses
-the result as `Int`.
-
-If the user presses Enter without typing anything, the provided default value
-is used.
+This helper calls [`_prompt`](@ref), then parses the resulting string as `Int`.
 
 # Arguments
-
-`msg::String`
-: Prompt message shown to the user.
-
-`default::Int`
-: Default integer value.
+- `msg::String`: Prompt message shown to the user.
+- `default::Int`: Default integer value.
 
 # Returns
-
-An `Int` parsed from the entered or default string.
+- `Int`: Parsed integer value.
 
 # Errors
-
-Throws an error if the entered value cannot be parsed as `Int`.
+- Throws if the entered value cannot be parsed as `Int`.
+- Propagates any I/O errors from [`_prompt`](@ref).
 
 # Notes
-
-This helper is intended for TOML fields such as `dim`, `fit_terms`,
-`nerr_terms`, and `ff_shift`.
+- Intended for wizard fields such as `dim`, `fit_terms`, `nerr_terms`, and
+  `ff_shift`.
 """
 function _prompt_int(
     msg::String, 
@@ -157,44 +125,30 @@ end
 Prompt the user for a Boolean value.
 
 # Function description
+This helper calls [`_prompt`](@ref), lowercases the resulting string, and
+interprets a small accepted set of truthy values as `true`:
 
-This helper calls [`_prompt`](@ref) to obtain a string input and interprets the
-result as a Boolean.
+- `"true"`
+- `"t"`
+- `"1"`
+- `"yes"`
+- `"y"`
 
-The following case-insensitive inputs are treated as `true`:
-
-* `"true"`
-* `"t"`
-* `"1"`
-* `"yes"`
-* `"y"`
-
-All other inputs are interpreted as `false`.
-
-If the user presses Enter without typing anything, the provided default value
-is used.
+All other inputs are treated as `false`.
 
 # Arguments
-
-`msg::String`
-: Prompt message shown to the user.
-
-`default::Bool`
-: Default Boolean value.
+- `msg::String`: Prompt message shown to the user.
+- `default::Bool`: Default Boolean value.
 
 # Returns
-
-A `Bool` determined from the entered or default string.
+- `Bool`: Interpreted Boolean value.
 
 # Errors
-
-This helper does not throw parsing errors for unrecognized inputs; instead,
-any input not matching the accepted true-values is treated as `false`.
+- No explicit parsing errors are thrown for unrecognized inputs.
+- Propagates any I/O errors from [`_prompt`](@ref).
 
 # Notes
-
-This permissive behavior is suitable for a simple interactive wizard, but it is
-less strict than a full validation parser.
+- This helper is intentionally permissive for interactive wizard use.
 """
 function _prompt_bool(
     msg::String, 
@@ -213,33 +167,22 @@ end
 Prompt the user for a comma-separated list of integers.
 
 # Function description
-
-This helper calls [`_prompt`](@ref) to obtain a string input, splits the result
-by commas, and parses each entry as `Int`.
-
-If the user presses Enter without typing anything, the provided default vector
-is converted into a comma-separated string and reused.
+This helper calls [`_prompt`](@ref), splits the resulting string on commas,
+and parses each field as `Int`.
 
 # Arguments
-
-`msg::String`
-: Prompt message shown to the user.
-
-`default::Vector{Int}`
-: Default integer vector.
+- `msg::String`: Prompt message shown to the user.
+- `default::Vector{Int}`: Default integer vector.
 
 # Returns
-
-A `Vector{Int}` parsed from the entered or default comma-separated string.
+- `Vector{Int}`: Parsed integer vector.
 
 # Errors
-
-Throws an error if any element cannot be parsed as `Int`.
+- Throws if any element cannot be parsed as `Int`.
+- Propagates any I/O errors from [`_prompt`](@ref).
 
 # Notes
-
-This helper is primarily intended for the `[sampling].nsamples` field in the
-generated TOML configuration.
+- Intended mainly for the `[sampling].nsamples` field.
 """
 function _prompt_int_vector(
     msg::String, 
@@ -252,44 +195,35 @@ end
 """
     _build_toml(cfg) -> String
 
-Construct a Maranatha TOML configuration string from a configuration bundle.
+Construct a `TOML` configuration string from a wizard configuration bundle.
 
 # Function description
-
-This helper converts a configuration container `cfg` into a TOML-formatted
-string with a fixed output order.
+This helper converts a configuration container into a `TOML`-formatted string
+with a fixed section order.
 
 The generated sections are:
 
-* `[integrand]`
-* `[domain]`
-* `[sampling]`
-* `[quadrature]`
-* `[error]`
-* `[execution]`
-* `[output]`
+- `[integrand]`
+- `[domain]`
+- `[sampling]`
+- `[quadrature]`
+- `[error]`
+- `[execution]`
+- `[output]`
 
 # Arguments
-
-`cfg`
-: Configuration object providing fields such as
-  `file`, `func`, `a`, `b`, `dim`, `nsamples`, `rule`, `boundary`,
-  `err_method`, `fit_terms`, `nerr_terms`, `ff_shift`, `use_threads`,
-  `name_prefix`, `save_path`, `write_summary`, and `save_file`.
+- `cfg`: Configuration bundle providing the fields required by the wizard TOML
+  template.
 
 # Returns
-
-A `String` containing the TOML representation of the configuration.
+- `String`: `TOML` representation of the configuration.
 
 # Errors
-
-This function assumes that `cfg` provides all required fields.
-Missing-field errors are propagated from property access.
+- Missing-field errors are propagated from property access on `cfg`.
 
 # Notes
-
-The TOML string is assembled manually in order to preserve a predictable and
-readable section order.
+- The `TOML` string is assembled manually to preserve predictable ordering and
+  readability.
 """
 function _build_toml(cfg)
 
@@ -332,36 +266,32 @@ end
 """
     _build_sample_integrand(
         dim::Int;
-        func_name::AbstractString="integrand",
+        func_name::AbstractString = "integrand",
     ) -> String
 
-Generate a simple **sample integrand source code string** for the Maranatha wizard.
+Generate a sample integrand source-code string for the wizard.
 
 # Function description
-This helper constructs a minimal Julia function definition suitable for use
-as an example integrand file in a Maranatha configuration workflow.
+This helper constructs a minimal Julia function definition whose signature
+matches the requested dimensionality `dim`.
 
-The generated function signature depends on the requested dimensionality `dim`.
-For common low dimensions (`1-4`), a simple analytic expression is used.
-For higher dimensions, a placeholder constant function is produced.
-
-The returned string is intended to be written directly to a `.jl` file.
+For low dimensions, it emits simple analytic examples. For higher dimensions,
+it emits a placeholder constant-valued function.
 
 # Arguments
-- `dim::Int`  
-  Number of integration dimensions.
+- `dim::Int`: Requested integrand dimensionality.
 
 # Keyword arguments
-- `func_name::AbstractString="integrand"`  
-  Name of the generated integrand function.
+- `func_name::AbstractString`: Name of the generated function.
 
 # Returns
-- `String`  
-  Source code string containing a Julia function definition.
+- `String`: Source-code string containing the sample integrand definition.
 
 # Errors
-No explicit validation is performed here.  
-The caller is responsible for ensuring that `dim ≥ 1`.
+- No explicit validation is performed.
+
+# Notes
+- The caller is responsible for ensuring that `dim >= 1`.
 """
 function _build_sample_integrand(
     dim::Int;
@@ -392,38 +322,34 @@ $(func_name)($(args)) = 0.0
 end
 
 """
-    _build_sample_integrand(
+    _write_sample_integrand(
+        path::AbstractString,
         dim::Int;
-        func_name::AbstractString="integrand",
-    ) -> String
+        func_name::AbstractString = "integrand",
+    ) -> Nothing
 
-Generate a simple **sample integrand source code string** for the Maranatha wizard.
+Write a sample integrand source file to disk.
 
 # Function description
-This helper constructs a minimal Julia function definition suitable for use
-as an example integrand file in a Maranatha configuration workflow.
-
-The generated function signature depends on the requested dimensionality `dim`.
-For common low dimensions (`1-4`), a simple analytic expression is used.
-For higher dimensions, a placeholder constant function is produced.
-
-The returned string is intended to be written directly to a `.jl` file.
+This helper generates a sample integrand via
+[`_build_sample_integrand`](@ref) and writes the resulting source code to
+`path`.
 
 # Arguments
-- `dim::Int`  
-  Number of integration dimensions.
+- `path::AbstractString`: Output file path.
+- `dim::Int`: Requested integrand dimensionality.
 
 # Keyword arguments
-- `func_name::AbstractString="integrand"`  
-  Name of the generated integrand function.
+- `func_name::AbstractString`: Name of the generated function.
 
 # Returns
-- `String`  
-  Source code string containing a Julia function definition.
+- `Nothing`.
 
 # Errors
-No explicit validation is performed here.  
-The caller is responsible for ensuring that `dim ≥ 1`.
+- Propagates file-writing errors from `open` / `write`.
+
+# Notes
+- Existing files are overwritten by the underlying write operation.
 """
 function _write_sample_integrand(
     path::AbstractString,
@@ -440,40 +366,40 @@ function _write_sample_integrand(
 end
 
 """
-    run_wizard(; output_path::AbstractString="maranatha.toml") -> Nothing
+    run_wizard(; 
+        output_path::AbstractString = "maranatha.toml"
+    ) -> Nothing
 
-Interactive wizard for generating a **Maranatha TOML configuration file**.
+Launch the interactive Maranatha `TOML` configuration wizard.
 
 # Function description
-This routine launches an interactive command-line wizard that asks the user
-a sequence of questions and constructs a valid Maranatha configuration file.
+This routine interactively collects configuration values from the user,
+constructs a `TOML` configuration string, writes it to disk, and optionally
+writes a sample integrand source file.
 
-The wizard collects information about:
+The wizard gathers information about:
 
-- integrand location and function name
-- integration domain and dimensionality
-- sampling schedule
-- quadrature rule and boundary condition
-- error estimation settings
-- execution options
-- output configuration
-
-The resulting configuration is written to a TOML file that can be passed
-directly to the Maranatha runner.
-
-Optionally, the wizard can also generate a **sample integrand `.jl` file**
-matching the selected dimensionality.
+- integrand file and function name,
+- integration domain and dimensionality,
+- sampling schedule,
+- quadrature settings,
+- error-estimation settings,
+- execution flags,
+- output configuration.
 
 # Keyword arguments
-- `output_path::AbstractString="maranatha.toml"`  
-  Destination path for the generated TOML configuration file.
+- `output_path::AbstractString`: Destination path of the generated `TOML` file.
 
 # Returns
-- `Nothing`
+- `Nothing`.
 
 # Errors
-Input parsing errors from the `_prompt_*` helpers will propagate if
-invalid user input is provided.
+- Propagates input-parsing errors from the `_prompt_*` helpers.
+- Propagates file-writing errors when writing the `TOML` or sample integrand file.
+
+# Notes
+- If the selected sample integrand file already exists, the wizard asks whether
+  it should be overwritten.
 """
 function run_wizard(;
     output_path::AbstractString = "maranatha.toml"

@@ -18,27 +18,30 @@
         boundary
     ) -> Float64
 
-Evaluate a ``4``-dimensional integral of ``f(x, y, z, t)`` over the hypercube domain `[a, b]^4`
-using a tensor-product quadrature constructed from 1D nodes and weights.
+Evaluate a ``4``-dimensional tensor-product quadrature over ``[a,b]^4``.
 
 # Function description
-This routine generates 1D quadrature nodes and weights using
-[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms the tensor product:
+This routine generates `1`-dimensional nodes and weights using
+[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
+the tensor-product sum:
 ```math
-\\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell \\, f(x_i, y_j, z_k, t_\\ell) \\,.
+\\sum_i \\sum_j \\sum_k \\sum_\ell w_i w_j w_k w_\\ell f(x_i, y_j, z_k, t_\\ell).
 ```
-Loop ordering and accumulation are preserved exactly as implemented.
 
 # Arguments
 - `f`: Integrand callable `f(x, y, z, t)`.
-- `a`, `b`: Hypercube domain bounds (used for all axes).
-- `N`: Number of intervals per axis.
+- `a`, `b`: Bounds used on all axes.
+- `N`: Number of intervals / blocks per axis.
 - `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  Required for Newton-Cotes rules.
+- `boundary`: Boundary pattern symbol.
 
 # Returns
-- Estimated integral value as a `Float64`.
+- `Float64`: Estimated integral value.
+
+# Errors
+- Propagates any error thrown by
+  [`get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
 """
 function quadrature_4d(
     f, 

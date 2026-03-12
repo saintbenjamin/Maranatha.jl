@@ -19,6 +19,39 @@ import ..Utils.JobLoggerTools
 #     factory(; kwargs...) -> callable integrand
 # ============================================================
 
+"""
+    INTEGRAND_REGISTRY :: Dict{Symbol, Function}
+
+Module-level registry mapping integrand names to factory functions.
+
+# Description
+`INTEGRAND_REGISTRY` stores the named integrand factories used by
+[`register_integrand!`](@ref), [`integrand`](@ref), and [`available_integrands`](@ref).
+
+Each entry has the form:
+
+- key   : `Symbol` integrand name
+- value : `Function` factory
+
+where the factory is expected to follow the convention:
+
+    factory(; kwargs...) -> callable_integrand
+
+That is, the stored function should accept keyword arguments and return a
+callable integrand object, such as a closure or a callable struct.
+
+# Purpose
+This registry provides a lightweight indirection layer so that integrands can be:
+
+- registered once under a symbolic name,
+- reconstructed later with runtime parameters,
+- discovered through registry inspection.
+
+# Notes
+- Re-registering the same name overwrites the previous factory.
+- The dictionary is mutable, but the binding itself is constant.
+- Iteration order is not guaranteed to be stable and should not be relied on.
+"""
 const INTEGRAND_REGISTRY = Dict{Symbol, Function}()
 
 """
@@ -27,29 +60,30 @@ const INTEGRAND_REGISTRY = Dict{Symbol, Function}()
         factory::Function
     )
 
-Register a new integrand factory into the `Maranatha.jl` integrand registry.
+Register an integrand factory in the module-level registry.
 
 # Function description
-This function associates an integrand name `name` with a factory function
-`factory`. The factory must accept keyword arguments and return a callable
-integrand object (e.g., a closure or a callable struct).
+This function associates the symbolic name `name` with a factory callable
+`factory`. The factory is expected to accept keyword arguments and return a
+callable integrand object.
 
-Once registered, the integrand can be constructed via:
-
-`integrand(name; kwargs...)`.
+Once registered, the integrand can later be constructed through
+[`integrand`](@ref)`(name; kwargs...)`.
 
 # Arguments
-- `name::Symbol`: Integrand identifier used as the registry key.
-- `factory::Function`: Factory function of the form `factory(; kwargs...) -> f`,
-  where `f` is callable.
+- `name::Symbol`: Registry key used to identify the integrand.
+- `factory::Function`: Factory callable of the form `factory(; kwargs...) -> f`,
+  where `f` is itself callable.
 
 # Returns
 - `nothing`
 
+# Errors
+- No explicit validation is performed; re-registration overwrites any existing
+  entry under the same name.
+
 # Notes
-- Re-registering an existing `name` overwrites the prior factory.
-- The registry is stored as a module-level constant dictionary to keep
-  lookup/dispatch lightweight.
+- The registry is stored in [`INTEGRAND_REGISTRY`](@ref).
 """
 function register_integrand!(
     name::Symbol, 
@@ -68,9 +102,11 @@ end
 Construct a callable integrand from the registry.
 
 # Function description
-This function looks up `name` in the integrand registry and invokes the
-corresponding factory with the provided keyword arguments. The result is a
-callable object that can be passed directly into [`Maranatha.Runner.run_Maranatha`](@ref).
+This function looks up `name` in [`INTEGRAND_REGISTRY`](@ref), retrieves the
+registered factory, and invokes it with the provided keyword arguments.
+
+The returned object is expected to be directly callable and usable by the
+higher-level Maranatha workflow.
 
 # Arguments
 - `name::Symbol`: Integrand identifier registered via [`register_integrand!`](@ref).
@@ -79,10 +115,13 @@ callable object that can be passed directly into [`Maranatha.Runner.run_Maranath
 - `kwargs...`: Keyword arguments forwarded to the registered factory.
 
 # Returns
-- A callable integrand object returned by the registered factory.
+- A callable integrand object returned by the factory associated with `name`.
 
 # Errors
-- Throws an error if `name` is not registered.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `name` is not registered.
+
+# Notes
+- The error message includes currently available registry keys.
 """
 function integrand(
     name::Symbol; 
@@ -100,12 +139,21 @@ end
 
 Return the list of currently registered integrand names.
 
+# Function description
+This helper exposes the current registry keys as a `Vector{Symbol}`.
+
+# Arguments
+- None.
+
 # Returns
-- `Vector{Symbol}`: Registered integrand keys.
+- `Vector{Symbol}`: Registered integrand names.
+
+# Errors
+- No explicit errors are thrown.
 
 # Notes
-- The order of the returned symbols follows the iteration order of the internal
-  dictionary and is not guaranteed to be stable across Julia versions.
+- The returned order follows the iteration order of the internal dictionary and
+  should not be treated as a stable sorted order.
 """
 available_integrands() = collect(keys(INTEGRAND_REGISTRY))
 

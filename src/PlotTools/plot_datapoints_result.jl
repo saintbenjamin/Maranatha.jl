@@ -7,75 +7,51 @@
         h_power::Real = 1,
         xscale::Symbol = :linear,
         yscale::Symbol = :linear,
-        ymode::Symbol = :value,
-        reference_value = nothing,
         rule::Symbol = :gauss_p3,
         boundary::Symbol = :LU_ININ,
         figs_dir::String = ".",
-        save_file::Bool = false
+        save_file::Bool = false,
     ) -> Nothing
 
-Plot raw datapoints only, without any fitted model, in order to inspect
-alignment, oscillation, and scaling behavior before performing a fit.
-
-# Function description
-
-This routine is intended as a pre-fit diagnostic visualization tool.
-It plots only the sampled datapoints (and optional error bars), allowing
-the user to inspect whether the convergence data appears smooth, roughly
-linear in a chosen transformed coordinate, or contaminated by oscillatory
-behavior across resolutions.
-
-The horizontal axis is constructed manually as
-```math
-x = h^{p},
-```
-where `p = h_power` is chosen by the caller.
-
-This makes it possible to test empirically which power of `h`
-best reveals approximately linear behavior before attempting a
-least-`\\chi^2` extrapolation.
-
-Optional logarithmic scaling can be enabled independently on both axes.
+Plot raw convergence datapoints without a fitted model, for pre-fit inspection of
+alignment, scaling, and possible oscillatory behavior.
 
 # Arguments
-
-`name`
-: Label used in the output filename.
-
-`hs`
-: Step sizes `h`.
-
-`estimates`
-: Quadrature estimates corresponding to `hs`.
-
-`errors`
-: Collection of error-information objects.  Each entry is expected
-to provide a `.total` field.
+- `name::String`:
+  Basename used for output filenames.
+- `hs::Vector{Float64}`:
+  Step sizes used to define the horizontal coordinate.
+- `estimates::Vector{Float64}`:
+  Raw quadrature estimates.
+- `errors::Vector`:
+  Collection of error-information objects used for plotting error bars.
+  Each entry is expected to provide a `.total` field in the current workflow.
 
 # Keyword arguments
-
-`h_power`
-: Power `p` used to construct the horizontal coordinate `x = h^p`.
-
-`xscale`
-: Axis scale for `x`. Supported values are `:linear` and `:log`.
-
-`yscale`
-: Axis scale for `y`. Supported values are `:linear` and `:log`.
-
-`rule`, `boundary`
-: Labels used in output filenames.
-
-`figs_dir`
-: Output directory for saved figures.
-
-`save_file`
-: If `true`, save the plot as a PDF.
+- `h_power::Real = 1`:
+  Power `p` used to construct the horizontal coordinate `x = h^p`.
+- `xscale::Symbol = :linear`, `yscale::Symbol = :linear`:
+  Axis scaling options. Supported values are `:linear` and `:log`.
+- `rule::Symbol = :gauss_p3`, `boundary::Symbol = :LU_ININ`:
+  Labels used in output filenames.
+- `figs_dir::String = "."`:
+  Output directory for saved figures.
+- `save_file::Bool = false`:
+  If `true`, save the generated figure.
 
 # Returns
+- `Nothing`:
+  This routine is used for plotting and optional file-output side effects.
 
-`nothing`
+# Errors
+- Throws an error if input lengths are inconsistent.
+- Throws an error if unsupported axis-scale keywords are provided.
+- Throws an error if no valid datapoints remain after filtering.
+- Propagates plotting and file-I/O errors.
+
+# Notes
+- This routine is intended as a diagnostic plotter before fitting.
+- A convenience wrapper `plot_datapoints_result(result; ...)` is also provided.
 """
 function plot_datapoints_result(
     name::String,
@@ -206,37 +182,32 @@ end
         save_file::Bool = false,
     ) -> Nothing
 
-Convenience wrapper around [`plot_datapoints_result`](@ref) that accepts a
-Maranatha run result object.
-
-# Function description
-
-This method extracts the necessary fields from the `result` object returned by
-[`Maranatha.Runner.run_Maranatha`](@ref) and forwards them to the primary
-```julia
-plot_datapoints_result(name, hs, estimates, errors; ...)
-```
-method.
-
-This allows users to inspect the raw convergence datapoints directly from the run result
-without manually unpacking its components.
+Convenience wrapper that extracts raw datapoints from a Maranatha run result and
+forwards them to the primary `plot_datapoints_result` method.
 
 # Arguments
-
-result
-: Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
+- `result`:
+  Result object returned by `run_Maranatha`.
 
 # Keyword arguments
-
-Same as the primary [`plot_datapoints_result`](@ref) method.
+- `name::String = "Maranatha"`:
+  Basename used for output filenames.
+- `h_power::Real = 1`:
+  Power used to construct the horizontal coordinate.
+- `xscale::Symbol = :linear`, `yscale::Symbol = :linear`:
+  Axis scaling options forwarded to the primary method.
+- `rule::Symbol = result.rule`, `boundary::Symbol = result.boundary`:
+  Labels forwarded to the primary method.
+- `figs_dir::String = "."`:
+  Output directory for saved figures.
+- `save_file::Bool = false`:
+  If `true`, save the generated figure.
 
 # Returns
-
-Nothing.
+- `Nothing`.
 
 # Errors
-
-Same as the primary [`plot_datapoints_result`](@ref) method.
+- Propagates all validation and plotting errors from the primary method.
 """
 function plot_datapoints_result(
     result;

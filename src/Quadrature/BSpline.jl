@@ -24,10 +24,10 @@ Return `true` if `rule` is a B-spline quadrature rule symbol.
 # Function description
 A rule is considered a B-spline rule if its symbol string starts with either:
 
-- `"bspline_interp_p"` : interpolation B-spline quadrature (degree `p`)
-- `"bspline_smooth_p"` : smoothing    B-spline quadrature (degree `p`)
+- `"bspline_interp_p"` : interpolation B-spline quadrature
+- `"bspline_smooth_p"` : smoothing B-spline quadrature
 
-This helper is used only for lightweight dispatch / validation and does not
+This helper is intended for lightweight dispatch / validation and does not
 parse the degree itself.
 
 # Arguments
@@ -36,9 +36,8 @@ parse the degree itself.
 # Returns
 - `Bool`: `true` if `rule` matches a supported B-spline rule prefix, otherwise `false`.
 
-# Notes
-- This function performs only prefix checks; it does not validate that the suffix
-  is a valid integer degree.
+# Errors
+- No explicit error is thrown. Invalid or unrelated symbols simply return `false`.
 """
 @inline function _is_bspline_rule(
     rule::Symbol
@@ -57,13 +56,13 @@ Decode the B-spline rule kind from a rule symbol.
 # Function description
 Given a rule symbol of the form:
 
-- `:bspline_interp_pK`  (interpolation)
-- `:bspline_smooth_pK`  (smoothing)
+- `:bspline_interp_pK`
+- `:bspline_smooth_pK`
 
 this helper returns the corresponding kind tag:
 
-- `:interp` for interpolation spline quadrature (`bsplI`)
-- `:smooth` for smoothing spline quadrature (`bsplS`)
+- `:interp` for interpolation spline quadrature
+- `:smooth` for smoothing spline quadrature
 
 # Arguments
 - `rule`: B-spline rule symbol.
@@ -73,9 +72,6 @@ this helper returns the corresponding kind tag:
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `rule` is not a recognized B-spline rule.
-
-# Notes
-- This function does not parse the degree `p`; use [`_parse_bspline_p`](@ref) for that.
 """
 @inline function _bspline_kind(
     rule::Symbol
@@ -100,10 +96,10 @@ Parse the spline degree `p` from a B-spline rule symbol.
 # Function description
 This helper extracts the integer degree `p` from rule symbols:
 
-- `:bspline_interp_pK`  (interpolation)
-- `:bspline_smooth_pK`  (smoothing)
+- `:bspline_interp_pK`
+- `:bspline_smooth_pK`
 
-where `K` is a nonnegative integer degree (e.g., `0, 1, 2, 3, ...`).
+where `K` is a nonnegative integer degree.
 
 # Arguments
 - `rule`: B-spline rule symbol.
@@ -112,7 +108,7 @@ where `K` is a nonnegative integer degree (e.g., `0, 1, 2, 3, ...`).
 - `Int`: Parsed spline degree `p` (guaranteed `p ≥ 0` if successful).
 
 # Errors
-- Throws (via `JobLoggerTools.error_benji`) if `rule` is not a B-spline rule,
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `rule` is not a B-spline rule,
   or if the parsed degree is invalid (`p < 0`).
 """
 @inline function _parse_bspline_p(
@@ -134,56 +130,35 @@ end
 
 """
     _build_knots_uniform(
-        a::Float64, 
-        b::Float64, 
-        N::Int, 
-        p::Int, 
+        a::Float64,
+        b::Float64,
+        N::Int,
+        p::Int,
         boundary::Symbol
     ) -> Vector{Float64}
 
 Construct a uniform knot vector with endpoint clamping controlled by `boundary`.
 
 # Function description
-This routine builds a uniform knot line on ``[a, b]`` with step size:
-```math
-h = \\frac{b-a}{N}
-```
-and an extended open-uniform-style knot sequence of length:
-```math
-N + 2p + 1
-```
-The base (extended) knots are:
-```math
-a - p \\, h \\;,\\;  a - (p-1) \\, h \\;,\\;  \\ldots \\;,\\; b + (p-1) \\, h \\;,\\; b + p \\, h 
-```
-Then endpoint clamping is enforced by overwriting knots near the endpoints:
+This routine builds a uniform knot line on ``[a, b]`` with step size
+``h = \frac{b-a}{N}`` and a simple extended knot sequence. Endpoint clamping is
+then enforced according to `boundary`:
 
-* left clamp  (repeat `a` for `p+1` knots) if `boundary ∈ { :LU_ININ, :LU_INEX }`
-* right clamp (repeat `b` for `p+1` knots) if `boundary ∈ { :LU_ININ, :LU_EXIN }`
-
-This provides a simple, deterministic boundary behavior compatible with the
-Greville-point quadrature construction in this module.
+- left clamp  if `boundary ∈ { :LU_ININ, :LU_INEX }`
+- right clamp if `boundary ∈ { :LU_ININ, :LU_EXIN }`
 
 # Arguments
-
-* `a`: Left endpoint (`Float64`).
-* `b`: Right endpoint (`Float64`).
-* `N`: Number of subintervals defining the uniform step (``N \\ge 1``).
-* `p`: Spline degree (``p \\ge 0``).
-* `boundary`: Boundary pattern (`:LU_ININ`, `:LU_INEX`, `:LU_EXIN`, `:LU_EXEX`).
+- `a`: Left endpoint.
+- `b`: Right endpoint.
+- `N`: Number of subintervals defining the uniform step.
+- `p`: Spline degree.
+- `boundary`: Boundary pattern (`:LU_ININ`, `:LU_INEX`, `:LU_EXIN`, `:LU_EXEX`).
 
 # Returns
-
-* `Vector{Float64}`: Knot vector `t`.
+- `Vector{Float64}`: Knot vector `t`.
 
 # Errors
-
-* Throws (via `JobLoggerTools.error_benji`) if `N < 1` or `p < 0`.
-
-# Notes
-
-* This is a pragmatic knot builder for quadrature, not a general-purpose spline API.
-* For `:LU_EXEX` no clamping is applied (fully extended endpoints).
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `N < 1` or `p < 0`.
 """
 function _build_knots_uniform(
     a::Float64,
@@ -223,46 +198,26 @@ end
 
 """
     _greville_points(
-        t::Vector{Float64}, 
+        t::Vector{Float64},
         p::Int
     ) -> Vector{Float64}
 
-Compute Greville abscissae for a B-spline basis defined by knots ``t`` and degree ``p``.
+Compute Greville abscissae for a B-spline basis defined by knots `t` and degree `p`.
 
 # Function description
-For degree ``p \\ge 1``, the Greville points are defined by:
-```math
-\\xi_i = \\frac{1}{p}\\sum_{j=1}^{p} t_{i+j}, \\qquad i = 1,\\ldots, n_b
-```
-where the number of basis functions is:
-```math
-n_b = \\mathrm{length}(t) - p - 1 \\,.
-```
-
-For the special case ``p = 0`` (piecewise-constant splines), this routine chooses
-simple knot-span midpoints:
-
-```math
-\\xi_i = \\frac{1}{2}(t_i + t_{i+1})
-```
+For degree `p ≥ 1`, the Greville points are the averages of consecutive interior
+knots. For the special case `p == 0`, this routine uses knot-span midpoints.
 
 # Arguments
-
-* `t`: Knot vector.
-* `p`: Spline degree (`p ≥ 0`).
+- `t`: Knot vector.
+- `p`: Spline degree (`p ≥ 0`).
 
 # Returns
-
-* `Vector{Float64}`: Greville points `xs` of length `nbasis`.
+- `Vector{Float64}`: Greville points `xs` of length `nbasis`.
 
 # Errors
-
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if the knot vector is invalid for the given `p`
-  (e.g., `nbasis < 1`).
-
-# Notes
-
-* Greville points are a standard, stable node choice for spline collocation.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if the knot vector is invalid for the given `p`
+  (for example, if the implied basis count is less than `1`).
 """
 function _greville_points(
     t::Vector{Float64}, 
@@ -293,45 +248,29 @@ end
 
 """
     _bspline_basis_all(
-        x::Float64, 
-        t::Vector{Float64}, 
+        x::Float64,
+        t::Vector{Float64},
         p::Int
     ) -> Vector{Float64}
 
-Evaluate all B-spline basis functions ``B_{i,p}(x)`` at a point ``x`` using Cox-de Boor recursion.
+Evaluate all B-spline basis functions ``B_{i,p}(x)`` at a point `x`.
 
 # Function description
-This routine returns the full vector of basis values:
-```math
-\\{ B_{1,p}(x), B_{2,p}(x), \\ldots, B_{n_b,p}(x) \\}
-```
-where:
-```math
-n_b = \\texttt{length(}t\\texttt{)} - p - 1
-```
-
-## Implementation details:
-
-* Start from degree-``0`` indicator functions on knot spans ``[t_i, t_{i+1})``.
-* Elevate degree iteratively via the Cox-de Boor recursion.
-* Handles the endpoint convention `x == t[end]` by assigning the last basis to ``1``
-  (consistent with half-open span semantics).
+This routine returns the full vector of basis values for the knot vector `t`
+and degree `p`. It starts from degree-`0` indicator functions and elevates the
+basis degree iteratively using the Cox-de Boor recursion.
 
 # Arguments
-
-* `x`: Evaluation point.
-* `t`: Knot vector.
-* `p`: Spline degree (``p \\ge 0``).
+- `x`: Evaluation point.
+- `t`: Knot vector.
+- `p`: Spline degree (`p ≥ 0`).
 
 # Returns
+- `Vector{Float64}`: Basis values at `x` (length `nbasis`).
 
-* `Vector{Float64}`: Basis values at ``x`` (length `nbasis`).
-
-# Notes
-
-* This routine is designed for quadrature weight construction, so it prioritizes
-  deterministic behavior and numerical stability over maximum generality.
-* For repeated evaluation at many ``x``, consider reusing allocations externally if needed.
+# Errors
+- No explicit error is thrown. Invalid inputs may instead lead to incorrect basis size
+  or indexing failure upstream.
 """
 function _bspline_basis_all(
     x::Float64, 
@@ -381,43 +320,26 @@ end
 
 """
     _basis_integrals(
-        t::Vector{Float64}, 
+        t::Vector{Float64},
         p::Int
     ) -> Vector{Float64}
 
-Compute the exact integral of each normalized B-spline basis function over ``x``.
+Compute the exact integral of each normalized B-spline basis function.
 
 # Function description
-For a normalized B-spline basis ``B_{i,p}(x)`` defined on knots ``t``, the integral satisfies:
-```math
-\\int dx \\; B_{i,p}(x) = \\frac{t_{i+p+1} - t_i}{p+1}
-```
-
-This routine returns the vector:
-
-```math
-b_i = \\frac{t_{i+p+1} - t_i}{p+1}, \\qquad i = 1,\\ldots,n_b
-```
-
-where:
-
-```math
-n_b = \\texttt{length(}t\\texttt{)} - p - 1
-```
+For a normalized B-spline basis ``B_{i,p}(x)`` defined on knots `t`, this routine
+returns the vector of basis integrals using the standard closed-form expression.
 
 # Arguments
-
-* `t`: Knot vector.
-* `p`: Spline degree (`p ≥ 0`).
+- `t`: Knot vector.
+- `p`: Spline degree (`p ≥ 0`).
 
 # Returns
+- `Vector{Float64}`: Basis integrals `bI` (length `nbasis`).
 
-* `Vector{Float64}`: Basis integrals `bI` (length `nbasis`).
-
-# Notes
-
-* This formula assumes the standard normalized B-spline basis consistent with
-  Cox–de Boor recursion.
+# Errors
+- No explicit error is thrown. The caller is expected to provide a valid knot vector
+  and degree.
 """
 function _basis_integrals(
     t::Vector{Float64}, 
@@ -437,38 +359,21 @@ end
         nb::Int
     ) -> Matrix{Float64}
 
-Construct a simple second-difference roughness penalty matrix ``R = D^\\prime \\, D``.
+Construct a simple second-difference roughness penalty matrix.
 
 # Function description
-This helper builds a discrete Tikhonov-style penalty intended for smoothing:
-
-- Let ``c`` be the coefficient vector (length `nb`).
-- Define second differences (for interior indices):
-
-```math
-\\left( D \\, c \\right)_i = c_i - 2 \\, c_{i+1} + c_{i+2}
-```
-
-Then the quadratic penalty is:
-```math
-c^T R c = \\lvert D c \\rvert_2^2
-```
-
-This is **not** the exact continuous spline penalty ``\\int dx \\; \\left( s^{\\prime\\prime}(x) \\right)^2``,
-but it acts as a practical stabilizer for spline smoothing in this quadrature
-weight construction.
+This helper builds a discrete Tikhonov-style penalty matrix based on second
+differences of the spline coefficient vector. It is used as a practical
+stabilizer for smoothing-mode quadrature.
 
 # Arguments
-
-* `nb`: Number of basis functions (`nb```\\ge 1``).
+- `nb`: Number of basis functions.
 
 # Returns
+- `Matrix{Float64}`: Symmetric `nb × nb` penalty matrix.
 
-* `Matrix{Float64}`: Symmetric `nb```\\times```nb` penalty matrix.
-
-# Notes
-
-* For `nb```\\le 2``, the second-difference operator is empty and this returns zeros.
+# Errors
+- No explicit error is thrown. For `nb ≤ 2`, the routine returns a zero matrix.
 """
 function _roughness_R_second_diff(
     nb::Int
@@ -493,31 +398,23 @@ end
     ) -> Vector{Float64}
 
 Solve a square linear system `M * x = b` robustly, with a safe fallback for
-singular (or effectively singular) matrices.
+singular matrices.
 
-# What it does
-- First tries the standard fast solve `M \\ b`.
-- If that fails specifically with `LinearAlgebra.SingularException`, it falls back
-  to an SVD-based pseudo-inverse solve and returns a **minimum-norm** solution.
-
-# When this is useful
-Some boundary patterns, smoothing penalties, or tolerance-driven constructions can
-produce systems that are singular (or so ill-conditioned that they behave as singular).
-This helper prevents the whole pipeline from crashing in that case.
+# Function description
+This helper first tries the standard dense solve `M \\ b`. If that fails with
+`LinearAlgebra.SingularException`, it falls back to an SVD-based pseudo-inverse
+solve and returns a minimum-norm solution on the retained singular subspace.
 
 # Arguments
-- `M`: Square coefficient matrix (Float64).
-- `b`: Right-hand-side vector (Float64), length must match `size(M,1)`.
-- `rtol`: Relative cutoff used to decide which singular values are treated as zero
-  in the pseudo-inverse fallback. Larger values make the fallback more aggressive.
+- `M`: Square coefficient matrix.
+- `b`: Right-hand-side vector, with matching length.
+- `rtol`: Relative cutoff used in the pseudo-inverse fallback.
 
 # Returns
-- `Vector{Float64}`: A solution vector `x`. If the fallback is used, the returned
-  solution is the minimum-norm solution among all solutions that fit the retained
-  singular subspace.
+- `Vector{Float64}`: A solution vector `x`.
 
 # Errors
-- Re-throws any exception that is **not** `LinearAlgebra.SingularException`.
+- Re-throws any exception that is not `LinearAlgebra.SingularException`.
 """
 function _solve_singular_safe(
     M::AbstractMatrix{Float64},
@@ -549,96 +446,56 @@ end
 
 """
     bspline_nodes_weights(
-        a::Real, 
-        b::Real, 
-        N::Int, 
-        p::Int, 
-        boundary::Symbol; 
-        kind::Symbol=:interp, 
-        λ::Float64=0.0
+        a::Real,
+        b::Real,
+        N::Int,
+        p::Int,
+        boundary::Symbol;
+        kind::Symbol = :interp,
+        λ::Float64 = 0.0
     ) -> (xs::Vector{Float64}, ws::Vector{Float64})
 
-Construct B-spline quadrature nodes and weights on ``[a, b]``.
+Construct B-spline quadrature nodes and weights on `[a, b]`.
 
 # Function description
-This is the public entry point that produces a quadrature rule:
+This is the public entry point that produces a quadrature rule
+
 ```math
-\\int\\limits_a^b dx \\; f(x) \\approx \\sum_{j=1}^{n_b} w_j \\, f(x_j)
+\\int_a^b dx \\; f(x) \\approx \\sum_{j=1}^{n_b} w_j \\, f(x_j)
 ```
-where:
 
-* ``x_j`` are Greville abscissae derived from a uniform knot vector,
-* ``w_j`` are weights derived from integrating the spline basis exactly
-  and mapping that to a weighted sum over ``f(x_j)``.
+where the nodes are Greville abscissae derived from a uniform knot vector and
+the weights are obtained from exact basis integrals together with either spline
+interpolation or a smoothing-style normal equation.
 
-The procedure:
+Two modes are supported:
 
-1. Build a uniform knot vector `t` with boundary clamping controlled by `boundary`.
-2. Compute Greville nodes `xs`.
-3. Build the collocation matrix ``A_{ji} = B_{i,p} \\, \\texttt{xs}_j``.
-4. Compute basis integrals ``\\texttt{bI}_i = \\int dx \\; B_{i,p}(x)`` (exact formula).
-5. Derive weights `ws` depending on `kind`:
-
-## Interpolation mode (`kind == :interp`)
-
-Assume spline interpolation ``A \\, c = y``, so the integral is:
-```math
-I = b^T c = b^T A^{-1} y = (A^{-T} b)^T y \\,.
-```
-Thus weights are:
-```math
-w = A^{-T} b
-```
-implemented as `transpose(A) \\ bI`.
-
-## Smoothing mode (`kind == :smooth`)
-
-Use a Tikhonov-regularized normal equation:
-```math
-(A^T A + \\lambda R) c = A^T y
-```
-Then:
-```math
-I = b^T c = b^T (A^T A + \\lambda R)^{-1} A^T y = (A z)^T y
-```
-where ``z`` solves:
-```math
-(A^T A + \\lambda R)^T z = b
-```
-Thus weights are computed as ``w = A \\, z``.
+- `kind == :interp` : interpolation-based spline quadrature
+- `kind == :smooth` : smoothing-based spline quadrature with penalty `λ`
 
 # Arguments
-
-* `a`: Left endpoint (real).
-* `b`: Right endpoint (real), must satisfy `b > a`.
-* `N`: Number of uniform subintervals defining knot spacing (`N ≥ 1`).
-* `p`: B-spline degree (`p ≥ 0`).
-* `boundary`: Boundary pattern controlling endpoint clamping (`:LU_ININ`, `:LU_INEX`, `:LU_EXIN`, `:LU_EXEX`).
+- `a`: Left endpoint.
+- `b`: Right endpoint. Must satisfy `b > a`.
+- `N`: Number of uniform subintervals defining knot spacing.
+- `p`: B-spline degree (`p ≥ 0`).
+- `boundary`: Boundary pattern controlling endpoint clamping.
 
 # Keyword arguments
-
-* `kind`: `:interp` (default) or `:smooth`.
-* `λ`: Smoothing strength (`λ ≥ 0`), used only when `kind == :smooth`.
+- `kind`: Either `:interp` or `:smooth`.
+- `λ`: Smoothing strength, used only when `kind == :smooth`.
 
 # Returns
-
-* `xs::Vector{Float64}`: Quadrature nodes (Greville points), length `nbasis`.
-* `ws::Vector{Float64}`: Quadrature weights, length `nbasis`.
+- `xs::Vector{Float64}`: Quadrature nodes (Greville points), length `nbasis`.
+- `ws::Vector{Float64}`: Quadrature weights, length `nbasis`.
 
 # Errors
-
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if:
-
-  * `b ≤ a`,
-  * `N < 1`,
-  * `p < 0`,
-  * `λ < 0` in smoothing mode,
-  * or the implied basis size is invalid.
-
-# Notes
-
-* This routine constructs a deterministic spline-based quadrature rule; it is not adaptive.
-* The smoothing penalty uses a discrete second-difference model (see [`_roughness_R_second_diff`](@ref)).
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if:
+  - `b ≤ a`,
+  - `N < 1`,
+  - `p < 0`,
+  - `boundary !== :LU_ININ`,
+  - `λ < 0` in smoothing mode,
+  - or the implied basis size is invalid.
 """
 function bspline_nodes_weights(
     a::Real,

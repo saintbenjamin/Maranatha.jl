@@ -20,107 +20,52 @@
         dim::Int,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> NamedTuple
+    )
 
-Estimate an axis-separable tensor-product truncation-error *model* for an arbitrary-dimensional
-composite Newton-Cotes rule on the hypercube ``[a,b]^\\texttt{dim}`` using the exact midpoint residual expansion.
+Estimate an arbitrary-dimensional axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This routine provides a dimension-generic version of the axis-separated midpoint residual model.
+This routine provides the generic `nd` version of the midpoint-residual model on
+the hypercube `[a,b]^dim`.
 
-Let ``\\displaystyle{h = \\frac{b-a}{N}}`` and the physical midpoint along any axis be
-``\\displaystyle{\\bar{x} = \\frac{a+b}{2}}``.
-From the exact rational composite weight assembly for `(rule, boundary, N)`, the midpoint residual
-expansion yields a sequence of nonzero residual orders ``k`` with exact coefficients
-``\\displaystyle{\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}}``.
-
-This routine collects the first `nerr_terms` nonzero residual orders
-``k_1, k_2, \\ldots`` (up to `kmax`) and returns the summed axis-separable model:
-```math
-E \\approx \\sum_{i=1}^{n_{\\text{err}}}
-\\texttt{coeff}_{k_i}\\, h^{k_i+1}\\,
-\\sum_{\\mu=1}^{\\texttt{dim}} I_{\\mu}^{(k_i)} \\,,
-```
-where, for each axis ``\\mu``,
-
-```math
-I_{\\mu}^{(k)} =
-\\int \\cdots \\int
-\\left( \\prod_{\\nu \\neq \\mu} dx_{\\nu} \\right)
-\\; \\frac{\\partial^k f}{\\partial x_{\\mu}^k}
-\\left( x_1, \\ldots, x_{\\mu}=\\bar{x}, \\ldots, x_{\\texttt{dim}} \\right) \\,.
-```
-Numerically, each cross-axis integral is computed by enumerating the ``(\\texttt{dim}-1)``-fold
-tensor-product grid over the ``1``-dimensional nodes `xs`, accumulating the product weights, and evaluating
-[`nth_derivative`](@ref) on the resulting ``1``-dimensional slice (with the selected coordinate left as the differentiation variable).
-
-The routine returns the full decomposition of the asymptotic error model,
-including individual residual contributions and their summed value.
-
-Special case:
-
-* If `nerr_terms == 1`, this reduces to the usual leading-order (LO) axis-separable term.
-
-# Implementation notes
-
-* The helper `_call_with_axis` constructs the argument tuple for `f` by replacing only one coordinate (`axis`)
-  with the differentiation variable `x` (which may be a Dual).
-* The enumeration over the `(\\texttt{dim}-1)` indices is implemented in odometer style.
-* For `dim == 1`, the routine falls back to a direct derivative evaluation.
+For each collected residual order `k`, it sums the axis-wise contributions
+obtained by inserting the midpoint along one differentiation axis and
+integrating over the remaining `dim-1` axes through an odometer-style
+tensor-product traversal.
 
 # Arguments
-
-* `f`:
-  Callable integrand expecting exactly `dim` positional arguments.
-* `a`, `b`:
-  Scalar bounds defining the hypercube ``[a,b]^\\texttt{dim}``.
-* `N`:
-  Number of subintervals per axis. Must satisfy the composite tiling constraint for `(rule, boundary)`.
-* `rule`:
-  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
-* `boundary`:
-  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-* `dim`:
-  Dimensionality of the integral (must satisfy ``\\texttt{dim} \\ge 1``).
+- `f`: Callable integrand accepting exactly `dim` scalar arguments.
+- `a::Real`: Lower bound.
+- `b::Real`: Upper bound.
+- `N::Int`: Number of subintervals per axis.
+- `rule::Symbol`: Quadrature rule symbol.
+- `boundary::Symbol`: Boundary pattern symbol.
 
 # Keyword arguments
-
-* `err_method`:
-  Backend used for derivative evaluation via [`nth_derivative`](@ref).
-  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
-* `nerr_terms`:
-  Number of nonzero midpoint residual terms to include in the model (`1` = LO only, `2` = LO+NLO, ...).
-* `kmax`:
-  Maximum residual order scanned when collecting terms.
+- `dim::Int`: Problem dimensionality.
+- `err_method::Symbol`: Derivative backend selector.
+- `nerr_terms::Int`: Number of nonzero residual terms to include.
+- `kmax::Int`: Maximum residual order scanned.
 
 # Returns
-
-* `NamedTuple` with fields:
-
-  * `ks` - residual orders used in the model
-  * `coeffs` - midpoint residual coefficients
-  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
-  * `terms` - individual asymptotic error contributions
-  * `total` - summed truncation-error model value
-  * `center` - midpoint ``\\bar{x}``
-  * `h` - step size
+- `NamedTuple` with fields:
+  - `ks`
+  - `coeffs`
+  - `derivatives`
+  - `terms`
+  - `total`
+  - `center`
+  - `h`
 
 # Errors
-
-* Throws `ArgumentError` if `dim < 1`.
-* Propagates errors from:
-
-  * composite weight assembly / midpoint residual extraction,
-  * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
-  insufficient nonzero residual terms exist up to `kmax`.
+- Throws `ArgumentError` if `dim < 1`.
+- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1`.
+- Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes
-
-* The model is *axis-separated* (sum of single-axis error operators).
-  Mixed-derivative contributions are higher order and intentionally omitted.
-* Complexity grows as ``\\mathcal{O}\\left( n_{\\text{err}} \\; \\texttt{dim} \\; (N+1)^{\\texttt{dim}-1} \\right)`` derivative evaluations,
-  so this estimator can be expensive for large `dim` at high resolution.
+- The model is axis-separable.
+- Mixed derivative terms are intentionally omitted.
+- This estimator can become expensive for large `dim`.
 """
 function error_estimate_nd(
     f,
@@ -263,45 +208,34 @@ end
         dim::Int,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> NamedTuple
+    )
 
-Threaded variant of [`error_estimate_nd`](@ref) for nD midpoint-residual truncation-error modeling.
+Threaded variant of `error_estimate_nd`.
 
-All non-threading details (mathematical definition, coefficient construction, residual-term
-interpretation, and overall intent) are identical to [`error_estimate_nd`](@ref).
-See that function for the full formalism and background.
+# Function description
+This routine preserves the same generic `nd` midpoint-residual model as
+`error_estimate_nd` but parallelizes the accumulation over differentiation
+axes.
 
-# Threading implementation
-
-This function parallelizes the axis-wise accumulation using Julia's built-in multithreading:
-
-* For each residual order `k` in `ks`, the total contribution is a sum over axes `axis = 1:dim`.
-* The per-axis contributions are distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over `axis in 1:dim`.
-* Each axis worker performs the full `(dim-1)`-dimensional node-product summation (odometer loop)
-  for its assigned axis, repeatedly evaluating the required `k`-th derivative at the midpoint.
-* Per-axis results are accumulated into a thread-local `Float64` buffer indexed by [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid),
-  followed by a `sum` reduction across threads.
-* Thread safety is ensured by allocating `fixed` and `idx` buffers *inside* the threaded loop,
-  avoiding any shared mutable state across threads.
-
-Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+Each worker performs the full `(dim-1)`-dimensional odometer-style summation for
+its assigned axis using thread-local buffers.
 
 # Arguments
-
-Same as [`error_estimate_nd`](@ref), with `dim` selecting the dimensionality.
+- Same as `error_estimate_nd`.
 
 # Keyword arguments
-
-Same as [`error_estimate_nd`](@ref).
+- Same as `error_estimate_nd`.
 
 # Returns
+- Same `NamedTuple` structure as `error_estimate_nd`.
 
-Same as [`error_estimate_nd`](@ref).
+# Errors
+- Throws `ArgumentError` if `dim < 1`.
+- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1`.
+- Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes
-
-* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
-* For small `dim` or small `nerr_terms`, threading overhead may dominate.
+- Threading overhead may dominate for small `dim` or small `nerr_terms`.
 """
 function error_estimate_nd_threads(
     f,

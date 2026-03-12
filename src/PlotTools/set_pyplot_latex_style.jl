@@ -1,19 +1,34 @@
 """
     set_pyplot_latex_style(
-        scale::Float64=0.5
+        scale::Float64 = 0.5
     ) -> Nothing
 
-Configure [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) with [``\\LaTeX``](https://www.latex-project.org/) rendering and appropriate font settings for publications.
+Configure global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams) rendering parameters for publication-style figures.
 
-This function modifies [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams) to enable [``\\LaTeX``](https://www.latex-project.org/)-based text rendering and adjust 
-font sizes, marker sizes, and line widths for consistent visual output.  
-Useful for generating high-quality plots for papers or presentations.
+This helper enables [``\\LaTeX``](https://www.latex-project.org/)-based text rendering and adjusts global plotting
+settings such as font sizes, line widths, and marker sizes. It is typically used
+internally by higher-level plotting routines in `Maranatha.PlotTools`.
 
 # Arguments
-- `scale::Float64`: Scaling factor for font sizes and figure dimensions. Default is `0.5`.
 
-# Side Effects
-- Modifies [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)'s global rendering configuration via [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams).
+`scale::Float64 = 0.5`
+: Global scaling factor used when setting font sizes and related figure-style
+  parameters.
+
+# Returns
+
+`nothing`.
+
+# Errors
+
+This function does not perform explicit argument validation, but downstream
+[`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams) / [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) configuration calls may fail if the plotting backend is not
+available or if the local [``\\LaTeX``](https://www.latex-project.org/) environment is not configured properly.
+
+# Notes
+
+This function modifies global `matplotlib` state through `rcParams`, so its effect
+persists for subsequently created figures in the current Julia session.
 """
 function set_pyplot_latex_style(
     scale::Float64=0.5

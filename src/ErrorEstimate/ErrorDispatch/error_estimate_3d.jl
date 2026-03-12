@@ -19,94 +19,48 @@
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> NamedTuple
+    )
 
-Estimate a ``3``-dimensional tensor-product truncation-error *model* for a composite Newton-Cotes rule
-on the cube ``[a,b]^3`` using the exact midpoint residual expansion.
+Estimate a `3`-dimensional axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This routine generalizes the ``1``-dimensional midpoint-residual model to a ``3``-dimensional tensor-product setting
-by applying the ``1``-dimensional midpoint error operator along each axis and numerically integrating
-the resulting derivative over the remaining axes.
+This routine applies the `1`-dimensional midpoint error operator along each axis
+of the cube `[a,b]^3` and integrates the resulting derivative slices over the
+remaining two axes.
 
-Let ``\\displaystyle{h = \\frac{b-a}{N}}`` and ``\\displaystyle{\\bar{x} = \\bar{y} = \\bar{z} = \\frac{a+b}{2}}``.
-From the exact rational composite weights (via midpoint residual moments), we obtain a sequence
-of nonzero residual orders ``k`` with exact coefficients
-``\\displaystyle{\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}}``. This routine collects the first `nerr_terms`
-nonzero residual orders ``k_1, k_2, \\ldots`` (up to `kmax`) and returns the summed separable model:
-```math
-E \\approx \\sum_{i=1}^{n_{\\text{err}}}
-\\texttt{coeff}_{k_i}\\, h^{k_i+1}\\, \\left( I_x^{(k_i)} + I_y^{(k_i)} + I_z^{(k_i)} \\right),
-```
-where the axis-wise cross integrals are
-```math
-I_x^{(k)} = \\int\\limits_{a}^{b}\\!\\int\\limits_{a}^{b} dy\\,dz\\;
-\\frac{\\partial^k f}{\\partial x^k}(\\bar{x}, y, z) \\,,
-```
-```math
-I_y^{(k)} = \\int\\limits_{a}^{b}\\!\\int\\limits_{a}^{b} dz\\,dx\\;
-\\frac{\\partial^k f}{\\partial y^k}(x, \\bar{y}, z) \\,,
-```
-```math
-I_z^{(k)} = \\int\\limits_{a}^{b}\\!\\int\\limits_{a}^{b} dx\\,dy\\;
-\\frac{\\partial^k f}{\\partial z^k}(x, y, \\bar{z}) \\,.
-```
-Each cross-axis integral is evaluated numerically using the same ``1``-dimensional composite nodes/weights
-along the remaining axes.
-
-The routine returns the full decomposition of the asymptotic error model,
-including individual residual contributions and their summed value.
+For each collected residual order `k`, it forms the model contribution
+`coeff_k * h^(k+1) * (I_x^(k) + I_y^(k) + I_z^(k))`.
 
 # Arguments
-
-* `f`:
-  Scalar callable integrand ``f(x,y,z)`` (function, closure, or callable struct).
-* `a`, `b`:
-  Scalar bounds defining the cube domain ``[a,b]^3``.
-* `N`:
-  Number of subintervals per axis. Must satisfy the composite tiling constraint for `(rule, boundary)`.
-* `rule`:
-  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
-* `boundary`:
-  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
+- `f`: Scalar callable integrand `f(x, y, z)`.
+- `a::Real`: Lower bound.
+- `b::Real`: Upper bound.
+- `N::Int`: Number of subintervals per axis.
+- `rule::Symbol`: Quadrature rule symbol.
+- `boundary::Symbol`: Boundary pattern symbol.
 
 # Keyword arguments
-
-* `err_method`:
-  Backend used for derivative evaluation via [`nth_derivative`](@ref).
-  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
-* `nerr_terms`:
-  Number of nonzero midpoint residual terms to include in the model (`1` = LO only, `2` = LO+NLO, ...).
-* `kmax`:
-  Maximum residual order scanned when collecting terms.
+- `err_method::Symbol`: Derivative backend selector.
+- `nerr_terms::Int`: Number of nonzero residual terms to include.
+- `kmax::Int`: Maximum residual order scanned.
 
 # Returns
-
-* `NamedTuple` with fields:
-
-  * `ks` - residual orders used in the model
-  * `coeffs` - midpoint residual coefficients
-  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
-  * `terms` - individual asymptotic error contributions
-  * `total` - summed truncation-error model value
-  * `center` - midpoint ``\\bar{x}``
-  * `h` - step size
+- `NamedTuple` with fields:
+  - `ks`
+  - `coeffs`
+  - `derivatives`
+  - `terms`
+  - `total`
+  - `center`
+  - `h`
 
 # Errors
-
-* Propagates errors from:
-
-  * midpoint residual extraction / composite weight generation,
-  * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
-  insufficient nonzero residual terms exist up to `kmax`.
+- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes
-
-* This model sums only *axis-separable* contributions (``x``-only, ``y``-only, ``z``-only operators).
-* Mixed derivative terms (e.g. ``\\partial_x^r\\partial_y^s f`` and other cross terms) are higher order
-  and intentionally omitted.
-* Coefficients are derived in exact rational arithmetic and converted to `Float64` only at the final stage.
+- Only axis-separable contributions are included.
+- Mixed derivative terms are intentionally omitted.
 """
 function error_estimate_3d(
     f,
@@ -234,44 +188,32 @@ end
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> NamedTuple
+    )
 
-Threaded variant of [`error_estimate_3d`](@ref) for 3D midpoint-residual truncation-error modeling.
+Threaded variant of `error_estimate_3d`.
 
-All non-threading details (mathematical definition, coefficient construction, residual-term
-interpretation, and overall intent) are identical to [`error_estimate_3d`](@ref).
-See that function for the full formalism and background.
+# Function description
+This routine preserves the same 3D midpoint-residual model as
+`error_estimate_3d` but parallelizes the dominant flattened 2D index-grid loops
+used in the axis-wise cross integrals.
 
-# Threading implementation
-
-This function parallelizes the dominant axis-wise summation loops using Julia's built-in
-multithreading:
-
-* For each residual order `k` in `ks`, the ``x``-, ``y``-, and ``z``-axis contributions are computed
-  as weighted sums over 2D index grids (size `length(xs)^2`) corresponding to the remaining axes.
-* Each axis sum is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over a flattened grid-index loop
-  (`idx in 1:(L^2)`), which is mapped to the corresponding pair of 1D node indices.
-* Each axis sum accumulates into a thread-local `Float64` scratch buffer indexed by
-  [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid), followed by a `sum` reduction to form ``I_1``, ``I_2``, and ``I_3``.
-
-Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+Thread-local partial sums are reduced after each axis contribution is computed.
 
 # Arguments
-
-Same as [`error_estimate_3d`](@ref).
+- Same as `error_estimate_3d`.
 
 # Keyword arguments
-
-Same as [`error_estimate_3d`](@ref).
+- Same as `error_estimate_3d`.
 
 # Returns
+- Same `NamedTuple` structure as `error_estimate_3d`.
 
-Same as [`error_estimate_3d`](@ref).
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
 
 # Notes
-
-* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
-* For small `length(xs)` or small `nerr_terms`, threading overhead may dominate.
+- Threading overhead may dominate when the tensor grid is small.
 """
 function error_estimate_3d_threads(
     f,

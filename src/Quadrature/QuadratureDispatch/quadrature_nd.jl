@@ -19,62 +19,32 @@
         dim::Int
     ) -> Float64
 
-Perform an **multidimensional tensor-product quadrature** over the hypercube
-domain ``[a,b]^{\\texttt{dim}}`` using a 1D rule specified by `rule`.
+Perform a general tensor-product quadrature over ``[a,b]^{\\texttt{dim}}``.
 
 # Function description
-This routine evaluates a multidimensional integral by constructing the
-tensor product of a 1D quadrature rule.
+This routine builds the `1`-dimensional nodes and weights using
+[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`, then
+enumerates all tensor-product index tuples with an odometer-style update.
 
-The algorithm:
-
-1. Builds 1D quadrature nodes and weights `(xs, ws)` via
-   [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`.
-2. Iterates over all multi-indices ``(i_1, i_2, \\ldots, i_{\\texttt{dim}})`` using an
-   odometer-style index update.
-3. Forms the tensor-product weight
-
-   ``w = 
-   \\texttt{ws[}\\texttt{i}_\\texttt{1}\\texttt{]} \\ast
-   \\texttt{ws[}\\texttt{i}_\\texttt{2}\\texttt{]} \\ast
-   \\ldots \\ast 
-   \\texttt{ws[}\\texttt{i}_\\texttt{dim}\\texttt{]}``.
-
-4. Evaluates the integrand as
-
-   ``f\\texttt{(}
-   \\texttt{xs[}\\texttt{i}_\\texttt{1}\\texttt{]},\\,
-   \\texttt{xs[}\\texttt{i}_\\texttt{2}\\texttt{]},\\,
-   \\ldots,\\,
-   \\texttt{xs[}\\texttt{i}_\\texttt{dim}\\texttt{]}
-   \\texttt{)} \\,.``
-
-5. Accumulates the weighted sum
-
-   ``\\displaystyle{\\sum_{i_1,\\ldots,i_{\\texttt{dim}}} w \\ast f\\texttt{(}\\ldots\\texttt{)}}``.
-
-This implementation intentionally mirrors the explicit loop ordering
-and accumulation style used throughout the `Maranatha.jl` quadrature stack
-to ensure reproducibility and consistent floating-point behavior.
+For each multi-index ``(i_1, \\ldots, i_{\\texttt{dim}})``, it forms the weight
+product and evaluates the integrand as `f(x₁, x₂, ..., x_dim)` using splatting.
 
 # Arguments
 - `f`: Integrand callable accepting `dim` scalar arguments.
-- `a`, `b`: Domain bounds defining the hypercube ``[a,b]^\\texttt{dim}``.
-- `N`: Number of subdivisions per axis used to build the 1D rule.
-- `rule`: Integration rule symbol (e.g., `:simpson13_close`, `:bode_open`, etc.).
-- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  Required for Newton-Cotes rules.
-- `dim`: Number of dimensions (must satisfy `dim```\\ge 1``).
+- `a`, `b`: Bounds defining the hypercube ``[a,b]^{\\texttt{dim}}``.
+- `N`: Number of subdivisions / blocks per axis.
+- `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol.
+- `dim`: Number of dimensions.
 
 # Returns
-- `Float64`: Numerical quadrature estimate of the integral.
+- `Float64`: Estimated integral value.
 
-# Notes
-- This is a pure tensor-product construction; computational cost scales
-  as ``O(\\texttt{length(xs)}^\\texttt{dim})`` and therefore grows exponentially with `dim`.
-- Rule-specific constraints on `N` are enforced inside
+# Errors
+- Throws `ArgumentError` if `dim < 1`.
+- Propagates any error thrown by
   [`get_quadrature_1d_nodes_weights`](@ref).
-- The integrand is called as ``f(x_1, x_2, \\ldots, x_\\texttt{dim})`` using splatting.
+- Propagates any error thrown by `f`.
 """
 function quadrature_nd(
     f, 

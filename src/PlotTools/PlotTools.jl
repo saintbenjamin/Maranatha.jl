@@ -8,6 +8,24 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module PlotTools
+
+Plotting utilities for `Maranatha.jl`.
+
+`Maranatha.PlotTools` provides visualization helpers for fitted convergence
+results, raw convergence datapoints, pedagogical 1D quadrature coverage, and
+global PyPlot styling.
+
+The main public entry points are:
+
+- [`plot_convergence_result`](@ref)
+- [`plot_datapoints_result`](@ref)
+- [`plot_quadrature_coverage_1d`](@ref)
+
+This module also provides internal helpers such as
+[`_smart_text_placement!`](@ref).
+"""
 module PlotTools
 
 import ..PyPlot

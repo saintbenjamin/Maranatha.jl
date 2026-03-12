@@ -15,36 +15,19 @@ import ..TOML
 """
     VALID_ERR_METHODS :: Set{Symbol}
 
-Set of supported error-estimation method identifiers accepted by
-[`Maranatha.Runner.run_Maranatha`](@ref).
+Set of supported error-method identifiers for `TOML`-driven runs.
 
 # Description
-
 This constant enumerates the allowed values of the `err_method`
-configuration parameter used during numerical integration.
+configuration parameter accepted by the run-configuration pipeline.
 
-The value is validated by [`validate_run_config`](@ref) when executing
-TOML-driven runs and is forwarded to the internal error-estimation
-dispatch system.
-
-# Supported methods
-
-The currently supported identifiers are
-
-* `:forwarddiff`
-* `:taylorseries`
-* `:enzyme`
-* `:fastdifferentiation`
+It is used by [`validate_run_config`](@ref) to reject unsupported derivative
+backend selections before execution begins.
 
 # Notes
-
-The values correspond to derivative backends used by the error
-estimation subsystem.
-
-Users should supply one of these symbols when configuring runs via
-
-* direct `run_Maranatha(...; err_method=...)` calls
-* TOML configuration files parsed by [`parse_run_config_from_toml`](@ref)
+- The values correspond to derivative / error-estimation backends used by the
+  Maranatha error-estimation layer.
+- The constant is intended for validation, not for backend dispatch by itself.
 """
 const VALID_ERR_METHODS = Set([
     :forwarddiff,
@@ -59,41 +42,33 @@ const VALID_ERR_METHODS = Set([
         func_name::Symbol = :integrand
     ) -> Function
 
-Load a user-defined integrand function from a Julia source file in an isolated module.
+Load a user-defined integrand function from a Julia source file.
 
 # Function description
+This helper evaluates the given Julia source file inside a fresh temporary
+module and retrieves the function named by `func_name`.
 
-This helper evaluates a Julia source file inside a freshly created module and
-extracts the function named by `func_name`.
-
-The purpose of the isolated module is to avoid polluting the main `Maranatha`
-namespace with user-defined globals or helper symbols appearing inside the
-integrand file.
+Using an isolated module prevents user-defined helper symbols in the integrand
+file from polluting the main package namespace.
 
 # Arguments
-
-`path::AbstractString`
-: Path to the Julia source file containing the user-defined integrand.
+- `path::AbstractString`: Path to the Julia source file containing the
+  user-defined integrand.
 
 # Keyword arguments
-
-`func_name::Symbol = :integrand`
-: Name of the function to retrieve from the loaded file.
+- `func_name::Symbol`: Name of the function to retrieve from the loaded file.
 
 # Returns
-
-The extracted integrand function.
+- `Function`: Loaded integrand function.
 
 # Errors
-
-* Throws an error if the file does not exist.
-* Throws an error if `func_name` is not defined in the loaded file.
-* Throws an error if the retrieved object exists but is not a function.
+- Throws if the file does not exist.
+- Throws if `func_name` is not defined in the loaded file.
+- Throws if the retrieved binding exists but is not a function.
 
 # Notes
-
-The file is executed as Julia code via `Base.include`.  This mechanism is
-therefore intended for trusted local user files.
+- The file is executed via `Base.include`.
+- This mechanism is intended for trusted local Julia source files.
 """
 function load_integrand_from_file(
     path::AbstractString;
@@ -124,47 +99,31 @@ end
         toml_path::AbstractString
     ) -> NamedTuple
 
-Parse a Maranatha TOML configuration file into a normalized run configuration.
+Parse a Maranatha `TOML` configuration file into a normalized run configuration.
 
 # Function description
+This helper reads a `TOML` configuration file, extracts the supported sections,
+normalizes path-like entries, and converts selected option values into the
+forms expected by the Maranatha run pipeline.
 
-This helper reads a TOML file, extracts the supported configuration sections,
-normalizes path-like entries, and converts selected string-valued options into
-the forms expected by [`Maranatha.Runner.run_Maranatha`](@ref).
-
-In particular, relative paths such as the integrand file path and save path are
-interpreted relative to the TOML file location rather than the current working
-directory.
+In particular, relative paths are interpreted relative to the `TOML` file
+location rather than the current working directory.
 
 # Arguments
-
-`toml_path::AbstractString`
-: Path to the TOML configuration file.
+- `toml_path::AbstractString`: Path to the `TOML` configuration file.
 
 # Returns
-
-A normalized configuration `NamedTuple` containing fields such as
-
-* `integrand_file`
-* `integrand_name`
-* `a`, `b`, `dim`
-* `nsamples`
-* `rule`, `boundary`
-* `err_method`, `fit_terms`, `nerr_terms`, `ff_shift`
-* `use_threads`
-* `name_prefix`, `save_path`, `write_summary`, `save_file`
+- `NamedTuple`: Normalized run-configuration bundle.
 
 # Errors
-
-* Throws an error if the TOML file does not exist.
-* Throws an error if required fields such as `[integrand].file`,
-  `[domain].a`, `[domain].b`, `[sampling].nsamples`,
-  `[quadrature].rule`, or `[quadrature].boundary` are missing.
+- Throws if the `TOML` file does not exist.
+- Throws if required fields such as `[integrand].file`, `[domain].a`,
+  `[domain].b`, `[sampling].nsamples`, `[quadrature].rule`, or
+  `[quadrature].boundary` are missing.
 
 # Notes
-
-This routine performs parsing and normalization only.  Semantic validation of
-the resulting configuration is deferred to [`validate_run_config`](@ref).
+- This helper performs parsing and normalization only.
+- Semantic validation is deferred to [`validate_run_config`](@ref).
 """
 function parse_run_config_from_toml(
     toml_path::AbstractString
@@ -249,37 +208,30 @@ end
 Validate a normalized Maranatha run configuration.
 
 # Function description
-
-This helper checks whether a parsed TOML configuration is structurally and
-numerically suitable for execution by [`Maranatha.Runner.run_Maranatha`](@ref).
+This helper checks whether a parsed / normalized configuration is structurally
+and numerically suitable for execution.
 
 The validation is intentionally limited to conditions that can be checked
 reliably without executing the user-defined integrand itself.
 
 # Arguments
-
-`cfg`
-: Normalized configuration bundle, typically produced by
+- `cfg`: Normalized configuration bundle, typically produced by
   [`parse_run_config_from_toml`](@ref).
 
 # Returns
-
-Nothing.
+- `Nothing`.
 
 # Errors
-
-* Throws an error if the integration domain does not satisfy `a < b`.
-* Throws an error if `dim < 1`.
-* Throws an error if `nsamples` is empty, non-integer, or contains non-positive values.
-* Throws an error if the integrand file does not exist.
-* Throws an error if `fit_terms < 1`, `nerr_terms < 1`, or `ff_shift < 0`.
-* Throws an error if `err_method` is not one of the supported methods in
-  `VALID_ERR_METHODS`.
+- Throws if `a >= b`.
+- Throws if `dim < 1`.
+- Throws if `nsamples` is empty or contains invalid entries.
+- Throws if the integrand file does not exist.
+- Throws if `fit_terms < 1`, `nerr_terms < 1`, or `ff_shift < 0`.
+- Throws if `err_method` is not contained in [`VALID_ERR_METHODS`](@ref).
 
 # Notes
-
-This routine does not verify whether the loaded integrand function signature is
-compatible with `dim`.  Any such mismatch is left to the later execution stage.
+- This helper does not verify whether the loaded integrand signature is
+  compatible with the requested dimensionality.
 """
 function validate_run_config(cfg)::Nothing
     cfg.a < cfg.b || error(

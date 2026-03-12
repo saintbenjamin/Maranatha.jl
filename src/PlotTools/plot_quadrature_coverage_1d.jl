@@ -10,174 +10,49 @@
         ngrid_block::Int = 400,
         name::String = "demo",
         figs_dir::String = ".",
-        save_file::Bool = false
+        save_file::Bool = false,
     ) -> Nothing
 
-Visualize **``1``-dimensional quadrature behavior** on ``[a,b]`` by plotting the true
-integrand ``f(x)`` together with a **pedagogical representation** of how the selected
-quadrature rule contributes to the integral.
-
-Unlike [`plot_convergence_result`](@ref), this routine is not a
-fit-visualization tool. Instead, it is meant to help interpret the geometric or
-rule-structural meaning of a selected 1D quadrature construction.
-
-# What this routine draws
-
-This routine is primarily intended for inspection, intuition-building, and debugging of
-1D quadrature rules. It answers questions such as:
-
-* what nodes and weights the backend is using,
-* what effective curve is being integrated in the B-spline case,
-* and how signed contributions are being assembled in non-B-spline rules.
-
-This function always draws:
-
-1. A dense curve of the true integrand ``f(x)`` over ``[a,b]``.
-2. Quadrature nodes/weights ``(xs, ws)`` obtained from
-   [`QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref).
-3. A text annotation displaying the quadrature sum computed directly from the returned
-   nodes and weights.
-
-   In the current implementation, this is displayed as a plain text label summarizing
-   the numerical quadrature sum, rather than as a separately typeset mathematical object.
-
-Rather than being fixed at a hard-coded corner, this annotation is placed using
-[`_smart_text_placement!`](@ref), an internal plotting helper that heuristically
-searches candidate locations and tries to avoid overlap with plotted curves and
-sampled quadrature information.
-
-Then it draws **one** of the following rule-specific visualizations:
-
-## 1) B-spline rules (`is_bs == true`)
-
-For B-spline quadrature rules, this plotter reconstructs the **effective spline curve**
-implicitly used by the B-spline backend and fills its area:
-
-* Sample data: `y_j = f(x_j)` at Greville nodes.
-* Reconstruct spline coefficients by solving the same collocation system used by the rule.
-* Plot the spline curve **piecewise per knot span** and fill the region under each span.
-  (Each span gets its own color, and the fill color is matched to the span line color.)
-
-This visualization is meant to show *which effective curve the B-spline backend is integrating*.
-The reconstructed spline curve is also passed to the smart annotation-placement helper
-so that the quadrature-sum label avoids covering the visually relevant spline shape.
-
-## 2) Non-B-spline rules (`is_bs == false`)
-
-For Newton-Cotes and Gauss-family rules, this plotter uses a simple **mass-bar view**:
-
-This view is intentionally schematic: it is designed to visualize signed quadrature
-contributions clearly, not to reproduce the original node geometry exactly.
-
-* Each quadrature contribution is ``w_i \\, f(x_i)``.
-* A rectangle is drawn whose:
-
-  * **width** is ``w_i``,
-  * **height** is ``f(x_i)``,
-    so that its signed area equals ``w_i \\, f(x_i)``.
-
-Implementation detail:
-
-* Bars are placed **sequentially from ``a``**, so the *bar ``x``-positions are not the original node locations*.
-  This is an intentionally minimal-assumption visualization that uses only the available `(xs, ws)`.
-
-Negative weights:
-
-* If ``w_i < 0``, the interval would geometrically "go backwards".
-  This implementation flips the drawn interval so it is always left-to-right, and flips the height sign,
-  preserving the signed area ``w_i \\, f(x_i)``.
-
-# Rule-family detection
-
-The rule family is detected by:
-
-* [`NewtonCotes._is_newton_cotes_rule`](@ref)
-* [`Gauss._is_gauss_rule`](@ref)
-* [`BSpline._is_bspline_rule`](@ref)
-
-The `(rule, boundary)` pair is passed unchanged to the quadrature dispatcher, and any
-validity constraints (e.g., composability constraints for composite rules) are enforced
-by the backend.
+Visualize one-dimensional quadrature behavior on `[a,b]` using a pedagogical plot
+that shows the sampled integrand together with a rule-specific representation of the
+quadrature construction.
 
 # Arguments
-
-* `f`:
+- `f`:
   Scalar integrand to be sampled by the selected 1D quadrature rule.
-  If ``f(x)`` is not finite at a node, that node is skipped when accumulating the
-  displayed quadrature sum ``\\hat I``.
-* `a`, `b`: interval endpoints (finite, with ``b > a``).
-* `N`: subdivision count forwarded to the backend.
+- `a::Real`, `b::Real`:
+  Interval endpoints.
+- `N::Int`:
+  Subdivision count forwarded to the quadrature backend.
 
 # Keyword arguments
-
-* `rule`, `boundary`:
-  Quadrature rule selector forwarded to the backend.
-* `ngrid_f`:
-  Number of grid points used to draw the dense reference curve of the true integrand.
-* `ngrid_block`:
-  Number of grid points per knot span when drawing reconstructed B-spline pieces.
-* `name`:
-  Label used in the output filename stem.
-* `figs_dir`:
-  Directory used for saving the output PDF when `save_file=true`.
-* `save_file`:
-  If `true`, save the figure as a PDF file. If `pdfcrop` is available, the saved PDF
-  is cropped automatically.
-
-# Typical use cases
-
-This routine is especially useful when:
-
-1. checking how a 1D rule samples the integrand,
-2. inspecting the effective reconstructed curve for B-spline quadrature,
-3. illustrating signed weight contributions in Newton-Cotes or Gauss-family rules,
-4. preparing pedagogical figures for notes, talks, or debugging workflows
-
-# Annotation placement
-
-The quadrature-sum annotation is positioned automatically using
-[`_smart_text_placement!`](@ref). For non-B-spline rules, the helper avoids overlap
-with the true integrand curve and finite node samples. For B-spline rules, it instead
-avoids overlap with the reconstructed spline curve and the sampled node values.
-
-# Output
-
-When `save_file=true`, saves:
-
-```julia
-pedagogical_1D_\$(name)_\$(String(rule))_\$(String(boundary))_N\$(N).pdf
-```
-
-under `figs_dir`.
-
-If the external command `pdfcrop` is available, the saved PDF is cropped automatically.
-Only a single pedagogical figure is generated by this routine.
+- `rule::Symbol = :newton_p3`, `boundary::Symbol = :LU_ININ`:
+  Rule selector forwarded to the quadrature backend.
+- `ngrid_f::Int = 4000`:
+  Number of points used to draw the dense reference curve of `f`.
+- `ngrid_block::Int = 400`:
+  Number of points used per local block / span in rule-specific visualizations.
+- `name::String = "demo"`:
+  Basename used for output filenames.
+- `figs_dir::String = "."`:
+  Output directory for saved figures.
+- `save_file::Bool = false`:
+  If `true`, save the generated figure.
 
 # Returns
+- `Nothing`:
+  This routine is used for plotting and optional file-output side effects.
 
-`nothing`.
+# Errors
+- Throws an error if `N < 1`, if the interval is invalid, or if the rule family is unsupported.
+- Propagates backend errors from quadrature-node construction and plotting.
+- In the B-spline branch, may throw if node samples are not finite.
 
-This routine is used for its side effects: it displays the generated figure and,
-if `save_file = true`, also writes it to disk.
-
-# Example
-
-The example below generates a pedagogical 1D coverage plot for a Gauss-family rule.
-
-```julia
-f(x) = sin(3x) * exp(-x^2)
-
-plot_quadrature_coverage_1d(
-    f,
-    0.0,
-    1.0,
-    6;
-    rule = :gauss_p4,
-    boundary = :LU_EXEX,
-    name = "gauss_demo",
-    save_file = false
-)
-```
+# Notes
+- This routine is intended for intuition-building, inspection, and debugging of 1D rules.
+- Non-B-spline rules use a signed contribution view, while B-spline rules visualize the
+  reconstructed effective spline curve.
+- A `TOML`-driven convenience wrapper is also provided.
 """
 function plot_quadrature_coverage_1d(
     f,
@@ -482,70 +357,38 @@ end
         save_file::Bool = false,
     ) -> Nothing
 
-Plot pedagogical 1D quadrature coverage directly from a Maranatha TOML file.
-
-# Function description
-
-This is a TOML-driven convenience wrapper around
-[`plot_quadrature_coverage_1d`](@ref).
-
-The routine parses the TOML configuration, loads the user-defined integrand
-from the referenced Julia source file, and forwards the recovered arguments
-to the primary
-
-```julia
-plot_quadrature_coverage_1d(f, a, b, N; ...)
-```
-
-method.
-
-If `N` is provided, only that subdivision count is plotted.
-If `N === nothing`, the routine generates plots for all subdivision counts
-listed in the TOML field `[sampling].nsamples`.
+Convenience wrapper that loads a Maranatha `TOML` configuration, imports the user
+integrand, and forwards the recovered inputs to the primary
+`plot_quadrature_coverage_1d` method.
 
 # Arguments
-
-`toml_path::AbstractString`
-: Path to the TOML configuration file.
+- `toml_path::AbstractString`:
+  Path to the `TOML` configuration file.
 
 # Keyword arguments
-
-`N::Union{Nothing,Int} = nothing`
-: Subdivision count to plot.  If omitted, all `nsamples` in the TOML file are used.
-
-`ngrid_f::Int = 4000`
-: Number of dense sampling points used for plotting the true integrand curve.
-
-`ngrid_block::Int = 400`
-: Number of dense sampling points used per local block/span for pedagogical fills.
-
-`name::Union{Nothing,String} = nothing`
-: Plot name prefix.  If omitted, `cfg.name_prefix` from the TOML file is used.
-
-`figs_dir::Union{Nothing,String} = nothing`
-: Output directory for figures.  If omitted, `cfg.save_path` from the TOML file is used.
-
-`save_file::Bool = false`
-: Whether to save the generated figure files.
+- `N::Union{Nothing,Int} = nothing`:
+  Subdivision count to plot. If omitted, all configured `nsamples` are used.
+- `ngrid_f::Int = 4000`:
+  Number of dense plotting points for the true integrand curve.
+- `ngrid_block::Int = 400`:
+  Number of dense plotting points per local block / span.
+- `name::Union{Nothing,String} = nothing`:
+  Optional basename overriding the `TOML` configuration.
+- `figs_dir::Union{Nothing,String} = nothing`:
+  Optional output directory overriding the `TOML` configuration.
+- `save_file::Bool = false`:
+  If `true`, save the generated figures.
 
 # Returns
-
-Nothing.
+- `Nothing`.
 
 # Errors
-
-* Propagates parsing errors from [`MaranathaTOML.parse_run_config_from_toml`](@ref).
-* Propagates validation errors from [`MaranathaTOML.validate_run_config`](@ref).
-* Propagates integrand-loading errors from [`MaranathaTOML.load_integrand_from_file`](@ref).
-* Throws an error if the requested `N` is not present in `cfg.nsamples`.
-* Propagates downstream plotting errors from the primary
-  [`plot_quadrature_coverage_1d`](@ref) method.
+- Propagates `TOML` parsing, validation, and integrand-loading errors.
+- Throws an error if an explicitly requested `N` is not contained in `cfg.nsamples`.
+- Propagates all plotting errors from the primary method.
 
 # Notes
-
-The user-defined integrand file is evaluated in an isolated module.
-Because the integrand is loaded dynamically, this wrapper uses
-`Base.invokelatest` when dispatching to the primary plotting routine.
+- Because the integrand is loaded dynamically, this wrapper dispatches through `Base.invokelatest`.
 """
 function plot_quadrature_coverage_1d(
     toml_path::AbstractString;

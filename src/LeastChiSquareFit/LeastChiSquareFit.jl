@@ -32,279 +32,55 @@ import ..ErrorEstimate.ErrorDispatch
         boundary::Symbol;
         nterms::Int = 2,
         ff_shift::Int = 0,
-        nerr_terms::Int=1
+        nerr_terms::Int = 1,
     )
 
 Perform a weighted least-``\\chi^2`` fit for ``h \\to 0`` extrapolation from a raw
-convergence dataset, and return both best-fit parameters and their uncertainties.
+convergence dataset.
 
-This is typically the **second step** in a standard `Maranatha.jl` workflow:
-first generate `result` with [`Maranatha.Runner.run_Maranatha`](@ref),
-then call `least_chi_square_fit(result.a, result.b, result.h, result.avg, result.err, ...)`,
-and optionally visualize the fitted result with
+This is typically the second stage of a standard `Maranatha.jl` workflow:
+generate a dataset with [`Maranatha.Runner.run_Maranatha`](@ref), fit the convergence
+model with `least_chi_square_fit`, and optionally visualize the result with
 [`Maranatha.PlotTools.plot_convergence_result`](@ref).
-
-# Function description
-This routine takes a raw convergence dataset—typically produced by
-[`Maranatha.Runner.run_Maranatha`](@ref)—and fits a rule- and boundary-dependent
-convergence ansatz that is **linear in its parameters**, using weighted least squares (WLS).
-
-The step sizes are supplied by the caller through `hs`, where
-``\\displaystyle{h = \\frac{b-a}{N}}``.
-
-The convergence exponents are inferred automatically from a unified midpoint-residual model
-that depends on `(rule, boundary)` and a representative subdivision count `Nref`
-derived from the smallest step size in `hs`.
-
-A list of candidate residual indices is obtained via
-[`ErrorDispatch._leading_residual_ks_with_center_any`](@ref),
-then mapped to fit powers in `h` depending on the rule family, and finally sliced using
-the optional `ff_shift`.
-
-## Exponent selection (midpoint residual model + forward shift)
-
-First, a list of candidate residual indices is obtained via
-[`ErrorDispatch._leading_residual_ks_with_center_any`](@ref)
-as `ks`.
-
-These `ks` are then mapped to the fit powers in `h` depending on the rule family:
-
-- **Newton-Cotes rules**: `powers_all = ks` (current pipeline convention).
-- **Gauss-family rules**: `powers_all = ks` (as returned by the Gauss residual backend).
-- **B-spline rules**: `powers_all = ks .+ 1` (moment index `k` corresponds to an ``h^{k+1}`` scaling).
-
-The fit basis uses exactly `need = nterms - 1` non-constant powers, selected by slicing:
-
-```math
-\\texttt{powers} = \\texttt{powers\\_all[ (1+ff\\_shift) : (1+ff\\_shift+need-1) ]}
-```
-This is useful when the integrand makes the true leading-order coefficient vanish
-(e.g., the corresponding midpoint derivative is identically zero), so the fit may benefit
-from skipping the nominal leading power and using the next ones.
-
-## Convergence model and design matrix
-
-The fitted form is:
-
-```math
-I(h) = I_0 + C_1 \\, h^{p_1} + C_2 \\, h^{p_2} + \\cdots + C_{\\texttt{need}} \\, h^{p_{\\texttt{need}}}
-```
-
-with exponent list ``\\texttt{powers} = [p_1, p_2, ..., p_\\texttt{need}]`` selected as described above.
-
-The design matrix is constructed as:
-
-* column ``1``  : ``h^0`` (constant term)
-* column ``t+1``: ``h^{\\texttt{powers[t]}}`` for ``t = 1,\\ldots,\\texttt{need}``
-
-## Solve (WLS)
-
-Let ``X`` be the design matrix, ``y`` the estimates, and ``\\sigma`` the pointwise errors.
-Weights are constructed as ``\\displaystyle{W = \\mathrm{diag}\\left(\\frac{1}{\\sigma}\\right)}``, and the WLS problem is solved as:
-```math
-\\left( W \\, X \\right) \\bm{\\lambda} = \\left( W \\, y \\right),
-```
-yielding ``\\bm{\\lambda} = [I_0, C_1, C_2, \\ldots]^{\\mathsf{T}}``.
-
-## Parameter covariance and errors
-
-This implementation computes Hessian-based propagation, using a Cholesky factorization rather
-than forming `inv(H)` explicitly.
-
-1. Build the normal matrix ``A = X^{\\mathsf{T}} W^2 X``.
-2. Define the ``\\chi^2`` Hessian as ``H = 2A``.
-3. Factorize ``H`` via `cholesky(Symmetric(H))` (requires SPD (symmetric positive definite)).
-4. Compute the covariance as:
-
-```math
-V = 4 \\, H^{-1} \\, A \\, H^{-1}.
-```
-
-The ``1\\,\\sigma`` parameter errors are ``\\sqrt{\\mathrm{diag}(V)}``.
 
 # Arguments
 
 * `a`, `b`:
-  Integration bounds (used only to derive `Nref` from the smallest `h` in `hs`).
+  Integration bounds, used to infer a representative subdivision count from the
+  smallest step size in `hs`.
 * `hs`:
-  Vector-like collection of step sizes ``h``.
+  Step-size collection.
 * `estimates`:
-  Vector-like collection of quadrature estimates ``I(h)``.
+  Quadrature estimates corresponding to `hs`.
 * `error_infos`:
-  Collection of error-estimator outputs, typically the `result.err` field returned by
+  Error-estimator outputs, typically `result.err` from
   [`Maranatha.Runner.run_Maranatha`](@ref).
-  Each entry is expected to provide residual-term information through its `terms` field.
-  The first `nerr_terms` residual contributions are summed internally to build
-  the effective uncertainty vector used in the weighted fit.
-* `rule`:
-  Quadrature rule symbol used by the midpoint residual model.
-* `boundary`:
-  Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`) used by the midpoint residual model.
+* `rule`, `boundary`:
+  Rule configuration used to infer the fit powers.
 
 # Keyword arguments
 
 * `nterms::Int = 2`:
-  Number of basis terms in the convergence model (including the constant term).
-  Must satisfy ``\\texttt{nterms} \\ge 2``.
-
+  Number of fit terms, including the constant extrapolated term.
 * `ff_shift::Int = 0`:
-  Forward shift applied to the candidate residual-power list before selecting `nterms - 1` powers.
-  Must satisfy ``\\texttt{ff\\_shift} \\ge 0``.
-  If the shift makes the requested slice impossible, an error is thrown.
+  Forward shift applied when selecting fit powers from the residual-power list.
 * `nerr_terms::Int = 1`:
-  Number of midpoint residual terms used when constructing the
-  effective error scale from the supplied `error_infos`.
-  The first `nerr_terms` residual contributions are summed to form
-  the uncertainty vector used in the weighted fit.
-
-  In typical use, this should match the `nerr_terms` setting that was used earlier in
-  [`Maranatha.Runner.run_Maranatha`](@ref), so that the fitter and the runner interpret
-  the stored residual information consistently.
-
-# Typical workflow context
-
-A common usage pattern is:
-
-1. generate `result` with [`Maranatha.Runner.run_Maranatha`](@ref)
-2. fit the convergence model with [`least_chi_square_fit`](@ref)
-3. inspect the fitted parameters with [`print_fit_result`](@ref)
-4. optionally visualize the result with
-   [`Maranatha.PlotTools.plot_convergence_result`](@ref)
+  Number of residual contributions summed to construct the effective uncertainty vector.
 
 # Returns
 
-A `NamedTuple` with the following fields:
+A `NamedTuple` containing the extrapolated value, parameter errors, covariance,
+selected powers, and ``\\chi^2`` diagnostics.
 
-* `estimate::Float64`:
-  Extrapolated value ``I_0 = I(h \\to 0)`` (i.e. `params[1]`).
-* `error_estimate::Float64`:
-  One-sigma uncertainty for ``I_0`` from the covariance diagonal.
-* `params::Vector{Float64}`:
-  Fitted parameter vector ``[I_0, C_1, C_2, \\ldots]``.
-* `param_errors::Vector{Float64}`:
-  ``1\\sigma`` uncertainties for `params`.
-* `cov::Matrix{Float64}`:
-  Parameter covariance matrix.
-* `powers::Vector{Int}`:
-  Exponent vector used by the fit basis, returned as `vcat(0, powers)` to align with `params`.
-  This stored basis is later used by plotting and reporting utilities to reconstruct the
-  fitted model consistently without re-inferring the powers.
-* `chisq::Float64`:
-  ``\\chi^2`` value.
-* `redchisq::Float64`:
-  ``\\chi^2/\\text{d.o.f.}`` value.
-* `dof::Int`:
-  Degrees of freedom, `length(y) - length(params)`.
+# Notes
 
-# Errors
+* This routine fits a linear-in-parameters convergence ansatz using weighted least squares.
+* Residual powers are inferred automatically from the midpoint-residual model.
+* The returned `powers` field is stored explicitly so that downstream plotting and
+  reporting can reconstruct the fitted model consistently.
 
-* Throws an error if `nterms < 2`.
-* Throws an error if `ff_shift < 0`.
-* Throws an error if there are not enough residual powers available after applying `ff_shift`.
-* Throws an error if the Hessian is not positive definite (Cholesky decomposition fails).
-* Note: If `dof == 0`, then `redchisq = chisq / dof` follows IEEE rules and may become
-  `Inf` or `NaN`. In practice, this means the number of fitted parameters has saturated
-  the available data points, so the fit may still return parameters but the reduced
-  ``\\chi^2`` diagnostic is no longer informative.
-
-
-# Example workflow
-
-The example below demonstrates a minimal end-to-end workflow
-using a configuration file and a simple integrand definition.
-
-First define a small integrand in a Julia source file.
-
-Example integrand (`sample_1d.jl`)
-
-```julia
-integrand(x) = sin(x)
-```
-
-Next prepare a configuration file describing the integration
-domain, sampling sequence, quadrature rule, and output options.
-
-Configuration file (`sample_1d.toml`)
-
-```toml
-[integrand]
-file = "sample_1d.jl"
-name = "integrand"
-
-[domain]
-a = 0.0
-b = 3.141592653589793
-dim = 1
-
-[sampling]
-nsamples = [2, 3, 4, 5, 6, 7, 8, 9]
-
-[quadrature]
-rule = "gauss_p4"
-boundary = "LU_EXEX"
-
-[error]
-err_method = "forwarddiff"
-fit_terms = 4
-nerr_terms = 3
-ff_shift = 0
-
-[execution]
-use_threads = true
-
-[output]
-name_prefix = "1D"
-save_path = "."
-write_summary = true
-save_file = true
-```
-
-Assume that `sample_1d.jl` and `sample_1d.toml` are located
-in the current working directory.
-
-The quadrature pipeline can then be executed using the
-high-level runner, producing a convergence dataset 
-across multiple quadrature resolutions.
-
-```julia
-using Maranatha
-
-run_result = run_Maranatha("./sample_1d.toml")
-```
-
-Once the dataset has been generated, the continuum limit
-``h \\to 0`` can be estimated by performing a least ``\\chi^2`` fit.
-
-```julia
-fit_result = least_chi_square_fit(
-    run_result; 
-    nterms=3, 
-    ff_shift=0, 
-    nerr_terms=2
-)
-
-print_fit_result(fit_result)
-```
-
-Finally, the convergence behavior and fitted uncertainty
-can be visualized using the plotting utilities.
-
-```julia
-plot_convergence_result(
-    run_result, 
-    fit_result;
-    name="Maranatha_test1",
-    figs_dir=".",
-    save_file=true
-)
-```
-
-For more detailed examples and interactive demonstrations,
-see the Jupyter notebooks in the `ipynb/` directory of this project.
-
-These notebooks provide step-by-step tutorials covering the full
-`Maranatha.jl` workflow, including dataset generation, merging partial
-runs, filtering datapoints, and convergence visualization.
+For a fuller explanation of exponent selection, covariance construction, and workflow
+examples, see the `Maranatha.LeastChiSquareFit` documentation page.
 """
 function least_chi_square_fit(
     a::Real,
@@ -492,56 +268,28 @@ end
 
 Run [`least_chi_square_fit`](@ref) directly from a Maranatha result object.
 
-# Function description
-
-This is a convenience overload that accepts the `result` object returned by
-[`Maranatha.Runner.run_Maranatha`](@ref) and forwards its stored fields to the
-main
-```julia
-least_chi_square_fit(a, b, hs, estimates, error_infos, rule, boundary; ...)
-````
-
-method.
-
-If keyword arguments are omitted, this helper reuses the corresponding values
-already stored in the result object.
+If a keyword argument is omitted, the corresponding value stored in `result`
+is reused.
 
 # Arguments
 
-`result`
-: Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
+* `result`:
+  Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
 
 # Keyword arguments
 
-`nterms::Union{Nothing,Int} = nothing`
-: Number of fit terms.  If omitted, `result.fit_terms` is used.
-
-`ff_shift::Union{Nothing,Int} = nothing`
-: Forward shift applied when selecting fit powers.  If omitted,
-`result.ff_shift` is used.
-
-`nerr_terms::Union{Nothing,Int} = nothing`
-: Number of error-model terms used to construct ``\\sigma``.  If omitted,
-`result.nerr_terms` is used.
+* `nterms`:
+  Number of fit terms. Defaults to `result.fit_terms`.
+* `ff_shift`:
+  Forward shift used for fit-power selection. Defaults to `result.ff_shift`.
+* `nerr_terms`:
+  Number of residual terms used to build the effective uncertainty vector.
+  Defaults to `result.nerr_terms`.
 
 # Returns
 
-The same fit result object returned by the main
+The same fit-result `NamedTuple` returned by the main
 [`least_chi_square_fit`](@ref) method.
-
-# Errors
-
-* Propagates errors from the main [`least_chi_square_fit`](@ref) method.
-* Throws an error if required fields are missing from the input result object.
-
-# Notes
-
-This helper assumes that the input result provides the standard Maranatha fields
-
-* `a`, `b`
-* `h`, `avg`, `err`
-* `rule`, `boundary`
-* `fit_terms`, `ff_shift`, `nerr_terms`
 """
 function least_chi_square_fit(
     result;
@@ -572,149 +320,21 @@ end
         fit
     ) -> Nothing
 
-Print a formatted summary of a least-``\\chi^2`` convergence fit.
+Print a formatted summary of a least-``\\chi^2`` fit result.
 
-This routine is typically called immediately after
-[`least_chi_square_fit`](@ref) to display the fitted
-parameters, uncertainties, and ``\\chi^2`` diagnostics in a compact human-readable form.
-
-# Function description
-This routine prints each fitted parameter ``\\lambda_k`` together with its
-``1 \\,\\sigma`` uncertainty using
-[`AvgErrFormatter.avgerr_e2d_from_float`](@ref).
-
-The output includes:
-
-* the fitted parameters ``[I_0, C_1, C_2, \\ldots]``,
-* their corresponding uncertainties,
-* the extrapolated value ``I_0 = I(h \\to 0)``,
-* and the fit-quality diagnostics ``\\chi^2`` and ``\\chi^2/\\mathrm{d.o.f.}``.
-
-The output formatting and ordering are intentionally kept identical to the
-original implementation so that printed results remain stable across versions
-and are easy to compare in logs or analysis notebooks.
+This routine is typically called after [`least_chi_square_fit`](@ref) to display
+fitted parameters, uncertainties, and fit-quality diagnostics in a compact form.
 
 # Arguments
-- `fit`:
-  Fit result object, typically the `NamedTuple` returned by
-  [`least_chi_square_fit`](@ref).
 
-  The object is expected to provide at least the following fields:
-    - `estimate::Float64`:
-    Extrapolated value ``I_0 = I(h \to 0)`` (i.e. the first entry of `params`).
-    - `error_estimate::Float64`:
-    One-sigma uncertainty for ``I_0``, obtained from the covariance diagonal.
-    - `params::Vector{Float64}`: Fitted parameter vector `[I0, C1, C2, ...]`.
-    - `param_errors::Vector{Float64}`: ``1 \\, \\sigma`` uncertainties for `params`.
-    - `cov::Matrix{Float64}`: Parameter covariance matrix.
-    - `chisq::Float64`: ``\\chi^2`` value.
-    - `redchisq::Float64`: ``\\chi^2/\\text{d.o.f.}``.
-    - `dof::Int`: Degrees of freedom, `length(y) - length(params)`.
+* `fit`:
+  Fit-result object returned by [`least_chi_square_fit`](@ref).
 
 # Returns
 
 `nothing`.
 
-This routine is used for its side effect: it prints a formatted summary of the
-fit result to the standard output.
-
-# Example workflow
-
-The example below demonstrates a minimal end-to-end workflow
-using a configuration file and a simple integrand definition.
-
-First define a small integrand in a Julia source file.
-
-Example integrand (`sample_1d.jl`)
-
-```julia
-integrand(x) = sin(x)
-```
-
-Next prepare a configuration file describing the integration
-domain, sampling sequence, quadrature rule, and output options.
-
-Configuration file (`sample_1d.toml`)
-
-```toml
-[integrand]
-file = "sample_1d.jl"
-name = "integrand"
-
-[domain]
-a = 0.0
-b = 3.141592653589793
-dim = 1
-
-[sampling]
-nsamples = [2, 3, 4, 5, 6, 7, 8, 9]
-
-[quadrature]
-rule = "gauss_p4"
-boundary = "LU_EXEX"
-
-[error]
-err_method = "forwarddiff"
-fit_terms = 4
-nerr_terms = 3
-ff_shift = 0
-
-[execution]
-use_threads = true
-
-[output]
-name_prefix = "1D"
-save_path = "."
-write_summary = true
-save_file = true
-```
-
-Assume that `sample_1d.jl` and `sample_1d.toml` are located
-in the current working directory.
-
-The quadrature pipeline can then be executed using the
-high-level runner, producing a convergence dataset 
-across multiple quadrature resolutions.
-
-```julia
-using Maranatha
-
-run_result = run_Maranatha("./sample_1d.toml")
-```
-
-Once the dataset has been generated, the continuum limit
-``h \\to 0`` can be estimated by performing a least ``\\chi^2`` fit.
-
-```julia
-fit_result = least_chi_square_fit(
-    run_result; 
-    nterms=3, 
-    ff_shift=0, 
-    nerr_terms=2
-)
-
-print_fit_result(fit_result)
-```
-
-Finally, the convergence behavior and fitted uncertainty
-can be visualized using the plotting utilities.
-
-```julia
-plot_convergence_result(
-    run_result, 
-    fit_result;
-    name="Maranatha_test1",
-    figs_dir=".",
-    save_file=true
-)
-```
-
-For more detailed examples and interactive demonstrations,
-see the Jupyter notebooks in the `ipynb/` directory of this project.
-
-These notebooks provide step-by-step tutorials covering the full
-`Maranatha.jl` workflow, including dataset generation, merging partial
-runs, filtering datapoints, and convergence visualization.
+This routine is used for its side effect: it prints a formatted summary to standard output.
 """
 function print_fit_result(
     fit

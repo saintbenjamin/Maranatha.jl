@@ -18,27 +18,30 @@
         boundary
     ) -> Float64
 
-Evaluate a ``2``-dimensional integral of ``f(x, y)`` over the square domain ``[a, b] \\times [a, b]``
-using a tensor-product quadrature constructed from 1D nodes and weights.
+Evaluate a ``2``-dimensional tensor-product quadrature over ``[a,b] \\times [a,b]``.
 
 # Function description
-This routine generates 1D quadrature nodes and weights using
-[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms the tensor product:
+This routine generates `1`-dimensional nodes and weights using
+[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
+the tensor-product sum:
 ```math
-\\sum_i \\sum_j w_i w_j \\, f(x_i, y_j) \\,.
+\\sum_i \\sum_j w_i w_j f(x_i, y_j).
 ```
-Loop ordering and accumulation are preserved exactly as implemented.
 
 # Arguments
 - `f`: Integrand callable `f(x, y)`.
-- `a`, `b`: Square domain bounds (used for both axes).
-- `N`: Number of intervals per axis.
+- `a`, `b`: Bounds used on both axes.
+- `N`: Number of intervals / blocks per axis.
 - `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  Required for New rules.
+- `boundary`: Boundary pattern symbol.
 
 # Returns
-- Estimated integral value as a `Float64`.
+- `Float64`: Estimated integral value.
+
+# Errors
+- Propagates any error thrown by
+  [`get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
 """
 function quadrature_2d(
     f, 

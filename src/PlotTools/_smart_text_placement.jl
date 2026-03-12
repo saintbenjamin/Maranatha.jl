@@ -29,76 +29,39 @@
         )
     ) -> Nothing
 
-Internal plotting helper that places a text box inside an axis while heuristically
-avoiding plotted data, fitted curves, and vertical error bars.
-
-This helper evaluates a list of candidate text-anchor locations given in axis-fraction
-coordinates and chooses the location with the lowest overlap score. The score is computed
-in display coordinates after rendering, so the decision is based on the actual pixel-space
-bounding box of the text and the actual rendered positions of plotted objects.
-
-The algorithm considers three kinds of possible collisions:
-
-1. discrete data points `(x_points, y_points)`
-2. a polyline curve `(x_curve, y_curve)`
-3. vertical error-bar segments defined by `yerr_points`
-
-Each candidate location is penalized when:
-
-- the text box extends outside the axis bounding box
-- a data point falls inside the text box
-- an error bar intersects the text box
-- a curve segment intersects the text box
-- a plotted element comes very close to the text box even without intersecting it
-
-A weak additional bias slightly prefers positions near the top or bottom edge over the
-exact middle, but only when the geometric overlap scores are otherwise similar.
-
-The selected text is finally drawn with a semi-transparent white rounded box for readability.
+Place an annotation text box inside a plot axis while heuristically avoiding
+plotted points, curves, and vertical error bars.
 
 # Arguments
-- `fig` : Matplotlib figure object used to access the renderer.
-- `ax` : Matplotlib axis object on which the text is placed.
-- `text::AbstractString` : Text to place.
-- `x_points::Vector{Float64}` : X-coordinates of discrete data points.
-- `y_points::Vector{Float64}` : Y-coordinates of discrete data points.
-- `x_curve::Vector{Float64}=Float64[]` : X-coordinates of a curve or fitted line to avoid.
-- `y_curve::Vector{Float64}=Float64[]` : Y-coordinates of a curve or fitted line to avoid.
-- `yerr_points::Union{Nothing,Vector{Float64}}=nothing` : Optional vertical error magnitudes
-  for each data point. If provided, vertical error-bar segments are included in the overlap test.
-- `fontsize::Real=10` : Font size of the placed text.
-- `prefer_order` : Ordered tuple of candidate anchor positions in axis-fraction coordinates,
-  each given as `(xf, yf, va_sym, ha_sym)` where `xf` and `yf` are in `ax.transAxes`
-  coordinates and `va_sym`, `ha_sym` are vertical/horizontal alignment symbols.
+- `fig`:
+  Figure object used to access the renderer.
+- `ax`:
+  Axis object on which the text is placed.
+- `text::AbstractString`:
+  Annotation string to place.
+- `x_points::Vector{Float64}`, `y_points::Vector{Float64}`:
+  Data points to avoid when selecting the text position.
+- `x_curve::Vector{Float64} = Float64[]`, `y_curve::Vector{Float64} = Float64[]`:
+  Optional polyline coordinates to avoid.
+- `yerr_points::Union{Nothing,Vector{Float64}} = nothing`:
+  Optional vertical error magnitudes associated with `x_points` / `y_points`.
+- `fontsize::Real = 10`:
+  Font size used for the annotation box.
+- `prefer_order`:
+  Candidate anchor positions, given in axis-fraction coordinates.
 
 # Returns
-- `Nothing` : The function mutates the plot by adding the chosen text annotation directly to `ax`.
+- `Nothing`:
+  The function mutates `ax` by adding the selected annotation.
+
+# Errors
+- Propagates plotting-backend errors if renderer information cannot be obtained.
+- May propagate dimension or indexing errors if the supplied coordinate vectors are inconsistent.
 
 # Notes
-- All collision checks are performed in display space, not data space, so the heuristic adapts
-  to the actual rendered aspect ratio and axis scaling.
-- Candidate positions are tested by temporarily creating an invisible text object, measuring its
-  rendered bounding box, and then removing it.
-- The curve-avoidance logic assumes that `(x_curve, y_curve)` forms a polyline and checks each
-  consecutive segment against the candidate text box.
-- Error bars are currently treated as vertical line segments only.
-- If no candidate survives meaningfully, the function falls back to the top-left corner
-  `(0.02, 0.98, :top, :left)`.
-
-# Examples
-```julia
-_smart_text_placement!(
-    fig, ax;
-    text = "fit: y = ax + b",
-    x_points = xs,
-    y_points = ys,
-    x_curve = xfit,
-    y_curve = yfit,
-    yerr_points = yerr,
-    fontsize = 11
-)
-```
-
+- This is an internal plotting helper.
+- Placement is evaluated in display space after rendering, so the chosen location
+  depends on the actual rendered axis geometry.
 """
 function _smart_text_placement!(
     fig, 

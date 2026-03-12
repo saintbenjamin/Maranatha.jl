@@ -26,13 +26,29 @@ import ..Dates
         expr
     ) -> Any
 
-Macro that times and logs the execution of an expression, with optional GC allocation info.
+Evaluate an expression, measure its runtime, and log timing information.
+
+# Function description
+This macro executes `expr` under `@timed`, computes elapsed time, inspects GC
+allocation statistics before and after evaluation, and prints a timestamped log
+message.
+
+If `jobid_expr` evaluates to a non-`nothing` value, it is included as a log
+prefix. The macro returns the value produced by `expr`.
 
 # Arguments
-- `jobid_expr`: Optional job ID (can be `nothing`).
-- `expr`: Any Julia expression to execute and time.
+- `jobid_expr`: Optional job identifier expression.
+- `expr`: Julia expression to evaluate and time.
 
-Logs elapsed time and memory usage with a timestamp. Returns the value of `expr`.
+# Returns
+- The evaluated result of `expr`.
+
+# Errors
+- Propagates any exception thrown while evaluating `expr`.
+
+# Notes
+- Allocation reporting is based on `Base.gc_num()` / `Base.GC_Diff`.
+- The log message is printed to standard output.
 """
 macro logtime_benji(
     jobid_expr, 
@@ -70,13 +86,25 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print a timestamped log message with optional job ID.
+Print a timestamped log message with an optional job ID prefix.
+
+# Function description
+This helper formats the current timestamp, prepends an optional job ID, writes
+the resulting message to `stdout`, and flushes the output stream immediately.
 
 # Arguments
-- `msg`: The message to print.
-- `jobid`: Optional job identifier to prepend.
+- `msg::AbstractString`: Message to print.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
 
-Output is printed to `stdout`, immediately flushed.
+# Returns
+- `Nothing`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- Output is written to `stdout`.
+- Flushing is performed after every call.
 """
 function println_benji(
     msg::AbstractString, 
@@ -95,9 +123,24 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print a high-level stage delimiter with a title, surrounded by `=` lines.
+Print a high-level stage delimiter block.
 
-Useful for separating major processing stages in logs.
+# Function description
+This helper emits a visually separated logging block consisting of blank lines,
+a repeated `=` delimiter, and a titled stage header.
+
+# Arguments
+- `title::String`: Stage title to display.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- `Nothing`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- Intended for major stage boundaries in longer logs.
 """
 function log_stage_benji(
     title::String, 
@@ -116,9 +159,24 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print a substage delimiter with a title, surrounded by `-` lines.
+Print a substage delimiter block.
 
-Used for visually marking sub-sections in logs.
+# Function description
+This helper emits a visually separated logging block consisting of blank lines,
+a repeated `-` delimiter, and a titled substage header.
+
+# Arguments
+- `title::String`: Substage title to display.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- `Nothing`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- Intended for subsection-level boundaries inside a larger stage.
 """
 function log_stage_sub1_benji(
     title::String, 
@@ -137,9 +195,24 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print an error message with timestamp and job ID (if given), then throw an error with the same message.
+Log an error message, flush output streams, and throw an exception.
 
-Also flushes `stdout` and `stderr` after printing.
+# Function description
+This helper prints `msg` through [`println_benji`](@ref), flushes both `stdout`
+and `stderr`, and then raises `error(msg)`.
+
+# Arguments
+- `msg::AbstractString`: Error message.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- This function does not return normally.
+
+# Errors
+- Always throws an exception via `error(msg)`.
+
+# Notes
+- The printed message and the thrown message are the same.
 """
 function error_benji(
     msg::AbstractString, 
@@ -157,13 +230,24 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print a timestamped warning message with optional job ID.
+Print a timestamped warning message.
 
-The message is prefixed with `[WARNING]`, and flushed to `stdout`.
+# Function description
+This helper prefixes the message with `[WARNING]` and forwards it to
+[`println_benji`](@ref).
 
 # Arguments
-- `msg`: Warning message to print.
-- `jobid`: Optional job identifier.
+- `msg::AbstractString`: Warning message.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- `Nothing`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- Output is written to `stdout`.
 """
 function warn_benji(
     msg::AbstractString, 
@@ -180,12 +264,25 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Assert that `cond` is true. If false, log an error with timestamp and job ID, then throw.
+Assert that `cond` is true, otherwise log and throw.
+
+# Function description
+If `cond` is false, this helper calls [`error_benji`](@ref) with an assertion
+failure prefix. If `cond` is true, it returns normally.
 
 # Arguments
-- `cond`: Boolean condition to assert.
-- `msg`: Message to print if assertion fails.
-- `jobid`: Optional job identifier.
+- `cond::Bool`: Condition to assert.
+- `msg::AbstractString`: Assertion-failure message.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- `Nothing` when the assertion passes.
+
+# Errors
+- Throws via [`error_benji`](@ref) if `cond` is false.
+
+# Notes
+- The emitted message is prefixed with `[ASSERTION FAILED]`.
 """
 function assert_benji(
     cond::Bool, 
@@ -203,13 +300,24 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print a timestamped informational message with optional job ID.
+Print a timestamped informational message.
 
-The message is prefixed with `[INFO]`, and flushed to `stdout`.
+# Function description
+This helper prefixes the message with `[INFO]` and forwards it to
+[`println_benji`](@ref).
 
 # Arguments
-- `msg`: Informational message to print.
-- `jobid`: Optional job identifier.
+- `msg::AbstractString`: Informational message.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- `Nothing`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- Output is written to `stdout`.
 """
 function info_benji(
     msg::AbstractString, 
@@ -225,13 +333,24 @@ end
         jobid::Union{Nothing, String}=nothing
     ) -> Nothing
 
-Print a timestamped debug message with optional job ID.
+Print a timestamped debug message.
 
-The message is prefixed with `[DEBUG]`, and flushed to `stdout`.
+# Function description
+This helper prefixes the message with `[DEBUG]` and forwards it to
+[`println_benji`](@ref).
 
 # Arguments
-- `msg`: Debug message to print.
-- `jobid`: Optional job identifier.
+- `msg::AbstractString`: Debug message.
+- `jobid::Union{Nothing, String}`: Optional job identifier.
+
+# Returns
+- `Nothing`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- Output is written to `stdout`.
 """
 function debug_benji(
     msg::AbstractString, 

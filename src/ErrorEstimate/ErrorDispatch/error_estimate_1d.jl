@@ -19,88 +19,49 @@
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> NamedTuple
+    )
 
-Estimate a ``1``-dimensional truncation-error *model* for a composite Newton-Cotes rule using
-the exact midpoint residual expansion derived from rational weight assembly.
+Estimate a `1`-dimensional midpoint-residual truncation-error model.
 
 # Function description
-This routine computes an asymptotic truncation-error model consistent with the
-exact composite Newton-Cotes construction implemented in [`Maranatha.Quadrature`](@ref).
+This routine builds the axis-separable asymptotic error model for the
+`1`-dimensional case using the leading nonzero midpoint residual terms of the
+selected composite rule.
 
-Let ``\\displaystyle{h = \\frac{b-a}{N}}`` and the physical midpoint ``\\displaystyle{\\bar{x} = \\frac{a+b}{2}}``.
-Using exact rational composite weights ``\\beta`` (assembled internally), the midpoint-centered
-residual moments determine a sequence of nonzero residual orders ``k`` and coefficients
-``\\displaystyle{\\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}}``, where:
-```math
-\\texttt{diff}_k
-= \\int\\limits_0^{N} du\\,(u-c)^k
-- \\sum_{j=0}^{N} \\beta_j\\,(j-c)^k,
-\\qquad c = \\frac{N}{2}.
-```
-
-The function collects the first `nerr_terms` nonzero residual orders
-``k_1, k_2, \\ldots`` (up to `kmax`) and returns the summed model:
-
-```math
-E \\approx \\sum_{i=1}^{n_{\\text{err}}}
-\\texttt{coeff}_{k_i}\\, h^{k_i+1}\\, f^{(k_i)}(\\bar{x}).
-```
-
-The routine returns the full decomposition of the asymptotic error model,
-including individual residual contributions and their summed value.
+For each collected residual order `k`, it evaluates the `k`-th derivative of
+`f` at the physical midpoint and forms the contribution
+`coeff_k * h^(k+1) * f^(k)(x̄)`.
 
 # Arguments
-
-* `f`:
-  Scalar callable integrand ``f(x)`` (function, closure, or callable struct).
-* `a`, `b`:
-  Lower and upper bounds of the integration interval.
-* `N`:
-  Number of subintervals.
-  Must satisfy the composite tiling constraint for `(rule, boundary)`.
-* `rule`:
-  Composite Newton-Cotes rule symbol (must be `:newton_pK` style).
-* `boundary`:
-  Boundary pattern (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
+- `f`: Scalar callable integrand.
+- `a::Real`: Lower bound.
+- `b::Real`: Upper bound.
+- `N::Int`: Number of subintervals.
+- `rule::Symbol`: Quadrature rule symbol.
+- `boundary::Symbol`: Boundary pattern symbol.
 
 # Keyword arguments
-
-* `err_method`:
-  Backend used for derivative evaluation via [`nth_derivative`](@ref).
-  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
-* `nerr_terms`:
-  Number of nonzero midpoint residual terms to include in the model.
-  `1` gives LO only; `2` gives LO+NLO; etc.
-* `kmax`:
-  Maximum residual order scanned when collecting terms.
+- `err_method::Symbol`: Derivative backend selector.
+- `nerr_terms::Int`: Number of nonzero residual terms to include.
+- `kmax::Int`: Maximum residual order scanned.
 
 # Returns
-
-* `NamedTuple` with fields:
-
-  * `ks` - residual orders used in the model
-  * `coeffs` - midpoint residual coefficients
-  * `derivatives` - evaluated derivatives ``f^{(k)}(\\bar{x})``
-  * `terms` - individual asymptotic error contributions
-  * `total` - summed truncation-error model value
-  * `center` - midpoint ``\\bar{x}``
-  * `h` - step size
+- `NamedTuple` with fields:
+  - `ks`
+  - `coeffs`
+  - `derivatives`
+  - `terms`
+  - `total`
+  - `center`
+  - `h`
 
 # Errors
-
-* Propagates errors from:
-
-  * composite weight assembly,
-  * residual-term extraction,
-  * derivative evaluation ([`nth_derivative`](@ref)).
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or if
-  insufficient nonzero residual terms exist up to `kmax`.
+- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Propagates residual-extraction and derivative-evaluation errors.
 
 # Notes
-
-* This is an asymptotic *model* for fit stabilization and scaling diagnostics, not a strict bound.
-* Coefficients are derived in exact rational arithmetic and converted to `Float64` only at the final stage.
+- This is an asymptotic error model, not a rigorous bound.
+- A detected `k == 0` term is suppressed in the returned contribution.
 """
 function error_estimate_1d(
     f,
@@ -177,44 +138,32 @@ end
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128
-    ) -> NamedTuple
+    )
 
-Threaded variant of [`error_estimate_1d`](@ref) for 1D midpoint-residual truncation-error modeling.
+Threaded variant of `error_estimate_1d`.
 
-All non-threading details (mathematical definition, coefficient construction, residual-term
-interpretation, and overall intent) are identical to [`error_estimate_1d`](@ref).
-See that function for the full formalism and background.
+# Function description
+This routine keeps the same mathematical model as `error_estimate_1d` but
+parallelizes the loop over collected residual terms using Julia threading.
 
-# Threading implementation
-
-This function parallelizes the loop over collected residual orders `ks` using Julia's
-built-in multithreading:
-
-* The work is distributed via [`Base.Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads) over `eachindex(ks)`.
-* Each iteration computes one derivative term ``f^{(k)}(\\bar{x})`` and its contribution to ``E``.
-* Each thread accumulates its contribution into a thread-local `Float64`
-  buffer indexed by [`Threads.threadid()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.threadid).
-* After the threaded loop completes, the per-thread partial sums are
-  combined via a final `sum` reduction.
-
-Threading is enabled when Julia is started with `JULIA_NUM_THREADS > 1`.
+Each term is evaluated independently, and the final result is assembled into the
+same return structure as the non-threaded version.
 
 # Arguments
-
-Same as [`error_estimate_1d`](@ref).
+- Same as `error_estimate_1d`.
 
 # Keyword arguments
-
-Same as [`error_estimate_1d`](@ref).
+- Same as `error_estimate_1d`.
 
 # Returns
+- Same `NamedTuple` structure as `error_estimate_1d`.
 
-Same as [`error_estimate_1d`](@ref).
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if `nerr_terms < 1` or `kmax < 0`.
+- Propagates residual-extraction and derivative-evaluation errors.
 
 # Notes
-
-* This is an asymptotic *model* (fit stabilization / scaling diagnostics), not a strict bound.
-* For small `length(ks)` (common when `nerr_terms` is small), threading overhead may dominate.
+- Threading overhead may dominate when only a small number of residual terms is used.
 """
 function error_estimate_1d_threads(
     f,

@@ -57,33 +57,31 @@ makedocs(
     linkcheck_ignore = linkcheck_ignore,
     pages = [
         "Home"                       => "index.md",
-        "Reference"                  => Any[
-            "Runner"                 => "lib/Runner.md",
-            "Quadrature"             => Any[
-                "Quadrature"         => "lib/Quadrature.md",
-                "QuadratureDispatch" => "lib/QuadratureDispatch.md",
-                "BSpline"            => "lib/BSpline.md",
-                "Gauss"              => "lib/Gauss.md",
-                "NewtonCotes"        => "lib/NewtonCotes.md",
-            ],
-            "ErrorEstimate"          => Any[
-                "ErrorEstimate"      => "lib/ErrorEstimate.md",
-                "ErrorDispatch"      => "lib/ErrorDispatch.md",
-                "ErrorBSpline"       => "lib/ErrorBSpline.md",
-                "ErrorGauss"         => "lib/ErrorGauss.md",
-                "ErrorNewtonCotes"   => "lib/ErrorNewtonCotes.md",
-            ],
-            "LeastChiSquareFit"      => "lib/LeastChiSquareFit.md",
-            "PlotTools"              => "lib/PlotTools.md",
-            "Integrands"             => "lib/Integrands.md",
-            "Utils"                  => Any[
-                "Utils"              => "lib/Utils.md",
-                "AvgErrFormatter"    => "lib/AvgErrFormatter.md",
-                "JobLoggerTools"     => "lib/JobLoggerTools.md",
-                "MaranathaIO"        => "lib/MaranathaIO.md",
-                "MaranathaTOML"      => "lib/MaranathaTOML.md",
-                "Wizard"             => "lib/Wizard.md",
-            ]
+        "Runner"                 => "lib/Runner.md",
+        "Quadrature"             => Any[
+            "Quadrature"         => "lib/Quadrature.md",
+            "QuadratureDispatch" => "lib/QuadratureDispatch.md",
+            "BSpline"            => "lib/BSpline.md",
+            "Gauss"              => "lib/Gauss.md",
+            "NewtonCotes"        => "lib/NewtonCotes.md",
+        ],
+        "ErrorEstimate"          => Any[
+            "ErrorEstimate"      => "lib/ErrorEstimate.md",
+            "ErrorDispatch"      => "lib/ErrorDispatch.md",
+            "ErrorBSpline"       => "lib/ErrorBSpline.md",
+            "ErrorGauss"         => "lib/ErrorGauss.md",
+            "ErrorNewtonCotes"   => "lib/ErrorNewtonCotes.md",
+        ],
+        "LeastChiSquareFit"      => "lib/LeastChiSquareFit.md",
+        "PlotTools"              => "lib/PlotTools.md",
+        "Integrands"             => "lib/Integrands.md",
+        "Utils"                  => Any[
+            "Utils"              => "lib/Utils.md",
+            "AvgErrFormatter"    => "lib/AvgErrFormatter.md",
+            "JobLoggerTools"     => "lib/JobLoggerTools.md",
+            "MaranathaIO"        => "lib/MaranathaIO.md",
+            "MaranathaTOML"      => "lib/MaranathaTOML.md",
+            "Wizard"             => "lib/Wizard.md",
         ]
     ],
     checkdocs = :none,

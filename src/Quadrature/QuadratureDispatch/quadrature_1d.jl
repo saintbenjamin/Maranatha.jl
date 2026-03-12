@@ -18,26 +18,31 @@
         boundary
     ) -> Float64
 
-Evaluate the ``1``-dimensional integral of ``f(x)`` over ``[a, b]`` using a tensor-product quadrature constructed from 1D nodes and weights.
+Evaluate a ``1``-dimensional quadrature over ``[a,b]``.
 
 # Function description
-This routine generates 1D quadrature nodes and weights using [`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
+This routine generates `1`-dimensional nodes and weights using
+[`get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
 ```math
-\\sum_i w_i \\, f(x_i) \\,.
+\\sum_i w_i f(x_i).
 ```
-This keeps all rule-specific constraints and behaviour centralized in
-[`get_quadrature_1d_nodes_weights`](@ref).
+
+Rule-specific validation is centralized in the node/weight generator.
 
 # Arguments
 - `f`: Integrand callable `f(x)`.
 - `a`, `b`: Integration bounds.
-- `N`: Number of intervals (rule-specific constraints are enforced by [`get_quadrature_1d_nodes_weights`](@ref)).
+- `N`: Number of intervals / blocks.
 - `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  Required for Newton-Cotes rules.
+- `boundary`: Boundary pattern symbol.
 
 # Returns
-- Estimated integral value as a `Float64`.
+- `Float64`: Estimated integral value.
+
+# Errors
+- Propagates any error thrown by
+  [`get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
 """
 function quadrature_1d(
     f, 

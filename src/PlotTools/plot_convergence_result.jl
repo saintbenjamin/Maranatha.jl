@@ -10,328 +10,52 @@
         rule::Symbol = :gauss_p3,
         boundary::Symbol = :LU_ININ,
         figs_dir::String = ".",
-        save_file::Bool = false
+        save_file::Bool = false,
     ) -> Nothing
 
-Plot a fitted convergence study by showing ``I(h)`` against ``h^{p}``, overlaying the
-reconstructed fit curve and its propagated uncertainty band, and generating an additional
-log-log plot of the relative extrapolation error.
-
-This is typically the **third step** in a standard `Maranatha.jl` workflow:
-first generate `result` with [`Maranatha.Runner.run_Maranatha`](@ref),
-then fit with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
-and finally visualize the result with `plot_convergence_result`.
-
-# Function description
-This routine is a visualization companion to
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-
-It is designed to work with the same raw convergence-data structure returned by
-[`Maranatha.Runner.run_Maranatha`](@ref), together with a downstream fit result returned by
-[`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-
-In a typical workflow, the inputs are passed almost directly from those earlier stages:
-`hs = result.h`, `estimates = result.avg`, `errors = result.err`, and
-`fit_result = fit`.
-
-In particular, the `errors` input is expected to be a collection of error-information
-objects where each entry provides a `.total` field used as the plotted pointwise
-error-bar magnitude.
-
-This routine reconstructs the fitted convergence model directly from the stored fit result
-without performing any new fit, and produces two figures:
-
-1. a main convergence plot of ``I(h)`` versus ``h^{p}``
-2. a log-log relative-error plot of ``\\dfrac{|I(h)-I_0|}{|I_0|}`` versus ``h^{p}``
-
-Here ``p`` is taken as the first non-constant power stored in `fit_result.powers`,
-namely `fit_result.powers[2]`, so the horizontal axis reflects the leading fitted
-convergence scale rather than the raw step size ``h`` itself.
-
-The plotted ``x`` coordinate is therefore
-
-```math
-x = h^{p},
-```
-
-while the fitted model itself is still evaluated as a function of `h`.
-Internally, a dense grid is constructed in ``x``, converted back to ``h`` via
-
-```math
-h = x^{1/p},
-```
-
-and then used to evaluate the reconstructed model and its propagated uncertainty.
-
-## Model reconstruction (no refitting)
-
-This function does *not* refit the data.
-Instead, it uses the already-computed fit result to reconstruct the model and its
-uncertainty directly from:
-
-* `fit_result.params`
-* `fit_result.cov`
-* `fit_result.estimate`
-* `fit_result.error_estimate`
-* `fit_result.powers`
-
-This makes the plotting stage reproducible and consistent with the actual fitted basis,
-including any forward-shift (`ff_shift`) that may have been applied during fitting.
-
-The basis is reconstructed using the stored exponent vector:
-
-```math
-I(h) = \\bm{\\lambda}^{\\mathsf{T}} \\varphi(h),
-\\qquad
-\\varphi_1(h)=1,
-\\qquad
-\\varphi_i(h)=h^{\\texttt{powers[i]}} \\quad (i \\ge 2),
-```
-
-with `powers = fit_result.powers` and `length(powers) == length(params)` required.
-
-## Main convergence plot
-
-The main figure contains:
-
-* the reconstructed fit curve ``I_{\\mathrm{fit}}(h)``
-* a ``1\\,\\sigma`` fit band propagated from the parameter covariance
-* measured quadrature estimates with pointwise error bars
-* the extrapolated value at ``h^{p}=0`` with uncertainty `fit_result.error_estimate`
-
-The fit uncertainty is propagated as
-
-```math
-\\sigma_{\\mathrm{fit}}(h)^2 = \\varphi(h)^{\\mathsf{T}} V \\varphi(h),
-```
-
-where ``V = \\texttt{fit_result.cov}``.
-
-A smart text-placement helper is used to position the annotation box
-(``I_0`` and ``\\chi^2/\\mathrm{d.o.f.}``) while heuristically avoiding data points,
-error bars, and the fitted curve.
-
-## Relative-error log-log plot
-
-A second figure is produced showing the relative convergence error
-
-```math
-r(h) = \\frac{|I(h)-I_0|}{|I_0|},
-\\qquad x = h^{p},
-```
-
-on log-log axes.
-
-The corresponding fitted relative-error curve is
-
-```math
-r_{\\mathrm{fit}}(h) = \\frac{|I_{\\mathrm{fit}}(h)-I_0|}{|I_0|}.
-```
-
-### Error bars for measured points
-
-For each measured point, the relative-error uncertainty is propagated to first order,
-assuming independent uncertainties for ``I(h)`` and ``I_0``:
-
-```math
-\\sigma_r^2 \\approx
-\\left(\\frac{\\sigma_I}{|I_0|}\\right)^2
-+
-\\left(\\frac{|I(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2.
-```
-
-### Uncertainty band for the fitted curve
-
-The relative-error fit band is propagated as
-
-```math
-\\sigma_{r,\\mathrm{fit}}^2(h) \\approx
-\\left(\\frac{\\sigma_{\\mathrm{fit}}(h)}{|I_0|}\\right)^2
-+
-\\left(\\frac{|I_{\\mathrm{fit}}(h)-I_0|}{|I_0|^2}\\,\\sigma_{I_0}\\right)^2.
-```
-
-A dashed slope-1 reference line is also drawn in the ``x = h^{p}`` coordinate,
-corresponding to the expected leading-order behavior ``r \\propto h^{p}``.
-
-As in the main plot, the annotation box is placed automatically using the same
-smart overlap-avoidance helper.
-
-## Output files
-
-When `save_file=true`, two PDF files are written under `figs_dir`:
-
-```julia
-result_\$(name)_\$(rule)_\$(boundary)_extrap.pdf
-result_\$(name)_\$(rule)_\$(boundary)_reldiff.pdf
-```
-
-If the external command `pdfcrop` is available, each saved PDF is cropped automatically.
+Plot a fitted convergence study using previously computed datapoints and an
+existing least-``\\chi^2`` fit result.
 
 # Arguments
-
-* `a`, `b` :
-  Integration bounds. These are retained for API consistency, although the plotting
-  routine itself mainly uses the supplied `hs`, `estimates`, and `errors`.
-* `name` :
-  Label used in the output filenames.
-* `hs` :
-  Step sizes ``h``.
-* `estimates` :
-  Quadrature estimates ``I(h)`` corresponding to `hs`.
-* `errors` :
-  Collection of error-information objects associated with the sampled estimates.
-  In the current implementation, each entry is expected to provide a `.total` field
-  (for example, the objects stored in `result.err` returned by
-  [`Maranatha.Runner.run_Maranatha`](@ref)).
-  Absolute values of these `.total` entries are used for plotting the pointwise error bars.
-* `fit_result` :
-  Fit object, typically the `NamedTuple` returned by
-  [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
-
-  It is expected to provide at least:
-
-  * `fit_result.params`
-  * `fit_result.cov`
-  * `fit_result.estimate`
-  * `fit_result.error_estimate`
-  * `fit_result.powers`
+- `a::Real`, `b::Real`:
+  Integration bounds retained for workflow consistency.
+- `name::String`:
+  Basename used for figure titles / output filenames.
+- `hs::Vector{Float64}`:
+  Step sizes used in the convergence study.
+- `estimates::Vector{Float64}`:
+  Measured quadrature estimates corresponding to `hs`.
+- `errors::Vector`:
+  Collection of error-information objects used for pointwise error bars.
+  Each entry is expected to provide a `.total` field in the current workflow.
+- `fit_result`:
+  Fit result object returned by `least_chi_square_fit`, used to reconstruct the
+  fitted model and its uncertainty band.
 
 # Keyword arguments
-
-* `rule::Symbol=:gauss_p3` :
+- `rule::Symbol = :gauss_p3`:
   Rule label used in output filenames.
-* `boundary::Symbol=:LU_ININ` :
-  Boundary-condition label used in output filenames.
-* `figs_dir::String="."` :
-  Directory in which output PDFs are saved when `save_file=true`.
-* `save_file::Bool=false` :
-  If `true`, save the generated figures as PDF files.
-
-# Typical workflow context
-
-A common usage pattern is:
-
-1. generate `result` with [`Maranatha.Runner.run_Maranatha`](@ref)
-2. generate `fit` with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
-3. call [`plot_convergence_result`](@ref) using
-   `result.h`, `result.avg`, `result.err`, and `fit`
+- `boundary::Symbol = :LU_ININ`:
+  Boundary label used in output filenames.
+- `figs_dir::String = "."`:
+  Output directory for saved figures.
+- `save_file::Bool = false`:
+  If `true`, save the generated figures.
 
 # Returns
-
-`nothing`.
-
-This routine is used for its side effects: it displays the generated figures and,
-if `save_file = true`, also writes them to disk.
+- `Nothing`:
+  This routine is used for its plotting and optional file-output side effects.
 
 # Errors
+- Throws an error if input lengths are inconsistent.
+- Throws an error if no valid datapoints remain after filtering.
+- Throws an error if `fit_result` does not provide a usable fitted basis.
+- Throws an error for the relative-error panel when the extrapolated value is zero.
+- Propagates plotting and file-I/O errors.
 
-* Throws an error if input lengths mismatch.
-* Throws an error if no valid points remain after filtering.
-* Throws an error if `fit_result.powers` is missing or its length does not match `fit_result.params`.
-* Throws an error if the relative-error plot is requested with ``I_0 = 0``.
-* Propagates errors from downstream plotting, file I/O, optional external PDF cropping,
-  and internal linear-algebra operations used for covariance propagation.
-
-
-
-# Example workflow
-
-The example below demonstrates a minimal end-to-end workflow
-using a configuration file and a simple integrand definition.
-
-First define a small integrand in a Julia source file.
-
-Example integrand (`sample_1d.jl`)
-
-```julia
-integrand(x) = sin(x)
-```
-
-Next prepare a configuration file describing the integration
-domain, sampling sequence, quadrature rule, and output options.
-
-Configuration file (`sample_1d.toml`)
-
-```toml
-[integrand]
-file = "sample_1d.jl"
-name = "integrand"
-
-[domain]
-a = 0.0
-b = 3.141592653589793
-dim = 1
-
-[sampling]
-nsamples = [2, 3, 4, 5, 6, 7, 8, 9]
-
-[quadrature]
-rule = "gauss_p4"
-boundary = "LU_EXEX"
-
-[error]
-err_method = "forwarddiff"
-fit_terms = 4
-nerr_terms = 3
-ff_shift = 0
-
-[execution]
-use_threads = true
-
-[output]
-name_prefix = "1D"
-save_path = "."
-write_summary = true
-save_file = true
-```
-
-Assume that `sample_1d.jl` and `sample_1d.toml` are located
-in the current working directory.
-
-The quadrature pipeline can then be executed using the
-high-level runner, producing a convergence dataset 
-across multiple quadrature resolutions.
-
-```julia
-using Maranatha
-
-run_result = run_Maranatha("./sample_1d.toml")
-```
-
-Once the dataset has been generated, the continuum limit
-``h \\to 0`` can be estimated by performing a least ``\\chi^2`` fit.
-
-```julia
-fit_result = least_chi_square_fit(
-    run_result; 
-    nterms=3, 
-    ff_shift=0, 
-    nerr_terms=2
-)
-
-print_fit_result(fit_result)
-```
-
-Finally, the convergence behavior and fitted uncertainty
-can be visualized using the plotting utilities.
-
-```julia
-plot_convergence_result(
-    run_result, 
-    fit_result;
-    name="Maranatha_test1",
-    figs_dir=".",
-    save_file=true
-)
-```
-
-For more detailed examples and interactive demonstrations,
-see the Jupyter notebooks in the `ipynb/` directory of this project.
-
-These notebooks provide step-by-step tutorials covering the full
-`Maranatha.jl` workflow, including dataset generation, merging partial
-runs, filtering datapoints, and convergence visualization.
+# Notes
+- This function visualizes an existing fit; it does not perform refitting.
+- A convenience wrapper `plot_convergence_result(result, fit_result; ...)` is also provided.
 """
 function plot_convergence_result(
     a::Real,
@@ -684,42 +408,30 @@ end
         save_file::Bool = false,
     ) -> Nothing
 
-Convenience wrapper around [`plot_convergence_result`](@ref) that accepts a
-Maranatha run result object.
-
-# Function description
-
-This method extracts the necessary fields from the `result` object returned by
-[`Maranatha.Runner.run_Maranatha`](@ref) and forwards them to the primary
-
-```julia
-plot_convergence_result(a, b, name, hs, estimates, errors, fit_result; ...)
-```
-
-method.
-
-This allows users to call the plotting routine directly from the run result
-without manually unpacking its components.
+Convenience wrapper that extracts plotting inputs from a Maranatha run result
+object and forwards them to the primary `plot_convergence_result` method.
 
 # Arguments
-
-`result`
-: Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
-
-`fit_result`
-: Fit result returned by [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+- `result`:
+  Result object returned by `run_Maranatha`.
+- `fit_result`:
+  Fit result returned by `least_chi_square_fit`.
 
 # Keyword arguments
-
-Same as the primary [`plot_convergence_result`](@ref) method.
+- `name::String = "Maranatha"`:
+  Basename used for output filenames.
+- `rule::Symbol = result.rule`, `boundary::Symbol = result.boundary`:
+  Labels forwarded to the primary plotting method.
+- `figs_dir::String = "."`:
+  Output directory for saved figures.
+- `save_file::Bool = false`:
+  If `true`, save the generated figures.
 
 # Returns
-
-Nothing.
+- `Nothing`.
 
 # Errors
-
-Same as the primary [`plot_convergence_result`](@ref) method.
+- Propagates all validation and plotting errors from the primary method.
 """
 function plot_convergence_result(
     result,

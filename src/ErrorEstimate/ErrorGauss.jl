@@ -32,34 +32,34 @@ Compute the exact shifted monomial moment
 in `Float64`.
 
 # Function description
-This helper returns the closed-form integral:
+This helper returns the closed-form shifted moment
 ```math
-\\int\\limits_{0}^{N} du \\; (u-c)^k
-= \\left[ \\frac{(u-c)^{k+1}}{k+1} \\right]_{u=0}^{u=N}
-= \\frac{(N-c)^{k+1} - (0-c)^{k+1}}{k+1} \\,,
+\\int_0^N (u-c)^k \\, du
+=
+\\frac{(N-c)^{k+1} - (0-c)^{k+1}}{k+1},
 ```
+with `N = Nsub` interpreted as the dimensionless length of the composite
+unit-block tiling.
 
-with `N = Nsub` treated as a dimensionless length (unit-block tiling on ``u \\in [0, N_\\texttt{sub}]``).
-
-It is used by [`_leading_midpoint_residual_terms_gauss_float`](@ref) to form the
-exact-minus-quadrature residual for the midpoint-shifted monomial basis.
+It is used by [`_leading_midpoint_residual_terms_gauss_float`](@ref) to compare
+the exact midpoint-shifted monomial moment against the quadrature-induced one.
 
 # Arguments
-
-* `Nsub`: Number of composite unit blocks; the integration domain is ``u \\in [0, N_\\texttt{sub}]``.
-* `c`: Shift (typically the midpoint), often ``c = \\dfrac{N_\\texttt{sub}}{2}``.
-* `k`: Nonnegative integer power in ``\\left( u - c \\right)^k``.
+- `Nsub`: Number of composite unit blocks, so the domain is ``u \\in [0, N_{\\text{sub}}]``.
+- `c`: Shift value, typically the midpoint ``N_{\\text{sub}} / 2``.
+- `k`: Nonnegative integer power.
 
 # Returns
+- `Float64`: Exact shifted moment value in `Float64`.
 
-* `Float64`: The exact moment value in `Float64`.
+# Errors
+- No explicit validation is performed here; invalid inputs are assumed to be
+  filtered by callers.
 
 # Notes
-
-* This routine is *`Float64`-only* by design; it mirrors the numerical tolerance
-  philosophy used by the Gauss residual-term generator.
-* For large `k`, powers can overflow or lose accuracy in `Float64`; callers should
-  keep `kmax` moderate.
+- This helper is intentionally `Float64`-only and follows the tolerance-based
+  philosophy of the Gauss residual backend.
+- Large `k` can lead to overflow or loss of accuracy in `Float64`.
 """
 @inline function _exact_moment_shifted_float(
     Nsub::Int, 
@@ -80,92 +80,64 @@ end
         kmax::Int = 128
     ) -> (ks, coeffs)
 
-Detect the leading nonzero midpoint-shifted residual terms for a **composite Gauss-family**
-quadrature rule on the dimensionless interval ``u \\in [0, N_\\texttt{sub}]`` (`Float64`-only).
+Detect the leading nonzero midpoint-shifted residual terms for a composite Gauss-family rule.
 
 # Function description
+This routine probes the midpoint-centered residual structure of a composite
+Gauss-family quadrature rule on the dimensionless interval
+``u \\in [0, N_{\\text{sub}}]``.
 
-This routine numerically probes the residual moments of a composite Gauss rule by comparing:
-
-* the exact shifted moment:
-
-```math
-M_k^{\\texttt{exact}} = \\int\\limits_{0}^{N} du \\; \\left( u - c \\right)^k \\,,
-```
-
-* against the quadrature approximation on the composite Gauss grid:
+It compares, for each scanned order `k`,
 
 ```math
-M_k^{\\texttt{quad}}  = \\sum_i W_i \\, \\left( U_i - c \\right)^k \\,,
+M_k^{\\texttt{exact}} = \\int_0^N (u-c)^k \\, du
 ```
 
-where ``(U, W)`` are produced by
-[`Gauss._composite_gauss_u_grid`](@ref) and ``c = \\dfrac{N}{2}`` is the midpoint shift.
-
-The difference is:
+against
 
 ```math
-\\texttt{diff}_k = M_k^{\\texttt{exact}} - M_k^{\\texttt{quad}}.
+M_k^{\\texttt{quad}} = \\sum_i W_i (U_i-c)^k,
 ```
 
-For each detected nonzero residual moment index ``k``, this routine records the
-factorial-scaled coefficient:
+where `(U, W)` is the composite Gauss grid returned by
+[`Gauss._composite_gauss_u_grid`](@ref) and
+``c = N / 2`` is the midpoint.
 
+The residual
+```math
+\\texttt{diff}_k = M_k^{\\texttt{exact}} - M_k^{\\texttt{quad}}
+```
+is converted into the factorial-scaled coefficient
 ```math
 \\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!}.
 ```
 
-It returns the first `nterms` detected `(k, coeff(k))` pairs (as aligned vectors),
-searching ``k = 0 , \\ldots , \\texttt{kmax}``.
+The function returns the first `nterms` detected nonzero residual terms as
+aligned vectors `(ks, coeffs)`.
 
 # Arguments
+- `rule`: Gauss-family rule symbol of the form `:gauss_pK`.
+- `boundary`: Boundary-family selector passed to the Gauss backend.
+- `Nsub`: Number of composite unit blocks on the dimensionless grid.
 
-* `rule`: Gauss rule symbol of the form `:gauss_pK` (`K` = points per block).
-* `boundary`: Boundary-family selector, forwarded to Gauss:
-  `:LU_EXEX` (Legendre), `:LU_INEX` (left Radau), `:LU_EXIN` (right Radau), `:LU_ININ` (Lobatto).
-* `Nsub`: Number of unit blocks in the composite tiling (``u \\in [0, N_\\texttt{sub}]``).
-
-# Keywords
-
-* `nterms`: Number of leading nonzero residual terms to collect (must satisfy `nterms ≥ 1`).
-* `kmax`: Maximum moment order to scan (must satisfy `kmax ≥ 0`).
+# Keyword arguments
+- `nterms`: Number of leading nonzero residual terms to collect.
+- `kmax`: Maximum moment order to scan.
 
 # Returns
+- `ks::Vector{Int}`: Residual orders where a nonzero moment is detected.
+- `coeffs::Vector{Float64}`: Factorial-scaled coefficients aligned with `ks`.
 
-* `ks::Vector{Int}`: Moment indices where a nonzero residual was detected (length `nterms`).
-* `coeffs::Vector{Float64}`: Factorial-scaled residual coefficients ``\\dfrac{\\texttt{diff}_k}{k!}`` aligned with `ks`.
-
-# Error conditions
-
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if:
-
-  * `nterms < 1` or `kmax < 0`,
-  * `rule` is not `:gauss_pK`,
-  * the requested Gauss family constraints are violated (e.g., Radau/Lobatto need enough points),
-  * or fewer than `nterms` nonzero residual moments are found up to `kmax`.
-
-# Numerical tolerances
-
-A residual is treated as nonzero if:
-```math
-\\left\\lvert \\texttt{diff}_k \\right\\rvert > 
-\\texttt{tol\\_abs} + 
-\\texttt{tol\\_rel} \\, \\left\\lvert M_k^{\\texttt{exact}} \\right\\rvert \\,,
-```
-where:
-
-* `tol_abs = 5e4 * eps(Float64)`
-* `tol_rel = 5e4 * eps(Float64)`
-
-This is intentionally loose to avoid false positives from floating-point noise,
-while still detecting genuine leading residual orders.
+# Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
+- Throws if `rule` is not of the form `:gauss_pK`.
+- Propagates backend errors from the composite Gauss grid construction.
+- Throws if fewer than `nterms` nonzero residual moments are found up to `kmax`.
 
 # Notes
-
-* This routine is intended as a lightweight *order detection / coefficient extraction*
-  tool for midpoint-based residual models; it is not a rigorous error bound.
-* For large ``k``, ``\\left( U_i - c \\right)^k`` and ``\\left( N - c \\right)^{k+1}`` may overflow or underflow in `Float64`.
-  Increase `kmax` cautiously.
+- Residual detection is tolerance-based rather than exact.
+- This routine is intended for leading-order / coefficient extraction, not for
+  rigorous error bounds.
 """
 function _leading_midpoint_residual_terms_gauss_float(
     rule::Symbol,

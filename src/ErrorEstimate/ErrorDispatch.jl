@@ -39,72 +39,38 @@ include("ErrorDispatch/nth_derivative.jl")
         kmax::Int = 128
     ) -> (ks, coeffs_float, center)
 
-Collect the first `nterms` nonzero **midpoint-shifted residual coefficients**
-for either an (exact-rational) composite Newton-Cotes rule or a `Float64` composite Gauss-family rule.
+Collect the first `nterms` nonzero midpoint-shifted residual coefficients
+for a supported quadrature backend.
 
 # Function description
-This is a unified internal helper that normalizes the two residual backends into a common return type:
+This helper normalizes the currently supported residual backends into a common
+return type:
 
-- **Newton-Cotes rules** (`:newton_pK`):
-  Uses exact rational moment-matching residual coefficients computed from the exact-assembled
-  composite Newton–Cotes coefficients `β`. The resulting residual coefficients are exact rationals
-  internally, then converted to `Float64` in this wrapper.
+- Newton-Cotes rules use the exact-rational residual backend and convert the
+  resulting coefficients to `Float64` here.
+- Gauss-family rules use the `Float64` midpoint-residual backend directly.
+- B-spline rules use the `Float64` midpoint-residual backend directly.
 
-- **Gauss rules** (`:gauss_pK`):
-  Uses `Float64` probing of midpoint-shifted monomial moments on the composite dimensionless grid
-  `u ∈ [0, Nsub]` (via [`Gauss._composite_gauss_u_grid`](@ref)) and identifies nonzero residual moments
-  using tolerance-based criteria (see the Gauss backend implementation).
-
-The residual is defined in terms of the midpoint shift `c` (currently always the midpoint):
-```math
-\\mathrm{diff}(k) = \\int_{0}^{N} (u-c)^k\\,du - \\sum_i W_i\\,(U_i-c)^k,
-\\qquad
-\\mathrm{coeff}(k)=\\frac{\\mathrm{diff}(k)}{k!}.
-```
-
-This routine returns the first `nterms` detected `(k, coeff(k))` pairs as aligned vectors.
+The returned `center` tag is currently always `:mid`.
 
 # Arguments
-
-* `rule`: Quadrature rule symbol. Supported:
-
-  * `:newton_pK` (exact composite Newton-Cotes; handled by `NewtonCotes` + `ErrorNewtonCotes`)
-  * `:gauss_pK` (composite Gauss family; handled by `Gauss` + `ErrorGauss`)
-* `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-  This is validated by [`QuadratureDispatch._decode_boundary`](@ref)`(boundary)`.
-* `Nsub`: Number of unit blocks in the dimensionless tiling domain `u ∈ [0, Nsub]`.
+- `rule`: Quadrature rule symbol.
+- `boundary`: Boundary pattern symbol.
+- `Nsub`: Number of unit blocks in the dimensionless tiling domain.
 
 # Keyword arguments
-
-* `nterms`: Number of leading nonzero residual terms to return (`nterms ≥ 1`).
-* `kmax`: Maximum moment order to scan in the backend search.
+- `nterms`: Number of leading nonzero residual terms to return.
+- `kmax`: Maximum moment order to scan.
 
 # Returns
-
-* `ks::Vector{Int}`:
-  Residual moment indices `k` where a nonzero residual was detected (length `nterms`).
-* `coeffs_float::Vector{Float64}`:
-  Factorial-scaled residual coefficients `diff(k)/k!`, returned as `Float64` (length `nterms`).
-
-  * For Newton-Cotes rules, these originate as exact rationals and are converted to Float64 here.
-  * For Gauss rules, these are produced directly in Float64.
-* `center::Symbol`:
-  Centering convention symbol. Currently always `:mid`.
+- `ks::Vector{Int}`: Residual indices where a nonzero moment was detected.
+- `coeffs_float::Vector{Float64}`: Factorial-scaled residual coefficients.
+- `center::Symbol`: Centering convention tag, currently `:mid`.
 
 # Errors
-
-* Throws (via [`JobLoggerTools.error_benji`](@ref)) if:
-
-  * `boundary` is invalid,
-  * `rule` is neither Newton-Cotes nor Gauss,
-  * or the backend fails to collect the requested number of terms within `kmax`.
-
-# Notes
-
-* This is an internal building block for residual-based error-scale models; it is not part of
-  the public API.
-* The center is currently fixed to `:mid`, but the return includes it so future extensions can
-  support alternative centers without changing downstream signatures.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is invalid.
+- Throws if `rule` is unsupported.
+- Propagates backend errors if the requested number of terms cannot be collected.
 """
 function _leading_residual_terms_any(
     rule::Symbol,
@@ -153,80 +119,40 @@ end
         tol_rel::Float64 = 5e4 * eps(Float64)
     ) -> (ks, center)
 
-Extract only the indices `k` of the first `nterms` nonzero midpoint-shifted residual moments,
-together with the centering convention.
+Extract only the residual indices `k` of the first `nterms` nonzero midpoint-shifted
+residual moments, together with the centering convention.
 
 # Function description
-This is a lightweight variant of [`_leading_residual_terms_any`](@ref) that returns only the
-moment indices `k` where a nonzero residual is detected, plus the center symbol.
+This is a lighter-weight companion to [`_leading_residual_terms_any`](@ref) that
+returns only the detected residual orders and the center tag.
 
-Two backends are supported:
+Supported backends:
 
-## (A) Newton-Cotes rules (`:newton_pK`) — exact rational detection
-For composite Newton-Cotes rules, this routine assembles the exact rational composite
-coefficient vector ``\\beta`` and tests exact nonzero-ness:
-```math
-\\mathrm{diff}(k)=\\int_{0}^{N}(u-c)^k\\,du-\\sum_{j=0}^{N}\\beta_j\\,(j-c)^k,
-\\quad \\text{(exact rational)}
-```
+- Newton-Cotes rules: exact rational residual detection.
+- Gauss-family rules: tolerance-based `Float64` residual detection.
+- B-spline rules: tolerance-based `Float64` residual detection.
 
-A moment index ``k`` is recorded when ``\\mathrm{diff}(k) \\neq 0`` in exact arithmetic.
-
-## (B) Gauss rules (`:gauss_pK`) — Float64 tolerance detection
-
-For composite Gauss-family rules, this routine constructs the dimensionless grid
-``(U, W)`` on ``u \\in [0, N_\\text{sub}]`` and tests nonzero residual with a tolerance condition:
-
-```math
-|\\mathrm{diff}(k)| > \\texttt{tol\\_abs} + \\texttt{tol\\_rel}\\,|\\mathrm{exact}|.
-```
-
-The center is currently fixed as:
-
-```math
-c = \\frac{N_\\text{sub}}{2}
-```
-
-and returned as `:mid`.
+The center is currently always `:mid`.
 
 # Arguments
-
-* `rule`: Quadrature rule symbol. Supported:
-
-  * `:newton_pK` (exact composite Newton–Cotes)
-  * `:gauss_pK` (composite Gauss family)
-* `boundary`: Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
-* `Nsub`: Number of unit blocks in the dimensionless domain `u ∈ [0, Nsub]`.
+- `rule`: Quadrature rule symbol.
+- `boundary`: Boundary pattern symbol.
+- `Nsub`: Number of unit blocks in the dimensionless tiling domain.
 
 # Keyword arguments
-
-* `nterms`: Number of leading residual indices to return (must satisfy `nterms ≥ 1`).
-* `kmax`: Maximum moment order to scan (must satisfy `kmax ≥ 0`).
-* `tol_abs`: Absolute tolerance for Gauss nonzero detection (Float64-only path).
-* `tol_rel`: Relative tolerance for Gauss nonzero detection (Float64-only path).
+- `nterms`: Number of residual indices to collect.
+- `kmax`: Maximum moment order to scan.
+- `tol_abs`: Absolute tolerance for floating-point residual detection.
+- `tol_rel`: Relative tolerance for floating-point residual detection.
 
 # Returns
-
-* `ks::Vector{Int}`:
-  Residual moment indices where nonzero residual was detected (length `nterms`).
-* `center::Symbol`:
-  Centering convention symbol (currently always `:mid`).
+- `ks::Vector{Int}`: Residual indices where a nonzero moment was detected.
+- `center::Symbol`: Centering convention tag, currently `:mid`.
 
 # Errors
-
-* Throws (via `JobLoggerTools.error_benji`) if:
-
-  * `nterms < 1` or `kmax < 0`,
-  * `boundary` is invalid,
-  * `rule` is unsupported,
-  * or fewer than `nterms` residual indices are detected up to `kmax`.
-
-# Notes
-
-* This is intended for quickly selecting convergence powers / error-model orders without
-  paying the cost of also collecting coefficient magnitudes.
-* For Gauss rules, the numerical decision boundary is controlled by `tol_abs`/`tol_rel`.
-  For Newton-Cotes rules, the decision is exact (`diff != 0`).
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
+- Throws if `boundary` is invalid or `rule` is unsupported.
+- Propagates backend residual-detection errors.
 """
 function _leading_residual_ks_with_center_any(
     rule::Symbol,
@@ -367,45 +293,39 @@ include("ErrorDispatch/error_estimate_nd.jl")
         nerr_terms::Int = 1
     ) -> Float64
 
-Unified interface for estimating an axis-separable midpoint-residual truncation-error *model*
-in arbitrary dimensions.
+Unified interface for estimating an axis-separable midpoint-residual truncation-error model.
 
 # Function description
-Dispatches to the corresponding dimension-specific estimator:
-- `dim == 1` ``\\rightarrow`` [`error_estimate_1d`](@ref)
-- `dim == 2` ``\\rightarrow`` [`error_estimate_2d`](@ref)
-- `dim == 3` ``\\rightarrow`` [`error_estimate_3d`](@ref)
-- `dim == 4` ``\\rightarrow`` [`error_estimate_4d`](@ref)
-- `dim >= 5` ``\\rightarrow`` [`error_estimate_nd`](@ref)
+This is the public non-threaded dispatcher for the error-estimation layer.
 
-All estimators use the exact midpoint residual expansion derived from rational weight assembly
-for Newton-Cotes-style composite rules. When `nerr_terms > 1`, the model includes LO plus additional
-nonzero midpoint residual terms (LO+NLO+...).
+It routes to the matching dimension-specific estimator:
+
+- [`error_estimate_1d`](@ref) for `dim == 1`
+- [`error_estimate_2d`](@ref) for `dim == 2`
+- [`error_estimate_3d`](@ref) for `dim == 3`
+- [`error_estimate_4d`](@ref) for `dim == 4`
+- [`error_estimate_nd`](@ref) otherwise
+
+All implementations share the same residual-term extraction logic and the same
+derivative-backend interface via [`nth_derivative`](@ref).
 
 # Arguments
-- `f`:
-    Integrand function (expects `dim` positional arguments).
-- `a`, `b`:
-    Bounds for each dimension (interpreted as scalar bounds for a hypercube ``[a,b]^\\texttt{dim}``).
-- `N`:
-    Number of subdivisions per axis (subject to rule constraints in the 1D case).
-- `dim`:
-    Number of dimensions (`Int`).
-- `rule`:
-    Integration rule symbol (must be `:newton_pK` style for the residual-based model).
-- `boundary`:
-    Boundary pattern symbol (`:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`).
+- `f`: Integrand callable accepting `dim` positional arguments.
+- `a`, `b`: Scalar bounds of the hypercube domain.
+- `N`: Number of subintervals per axis.
+- `dim`: Number of dimensions.
+- `rule`: Quadrature rule symbol.
+- `boundary`: Boundary pattern symbol.
 
 # Keyword arguments
-- `err_method`:
-  Backend used for derivative evaluation via [`nth_derivative`](@ref).
-  Supported values: `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, `:enzyme`.
-- `nerr_terms`:
-    Number of nonzero midpoint residual terms to include (`1` = LO only, `2` = LO+NLO, ...).
+- `err_method`: Derivative backend selector passed to [`nth_derivative`](@ref).
+- `nerr_terms`: Number of nonzero residual terms to include.
 
 # Returns
-- `Float64`:
-    A multidimensional truncation-error model value (axis-separable; mixed-derivative terms are omitted).
+- Same return object as the selected dimension-specific estimator.
+
+# Errors
+- Propagates errors from the selected estimator.
 """
 function error_estimate(
     f, 
@@ -443,29 +363,33 @@ end
         nerr_terms::Int = 1
     ) -> Float64
 
-Threaded dispatcher for the axis-separable midpoint-residual truncation-error *model* in arbitrary dimensions.
+Threaded dispatcher for the axis-separable midpoint-residual truncation-error model.
 
 # Function description
-Dispatches to the corresponding **threaded** dimension-specific estimator:
-- `dim == 1` ``\\rightarrow`` [`error_estimate_1d_threads`](@ref)
-- `dim == 2` ``\\rightarrow`` [`error_estimate_2d_threads`](@ref)
-- `dim == 3` ``\\rightarrow`` [`error_estimate_3d_threads`](@ref)
-- `dim == 4` ``\\rightarrow`` [`error_estimate_4d_threads`](@ref)
-- `dim >= 5` ``\\rightarrow`` [`error_estimate_nd_threads`](@ref)
+This is the public threaded dispatcher for the error-estimation layer.
 
-All non-threading details (mathematical definition, coefficient construction, residual-term
-interpretation, and overall intent) are identical to [`error_estimate`](@ref).
-See that function for the full formalism and background. Threading strategy details are
-documented in each dimension-specific threaded estimator.
+It routes to the matching threaded dimension-specific estimator:
+
+- [`error_estimate_1d_threads`](@ref) for `dim == 1`
+- [`error_estimate_2d_threads`](@ref) for `dim == 2`
+- [`error_estimate_3d_threads`](@ref) for `dim == 3`
+- [`error_estimate_4d_threads`](@ref) for `dim == 4`
+- [`error_estimate_nd_threads`](@ref) otherwise
+
+The mathematical model is identical to [`error_estimate`](@ref); only the
+internal summation strategy changes.
 
 # Arguments
-Same as [`error_estimate`](@ref).
+- Same as [`error_estimate`](@ref).
 
 # Keyword arguments
-Same as [`error_estimate`](@ref).
+- Same as [`error_estimate`](@ref).
 
 # Returns
-Same as [`error_estimate`](@ref).
+- Same return object as the selected threaded estimator.
+
+# Errors
+- Propagates errors from the selected threaded estimator.
 """
 function error_estimate_threads(
     f,

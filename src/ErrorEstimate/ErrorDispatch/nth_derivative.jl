@@ -15,43 +15,32 @@
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using a Taylor expansion via [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/).
+Compute the `n`-th derivative of a scalar callable `f` at `x`
+using a Taylor-series expansion.
 
 # Function description
-This routine evaluates the truncated Taylor expansion of ``f(x + t)`` around
-``x`` up to order `n` using a
-[`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1)
-expansion variable.
+This routine expands ``f(x + t)``` around the scalar point ``x`` using
+`TaylorSeries.Taylor1` up to order ``n``, then extracts the ``n``-th derivative
+from the resulting series.
 
-The ``n``-th derivative is extracted from the Taylor-expanded result by taking
-the constant term of the ``n``-th Taylor-series derivative `TaylorSeries.derivative(y, n)`.
-(No explicit multiplication by ``n!`` is performed in this function.)
-
-Unlike the [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) implementation, this method performs higher-order
-differentiation in a single pass rather than recursively applying first
-derivatives. It is useful for benchmarking alternative AD strategies and for
-testing high-order derivative extraction based on truncated power-series
-arithmetic.
-
-This function accepts any callable object `f`, including:
-- ordinary functions,
-- anonymous closures,
-- callable structs (functors).
+Unlike repeated first-derivative application, this backend performs the
+higher-order expansion in a single Taylor-series pass.
 
 # Arguments
-- `f`: Scalar-to-scalar callable (`f(x)::Number` expected).
+- `f`: Scalar-to-scalar callable.
 - `x::Real`: Evaluation point.
-- `n::Int`: Derivative order (must be nonnegative).
+- `n::Int`: Derivative order.
 
 # Returns
 - The `n`-th derivative value ``f^{(n)}(x)``.
 
+# Errors
+- Throws `ArgumentError` if `n < 0`.
+
 # Notes
-- The expansion center is forced to `Float64` (`x0 = float(x)`), so the result
-  is computed around a `Float64` point even if `x` was not `Float64`.
-- Computational cost and allocation typically grow with the Taylor order `n`,
-  since power-series arithmetic stores and propagates coefficients up to degree `n`.
+- The expansion center is converted to `Float64`.
+- This backend is useful as an alternative high-order derivative path and as a
+  comparison point against other AD methods.
 """
 @inline function nth_derivative_taylor(f, x::Real, n::Int)
     n < 0 && throw(ArgumentError("n must be nonnegative"))
@@ -71,41 +60,30 @@ end
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using repeated reverse-mode differentiation via [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/).
+Compute the `n`-th derivative of a scalar callable `f` at `x`
+using repeated `Enzyme.gradient` application.
 
 # Function description
-This routine constructs a nested closure chain of length `n`, where each step
-applies [`Enzyme.gradient`](https://enzyme.mit.edu/index.fcgi/julia/stable/api/#Enzyme.gradient-Union{Tuple{N},%20Tuple{ty_0},%20Tuple{ST},%20Tuple{CS},%20Tuple{StrongZero},%20Tuple{RuntimeActivity},%20Tuple{ErrIfFuncWritten},%20Tuple{ABI},%20Tuple{ReturnPrimal},%20Tuple{F},%20Tuple{ForwardMode{ReturnPrimal,%20ABI,%20ErrIfFuncWritten,%20RuntimeActivity,%20StrongZero},%20F,%20ty_0,%20Vararg{Any,%20N}}}%20where%20{F,%20ReturnPrimal,%20ABI,%20ErrIfFuncWritten,%20RuntimeActivity,%20StrongZero,%20CS,%20ST,%20ty_0,%20N}) in reverse mode to obtain a first derivative.
-The resulting callable is then evaluated at `x`.
-
-This mirrors the structure of the [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based implementation but replaces
-forward-mode differentiation with [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/)'s reverse-mode AD. It is intended
-primarily for benchmarking and experimentation with [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/) in scalar
-high-order differentiation contexts.
-
-Supported callable types include:
-- ordinary functions,
-- anonymous closures,
-- callable structs (functors).
+This routine builds a nested closure chain of length `n`. Each layer replaces
+the current callable by its first derivative computed through Enzyme reverse-mode
+automatic differentiation. The final nested callable is then evaluated at `x`.
 
 # Arguments
-- `f`: Scalar-to-scalar callable (`f(x)::Number` expected).
+- `f`: Scalar-to-scalar callable.
 - `x::Real`: Evaluation point.
-- `n::Int`: Derivative order (must be nonnegative).
+- `n::Int`: Derivative order.
 
 # Returns
 - The `n`-th derivative value ``f^{(n)}(x)``.
 
+# Errors
+- No explicit validation is performed here; backend errors from Enzyme are
+  propagated if the differentiation chain fails.
+
 # Notes
-- Reverse-mode AD is typically advantageous for many-input/one-output problems.
-  For repeated scalar higher-order derivatives, performance may be worse than
-  [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) due to closure nesting and gradient reconstruction overhead.
-- This implementation intentionally preserves the closure-based structure
-  for fair benchmarking against other approaches.
-- Inputs are converted to `Float64` to match surrounding numeric conventions.
-- Provided as a **benchmarking reference implementation**, not as the
-  recommended production path in the current codebase.
+- Inputs are converted to `Float64`.
+- This backend is mainly useful as an experimental or benchmarking path for
+  scalar higher-order differentiation.
 """
 function nth_derivative_enzyme(
     f,
@@ -123,37 +101,36 @@ end
 
 """
     nth_derivative_forwarddiff(
-        f, 
-        x::Real, 
+        f,
+        x::Real,
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using repeated [`ForwardDiff.derivative`](https://juliadiff.org/ForwardDiff.jl/stable/user/api/#ForwardDiff.derivative).
+Compute the `n`-th derivative of a scalar callable `f` at `x`
+using repeated `ForwardDiff.derivative`.
 
 # Function description
-This routine is intentionally written to accept any **callable** object `f`,
-not only subtypes of `Function`. This includes:
-- ordinary functions,
-- anonymous closures,
-- callable structs (functors) such as preset integrands.
+This routine constructs a nested derivative closure chain of length ``n``,
+then evaluates the resulting callable at ``x``.
 
-This design is required for compatibility with the integrand registry and
-preset-style callable wrappers while preserving [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)-based behavior.
+It is intentionally written to accept any Julia callable, not only subtypes of
+`Function`, so that closures and callable structs are also supported.
 
 # Arguments
-- `f`: Scalar-to-scalar callable (e.g., `f(x)::Number`).
-- `x::Real`: Point at which the derivative is evaluated.
-- `n::Int`: Derivative order (nonnegative integer).
+- `f`: Scalar-to-scalar callable.
+- `x::Real`: Evaluation point.
+- `n::Int`: Derivative order.
 
 # Returns
 - The `n`-th derivative value ``f^{(n)}(x)``.
 
+# Errors
+- No explicit validation is performed here; any differentiation failure from
+  `ForwardDiff` is propagated.
+
 # Notes
-- This implementation constructs a nested closure chain of length `n` and then
-  evaluates it at `x`. This intentionally matches the original behavior.
-- Type restriction `f::Function` is intentionally avoided because callable
-  structs are not subtypes of `Function`, but must be supported.
+- This is the default practical backend in the current error-estimation stack.
+- The callable restriction `f::Function` is intentionally avoided.
 """
 function nth_derivative_forwarddiff(
     f, 
@@ -175,47 +152,31 @@ end
         n::Int
     )
 
-Compute the `n`-th derivative of a scalar callable `f` at a scalar point `x`
-using symbolic differentiation via
-[`FastDifferentiation.jl`](https://github.com/brianguenter/FastDifferentiation.jl).
+Compute the `n`-th derivative of a scalar callable `f` at `x`
+using symbolic differentiation via `FastDifferentiation.jl`.
 
 # Function description
-This routine constructs a symbolic expression graph of the function `f`
-using `FastDifferentiation.Node` objects and performs repeated symbolic
-differentiation with respect to the variable.
-
-The resulting symbolic derivative expression is then compiled into a
-numerical evaluation function and executed at the point `x`.
-
-# Important requirement
-The callable `f` must support evaluation on
-`FastDifferentiation.Node` inputs.
-
-In other words, `f(t::Node)` must return a symbolic expression rather than
-attempting to perform purely numerical operations.
-
-Typical compatible cases include:
-
-- algebraic expressions
-- functions composed of standard mathematical operations
-- integrand definitions written generically over `Number`
-
-Functions containing strict type restrictions (e.g. `f(x::Float64)`)
-or unsupported control flow may not be traceable.
+This routine evaluates `f` on a symbolic variable, constructs the symbolic
+`n`-th derivative expression, compiles that expression to an executable
+function, and evaluates it at `x`.
 
 # Arguments
-- `f`: Scalar-to-scalar callable (must accept symbolic `Node` inputs).
-- `x::Real`: Point at which the derivative is evaluated.
-- `n::Int`: Derivative order (nonnegative integer).
+- `f`: Scalar-to-scalar callable that must accept symbolic `Node` inputs.
+- `x::Real`: Evaluation point.
+- `n::Int`: Derivative order.
 
 # Returns
-- The `n`-th derivative value ``f^{(n)}(x)``.
+- The `n`-th derivative value `f^{(n)}(x)`.
+
+# Errors
+- Throws `ArgumentError` if `n < 0`.
+- Propagates symbolic-construction or compilation errors if `f` is not
+  compatible with `FastDifferentiation`.
 
 # Notes
-- Internally, the symbolic derivative is constructed first and then
-  compiled into an executable function using [`FastDifferentiation.make_function`](https://brianguenter.github.io/FastDifferentiation.jl/stable/api/#FastDifferentiation.make_function-Union{Tuple{T},%20Tuple{AbstractArray{T},%20Vararg{AbstractVector{%3C:FastDifferentiation.Node}}}}%20where%20T%3C:FastDifferentiation.Node).
-- Clearing the `FastDifferentiation` cache avoids graph reuse issues when
-  the routine is called repeatedly with different functions.
+- `n == 0` returns `f(x)`.
+- This backend is most appropriate for algebraic integrands that can be traced
+  symbolically.
 """
 function nth_derivative_fastdifferentiation(
     f,
