@@ -1,3 +1,13 @@
+# ============================================================================
+# src/Utils/Reporter/report_internal_note.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 """
     write_convergence_internal_note(
         a, b, name, hs, estimates, errors,
@@ -486,13 +496,16 @@ function _build_internal_note_master_tex(
     affiliation::Union{Nothing,AbstractString} = nothing,
     abstract_text::Union{Nothing,AbstractString} = nothing,
 )
-    safe_title = _latex_escape_underscore(title)
+    # safe_title = _latex_escape_underscore(title)
     safe_rule = _latex_escape_underscore(String(rule))
     safe_boundary = _latex_escape_underscore(String(boundary))
 
-    note_title = "Maranatha.jl: \\texttt{$safe_title}, " *
-                 "\\texttt{$safe_rule}, " *
+    # note_title = "Maranatha.jl: \\texttt{$safe_title}, " *
+    #              "\\texttt{$safe_rule}, " *
+    #             "\\texttt{$safe_boundary}"
+    note_title = "Maranatha.jl: \\texttt{$safe_rule}, " *
                  "\\texttt{$safe_boundary}"
+
 
     author_block = isnothing(author) ? "" : "\\author{$author}\n"
     affiliation_block = isnothing(affiliation) ? "" : "\\affiliation{$affiliation}\n"

@@ -19,15 +19,19 @@ shareable, and suitable for research documentation.
 
 ## Overview
 
-A typical `Maranatha.jl` workflow produces raw convergence data and a fitted
-continuum extrapolation. The `Maranatha.Reporter` module transforms these results
-into human-readable reports.
+A typical `Maranatha.jl` workflow produces raw convergence data and, in many
+cases, a fitted continuum extrapolation. The `Maranatha.Utils.Reporter` module
+transforms either stage into human-readable reports.
 
 ```
 Runner → LeastChiSquareFit → PlotTools → Reporter
 ```
 
-The `Maranatha.Reporter` module is therefore the final stage of many pipelines.
+For fit-based reporting, `Maranatha.Utils.Reporter` consumes both the quadrature result and the
+fit result. For pre-fit reporting, it can also generate summaries and internal
+notes directly from raw datapoints and datapoints-only plots.
+
+The `Maranatha.Utils.Reporter` module is therefore the final stage of many pipelines.
 
 ---
 
@@ -35,16 +39,30 @@ The `Maranatha.Reporter` module is therefore the final stage of many pipelines.
 
 ### 1. Convergence summary tables
 
-Reporter can generate tables of:
+Reporter can generate both:
 
-- step sizes
-- estimates
-- uncertainties
-- fitted parameters
-- extrapolated results
+- **fit-aware convergence summaries**, including
+  - step sizes,
+  - estimates,
+  - uncertainties,
+  - fitted parameters,
+  - extrapolated results,
+
+and
+
+- **datapoints-only summaries**, including
+  - step sizes,
+  - transformed horizontal coordinates such as ``h^p``,
+  - raw quadrature estimates,
+  - pointwise uncertainties,
+  - plotting metadata such as axis-scale conventions.
 
 Outputs can be produced in multiple formats, including [$\LaTeX$](https://www.latex-project.org/)-ready
 snippets for direct inclusion in documents.
+
+This allows Reporter to support both:
+- post-fit reporting workflows, and
+- pre-fit inspection / archival workflows based only on raw datapoints.
 
 ---
 
@@ -53,7 +71,14 @@ snippets for direct inclusion in documents.
 The flagship feature is the ability to construct a **self-contained
 [$\LaTeX$](https://www.latex-project.org/) project** representing a numerical experiment.
 
-This includes:
+Reporter supports two related internal-note workflows:
+
+- **fit-based internal notes**, which include fitted extrapolation summaries and
+  convergence-fit figures,
+- **datapoints-only internal notes**, which summarize raw quadrature datapoints
+  and their plotting configuration without requiring a fit result.
+
+Depending on the workflow, the generated note can include:
 
 - a REVTeX-based master document
 - formatted summary tables
@@ -130,17 +155,64 @@ inote_summary_sample_1d_gauss_p4_LU_EXEX_ff_4_er_3/
         result_sample_1d_gauss_p4_LU_EXEX_reldiff.pdf
 ```
 
+A datapoints-only workflow is also supported when you want to document raw
+quadrature behavior before fitting:
+
+```julia
+using Maranatha
+
+run_result = run_Maranatha("../samples/sample_1d.toml")
+
+plot_datapoints_result(
+    run_result;
+    name = "sample_1d",
+    h_power = 2,
+    xscale = :log,
+    yscale = :linear,
+    figs_dir = ".",
+    save_file = true,
+)
+
+write_convergence_summary_datapoints(
+    run_result;
+    name = "sample_1d",
+    h_power = 2,
+    xscale = :log,
+    yscale = :linear,
+    format = :md,
+    out_dir = ".",
+    save_file = true,
+)
+
+note_info = write_convergence_internal_note_datapoints(
+    run_result;
+    name = "sample_1d",
+    h_power = 2,
+    xscale = :log,
+    yscale = :linear,
+    out_dir = ".",
+    save_file = true,
+    try_build_pdf = true,
+    move_existing_plots = true,
+)
+```
+
+This produces a datapoints-only note directory containing a raw-datapoint
+summary and the corresponding saved datapoints figure.
+
 ---
 
-## When to use Reporter
+## When to use `Maranatha.Utils.Reporter`
 
-Use Reporter when you need:
+Use `Maranatha.Utils.Reporter` when you need:
 
 - research-grade documentation of numerical results,
 - shareable experiment summaries,
 - reproducible [$\LaTeX$](https://www.latex-project.org/) output,
 - archival records of convergence studies,
-- automated generation of internal reports.
+- automated generation of internal reports,
+- pre-fit summaries of raw quadrature datapoints,
+- datapoints-only internal notes for inspection and debugging.
 
 It is especially useful for:
 
@@ -196,12 +268,15 @@ Generated note directories follow the pattern:
 inote_$(summary_basename)/
 ```
 
-Within the directory:
+Depending on whether the workflow is fit-based or datapoints-only, the directory
+contains the corresponding summary and figure assets.
+
+Typical contents include:
 
 | Component | Purpose |
 |----------|----------|
 Master `.tex` | Stand-alone document |
-Summary table | Numerical results |
+Summary table | Numerical results or datapoints-only summary |
 Figure include file | Plot layout |
 `figs/` directory | Plot assets |
 Makefile | Reproducible build |

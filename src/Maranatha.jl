@@ -134,7 +134,7 @@ export load_datapoint_results, merge_datapoint_result_files, drop_nsamples_from_
 import .Utils.Wizard: run_wizard
 export run_wizard
 
-import .Utils.Reporter: write_convergence_summary, write_convergence_internal_note
-export write_convergence_summary, write_convergence_internal_note
+import .Utils.Reporter: write_convergence_summary, write_convergence_internal_note, write_convergence_summary_datapoints, write_convergence_internal_note_datapoints
+export write_convergence_summary, write_convergence_internal_note, write_convergence_summary_datapoints, write_convergence_internal_note_datapoints
 
 end  # module Maranatha

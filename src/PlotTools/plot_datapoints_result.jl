@@ -1,3 +1,9 @@
+function _split_report_name(name::AbstractString)
+    display_name = String(name)
+    file_name = replace(basename(String(name)), r"\.jld2$" => "")
+    return display_name, file_name
+end
+
 """
     plot_datapoints_result(
         name::String,
@@ -151,10 +157,13 @@ function plot_datapoints_result(
 
     display(fig)
 
-    basename = "result_$(name)_$(String(rule))_$(String(boundary))_datapoints_hpow_$(h_power)_$(xscale)_$(yscale)"
+    display_name, file_name = _split_report_name(name)
+
+    basename = "$(file_name)_$(String(rule))_$(String(boundary))_datapoints_hpow_$(h_power)_$(xscale)_$(yscale)"
     resfile  = joinpath(figs_dir, "$basename.pdf")
     cropped  = joinpath(figs_dir, "$basename-crop.pdf")
 
+    mkpath(figs_dir)
     if save_file
         PyPlot.savefig(resfile)
         if Sys.which("pdfcrop") !== nothing

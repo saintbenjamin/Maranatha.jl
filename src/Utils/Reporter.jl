@@ -20,5 +20,7 @@ include("Reporter/report_formatters.jl")
 include("Reporter/report_fitmodel.jl")
 include("Reporter/report_summary.jl")
 include("Reporter/report_internal_note.jl")
+include("Reporter/report_summary_datapoints.jl")
+include("Reporter/report_internal_note_datapoints.jl")
 
 end  # module Reporter
