@@ -35,7 +35,7 @@ The plotting layer currently contains four main roles:
 This helper configures global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib`](https://matplotlib.org/stable/) rendering parameters so that
 plots are visually consistent across the package.
 
-It enables $\LaTeX$-style text rendering and adjusts items such as:
+It enables [$\LaTeX$](https://www.latex-project.org/)-style text rendering and adjusts items such as:
 
 - font sizes
 - line widths

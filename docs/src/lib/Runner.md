@@ -15,6 +15,7 @@ multi-resolution convergence data that the fitter and plotter consume later.
 | Error estimator | supplies derivative-informed error-scale estimators |
 | Fitter | performs ``h \to 0`` extrapolation |
 | Plotter | visualizes convergence |
+| Reporter | generates structured summaries and archival report outputs |
 
 In other words, the runner is the front door of a typical computational
 workflow in `Maranatha.jl`.
@@ -50,14 +51,19 @@ manual page to provide fuller context.
 
 A typical workflow is:
 
+A typical workflow is:
+
 1. call [`run_Maranatha`](@ref) to generate a raw convergence dataset,
 2. pass the returned result to
    [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
 3. inspect or visualize the fit using
-   [`Maranatha.PlotTools.plot_convergence_result`](@ref).
+   [`Maranatha.PlotTools.plot_convergence_result`](@ref),
+4. optionally generate structured reports using
+   [`Maranatha.Utils.Reporter.write_convergence_internal_note`](@ref).
 
 The runner itself does not fit the continuum-limit model.
-It only prepares the data needed for that later stage.
+It only prepares the data needed for later stages of analysis,
+visualization, and reporting.
 
 ---
 

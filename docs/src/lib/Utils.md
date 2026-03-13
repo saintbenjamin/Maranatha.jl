@@ -48,6 +48,15 @@ Provides [`TOML`](https://toml.io/en/)-related helpers and configuration parsing
 This is part of the utility layer because [`TOML`](https://toml.io/en/) configuration handling is a
 package-wide concern rather than belonging to any one numerical subsystem.
 
+### [`Maranatha.Utils.Reporter`](@ref)
+
+Provides high-level reporting helpers for turning numerical results into
+structured, shareable output artifacts.
+
+This submodule belongs in the utility layer because it focuses on presentation,
+packaging, and reproducible report generation rather than on numerical
+computation itself.
+
 ### [`Maranatha.Utils.Wizard`](@ref)
 
 Provides wizard-style helper utilities used for guided or structured setup
@@ -69,7 +78,13 @@ By collecting shared helpers under one layer, the package gains:
 - a more stable namespace,
 - clearer separation between infrastructure and algorithms,
 - easier future extension,
-- simpler discoverability for users and developers.
+- simpler discoverability for users and developers,
+- a unified location for both runtime support tools and
+  post-processing/reporting utilities.
+
+This aggregation includes components ranging from logging and configuration
+handling to workflow helpers and high-level reporting tools, all of which are
+orthogonal to the scientific core of `Maranatha.jl`.
 
 ---
 

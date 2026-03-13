@@ -236,7 +236,7 @@ residual expansion and stored in `fit_result.powers`.
 * Basis reconstruction from stored exponent vector (`fit_result.powers`)
 * Convergence plotted against $h^p$, where $p$ is the first non-constant
   exponent stored in `fit_result.powers`
-* LaTeX rendering via [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
+* [$\LaTeX$](https://www.latex-project.org/) rendering via [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
 
 ---
 
@@ -312,7 +312,7 @@ Internal modules:
 * [`Maranatha.LeastChiSquareFit`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/LeastChiSquareFit/)
 * [`Maranatha.PlotTools`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/PlotTools/)
 * [`Maranatha.Integrands`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Integrands/)
-* [`Maranatha.Utils`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Utils/)
+* [`Maranatha.Utils`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Utils/) — shared infrastructure, including reporting and reproducibility tools
 
 The public API is intentionally minimal and centered around
 a pipeline-style workflow:

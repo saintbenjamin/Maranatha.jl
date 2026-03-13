@@ -59,7 +59,7 @@ The helpers
 are presentation-oriented utilities.
 
 They are useful when very long mantissas are shown and one wants clearer visual
-separation of digit blocks, especially in LaTeX output.
+separation of digit blocks, especially in [$\LaTeX$](https://www.latex-project.org/) output.
 
 The grouping logic is intentionally asymmetric:
 

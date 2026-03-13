@@ -31,9 +31,11 @@ The design of `Maranatha.jl` follows a structured computational pipeline:
 1. **Quadrature evaluation**  
 2. **Error-scale estimation**
 3. **continuum extrapolation using Least-``\chi^2`` fitting**
-4. **Visualization of convergence behavior**
+4. **Structured reporting and archival output**
+5. **Visualization of convergence behavior**
 
-This separation allows each stage of the computation to evolve independently.
+This separation allows each stage of the computation and post-processing
+workflow to evolve independently.
 
 The framework exposes these responsibilities explicitly:
 
@@ -43,7 +45,8 @@ The framework exposes these responsibilities explicitly:
 | Quadrature | supplies tensor-product quadrature in arbitrary dimensions |
 | Error estimator | supplies derivative-informed error-scale estimators |
 | Fitter | performs ``h \to 0`` extrapolation |
-| Plotter | visualize convergence |
+| Plotter | visualizes convergence behavior |
+| Reporter | generates structured report artifacts and internal-note outputs |
 
 ---
 
@@ -157,6 +160,21 @@ The primary plotting routines include:
 
 The convergence plot displays the fitted model and its covariance-based
 uncertainty band.
+
+---
+
+### Reporting utilities
+
+High-level report generation is provided by
+[`Maranatha.Utils.Reporter`](@ref).
+
+This layer is responsible for turning numerical and plotting results into
+structured, shareable documentation artifacts such as summary tables,
+``\LaTeX``-ready note projects, and optional PDF-build workflows.
+
+While the numerical core of `Maranatha.jl` computes convergence data and
+continuum fits, `Maranatha.Utils.Reporter` supports the final presentation and archival stage
+of the workflow.
 
 ---
 

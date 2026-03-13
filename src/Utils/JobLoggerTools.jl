@@ -1,5 +1,5 @@
 # ============================================================================
-# src/JobLoggerTools/JobLoggerTools.jl
+# src/Utils/JobLoggerTools.jl
 #
 # Shared module mirrored between Maranatha.jl and Deborah.jl.
 # Historical origin: Deborah.jl

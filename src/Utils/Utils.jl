@@ -53,17 +53,20 @@ import ..Printf
 import ..Dates
 import ..TOML
 import ..JLD2
+import ..LinearAlgebra
 
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
 include("MaranathaIO.jl")
 include("MaranathaTOML.jl")
 include("Wizard.jl")
+include("Reporter.jl")
 
 using .JobLoggerTools
 using .AvgErrFormatter
 using .MaranathaIO
 using .MaranathaTOML
 using .Wizard
+using .Reporter
 
 end  # module Utils

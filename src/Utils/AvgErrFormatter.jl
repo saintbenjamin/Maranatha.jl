@@ -1,5 +1,5 @@
 # ============================================================================
-# src/AvgErrFormatter/AvgErrFormatter.jl
+# src/Utils/AvgErrFormatter.jl
 #
 # Shared module mirrored between Maranatha.jl and Deborah.jl.
 # Historical origin: Deborah.jl/src/Sarah/AvgErrFormatter.jl
@@ -415,7 +415,7 @@ Insert digit-group separators into the fractional part of a number string.
 
 # Function description
 This helper groups digits from left to right, which is useful for visually
-formatting long decimal tails in LaTeX-friendly output.
+formatting long decimal tails in [``\\LaTeX``](https://www.latex-project.org/)-friendly output.
 
 # Arguments
 - `s::AbstractString`: Fractional-part string with no decimal point.
@@ -456,7 +456,7 @@ end
         sep::AbstractString = raw"\\,"
     ) -> String
 
-Apply LaTeX-style digit grouping to the central-value portion of an uncertainty string.
+Apply [``\\LaTeX``](https://www.latex-project.org/)-style digit grouping to the central-value portion of an uncertainty string.
 
 # Function description
 This helper takes a formatted uncertainty string such as `"2.00000000000000(39)"`
@@ -560,7 +560,7 @@ both inputs to `%.14e` scientific-notation strings, then passes them to the
 main formatter.
 
 Optionally, the result can be post-processed by
-[`latex_group_fraction_digits`](@ref) for LaTeX-style digit grouping.
+[`latex_group_fraction_digits`](@ref) for [``\\LaTeX``](https://www.latex-project.org/)-style digit grouping.
 
 # Arguments
 - `cen::Float64`: Central value.

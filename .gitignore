@@ -5,3 +5,4 @@ SAVE
 docs/build*
 test/*.toml
 test/*.jld2
+inote*
