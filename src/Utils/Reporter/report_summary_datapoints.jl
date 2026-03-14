@@ -399,7 +399,7 @@ function _build_convergence_summary_datapoints_tex(
     for i in eachindex(hsp)
         htxt  = _fmt_tex_texttt_sci(hsp[i])
         hptxt = _fmt_tex_texttt_sci(hxp[i])
-        qtxt  = _fmt_avgerr_tex(estp[i], errp[i])
+        qtxt  = _fmt_avgerr_tex(estp[i], abs(errp[i]))
         qtxt  = startswith(qtxt, "-") ? qtxt : "\\hphantom{-}$qtxt"
         println(io, "$htxt & $hptxt & \$$qtxt\$ \\\\")
     end

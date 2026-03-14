@@ -416,6 +416,7 @@ end
     _default_result_path(
         save_dir,
         name_prefix,
+        name_suffix,
         rule,
         boundary,
         Ns
@@ -425,12 +426,13 @@ Construct the default output path for a saved result file.
 
 # Function description
 This helper builds a standard `.jld2` filename from the output directory,
-user-facing prefix, rule label, boundary label, and explicit list of stored
+user-facing prefix, user-facing suffix, rule label, boundary label, and explicit list of stored
 subdivision counts.
 
 # Arguments
 - `save_dir`: Output directory.
 - `name_prefix`: User-facing prefix for the dataset.
+- `name_suffix`: User-facing suffix for the dataset.
 - `rule`: Quadrature rule label.
 - `boundary`: Boundary-condition label.
 - `Ns`: Collection of subdivision counts.
@@ -448,6 +450,7 @@ subdivision counts.
 function _default_result_path(
     save_dir::AbstractString,
     name_prefix::AbstractString,
+    name_suffix::AbstractString,
     rule,
     boundary,
     Ns
@@ -456,7 +459,7 @@ function _default_result_path(
 
     return joinpath(
         save_dir,
-        "result_$(name_prefix)_$(rule)_$(boundary)_$(ns_suffix).jld2"
+        "result_$(name_prefix)_$(rule)_$(boundary)_$(ns_suffix)_$(name_suffix).jld2"
     )
 end
 
@@ -734,7 +737,8 @@ function merge_datapoint_result_files(
     sort_by_h::Bool = true,
     allow_duplicate_h::Bool = false,
     output_dir::String = ".",
-    name_prefix::String = "merged",
+    name_prefix::String = "Maranatha",
+    name_suffix::String = "merged",
 )
     length(paths) >= 2 || JobLoggerTools.error_benji(
         "merge_datapoint_result_files requires at least 2 input files"
@@ -753,6 +757,7 @@ function merge_datapoint_result_files(
         _default_result_path(
             output_dir,
             name_prefix,
+            name_suffix,
             merged.rule,
             merged.boundary,
             Ns,
@@ -847,7 +852,8 @@ end
         write_summary::Bool = true,
         atol::Float64 = 1e-10,
         output_dir::String = ".",
-        name_prefix::String = "dropped",
+        name_prefix::String = "Maranatha",
+        name_suffix::String = "filtered",
     ) -> String
 
 Remove selected subdivision counts from a saved result file.
@@ -871,6 +877,7 @@ filtered result back to disk.
 - `atol::Float64`: Absolute tolerance used when reconstructing subdivision counts.
 - `output_dir::String`: Output directory used when generating a default path.
 - `name_prefix::String`: Filename prefix used when generating a default path.
+- `name_suffix::String`: Filename suffix used when generating a default path.
 
 # Returns
 - `String`: Output path of the written filtered `.jld2` file.
@@ -890,12 +897,13 @@ function drop_nsamples_from_file(
     write_summary::Bool = true,
     atol::Float64 = 1e-10,
     output_dir::String = ".",
-    name_prefix::String = "dropped",
+    name_prefix::String = "Maranatha",
+    name_suffix::String = "filtered",
 )
-    res = load_datapoint_results(input_path)
+    result = load_datapoint_results(input_path)
 
     filtered = drop_nsamples_from_result(
-        res,
+        result,
         Ns_to_drop;
         atol = atol,
     )
@@ -905,19 +913,7 @@ function drop_nsamples_from_file(
         _default_result_path(
             output_dir,
             name_prefix,
-            filtered.rule,
-            filtered.boundary,
-            Ns,
-        )
-    else
-        output_path
-    end
-
-    final_output_path = if output_path === nothing
-        Ns = infer_nsamples(filtered; atol=atol)
-        _default_result_path(
-            output_dir,
-            name_prefix,
+            name_suffix,
             filtered.rule,
             filtered.boundary,
             Ns,

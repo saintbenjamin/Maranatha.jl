@@ -345,7 +345,12 @@ function write_convergence_internal_note(
     save_file::Bool = true,
     try_build_pdf::Bool = true,
     move_existing_plots::Bool = true,
+    nterms::Union{Nothing,Int} = nothing,
+    nerr_terms::Union{Nothing,Int} = nothing,
 )
+    fit_nterms = isnothing(nterms) ? result.fit_terms : nterms
+    fit_nerr_terms = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
+
     return write_convergence_internal_note(
         result.a,
         result.b,
@@ -353,8 +358,8 @@ function write_convergence_internal_note(
         Vector{Float64}(result.h),
         Vector{Float64}(result.avg),
         result.err,
-        result.fit_terms,
-        result.nerr_terms,
+        fit_nterms,
+        fit_nerr_terms,
         fit_result;
         rule = rule,
         boundary = boundary,

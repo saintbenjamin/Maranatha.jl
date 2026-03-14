@@ -220,7 +220,12 @@ function write_convergence_summary(
     out_dir::String = ".",
     format::Symbol = :tex,
     save_file::Bool = true,
+    nterms::Union{Nothing,Int} = nothing,
+    nerr_terms::Union{Nothing,Int} = nothing,    
 )
+    fit_nterms = isnothing(nterms) ? result.fit_terms : nterms
+    fit_nerr_terms = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
+
     return write_convergence_summary(
         result.a,
         result.b,
@@ -228,8 +233,8 @@ function write_convergence_summary(
         Vector{Float64}(result.h),
         Vector{Float64}(result.avg),
         result.err,
-        result.fit_terms,
-        result.nerr_terms,
+        fit_nterms,
+        fit_nerr_terms,
         fit_result;
         rule = rule,
         boundary = boundary,
@@ -422,7 +427,7 @@ function _build_convergence_summary_tex(
     for i in eachindex(hsp)
         htxt  = _fmt_tex_texttt_sci(hsp[i])
         hptxt = _fmt_tex_texttt_sci(hxp[i])
-        qtxt  = _fmt_avgerr_tex(estp[i], errp[i])
+        qtxt  = _fmt_avgerr_tex(estp[i], abs(errp[i]))
 
         # --- Align sign ---
         qtxt = startswith(qtxt, "-") ? qtxt : "\\hphantom{-}$qtxt"

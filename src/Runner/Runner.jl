@@ -279,12 +279,17 @@ function run_Maranatha(
     )
 
     if save_path !== nothing
-        mkpath(save_path)
+        # ---- normalize to current working directory ----
+        save_path_abs = isabspath(save_path) ? save_path : joinpath(pwd(), save_path)
+
+        mkpath(save_path_abs)
+
         Nstr = join(sort(nsamples), "_")
         save_jld2_path = joinpath(
-            save_path,
+            save_path_abs,
             "result_$(name_prefix)_$(rule)_$(boundary)_N_$(Nstr).jld2"
         )
+
         MaranathaIO.save_datapoint_results(
             save_jld2_path,
             result;
