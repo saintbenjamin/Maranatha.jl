@@ -24,7 +24,7 @@ ff_shift = 0
 use_threads = true
 
 [output]
-name_prefix = "1D"
-save_path = "."
+name_prefix = "sample_1d"
+save_path = "jld2"
 write_summary = true
 save_file = true

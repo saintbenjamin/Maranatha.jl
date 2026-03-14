@@ -279,6 +279,7 @@ function run_Maranatha(
     )
 
     if save_path !== nothing
+        mkpath(save_path)
         Nstr = join(sort(nsamples), "_")
         save_jld2_path = joinpath(
             save_path,
