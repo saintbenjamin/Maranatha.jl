@@ -426,8 +426,8 @@ Construct the default output path for a saved result file.
 
 # Function description
 This helper builds a standard `.jld2` filename from the output directory,
-user-facing prefix, user-facing suffix, rule label, boundary label, and explicit list of stored
-subdivision counts.
+dataset prefix, dataset suffix, quadrature rule, boundary-condition label,
+and the explicit list of stored subdivision counts.
 
 # Arguments
 - `save_dir`: Output directory.
@@ -446,6 +446,8 @@ subdivision counts.
 # Notes
 - This helper only constructs a path string; it does not create files or
   directories.
+- The generated filename includes the rule, boundary, `nsamples` suffix,
+  and user-provided prefix/suffix.
 """
 function _default_result_path(
     save_dir::AbstractString,
@@ -696,6 +698,7 @@ end
         allow_duplicate_h=false,
         output_dir::String = ".",
         name_prefix::String = "merged",
+        name_suffix::String = "merged",
     ) -> String
 
 Load multiple saved result files, merge them, and write the combined result.
@@ -718,6 +721,7 @@ disk.
 - `allow_duplicate_h`: Whether duplicate `h` values are allowed.
 - `output_dir::String`: Output directory used when generating a default path.
 - `name_prefix::String`: Filename prefix used when generating a default path.
+- `name_suffix::String`: Filename suffix used when generating a default path.
 
 # Returns
 - `String`: Output path of the written merged `.jld2` file.
@@ -728,7 +732,10 @@ disk.
 - Propagates loading, merging, path-construction, and saving errors.
 
 # Notes
-- The merged [`TOML`](https://toml.io/en/) summary is regenerated from the merged in-memory result.
+- The merged [`TOML`](https://toml.io/en/) summary is regenerated from the
+  merged in-memory result.
+- If `output_path` is not provided, the output filename is generated from the
+  merged metadata and inferred subdivision-count list.
 """
 function merge_datapoint_result_files(
     paths::AbstractString...;
@@ -889,6 +896,8 @@ filtered result back to disk.
 
 # Notes
 - The filtered result preserves all global metadata from the original file.
+- If `output_path` is not provided, the output filename is generated from the
+  filtered subdivision-count list.
 """
 function drop_nsamples_from_file(
     input_path::AbstractString,

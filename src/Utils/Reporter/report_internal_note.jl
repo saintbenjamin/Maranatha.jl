@@ -321,6 +321,10 @@ and forwards them to the primary implementation.
 This allows seamless integration with pipeline outputs without manual
 unpacking.
 
+In addition to forwarding the stored fit metadata from `result`, this
+wrapper also allows the caller to override the fit-model settings used for
+report generation via the `nterms` and `nerr_terms` keyword arguments.
+
 # Arguments
 
 - `result`: Object exposing fields such as `a`, `b`, `h`, `avg`,
@@ -329,11 +333,45 @@ unpacking.
 
 # Keyword arguments
 
-Same as the main method.
+- `name::String = "Maranatha"`
+  : Title or identifier used in the generated report.
+
+- `rule::Symbol = result.rule`
+  : Quadrature rule label to display in the report.
+
+- `boundary::Symbol = result.boundary`
+  : Boundary-condition label to display in the report.
+
+- `out_dir::String = "."`
+  : Output directory for generated report files.
+
+- `save_file::Bool = true`
+  : If `true`, write report files to disk.
+
+- `try_build_pdf::Bool = true`
+  : If `true`, attempt to compile the generated LaTeX source into a PDF.
+
+- `move_existing_plots::Bool = true`
+  : If `true`, move or reuse existing plot files when assembling the report.
+
+- `nterms::Union{Nothing,Int} = nothing`
+  : Optional override for the number of fit terms used in the report.
+    If `nothing`, `result.fit_terms` is used.
+
+- `nerr_terms::Union{Nothing,Int} = nothing`
+  : Optional override for the number of error-model terms used in the report.
+    If `nothing`, `result.nerr_terms` is used.
 
 # Returns
 
 A `NamedTuple` identical to the primary function's return value.
+
+# Notes
+
+This wrapper is intended for convenience when working directly with the
+result object returned by [`Maranatha.Runner.run_Maranatha`](@ref), while
+still allowing limited report-level customization without reconstructing
+the full argument list manually.
 """
 function write_convergence_internal_note(
     result,

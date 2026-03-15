@@ -181,7 +181,8 @@ end
     write_convergence_summary(
         result,
         fit_result;
-        name, rule, boundary, out_dir, format, save_file
+        name, rule, boundary, out_dir, format, save_file,
+        nterms, nerr_terms
     ) -> String
 
 Convenience wrapper for [`write_convergence_summary`](@ref) using a result object.
@@ -193,6 +194,10 @@ object and forwards them to the main reporting routine.
 
 It allows direct reporting without manually unpacking the result structure.
 
+In addition to forwarding the fit metadata stored in `result`, this wrapper
+also allows the caller to override the fit-model settings used for summary
+generation via the `nterms` and `nerr_terms` keyword arguments.
+
 # Arguments
 
 - `result`: Object containing quadrature outputs and metadata.
@@ -200,7 +205,31 @@ It allows direct reporting without manually unpacking the result structure.
 
 # Keyword arguments
 
-- Same as the primary method.
+- `name::String = "Maranatha"`
+  : Title or identifier used in the generated summary.
+
+- `rule::Symbol = result.rule`
+  : Quadrature rule label to display in the summary.
+
+- `boundary::Symbol = result.boundary`
+  : Boundary-condition label to display in the summary.
+
+- `out_dir::String = "."`
+  : Output directory for generated files when `save_file = true`.
+
+- `format::Symbol = :tex`
+  : Output format for the generated summary.
+
+- `save_file::Bool = true`
+  : If `true`, write the generated summary to disk.
+
+- `nterms::Union{Nothing,Int} = nothing`
+  : Optional override for the number of fit terms used in the summary.
+    If `nothing`, `result.fit_terms` is used.
+
+- `nerr_terms::Union{Nothing,Int} = nothing`
+  : Optional override for the number of error-model terms used in the summary.
+    If `nothing`, `result.nerr_terms` is used.
 
 # Returns
 
@@ -209,7 +238,12 @@ It allows direct reporting without manually unpacking the result structure.
 # Notes
 
 - The function assumes that `result` exposes fields compatible with the main
-  reporting interface (e.g., `a`, `b`, `h`, `avg`, `err`, etc.).
+  reporting interface, including `a`, `b`, `h`, `avg`, `err`,
+  `fit_terms`, `nerr_terms`, `rule`, and `boundary`.
+- This wrapper is intended for convenience when working directly with the
+  result object returned by [`Maranatha.Runner.run_Maranatha`](@ref), while
+  still allowing limited report-level customization without manually
+  reconstructing the full argument list.
 """
 function write_convergence_summary(
     result,
