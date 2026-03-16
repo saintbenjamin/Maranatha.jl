@@ -64,13 +64,13 @@ rule = "gauss_p4"
 boundary = "LU_EXEX"
 
 [error]
-err_method = "forwarddiff"
+err_method = "refinement"
 fit_terms = 4
 nerr_terms = 3
 ff_shift = 0
 
 [execution]
-use_threads = true
+use_error_jet = true
 
 [output]
 name_prefix = "1D"
@@ -128,6 +128,22 @@ runs, filtering datapoints, and convergence visualization.
 
 ---
 
+### ⚡ Why runs can be fast
+
+When the refinement-based error model is used, Maranatha avoids computing
+high-order derivatives of the integrand entirely. Instead, it infers
+error scaling directly from resolution refinement.
+
+This makes the framework practical even for computationally expensive
+integrands, where derivative-based error estimation would dominate the
+runtime.
+
+In many cases, refinement-based estimates provide error scales close to
+those obtained from theoretical derivative models while remaining much
+faster to compute.
+
+---
+
 ## 🔗 Documentation
 
 📘 Documentation:
@@ -154,6 +170,12 @@ through unified tensor-product dispatch.
 Fit exponents used in the extrapolation model are determined from a
 **rule-dispatched residual expansion** that detects the leading
 non-vanishing truncation orders for each quadrature family.
+
+A key design choice is the availability of refinement-based error
+estimation, which prioritizes observable convergence behavior over
+analytic derivative information. This reflects the framework's emphasis
+on practical numerical studies rather than purely theoretical error
+bounds.
 
 ---
 
@@ -205,6 +227,30 @@ Residual-based derivative error *scale* models:
 ⚠️ These models provide **error scaling estimates**, not strict
 truncation bounds. Their purpose is to stabilize weighted
 $\chi^2$ extrapolation rather than provide conservative error bounds.
+
+---
+
+### 🚀 Refinement-based error estimation
+
+In addition to derivative-based backends, Maranatha supports a
+**refinement-based error scale model** that estimates truncation behavior
+directly from differences between successive quadrature resolutions.
+
+This approach has several practical advantages:
+
+- **No high-order derivatives are required**
+- Avoids expensive automatic differentiation passes
+- Scales efficiently to complex integrands and higher dimensions
+- Typically much faster than derivative-based estimators
+
+Extensive testing indicates that the resulting error scales are often
+comparable in quality to fully derivative-based models for smooth
+integrands, while being significantly cheaper to evaluate.
+
+Because it relies only on observable convergence behavior,
+the refinement method is particularly robust for complicated
+integrands where high-order derivatives are costly or unstable
+to compute.
 
 ---
 

@@ -4,14 +4,14 @@ include("experiments/integrand_Z_q.jl")
 
 ff(x1,x2,x3,x4) = integrand_Z_q((x1,x2,x3,x4))
 bounds=(0.0,π)
-use_threads = false
+use_error_jet = false
 
 dim = 4
 rule = :gauss_p2
 boundary = :LU_EXEX
 ns = [2, 3, 4, 5, 6, 7, 8, 9]
 ns .+= 20
-err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
 nerr_terms = 1
 ff_shift = 0
 fit_terms = 4
@@ -29,7 +29,7 @@ save_file=true
     fit_terms=fit_terms, 
     nerr_terms=nerr_terms,
     ff_shift=ff_shift, 
-    use_threads=use_threads
+    use_error_jet=use_error_jet
 )
 
 @time fit_result = least_chi_square_fit(

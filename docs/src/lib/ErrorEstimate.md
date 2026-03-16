@@ -118,7 +118,6 @@ remains agnostic to the centering policy.
 The main public entry points are:
 
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref)
 
 Both interfaces:
 

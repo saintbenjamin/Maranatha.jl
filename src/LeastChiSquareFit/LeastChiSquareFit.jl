@@ -22,6 +22,72 @@ import ..Quadrature.BSpline
 import ..ErrorEstimate.ErrorDispatch
 
 """
+    _extract_sigma_from_error_info(
+        e;
+        nerr_terms::Int = 1,
+    ) -> Float64
+
+Extract an effective scalar uncertainty `σ` from an error-estimator result
+object.
+
+# Function description
+This helper converts a backend-specific error-estimation result into the single
+effective uncertainty value used by the weighted least-``\\chi^2`` fitter.
+
+It supports two currently used error-info layouts:
+
+- residual-based estimators exposing a `:terms` field, where the effective
+  uncertainty is formed from the sum of the first `nerr_terms` entries, and
+- refinement-based estimators exposing an `:estimate` field, where that value
+  is used directly.
+
+In both cases, the returned value is converted to `Float64` and wrapped in
+`abs(...)` so that the fitter always receives a nonnegative uncertainty scale.
+
+# Arguments
+- `e`:
+  Error-estimator result object, typically one entry of `result.err` returned by
+  [`Maranatha.Runner.run_Maranatha`](@ref).
+
+# Keyword arguments
+- `nerr_terms::Int = 1`:
+  Number of leading residual terms to combine when `e` exposes a `:terms` field.
+
+# Returns
+- `Float64`:
+  Effective scalar uncertainty used in weighted least squares.
+
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if `e` has neither a `:terms` field
+  nor an `:estimate` field.
+
+# Notes
+- For residual-based estimators, this helper uses
+  `abs(sum(terms[1:m]))` with `m = min(nerr_terms, length(terms))`.
+- For refinement-based estimators, this helper uses `abs(float(e.estimate))`.
+- This function does not itself check whether the returned value is finite or
+  strictly positive; that validation is performed later by
+  [`least_chi_square_fit`](@ref).
+"""
+@inline function _extract_sigma_from_error_info(
+    e;
+    nerr_terms::Int = 1,
+)::Float64
+    if hasproperty(e, :terms)
+        terms = e.terms
+        m = min(nerr_terms, length(terms))
+        return abs(sum(@view terms[1:m]))
+    elseif hasproperty(e, :estimate)
+        return abs(float(e.estimate))
+    else
+        JobLoggerTools.error_benji(
+            "Unsupported error-info structure in least_chi_square_fit. " *
+            "Expected either :terms or :estimate field."
+        )
+    end
+end
+
+"""
     least_chi_square_fit(
         a::Real,
         b::Real,
@@ -43,6 +109,11 @@ generate a dataset with [`Maranatha.Runner.run_Maranatha`](@ref), fit the conver
 model with `least_chi_square_fit`, and optionally visualize the result with
 [`Maranatha.PlotTools.plot_convergence_result`](@ref).
 
+The uncertainty model used in the weighted fit is extracted from `error_infos`,
+which may come either from residual-based estimators (typically exposing
+multiple `:terms`) or from refinement-based estimators (typically exposing a
+single `:estimate` field).
+
 # Arguments
 
 * `a`, `b`:
@@ -55,6 +126,14 @@ model with `least_chi_square_fit`, and optionally visualize the result with
 * `error_infos`:
   Error-estimator outputs, typically `result.err` from
   [`Maranatha.Runner.run_Maranatha`](@ref).
+
+  These may come from either:
+
+  - residual-based estimators, which usually provide a `:terms` field, or
+  - refinement-based estimators, which usually provide an `:estimate` field.
+
+  The fitter converts each entry into an effective scalar uncertainty through
+  [`_extract_sigma_from_error_info`](@ref).
 * `rule`, `boundary`:
   Rule configuration used to infer the fit powers.
 
@@ -78,6 +157,9 @@ selected powers, and ``\\chi^2`` diagnostics.
 * Residual powers are inferred automatically from the midpoint-residual model.
 * The returned `powers` field is stored explicitly so that downstream plotting and
   reporting can reconstruct the fitted model consistently.
+* The effective uncertainty vector `σ` is constructed from backend-specific
+  error-info objects through [`_extract_sigma_from_error_info`](@ref), allowing
+  both residual-based and refinement-based estimators to feed the same fitter.
 
 For a fuller explanation of exponent selection, covariance construction, and workflow
 examples, see the `Maranatha.LeastChiSquareFit` documentation page.
@@ -99,7 +181,7 @@ function least_chi_square_fit(
     # using composite NC residual model (midpoint expansion)
     # ------------------------------------------------------------
 
-    Nref = round(Int, (b - a) / minimum(float.(hs)))
+    Nref = round(Int, (b - a) / maximum(float.(hs)))
 
     ks, _center = ErrorDispatch._leading_residual_ks_with_center_any(
         rule, boundary, Nref; nterms=nterms, kmax=256
@@ -128,7 +210,7 @@ function least_chi_square_fit(
             ks
         end
     elseif BSpline._is_bspline_rule(rule)
-        ks .+ 1
+        ks
     else
         JobLoggerTools.error_benji("Unsupported rule family for fit-power mapping: rule=$rule")
     end
@@ -163,13 +245,14 @@ function least_chi_square_fit(
     σ = Vector{Float64}(undef, length(error_infos))
 
     for i in eachindex(error_infos)
-        terms = error_infos[i].terms
-        m = min(nerr_terms, length(terms))
-        σ[i] = abs(sum(@view terms[1:m]))
+        σ[i] = _extract_sigma_from_error_info(
+            error_infos[i];
+            nerr_terms = nerr_terms,
+        )
     end
 
-    any(σ .<= 0) && JobLoggerTools.error_benji(
-        "Non-positive σ encountered in least_chi_square_fit"
+    any(!isfinite(s) || s <= 0.0 for s in σ) && JobLoggerTools.error_benji(
+        "Non-positive or non-finite σ encountered in least_chi_square_fit"
     )
 
     N = length(h)

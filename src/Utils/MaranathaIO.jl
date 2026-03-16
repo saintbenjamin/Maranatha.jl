@@ -20,6 +20,200 @@ import ..Utils.JobLoggerTools
 # ============================================================
 
 """
+    _err_entry_to_dict(
+        e
+    ) -> Dict{String,Any}
+
+Convert a single internal error-entry object into a serialization-friendly dictionary.
+
+# Function description
+This helper normalizes one element of `res.err` into a plain dictionary composed
+of standard scalar and container types suitable for storage in `JLD2`, `TOML`,
+or related external formats.
+
+It currently supports two error-entry layouts:
+
+- residual-based error objects exposing fields such as `:ks`, `:coeffs`,
+  `:derivatives`, `:terms`, and `:total`, and
+- refinement-based error objects exposing fields such as `:method`,
+  `:N_coarse`, `:N_fine`, and `:estimate`.
+
+# Arguments
+- `e`:
+  One internal error-entry object, typically an element of `res.err`.
+
+# Returns
+- `Dict{String,Any}`:
+  Serialization-friendly dictionary representation of the error entry.
+
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if `e` does not match any supported
+  error-entry structure.
+
+# Notes
+- Residual-based entries are currently tagged with `"err_format" => "standard"`.
+- Refinement-based entries are currently tagged with `"err_format" => "bspline_refine"`.
+- The `"bspline_refine"` tag is used as the generic refinement-style storage
+  format in the current implementation, even when the originating rule family is
+  not B-spline.
+"""
+function _err_entry_to_dict(e)
+    if hasproperty(e, :ks)
+        return Dict(
+            "err_format"   => "standard",
+            "ks"           => collect(Int.(e.ks)),
+            "coeffs"       => collect(float.(e.coeffs)),
+            "derivatives"  => collect(float.(e.derivatives)),
+            "terms"        => collect(float.(e.terms)),
+            "total"        => float(e.total),
+            "center"       => e.center isa Tuple ? collect(float.(e.center)) : float(e.center),
+            "h"            => float(e.h),
+        )
+    elseif hasproperty(e, :estimate)
+        return Dict(
+            "err_format"   => "bspline_refine",
+            "method"       => String(e.method),
+            "rule"         => String(e.rule),
+            "boundary"     => String(e.boundary),
+            "N_coarse"     => Int(e.N_coarse),
+            "N_fine"       => Int(e.N_fine),
+            "dim"          => Int(e.dim),
+            "h_coarse"     => float(e.h_coarse),
+            "h_fine"       => float(e.h_fine),
+            "q_coarse"     => float(e.q_coarse),
+            "q_fine"       => float(e.q_fine),
+            "estimate"     => float(e.estimate),
+            "signed_diff"  => float(e.signed_diff),
+            "reference"    => float(e.reference),
+        )
+    else
+        JobLoggerTools.error_benji(
+            "Unsupported error entry format during serialization. " *
+            "Expected standard or bspline_refine structure."
+        )
+    end
+end
+
+"""
+    _dict_to_err_entry(
+        e
+    )
+
+Reconstruct a single internal error-entry object from a serialized dictionary.
+
+# Function description
+This helper performs the inverse conversion of [`_err_entry_to_dict`](@ref).
+It reads the stored `"err_format"` tag and rebuilds the corresponding internal
+error-entry structure expected by downstream fitting, plotting, and reporting
+code.
+
+Currently supported serialized formats are:
+
+- `"standard"` for residual-based error entries, and
+- `"bspline_refine"` for refinement-based error entries.
+
+# Arguments
+- `e`:
+  Serialized dictionary representation of one error entry.
+
+# Returns
+- A reconstructed internal error-entry `NamedTuple`.
+
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if the stored `"err_format"` value
+  is unsupported.
+
+# Notes
+- The reconstructed structure is intended to match the field layout expected by
+  downstream Maranatha workflows.
+- The `"bspline_refine"` tag is currently used as the generic refinement-style
+  serialization label in the implementation.
+"""
+function _dict_to_err_entry(e)
+    fmt = get(e, "err_format", "standard")
+
+    if fmt == "standard"
+        return (
+            ks          = Vector{Int}(e["ks"]),
+            coeffs      = Vector{Float64}(e["coeffs"]),
+            derivatives = Vector{Float64}(e["derivatives"]),
+            terms       = Vector{Float64}(e["terms"]),
+            total       = Float64(e["total"]),
+            center      = e["center"] isa AbstractVector ? Tuple(Float64.(e["center"])) : Float64(e["center"]),
+            h           = Float64(e["h"]),
+        )
+    elseif fmt == "bspline_refine"
+        return (
+            method      = Symbol(e["method"]),
+            rule        = Symbol(e["rule"]),
+            boundary    = Symbol(e["boundary"]),
+            N_coarse    = Int(e["N_coarse"]),
+            N_fine      = Int(e["N_fine"]),
+            dim         = Int(e["dim"]),
+            h_coarse    = Float64(e["h_coarse"]),
+            h_fine      = Float64(e["h_fine"]),
+            q_coarse    = Float64(e["q_coarse"]),
+            q_fine      = Float64(e["q_fine"]),
+            estimate    = Float64(e["estimate"]),
+            signed_diff = Float64(e["signed_diff"]),
+            reference   = Float64(e["reference"]),
+        )
+    else
+        JobLoggerTools.error_benji(
+            "Unsupported err_format during deserialization: err_format=$(fmt)"
+        )
+    end
+end
+
+"""
+    _err_entry_total(
+        e
+    ) -> Float64
+
+Extract a total-like scalar error magnitude from an internal error-entry object.
+
+# Function description
+This helper provides a unified scalar error accessor across currently supported
+error-entry layouts.
+
+It supports:
+
+- residual-based error entries exposing a `:total` field, and
+- refinement-based error entries exposing an `:estimate` field.
+
+The returned value is converted to `Float64` so that downstream summary and
+reporting code can treat both formats uniformly.
+
+# Arguments
+- `e`:
+  One internal error-entry object.
+
+# Returns
+- `Float64`:
+  Scalar error magnitude associated with the entry.
+
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if `e` does not expose either
+  `:total` or `:estimate`.
+
+# Notes
+- This helper is mainly used for summary export and human-readable diagnostics.
+- Unlike some plotting / fitting helpers, this function does not apply `abs(...)`
+  explicitly; it returns the stored scalar converted to `Float64`.
+"""
+function _err_entry_total(e)
+    if hasproperty(e, :total)
+        return float(e.total)
+    elseif hasproperty(e, :estimate)
+        return float(e.estimate)
+    else
+        JobLoggerTools.error_benji(
+            "Unsupported error entry format while extracting total-like quantity."
+        )
+    end
+end
+
+"""
     namedtuple_to_dict(
         res
     ) -> Dict{String,Any}
@@ -41,6 +235,10 @@ The resulting structure is suitable for storage in formats such as `JLD2` or
 other external representations that do not naturally preserve Julia
 `NamedTuple` layout.
 
+The conversion supports both residual-based and refinement-based error-entry
+objects stored in `res.err`, and preserves enough metadata to reconstruct them
+later through [`dict_to_namedtuple`](@ref).
+
 # Arguments
 - `res`: Result object to convert.
 
@@ -54,6 +252,8 @@ other external representations that do not naturally preserve Julia
 # Notes
 - Each entry of `res.err` is converted into a plain dictionary.
 - This helper is intended to pair with [`dict_to_namedtuple`](@ref).
+- Each entry of `res.err` may represent either a residual-based or a
+  refinement-based error object.
 """
 function namedtuple_to_dict(
     res
@@ -70,18 +270,8 @@ function namedtuple_to_dict(
         "nerr_terms"  => Int(res.nerr_terms),
         "fit_terms"   => Int(res.fit_terms),
         "ff_shift"    => Int(res.ff_shift),
-        "use_threads" => Bool(res.use_threads),
-        "err" => [
-            Dict(
-                "ks"          => collect(Int.(e.ks)),
-                "coeffs"      => collect(float.(e.coeffs)),
-                "derivatives" => collect(float.(e.derivatives)),
-                "terms"       => collect(float.(e.terms)),
-                "total"       => float(e.total),
-                "center"      => e.center isa Tuple ? collect(float.(e.center)) : float(e.center),
-                "h"           => float(e.h),
-            ) for e in res.err
-        ]
+        "use_error_jet" => Bool(res.use_error_jet),
+        "err" => [_err_entry_to_dict(e) for e in res.err]
     )
 end
 
@@ -102,6 +292,9 @@ including:
 - symbolic rule / boundary metadata,
 - the vector of per-datapoint error descriptors.
 
+The reconstructed `err` field may therefore contain either residual-based or
+refinement-based error-entry objects, depending on the serialized content.
+
 # Arguments
 - `d`: Dictionary representation of a result object.
 
@@ -116,21 +309,13 @@ including:
 # Notes
 - The stored `center` field is reconstructed as either a scalar `Float64` or a
   tuple of `Float64`, depending on the serialized representation.
+- Refinement-based error entries are reconstructed from their serialized
+  `"err_format"` tag in the same unified `err` vector as residual-based entries.
 """
 function dict_to_namedtuple(
     d
 )
-    err = [
-        (
-            ks          = Vector{Int}(e["ks"]),
-            coeffs      = Vector{Float64}(e["coeffs"]),
-            derivatives = Vector{Float64}(e["derivatives"]),
-            terms       = Vector{Float64}(e["terms"]),
-            total       = Float64(e["total"]),
-            center      = e["center"] isa AbstractVector ? Tuple(Float64.(e["center"])) : Float64(e["center"]),
-            h           = Float64(e["h"]),
-        ) for e in d["err"]
-    ]
+    err = [_dict_to_err_entry(e) for e in d["err"]]
 
     return (
         a           = Float64(d["a"]),
@@ -145,7 +330,7 @@ function dict_to_namedtuple(
         nerr_terms  = Int(d["nerr_terms"]),
         fit_terms   = Int(d["fit_terms"]),
         ff_shift    = Int(d["ff_shift"]),
-        use_threads = Bool(d["use_threads"]),
+        use_error_jet = Bool(d["use_error_jet"]),
     )
 end
 
@@ -170,8 +355,8 @@ The summary includes:
 - integration metadata,
 - step sizes,
 - quadrature estimates,
-- total error estimates,
-- full per-datapoint error decomposition.
+- total-like scalar error estimates extracted from each error entry, and
+- full per-datapoint error decomposition in serialized dictionary form.
 
 Unlike [`namedtuple_to_dict`](@ref), this representation is intended mainly for
 human-readable summary export rather than structured round-trip recovery.
@@ -189,6 +374,9 @@ human-readable summary export rather than structured round-trip recovery.
 # Notes
 - This summary is commonly written as a companion `.toml` file next to a `JLD2`
   result file.
+- The exported `err_total` field is built through [`_err_entry_total`](@ref),
+  allowing both residual-based and refinement-based error entries to contribute
+  to the same human-readable summary format.
 """
 function generate_summary_dict(
     res
@@ -203,21 +391,11 @@ function generate_summary_dict(
         "nerr_terms"  => Int(res.nerr_terms),
         "fit_terms"   => Int(res.fit_terms),
         "ff_shift"    => Int(res.ff_shift),
-        "use_threads" => Bool(res.use_threads),
+        "use_error_jet" => Bool(res.use_error_jet),
         "h"           => collect(float.(res.h)),
         "avg"         => collect(float.(res.avg)),
-        "err_total"   => [float(e.total) for e in res.err],
-        "err" => [
-            Dict(
-                "ks"          => collect(Int.(e.ks)),
-                "coeffs"      => collect(float.(e.coeffs)),
-                "derivatives" => collect(float.(e.derivatives)),
-                "terms"       => collect(float.(e.terms)),
-                "total"       => float(e.total),
-                "center"      => e.center isa Number ? float(e.center) : collect(float.(e.center)),
-                "h"           => float(e.h),
-            ) for e in res.err
-        ]
+        "err_total"   => [_err_entry_total(e) for e in res.err],
+        "err"         => [_err_entry_to_dict(e) for e in res.err]
     )
 end
 
@@ -533,8 +711,8 @@ function _assert_same_result_shape(
         res.ff_shift == ref.ff_shift || JobLoggerTools.error_benji(
             "Merge mismatch at result $i: ff_shift differs ($(res.ff_shift) != $(ref.ff_shift))"
         )
-        res.use_threads == ref.use_threads || JobLoggerTools.error_benji(
-            "Merge mismatch at result $i: use_threads differs ($(res.use_threads) != $(ref.use_threads))"
+        res.use_error_jet == ref.use_error_jet || JobLoggerTools.error_benji(
+            "Merge mismatch at result $i: use_error_jet differs ($(res.use_error_jet) != $(ref.use_error_jet))"
         )
     end
 
@@ -577,10 +755,11 @@ function _assert_no_duplicate_h(
     p = sortperm(hs)
     hs_sorted = hs[p]
 
-    for i in 2:length(hs_sorted)
-        isapprox(hs_sorted[i], hs_sorted[i-1]; atol=atol, rtol=0.0) && JobLoggerTools.error_benji(
-            "Duplicate h detected during merge: h=$(hs_sorted[i])"
-        )
+    for (h_prev, h_cur) in zip(hs_sorted, Iterators.drop(hs_sorted, 1))
+        isapprox(h_cur, h_prev; atol=atol, rtol=0.0) &&
+            JobLoggerTools.error_benji(
+                "Duplicate h detected during merge: h=$(h_cur)"
+            )
     end
 
     return nothing
@@ -685,7 +864,7 @@ function merge_datapoint_results(
         nerr_terms  = ref.nerr_terms,
         fit_terms   = ref.fit_terms,
         ff_shift    = ref.ff_shift,
-        use_threads = ref.use_threads,
+        use_error_jet = ref.use_error_jet,
     )
 end
 
@@ -847,7 +1026,7 @@ function drop_nsamples_from_result(
         nerr_terms  = res.nerr_terms,
         fit_terms   = res.fit_terms,
         ff_shift    = res.ff_shift,
-        use_threads = res.use_threads,
+        use_error_jet = res.use_error_jet,
     )
 end
 

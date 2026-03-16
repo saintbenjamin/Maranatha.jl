@@ -1,7 +1,7 @@
 @testset "2D rules" begin
     ff(x, y) = exp(-x^2 - y^2)
     bounds = (0.0, 1.0)
-    use_threads = false
+    use_error_jet = false
 
     @testset "Gauss 2-point LU_EXEX" begin
         dim = 2
@@ -9,7 +9,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 0
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -28,7 +28,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -46,7 +46,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -65,7 +68,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 0
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -84,7 +87,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -102,7 +105,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -121,7 +127,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 0
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -140,7 +146,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -158,7 +164,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,

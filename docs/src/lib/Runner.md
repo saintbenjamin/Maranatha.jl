@@ -12,7 +12,7 @@ multi-resolution convergence data that the fitter and plotter consume later.
 |:------|:---------------|
 | Runner | builds raw convergence datasets |
 | Quadrature | supplies tensor-product quadrature in arbitrary dimensions |
-| Error estimator | supplies derivative-informed error-scale estimators |
+| Error estimator | supplies derivative-informed error-scale estimators (scalar or jet-based) |
 | Fitter | performs ``h \to 0`` extrapolation |
 | Plotter | visualizes convergence |
 | Reporter | generates structured summaries and archival report outputs |
@@ -51,8 +51,6 @@ manual page to provide fuller context.
 
 A typical workflow is:
 
-A typical workflow is:
-
 1. call [`run_Maranatha`](@ref) to generate a raw convergence dataset,
 2. pass the returned result to
    [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
@@ -64,6 +62,15 @@ A typical workflow is:
 The runner itself does not fit the continuum-limit model.
 It only prepares the data needed for later stages of analysis,
 visualization, and reporting.
+
+At the start of each run, the runner clears internal error-estimation caches
+to avoid cross-run contamination when multiple datasets are generated in a
+single Julia session.
+
+Depending on the current implementation configuration, the error model may
+be computed either through repeated scalar derivative evaluations or through
+jet-based derivative reuse, which can significantly reduce differentiation
+cost when multiple residual orders are required.
 
 ---
 
@@ -82,13 +89,17 @@ run_result = run_Maranatha(
     nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
     rule = :gauss_p4,
     boundary = :LU_EXEX,
-    err_method = :forwarddiff,
+    err_method = :refinement,
     fit_terms = 4,
     nerr_terms = 3,
     ff_shift = 0,
-    use_threads = false,
+    use_error_jet = false,
 )
 ```
+
+In current versions, the error-estimation backend may internally use a
+jet-based derivative path for improved performance. This behavior is an
+implementation detail and does not change the external API.
 
 ---
 
@@ -123,13 +134,13 @@ rule = "gauss_p4"
 boundary = "LU_EXEX"
 
 [error]
-err_method = "forwarddiff"
+err_method = "refinement"
 fit_terms = 4
 nerr_terms = 3
 ff_shift = 0
 
 [execution]
-use_threads = true
+use_error_jet = true
 
 [output]
 name_prefix = "1D"

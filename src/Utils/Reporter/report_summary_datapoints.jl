@@ -40,7 +40,14 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
 - `hs`: Step sizes used in the quadrature study.
 - `estimates`: Corresponding quadrature estimates.
 - `errors`: Error objects containing pointwise uncertainties.
-  Each entry is expected to provide a `.total` field in the current workflow.
+
+  Each entry is expected to provide either:
+
+  - a `.total` field, as in the residual-based error-estimation workflow, or
+  - an `.estimate` field, as in the refinement-based error-estimation workflow.
+
+  The reporting routine converts each entry into a nonnegative scalar
+  uncertainty through an internal extractor.
 
 # Keyword arguments
 
@@ -71,6 +78,8 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
   basenames are sanitized internally via [`_split_report_name`](@ref).
 - Datapoints are ordered from coarse to fine resolution (largest `h` first) in
   the final report.
+- This routine accepts both residual-based and refinement-based error-info
+  objects, provided that each entry exposes either `.total` or `.estimate`.
 """
 function write_convergence_summary_datapoints(
     a::Real,
@@ -100,10 +109,23 @@ function write_convergence_summary_datapoints(
         "Unsupported yscale=$yscale (expected :linear or :log)"
     )
 
+    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
+    @inline function _extract_error_total(e)
+        if hasproperty(e, :total)
+            return float(e.total)
+        elseif hasproperty(e, :estimate)
+            return abs(float(e.estimate))
+        else
+            JobLoggerTools.error_benji(
+                "Unsupported error-info structure (need :total or :estimate)."
+            )
+        end
+    end
+
     display_name, file_name = _split_report_name(name)
 
     hxp = Float64.(hs) .^ float(h_power)
-    errp = abs.([e.total for e in errors])
+    errp = [_extract_error_total(e) for e in errors]
 
     mask = isfinite.(hs) .& isfinite.(hxp) .& isfinite.(estimates) .& isfinite.(errp)
 

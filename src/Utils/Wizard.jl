@@ -253,7 +253,7 @@ nerr_terms = $(cfg.nerr_terms)
 ff_shift = $(cfg.ff_shift)
 
 [execution]
-use_threads = $(cfg.use_threads)
+use_error_jet = $(cfg.use_error_jet)
 
 [output]
 name_prefix = \"$(cfg.name_prefix)\"
@@ -400,6 +400,8 @@ The wizard gathers information about:
 # Notes
 - If the selected sample integrand file already exists, the wizard asks whether
   it should be overwritten.
+- The `use_error_jet` option only affects derivative-based error methods and is
+  ignored when `err_method = "refinement"`.
 """
 function run_wizard(;
     output_path::AbstractString = "maranatha.toml"
@@ -424,14 +426,14 @@ function run_wizard(;
     println("Example boundaries: LU_ININ, LU_EXEX, LU_INEX ...")
     boundary = _prompt("Boundary", "LU_EXEX")
 
-    println("Error methods: forwarddiff, taylorseries, enzyme, fastdifferentiation")
-    err_method = _prompt("Error method", "forwarddiff")
+    println("Error methods: refinement, forwarddiff, taylorseries, enzyme, fastdifferentiation")
+    err_method = _prompt("Error method", "refinement")
 
     fit_terms = _prompt_int("fit_terms", 4)
     nerr_terms = _prompt_int("nerr_terms", 3)
     ff_shift = _prompt_int("ff_shift", 0)
 
-    use_threads = _prompt_bool("Use threads", true)
+    use_error_jet = _prompt_bool("Use error jet", false)
 
     name_prefix = _prompt("Output name prefix", "1D")
     save_path = _prompt("Save path", ".")
@@ -454,7 +456,7 @@ function run_wizard(;
         fit_terms = fit_terms,
         nerr_terms = nerr_terms,
         ff_shift = ff_shift,
-        use_threads = use_threads,
+        use_error_jet = use_error_jet,
         name_prefix = name_prefix,
         save_path = save_path,
         write_summary = write_summary,

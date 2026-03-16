@@ -220,13 +220,13 @@ rule = "gauss_p4"
 boundary = "LU_EXEX"
 
 [error]
-err_method = "forwarddiff"
+err_method = "refinement"
 fit_terms = 4
 nerr_terms = 3
 ff_shift = 0
 
 [execution]
-use_threads = true
+use_error_jet = true
 ```
 
 Assume that `sample_1d.jl` and `sample_1d.toml` are located in the current working directory.

@@ -31,13 +31,25 @@ report summarizing:
 Invalid or non-finite datapoints are automatically filtered before
 report generation.
 
+The uncertainty inputs may come from either residual-based error estimators or
+refinement-based error estimators, as long as each error entry provides a
+usable scalar uncertainty field.
+
 # Arguments
 
 - `a`, `b`: Integration interval endpoints.
 - `name`: Identifier for the experiment or integrand.
 - `hs`: Step sizes used in the quadrature study.
 - `estimates`: Corresponding integral estimates.
-- `errors`: Error objects containing total uncertainties.
+- `errors`: Error objects containing pointwise uncertainties.
+
+  Each entry is expected to provide either:
+
+  - a `.total` field, as in the residual-based error-estimation workflow, or
+  - an `.estimate` field, as in the refinement-based error-estimation workflow.
+
+  The reporting routine converts each entry into a nonnegative scalar
+  uncertainty through an internal extractor.
 - `fit_terms`: Number of fit parameters used.
 - `nerr_terms`: Number of error terms in the model.
 - `fit_result`: Object containing fit outputs.
@@ -63,6 +75,8 @@ report generation.
 
 - Data are sorted from coarse to fine resolution (largest `h` first).
 - Non-finite values are excluded automatically.
+- This routine accepts both residual-based and refinement-based error-info
+  objects, provided that each entry exposes either `.total` or `.estimate`.
 """
 function write_convergence_summary(
     a::Real,
@@ -94,10 +108,23 @@ function write_convergence_summary(
     fit_powers = fit_result.powers
     length(fit_powers) >= 2 || JobLoggerTools.error_benji("fit_result.powers must contain at least constant and leading power")
 
+    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
+    @inline function _extract_error_total(e)
+        if hasproperty(e, :total)
+            return float(e.total)
+        elseif hasproperty(e, :estimate)
+            return abs(float(e.estimate))
+        else
+            JobLoggerTools.error_benji(
+                "Unsupported error-info structure (need :total or :estimate)."
+            )
+        end
+    end
+
     lead_pow = fit_powers[2]
 
     hx = hs .^ lead_pow
-    errvals = [e.total for e in errors]
+    errvals = [_extract_error_total(e) for e in errors]
 
     mask = isfinite.(hs) .& isfinite.(hx) .& isfinite.(estimates) .& isfinite.(errvals)
     hsp   = hs[mask]

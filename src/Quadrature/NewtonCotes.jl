@@ -502,4 +502,84 @@ function _get_beta_float(
     return βF
 end
 
+"""
+    _nearest_valid_Nsub(
+        p::Int,
+        boundary::Symbol,
+        Nsub::Int
+    ) -> Int
+
+Return the nearest boundary-compatible composite subdivision count for a
+Newton-Cotes rule.
+
+# Function description
+Newton-Cotes composite assembly does not allow arbitrary subdivision counts.
+For a given local node count `p` and boundary pattern `boundary`, the global
+subdivision count must satisfy the tiling constraint
+
+```math
+N_{\\mathrm{sub}} = w_L + m (p-1) + w_R,
+```
+
+where `w_L` and `w_R` are the left and right boundary block widths and `m` is a
+nonnegative integer counting interior closed blocks.
+
+This helper maps an input candidate `Nsub` to the nearest valid subdivision
+count compatible with that structure. It is especially useful in refinement-based
+error estimation, where a nominal refined count such as `2N` may not itself be
+a valid Newton-Cotes composite tiling.
+
+# Arguments
+
+* `p::Int`:
+  Local node count of the Newton-Cotes rule.
+* `boundary::Symbol`:
+  Boundary pattern symbol.
+* `Nsub::Int`:
+  Candidate subdivision count to be adjusted.
+
+# Returns
+
+* `Int`:
+  Nearest valid subdivision count compatible with `(p, boundary)`.
+
+# Errors
+
+* Propagates boundary-validation errors from
+  `Quadrature.QuadratureDispatch._decode_boundary`.
+* Propagates errors from [`_local_width`](@ref) if the decoded local block type
+  is invalid.
+
+# Notes
+
+* If `Nsub <= w_L + w_R`, the smallest valid subdivision count `w_L + w_R` is
+  returned.
+* Otherwise, the function rounds to the nearest admissible value in the
+  arithmetic progression `w_L + w_R + m(p-1)`.
+* This helper is primarily intended for internal use by refinement-based
+  Newton-Cotes routines.
+"""
+function _nearest_valid_Nsub(
+    p::Int, 
+    boundary::Symbol, 
+    Nsub::Int
+)
+    Ltype, Rtype = Quadrature.QuadratureDispatch._decode_boundary(boundary)
+
+    wL = _local_width(p, Ltype)
+    wR = _local_width(p, Rtype)
+    wC = p - 1
+
+    base = wL + wR
+
+    if Nsub <= base
+        return base
+    end
+
+    rem = Nsub - base
+    m = round(Int, rem / wC)
+
+    return base + m * wC
+end
+
 end  # module NewtonCotes

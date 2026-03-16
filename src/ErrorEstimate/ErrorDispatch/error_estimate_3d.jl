@@ -24,14 +24,18 @@
 Estimate a ``3``-dimensional axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This routine applies the ``1``-dimensional midpoint error operator along each axis
-of the cube ``[a,b]^3`` and integrates the resulting derivative slices over the
-remaining two axes.
+This routine applies the ``1``-dimensional midpoint error operator along each
+axis of the cube ``[a,b]^3`` and integrates the resulting derivative slices over
+the remaining two axes.
+
+The residual-term model is obtained through the cached helper
+[`_get_residual_model_fixed`](@ref), which reuses previously constructed
+residual data for the same rule configuration when available.
 
 For each collected residual order ``k``, it forms the model contribution
 ```math
 E \\approx \\sum_{i=1}^{n_{\\text{err}}}
-\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, \\left( I_x^{(k_i)} + I_y^{(k_i)} + I_z^{(k_i)}  \\right) \\, .
+\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, \\left( I_x^{(k_i)} + I_y^{(k_i)} + I_z^{(k_i)} \\right) \\, .
 ```
 
 # Arguments
@@ -59,11 +63,14 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
-- Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
+- Propagates quadrature-node construction, residual-model extraction, and
+  derivative-evaluation errors.
 
 # Notes
 - Only axis-separable contributions are included.
 - Mixed derivative terms are intentionally omitted.
+- Residual-term reuse through caching reduces repeated setup cost across
+  multiple calls with the same rule configuration.
 """
 function error_estimate_3d(
     f,
@@ -92,7 +99,7 @@ function error_estimate_3d(
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    ks, coeffs, _center = _leading_residual_terms_any(
+    ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
@@ -181,7 +188,7 @@ function error_estimate_3d(
 end
 
 """
-    error_estimate_3d_threads(
+    error_estimate_3d_jet(
         f,
         a::Real,
         b::Real,
@@ -193,32 +200,63 @@ end
         kmax::Int = 128
     )
 
-Threaded variant of [`error_estimate_3d`](@ref).
+Estimate a ``3``-dimensional axis-separable midpoint-residual truncation-error
+model using derivative-jet reuse.
 
 # Function description
-This routine preserves the same 3D midpoint-residual model as
-[`error_estimate_3d`](@ref) but parallelizes the dominant flattened 2D index-grid loops
-used in the axis-wise cross integrals.
+This routine builds the same ``3``-dimensional asymptotic midpoint-residual
+error model as [`error_estimate_3d`](@ref), but instead of requesting each
+derivative order independently, it evaluates the required derivatives through
+shared jet-based calls along each axis slice.
 
-Thread-local partial sums are reduced after each axis contribution is computed.
+The residual-term model is obtained through the cached helper
+[`_get_residual_model_fixed`](@ref). After the residual orders ``k_i`` are
+identified, the function applies [`_derivative_values_for_ks`](@ref) to each
+slice function in order to reuse one derivative jet per slice rather than one
+scalar derivative call per requested order.
+
+For each collected residual order ``k``, it forms the model contribution
+```math
+E \\approx \\sum_{i=1}^{n_{\\text{err}}}
+\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, \\left( I_x^{(k_i)} + I_y^{(k_i)} + I_z^{(k_i)} \\right) \\, .
+```
 
 # Arguments
-- Same as [`error_estimate_3d`](@ref).
+- `f`: Scalar callable integrand ``f(x, y, z)``.
+- `a::Real`: Lower bound.
+- `b::Real`: Upper bound.
+- `N::Int`: Number of subintervals per axis.
+- `rule::Symbol`: Quadrature rule symbol.
+- `boundary::Symbol`: Boundary pattern symbol.
 
 # Keyword arguments
-- Same as [`error_estimate_3d`](@ref).
+- `err_method::Symbol`: Derivative backend selector.
+- `nerr_terms::Int`: Number of nonzero residual terms to include.
+- `kmax::Int`: Maximum residual order scanned.
 
 # Returns
-- Same `NamedTuple` structure as [`error_estimate_3d`](@ref).
+- `NamedTuple` with fields:
+  - `ks`
+  - `coeffs`
+  - `derivatives`
+  - `terms`
+  - `total`
+  - `center`
+  - `h`
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
-- Propagates quadrature-node construction, residual-extraction, and derivative-evaluation errors.
+- Propagates quadrature-node construction, residual-model extraction, and
+  jet-based derivative-evaluation errors.
 
 # Notes
-- Threading overhead may dominate when the tensor grid is small.
+- Only axis-separable contributions are included.
+- Mixed derivative terms are intentionally omitted.
+- This variant is especially useful when several residual orders are needed for
+  each slice, since one shared jet can supply all requested derivatives on that
+  slice.
 """
-function error_estimate_3d_threads(
+function error_estimate_3d_jet(
     f,
     a::Real,
     b::Real,
@@ -229,7 +267,6 @@ function error_estimate_3d_threads(
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
-
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
@@ -238,14 +275,19 @@ function error_estimate_3d_threads(
     h  = (bb - aa) / N
 
     x̄ = (aa + bb) / 2
-    ȳ = x̄
-    z̄ = x̄
+    ȳ = (aa + bb) / 2
+    z̄ = (aa + bb) / 2
 
     xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    ks, coeffs, _center = _leading_residual_terms_any(
+    # ks, coeffs, _center = _leading_residual_terms_any(
+    #     rule, boundary, N;
+    #     nterms = nerr_terms,
+    #     kmax   = kmax
+    # )
+    ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
@@ -253,108 +295,107 @@ function error_estimate_3d_threads(
 
     n = length(ks)
 
-    derivatives = Vector{Float64}(undef, n)
-    terms       = Vector{Float64}(undef, n)
+    derivatives = zeros(Float64, n)
+    terms       = zeros(Float64, n)
 
-    L = length(xs)
+    @inbounds for j in eachindex(ys)
+        y = ys[j]
+        wyj = wy[j]
+        for k2 in eachindex(zs)
+            z = zs[k2]
+            gx(x) = f(x, y, z)
+
+            vals = _derivative_values_for_ks(
+                gx,
+                x̄,
+                ks;
+                h = h,
+                rule = rule,
+                N = N,
+                dim = 3,
+                err_method = err_method,
+                side = :mid,
+                axis = :x,
+                stage = :midpoint,
+            )
+
+            w = wyj * wz[k2]
+            for it in eachindex(ks)
+                kk = ks[it]
+                kk == 0 && continue
+                derivatives[it] += w * vals[it]
+            end
+        end
+    end
+
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for k2 in eachindex(zs)
+            z = zs[k2]
+            gy(y) = f(x, y, z)
+
+            vals = _derivative_values_for_ks(
+                gy,
+                ȳ,
+                ks;
+                h = h,
+                rule = rule,
+                N = N,
+                dim = 3,
+                err_method = err_method,
+                side = :mid,
+                axis = :y,
+                stage = :midpoint,
+            )
+
+            w = wxi * wz[k2]
+            for it in eachindex(ks)
+                kk = ks[it]
+                kk == 0 && continue
+                derivatives[it] += w * vals[it]
+            end
+        end
+    end
+
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        wxi = wx[i]
+        for j in eachindex(ys)
+            y = ys[j]
+            gz(z) = f(x, y, z)
+
+            vals = _derivative_values_for_ks(
+                gz,
+                z̄,
+                ks;
+                h = h,
+                rule = rule,
+                N = N,
+                dim = 3,
+                err_method = err_method,
+                side = :mid,
+                axis = :z,
+                stage = :midpoint,
+            )
+
+            w = wxi * wy[j]
+            for it in eachindex(ks)
+                kk = ks[it]
+                kk == 0 && continue
+                derivatives[it] += w * vals[it]
+            end
+        end
+    end
 
     @inbounds for it in eachindex(ks)
         kk = ks[it]
-
         if kk == 0
             derivatives[it] = 0.0
             terms[it] = 0.0
-            continue
+        else
+            terms[it] = coeffs[it] * h^(kk + 1) * derivatives[it]
         end
-
-        coeff = coeffs[it]
-
-        I1_parts = zeros(Float64, Threads.maxthreadid())
-
-        Threads.@threads for idx in 1:(L^2)
-            tid = Threads.threadid()
-
-            tmp = idx - 1
-            j   = (tmp % L) + 1
-            k2  = (tmp ÷ L) + 1
-
-            y = ys[j]
-            z = zs[k2]
-            w = wy[j] * wz[k2]
-
-            gx = let y=y, z=z
-                x -> f(x, y, z)
-            end
-
-            dx = nth_derivative(
-                gx, x̄, kk;
-                h=h, rule=rule, N=N, dim=3,
-                side=:mid, axis=:x, stage=:midpoint,
-                err_method=err_method
-            )
-
-            I1_parts[tid] += w * dx
-        end
-        I1 = sum(I1_parts)
-
-        I2_parts = zeros(Float64, Threads.maxthreadid())
-
-        Threads.@threads for idx in 1:(L^2)
-            tid = Threads.threadid()
-
-            tmp = idx - 1
-            i   = (tmp % L) + 1
-            k2  = (tmp ÷ L) + 1
-
-            x = xs[i]
-            z = zs[k2]
-            w = wx[i] * wz[k2]
-
-            gy = let x=x, z=z
-                y -> f(x, y, z)
-            end
-
-            dy = nth_derivative(
-                gy, ȳ, kk;
-                h=h, rule=rule, N=N, dim=3,
-                side=:mid, axis=:y, stage=:midpoint,
-                err_method=err_method
-            )
-
-            I2_parts[tid] += w * dy
-        end
-        I2 = sum(I2_parts)
-
-        I3_parts = zeros(Float64, Threads.maxthreadid())
-
-        Threads.@threads for idx in 1:(L^2)
-            tid = Threads.threadid()
-
-            tmp = idx - 1
-            i   = (tmp % L) + 1
-            j   = (tmp ÷ L) + 1
-
-            x = xs[i]
-            y = ys[j]
-            w = wx[i] * wy[j]
-
-            gz = let x=x, y=y
-                z -> f(x, y, z)
-            end
-
-            dz = nth_derivative(
-                gz, z̄, kk;
-                h=h, rule=rule, N=N, dim=3,
-                side=:mid, axis=:z, stage=:midpoint,
-                err_method=err_method
-            )
-
-            I3_parts[tid] += w * dz
-        end
-        I3 = sum(I3_parts)
-
-        derivatives[it] = I1 + I2 + I3
-        terms[it] = coeff * h^(kk + 1) * derivatives[it]
     end
 
     return (;

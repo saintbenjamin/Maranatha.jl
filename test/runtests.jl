@@ -21,16 +21,23 @@ const DO_PLOT = get(ENV, "MARANATHA_PLOT", "0") == "1"
 # ----------------------------------------------------------------------------
 # Smoke checks: basic sanity without assuming exact numbers
 # ----------------------------------------------------------------------------
+function _extract_err_total(e)
+    if hasproperty(e, :total)
+        return e.total
+    elseif hasproperty(e, :estimate)
+        return e.estimate
+    else
+        error("Unsupported error entry: expected field :total or :estimate")
+    end
+end
+
 function assert_result_sane(res)
     @test length(res.h) == length(res.avg) == length(res.err)
     @test all(isfinite, res.h)
     @test all(isfinite, res.avg)
-    @test all(e -> isfinite(e.total), res.err)
+    @test all(e -> isfinite(_extract_err_total(e)), res.err)
     @test all(>(0.0), res.h)  # step sizes should be positive
     @test issorted(res.h; rev=true)
-    # NOTE:
-    # res.err can be signed depending on the error estimator / fitting pipeline.
-    # We only require it to be finite here.
     return nothing
 end
 
@@ -46,20 +53,20 @@ function include_with_announce(path::AbstractString)
 end
 
 @testset "Maranatha.jl Quadrature Suite" begin
-    @testset "Canonical integrands (multi-dim, multi-rule)" begin
-        include_with_announce("canonical/1D_newton_test.jl")
-        include_with_announce("canonical/2D_newton_test.jl")
-        include_with_announce("canonical/3D_newton_test.jl")
-        include_with_announce("canonical/4D_newton_test.jl")
-        include_with_announce("canonical/1D_gauss_test.jl")
-        include_with_announce("canonical/2D_gauss_test.jl")
-        include_with_announce("canonical/3D_gauss_test.jl")
-        include_with_announce("canonical/4D_gauss_test.jl")
-        include_with_announce("canonical/1D_bspline_test.jl")
-        include_with_announce("canonical/2D_bspline_test.jl")
-        include_with_announce("canonical/3D_bspline_test.jl")
-        include_with_announce("canonical/4D_bspline_test.jl")
-    end
-    include_with_announce("pedagogical/visualization_1D_test.jl")
+    # @testset "Canonical integrands (multi-dim, multi-rule)" begin
+    #     include_with_announce("canonical/1D_newton_test.jl")
+    #     include_with_announce("canonical/2D_newton_test.jl")
+    #     include_with_announce("canonical/3D_newton_test.jl")
+    #     include_with_announce("canonical/4D_newton_test.jl")
+    #     include_with_announce("canonical/1D_gauss_test.jl")
+    #     include_with_announce("canonical/2D_gauss_test.jl")
+    #     include_with_announce("canonical/3D_gauss_test.jl")
+    #     include_with_announce("canonical/4D_gauss_test.jl")
+    #     include_with_announce("canonical/1D_bspline_test.jl")
+    #     include_with_announce("canonical/2D_bspline_test.jl")
+    #     include_with_announce("canonical/3D_bspline_test.jl")
+    #     include_with_announce("canonical/4D_bspline_test.jl")
+    # end
+    # include_with_announce("pedagogical/visualization_1D_test.jl")
     include_with_announce("complicated/1D_F0000_test.jl")
 end

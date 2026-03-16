@@ -39,6 +39,7 @@ import ..Utils.JobLoggerTools
 import ..Utils.MaranathaIO
 import ..Utils.MaranathaTOML
 import ..Quadrature.QuadratureDispatch
+import ..ErrorEstimate.ErrorDispatchRefine
 import ..ErrorEstimate.ErrorDispatch
 
 """
@@ -50,19 +51,20 @@ import ..ErrorEstimate.ErrorDispatch
         nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
         rule::Symbol = :gauss_p4,
         boundary::Symbol = :LU_EXEX,
-        err_method::Symbol = :forwarddiff,
+        err_method::Symbol = :refinement,
         fit_terms::Int = 4,
         nerr_terms::Int = 3,
         ff_shift::Int = 0,
-        use_threads::Bool = false,
+        use_error_jet::Bool = false,
         name_prefix::String = "Maranatha",
         save_path::Union{Nothing,AbstractString} = nothing,
         write_summary::Bool = true
     )
 
-Run a multi-resolution quadrature study, estimate an error scale at each
-resolution, and return the raw convergence data needed for later
-``h \\to 0`` extrapolation.
+Run a multi-resolution quadrature study, estimate an error scale at each resolution 
+using either a derivative-based or refinement-based backend, 
+and return the raw convergence data needed for later ``h \\to 0`` extrapolation.
+
 
 This is typically the first stage of a standard `Maranatha.jl` workflow:
 use `run_Maranatha` to build a convergence dataset, then pass that dataset to
@@ -72,17 +74,33 @@ visualize the result with
 
 # What this function does
 
+At the beginning of the run, this routine clears the global derivative-based error-estimation caches via 
+[`ErrorDispatch.clear_error_estimate_caches!`](@ref) when a derivative-based backend is selected. 
+The refinement-based path does not use those caches.
+
 For each subdivision count `N` in `nsamples`, this routine:
 
 1. computes the step size ``\\displaystyle{h = \\frac{b-a}{N}}``,
 2. evaluates the quadrature estimate via [`QuadratureDispatch.quadrature`](@ref),
-3. evaluates a derivative-informed error-scale model via
-   [`ErrorDispatch.error_estimate`](@ref) or
-   [`ErrorDispatch.error_estimate_threads`](@ref),
-4. records the resulting step size, estimate, and error information for later aggregation into the returned dataset.
+3. evaluates either a derivative-informed or refinement-based error-scale model,
+4. records the resulting step size, estimate, and error information for later
+   aggregation into the returned dataset.
 
 The collected results are returned as a single `NamedTuple` and can also be
 written to disk for later reuse.
+
+# Current error-estimation path
+
+The active error-estimation path depends first on `err_method`, and then on `use_error_jet`.
+
+- If `err_method == :refinement`, this routine calls [`ErrorDispatchRefine.error_estimate_refine`](@ref). 
+  In this path, `use_error_jet` is ignored because refinement-based estimation does not use derivative jets.
+
+- If `err_method != :refinement` and `use_error_jet = true`, this routine calls [`ErrorDispatch.error_estimate_jet`](@ref).
+
+- If `err_method != :refinement` and `use_error_jet = false`, this routine calls [`ErrorDispatch.error_estimate`](@ref).
+
+Thus, the refinement backend is selected explicitly through `err_method = :refinement`, while `use_error_jet` only affects the derivative-based branch.
 
 # Arguments
 
@@ -106,8 +124,7 @@ written to disk for later reuse.
 * `boundary::Symbol = :LU_EXEX`:
   Boundary pattern used consistently across the quadrature pipeline.
 
-* `err_method::Symbol = :forwarddiff`:
-  Derivative backend used by the error-estimation dispatcher.
+* `err_method::Symbol = :refinement`: Error-estimation backend selector. If set to `:refinement`, use the refinement-based dispatcher [`ErrorDispatchRefine.error_estimate_refine`](@ref). Otherwise, use the derivative-based dispatcher with the requested derivative backend such as `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, or `:enzyme`.
 
 * `fit_terms::Int = 4`:
   Suggested number of basis terms for a later least-``\\chi^2`` fit.
@@ -120,8 +137,10 @@ written to disk for later reuse.
   Suggested forward shift for downstream fit-power selection.
   This value is stored in the returned result but is not applied here.
 
-* `use_threads::Bool = false`:
-  If `true`, use the threaded error-estimation backend.
+* `use_error_jet::Bool = false`: Controls only the derivative-based error-estimation branch. 
+If `true`, use [`ErrorDispatch.error_estimate_jet`](@ref). 
+If `false`, use [`ErrorDispatch.error_estimate`](@ref).
+This option is ignored when `err_method == :refinement`.
 
 * `name_prefix::String = "Maranatha"`:
   Prefix used when constructing output filenames.
@@ -135,6 +154,8 @@ written to disk for later reuse.
 # Returns
 
 A `NamedTuple` containing the raw convergence-study dataset and associated metadata.
+The `err` field may therefore contain either derivative-based error objects 
+or refinement-based error objects, depending on `err_method`.
 Important fields include:
 
 * `a`, `b`: integration bounds,
@@ -142,12 +163,15 @@ Important fields include:
 * `avg`: quadrature estimates,
 * `err`: error-estimator outputs,
 * `rule`, `boundary`, `dim`, `err_method`: execution metadata,
-* `nerr_terms`, `fit_terms`, `ff_shift`, `use_threads`: downstream configuration hints.
+* `nerr_terms`, `fit_terms`, `ff_shift`, `use_error_jet`: downstream configuration hints.
 
 # Saving behavior
 
 If `save_path` is provided, the result is written using
 [`MaranathaIO.save_datapoint_results`](@ref).
+Relative save paths are normalized against the current working directory before
+directory creation and file writing.
+
 The output filename has the form
 
 ```julia
@@ -160,9 +184,12 @@ If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is writt
 
 * `run_Maranatha` generates datasets only; it does not perform fitting.
 * The error object is an error-scale model intended for stable downstream weighting,
+not necessarily a strict truncation bound. Depending on `err_method`, it may come either from a derivative-based asymptotic model or from a refinement-based coarse-versus-fine quadrature difference.
   not necessarily a strict truncation bound.
 * `fit_terms` and `ff_shift` are preserved for convenience so that later fitting code
   can reuse the same workflow settings.
+* The derivative-based and refinement-based branches now coexist in the public API.
+The refinement branch is selected explicitly with `err_method = :refinement`, while `use_error_jet` only affects the derivative-based branch.
 
 # Examples
 
@@ -181,9 +208,10 @@ run_result = run_Maranatha(
     nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
     rule = :gauss_p4,
     boundary = :LU_EXEX,
-    err_method = :forwarddiff,
+    err_method = :refinement,
 )
 ```
+To use the refinement-based estimator instead, pass `err_method = :refinement`.
 
 Configuration-file workflow:
 
@@ -205,15 +233,22 @@ function run_Maranatha(
     nsamples=[2, 3, 4, 5, 6, 7, 8, 9],
     rule=:gauss_p4,
     boundary=:LU_EXEX,
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :refinement,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
     fit_terms::Int = 4,
     nerr_terms::Int = 3,
     ff_shift::Int = 0,
-    use_threads::Bool = false,
+    use_error_jet::Bool = false,
     name_prefix::String = "Maranatha",
     save_path::Union{Nothing,AbstractString}=nothing,
     write_summary::Bool=true,
 )
+
+    JobLoggerTools.log_stage_benji("Start run_Maranatha")
+
+    if err_method !== :refinement
+        ErrorDispatch.clear_error_estimate_caches!()
+    end
+    
     estimates = Float64[]      # List of quadrature results
     error_infos = NamedTuple[] # List of estimated error infos
     hs = Float64[]             # List of step sizes
@@ -232,30 +267,42 @@ function run_Maranatha(
             boundary
         )
 
-        err = if use_threads
-            ErrorDispatch.error_estimate_threads(
+        err = if err_method === :refinement
+            ErrorDispatchRefine.error_estimate_refine(
                 integrand,
                 a,
                 b,
                 N,
                 dim,
                 rule,
-                boundary;
-                err_method=err_method,
-                nerr_terms=nerr_terms
+                boundary
             )
         else
-            ErrorDispatch.error_estimate(
-                integrand,
-                a,
-                b,
-                N,
-                dim,
-                rule,
-                boundary;
-                err_method=err_method,
-                nerr_terms=nerr_terms
-            )
+            if use_error_jet
+                ErrorDispatch.error_estimate_jet(
+                    integrand,
+                    a,
+                    b,
+                    N,
+                    dim,
+                    rule,
+                    boundary;
+                    err_method = err_method,
+                    nerr_terms = nerr_terms
+                )
+            else
+                ErrorDispatch.error_estimate(
+                    integrand,
+                    a,
+                    b,
+                    N,
+                    dim,
+                    rule,
+                    boundary;
+                    err_method = err_method,
+                    nerr_terms = nerr_terms
+                )
+            end
         end
 
         push!(estimates, I)
@@ -275,7 +322,7 @@ function run_Maranatha(
         nerr_terms  = nerr_terms,
         fit_terms   = fit_terms,
         ff_shift    = ff_shift,
-        use_threads = use_threads,
+        use_error_jet = use_error_jet,
     )
 
     if save_path !== nothing
@@ -368,7 +415,7 @@ function run_Maranatha(
         fit_terms     = cfg.fit_terms,
         nerr_terms    = cfg.nerr_terms,
         ff_shift      = cfg.ff_shift,
-        use_threads   = cfg.use_threads,
+        use_error_jet   = cfg.use_error_jet,
         name_prefix   = cfg.name_prefix,
         save_path     = cfg.save_path,
         write_summary = cfg.write_summary,

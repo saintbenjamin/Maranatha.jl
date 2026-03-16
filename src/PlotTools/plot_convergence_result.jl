@@ -1,3 +1,13 @@
+# ============================================================================
+# src/PlotTools/plot_convergence_result.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 """
     plot_convergence_result(
         a::Real,
@@ -27,7 +37,14 @@ existing least-``\\chi^2`` fit result.
   Measured quadrature estimates corresponding to `hs`.
 - `errors::Vector`:
   Collection of error-information objects used for pointwise error bars.
-  Each entry is expected to provide a `.total` field in the current workflow.
+
+  Each entry is expected to provide either:
+
+  - a `.total` field, as in the residual-based error-estimation workflow, or
+  - an `.estimate` field, as in the refinement-based error-estimation workflow.
+
+  The plotting routine converts each entry into a nonnegative scalar plotting
+  uncertainty through an internal extractor.
 - `fit_result`:
   Fit result object returned by `least_chi_square_fit`, used to reconstruct the
   fitted model and its uncertainty band.
@@ -56,6 +73,9 @@ existing least-``\\chi^2`` fit result.
 # Notes
 - This function visualizes an existing fit; it does not perform refitting.
 - A convenience wrapper `plot_convergence_result(result, fit_result; ...)` is also provided.
+- This plotting routine accepts both residual-based and refinement-based
+  error-info objects, provided that each entry exposes either `.total` or
+  `.estimate`.
 """
 function plot_convergence_result(
     a::Real,
@@ -86,6 +106,19 @@ function plot_convergence_result(
         JobLoggerTools.error_benji("Input length mismatch.")
     end
 
+    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
+    @inline function _extract_error_total(e)
+        if hasproperty(e, :total)
+            return float(e.total)
+        elseif hasproperty(e, :estimate)
+            return abs(float(e.estimate))
+        else
+            JobLoggerTools.error_benji(
+                "Unsupported error-info structure for plotting (need :total or :estimate)."
+            )
+        end
+    end
+
     # ------------------------------------------------------------
     # Determine x-axis power from fit (e.g. h^p)
     # ------------------------------------------------------------
@@ -101,7 +134,7 @@ function plot_convergence_result(
     # x-axis = h^lead_pow
     hx = hs .^ lead_pow
 
-    errors_val = [e.total for e in errors]
+    errors_val = [_extract_error_total(e) for e in errors]
 
     errors_pos = abs.(errors_val)
 

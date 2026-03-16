@@ -15,21 +15,23 @@ import ..TOML
 """
     VALID_ERR_METHODS :: Set{Symbol}
 
-Set of supported error-method identifiers for [`TOML`](https://toml.io/en/)-driven runs.
+Set of supported error-method identifiers for TOML-driven runs.
 
 # Description
 This constant enumerates the allowed values of the `err_method`
 configuration parameter accepted by the run-configuration pipeline.
 
-It is used by [`validate_run_config`](@ref) to reject unsupported derivative
-backend selections before execution begins.
+It is used by [`validate_run_config`](@ref) to reject unsupported error-method
+selections before execution begins.
 
 # Notes
-- The values correspond to derivative / error-estimation backends used by the
-  Maranatha error-estimation layer.
+- The values correspond to error-estimation backends used by the
+  Maranatha error-estimation layer, including both derivative-based
+  and refinement-based methods.
 - The constant is intended for validation, not for backend dispatch by itself.
 """
 const VALID_ERR_METHODS = Set([
+    :refinement,
     :forwarddiff,
     :taylorseries,
     :enzyme,
@@ -124,6 +126,9 @@ location rather than the current working directory.
 # Notes
 - This helper performs parsing and normalization only.
 - Semantic validation is deferred to [`validate_run_config`](@ref).
+- If `[error].err_method` is omitted, it defaults to `:refinement`,
+  which activates the resolution-refinement error estimator.
+- If `[execution].use_error_jet` is omitted, it defaults to `false`.
 """
 function parse_run_config_from_toml(
     toml_path::AbstractString
@@ -188,12 +193,12 @@ function parse_run_config_from_toml(
         rule = Symbol(quadrature_section["rule"]),
         boundary = Symbol(quadrature_section["boundary"]),
 
-        err_method = Symbol(get(error_section, "err_method", "forwarddiff")),
-        fit_terms  = Int(get(error_section, "fit_terms", 2)),
-        nerr_terms = Int(get(error_section, "nerr_terms", 1)),
+        err_method = Symbol(get(error_section, "err_method", "refinement")),
+        fit_terms  = Int(get(error_section, "fit_terms", 4)),
+        nerr_terms = Int(get(error_section, "nerr_terms", 3)),
         ff_shift   = Int(get(error_section, "ff_shift", 0)),
 
-        use_threads = Bool(get(execution_section, "use_threads", false)),
+        use_error_jet = Bool(get(execution_section, "use_error_jet", false)),
 
         name_prefix   = String(get(output_section, "name_prefix", "Maranatha")),
         save_path     = save_path,

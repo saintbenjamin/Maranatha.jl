@@ -1,20 +1,19 @@
 @testset "4D rules" begin
     ff(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
     bounds = (0.0, 1.0)
-    use_threads = false
+    use_error_jet = false
 
-
-    @testset "4D B-spline 2-point interp LU_ININ" begin
+    @testset "B-spline 2-point interp LU_ININ" begin
         dim = 4
         rule = :bspline_interp_p2
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 0
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -29,7 +28,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -47,7 +46,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -60,17 +62,17 @@
         )
     end
 
-    @testset "4D B-spline 2-point smooth LU_ININ" begin
+    @testset "B-spline 2-point smooth LU_ININ" begin
         dim = 4
         rule = :bspline_smooth_p2
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 0
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -85,7 +87,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -103,7 +105,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -116,17 +121,17 @@
         )
     end
 
-    @testset "4D B-spline 3-point LU_ININ" begin
+    @testset "B-spline 3-point interp LU_ININ" begin
         dim = 4
         rule = :bspline_interp_p3
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 1
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -141,7 +146,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -159,7 +164,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -172,17 +180,76 @@
         )
     end
 
-    @testset "4D B-spline 4-point LU_ININ" begin
+    @testset "B-spline 3-point smooth LU_ININ" begin
+        dim = 4
+        rule = :bspline_smooth_p3
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 1
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 4-point interp LU_ININ" begin
         dim = 4
         rule = :bspline_interp_p4
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 2
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -197,7 +264,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -215,7 +282,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -228,17 +298,17 @@
         )
     end
 
-    @testset "4D B-spline 5-point LU_ININ" begin
+    @testset "B-spline 4-point smooth LU_ININ" begin
         dim = 4
-        rule = :bspline_interp_p5
+        rule = :bspline_smooth_p4
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 2
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -253,7 +323,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -271,7 +341,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -284,17 +357,17 @@
         )
     end
 
-    @testset "4D B-spline 6-point LU_ININ" begin
+    @testset "B-spline 5-point interp LU_ININ" begin
         dim = 4
-        rule = :bspline_interp_p6
+        rule = :bspline_interp_p4
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 3
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -309,7 +382,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -327,7 +400,10 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,
@@ -340,17 +416,17 @@
         )
     end
 
-    @testset "4D B-spline 7-point LU_ININ" begin
+    @testset "B-spline 5-point smooth LU_ININ" begin
         dim = 4
-        rule = :bspline_interp_p7
+        rule = :bspline_smooth_p4
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
-        ns .+= 10
-        err_method = :forwarddiff # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        ns .+= 3
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
-        result_string = "4D"
+        result_string = "1D"
         save_path = nothing
         write_summary = false
         save_file = false
@@ -365,7 +441,7 @@
             fit_terms=fit_terms, 
             nerr_terms=nerr_terms,
             ff_shift=ff_shift, 
-            use_threads=use_threads,
+            use_error_jet=use_error_jet,
             name_prefix=result_string,
             save_path=save_path,
             write_summary=write_summary  
@@ -383,7 +459,482 @@
             nerr_terms=nerr_terms
         )
         print_fit_result(fit_result)
-        assert_result_sane(run_result); @test all(isfinite, run_result.avg) && all(e -> isfinite(e.total), run_result.err)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 6-point interp LU_ININ" begin
+        dim = 4
+        rule = :bspline_interp_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 4
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 6-point smooth LU_ININ" begin
+        dim = 4
+        rule = :bspline_smooth_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 4
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 7-point interp LU_ININ" begin
+        dim = 4
+        rule = :bspline_interp_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 5
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 7-point smooth LU_ININ" begin
+        dim = 4
+        rule = :bspline_smooth_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 5
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 8-point interp LU_ININ" begin
+        dim = 4
+        rule = :bspline_interp_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 6
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 8-point smooth LU_ININ" begin
+        dim = 4
+        rule = :bspline_smooth_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 6
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 9-point interp LU_ININ" begin
+        dim = 4
+        rule = :bspline_interp_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 7
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
+        DO_PLOT && plot_convergence_result(
+            bounds..., 
+            result_string,
+            run_result.h, 
+            run_result.avg, 
+            run_result.err, fit_result;
+            rule=rule, 
+            boundary=boundary,
+            save_file=save_file
+        )
+    end
+
+    @testset "B-spline 9-point smooth LU_ININ" begin
+        dim = 4
+        rule = :bspline_smooth_p4
+        boundary = :LU_ININ
+        ns = [2, 3, 4, 5, 6, 7, 8, 9]
+        ns .+= 7
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        nerr_terms = 3
+        ff_shift = 0
+        fit_terms = 4
+        result_string = "1D"
+        save_path = nothing
+        write_summary = false
+        save_file = false
+        run_result = run_Maranatha(
+            ff, 
+            bounds...; 
+            dim=dim, 
+            nsamples=ns,
+            rule=rule, 
+            boundary=boundary, 
+            err_method=err_method,
+            fit_terms=fit_terms, 
+            nerr_terms=nerr_terms,
+            ff_shift=ff_shift, 
+            use_error_jet=use_error_jet,
+            name_prefix=result_string,
+            save_path=save_path,
+            write_summary=write_summary  
+        )
+        fit_result = least_chi_square_fit(
+            run_result.a,
+            run_result.b,
+            run_result.h,
+            run_result.avg,
+            run_result.err,
+            run_result.rule,
+            run_result.boundary;
+            nterms=fit_terms,
+            ff_shift=ff_shift,
+            nerr_terms=nerr_terms
+        )
+        print_fit_result(fit_result)
+        assert_result_sane(run_result)
+        @test all(isfinite, run_result.avg) &&
+              all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
+                  run_result.err)
         DO_PLOT && plot_convergence_result(
             bounds..., 
             result_string,

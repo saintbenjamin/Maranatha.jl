@@ -1,3 +1,13 @@
+# ============================================================================
+# src/PlotTools/_smart_text_placement!.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
 """
     _smart_text_placement!(
         fig,
@@ -256,9 +266,9 @@ function _smart_text_placement!(
         end
 
         # point overlap + near-miss penalty
-        @inbounds for i in 1:size(pts, 1)
-            px = pts[i,1]
-            py = pts[i,2]
+        @inbounds for i in axes(pts, 1)
+            px = pts[i, 1]
+            py = pts[i, 2]
 
             if _point_inside_bbox(px, py, x0, x1, y0, y1)
                 score += 500.0

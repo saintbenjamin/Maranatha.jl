@@ -1,3 +1,45 @@
+# ============================================================================
+# src/PlotTools/plot_datapoint_result.jl
+#
+# Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
+# Affiliation: Center for Computational Sciences, University of Tsukuba
+# Address: 1-1-1 Tennodai, Tsukuba, Ibaraki 305-8577 Japan
+# Contact: benchoi [at] ccs.tsukuba.ac.jp (replace [at] with @)
+# License: MIT License
+# ============================================================================
+
+"""
+    _split_report_name(
+        name::AbstractString
+    ) -> Tuple{String, String}
+
+Split a user-facing report name into a display name and a filesystem-safe base
+name.
+
+# Function description
+This helper normalizes a report identifier for two separate uses:
+
+- `display_name`: the original input converted to `String`, preserved for
+  human-facing display contexts, and
+- `file_name`: the basename of the input path with any trailing `.jld2`
+  suffix removed, intended for output filename construction.
+
+This is useful when plotting or reporting functions accept either a plain name
+or a path-like string and need a clean filename stem for saved artifacts.
+
+# Arguments
+- `name::AbstractString`:
+  Report name or path-like string.
+
+# Returns
+- `Tuple{String, String}`:
+  A pair `(display_name, file_name)`.
+
+# Notes
+- `display_name` preserves the full input string content.
+- `file_name` is derived from `basename(String(name))`.
+- Only a trailing `.jld2` suffix is stripped.
+"""
 function _split_report_name(name::AbstractString)
     display_name = String(name)
     file_name = replace(basename(String(name)), r"\.jld2$" => "")
@@ -31,7 +73,14 @@ alignment, scaling, and possible oscillatory behavior.
   Raw quadrature estimates.
 - `errors::Vector`:
   Collection of error-information objects used for plotting error bars.
-  Each entry is expected to provide a `.total` field in the current workflow.
+
+  Each entry is expected to provide either:
+
+  - a `.total` field, as in the residual-based error-estimation workflow, or
+  - an `.estimate` field, as in the refinement-based error-estimation workflow.
+
+  The plotting routine converts each entry into a nonnegative scalar plotting
+  uncertainty through an internal extractor.
 
 # Keyword arguments
 - `h_power::Real = 1`:
@@ -58,6 +107,8 @@ alignment, scaling, and possible oscillatory behavior.
 # Notes
 - This routine is intended as a diagnostic plotter before fitting.
 - A convenience wrapper `plot_datapoints_result(result; ...)` is also provided.
+- This routine accepts both residual-based and refinement-based error-info
+  objects, provided that each entry exposes either `.total` or `.estimate`.
 """
 function plot_datapoints_result(
     name::String,
@@ -87,8 +138,21 @@ function plot_datapoints_result(
         "Unsupported yscale=$yscale (expected :linear or :log)"
     )
 
+    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
+    @inline function _extract_error_total(e)
+        if hasproperty(e, :total)
+            return float(e.total)
+        elseif hasproperty(e, :estimate)
+            return abs(float(e.estimate))
+        else
+            JobLoggerTools.error_benji(
+                "Unsupported error-info structure for datapoint plot (need :total or :estimate)."
+            )
+        end
+    end
+
     xvals = Float64.(hs) .^ float(h_power)
-    err_abs = abs.([e.total for e in errors])
+    err_abs = [_extract_error_total(e) for e in errors]
 
     yvals = Float64[]
     yerrs = Float64[]

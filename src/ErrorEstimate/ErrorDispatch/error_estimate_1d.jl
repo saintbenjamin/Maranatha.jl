@@ -28,8 +28,12 @@ This routine builds the axis-separable asymptotic error model for the
 ``1``-dimensional case using the leading nonzero midpoint residual terms of the
 selected composite rule.
 
-For each collected residual order ``k_i``, it evaluates the ``k_i``-th derivative of
-``f`` at the physical midpoint and forms the contribution
+The residual-term model is obtained through the cached helper
+[`_get_residual_model_fixed`](@ref), which reuses previously constructed
+residual data for the same rule configuration when available.
+
+For each collected residual order ``k_i``, it evaluates the ``k_i``-th
+derivative of ``f`` at the physical midpoint and forms the contribution
 ```math
 E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 \\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, f^{(k_i)}(\\bar{x}) \\, .
@@ -60,11 +64,13 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
-- Propagates residual-extraction and derivative-evaluation errors.
+- Propagates residual-model extraction and derivative-evaluation errors.
 
 # Notes
 - This is an asymptotic error model, not a rigorous bound.
 - A detected `k == 0` term is suppressed in the returned contribution.
+- Residual-term reuse through caching reduces repeated setup cost across
+  multiple calls with the same rule configuration.
 """
 function error_estimate_1d(
     f,
@@ -85,7 +91,7 @@ function error_estimate_1d(
     h  = (bb - aa) / N
     x̄ = (aa + bb) / 2
 
-    ks, coeffs, _center = _leading_residual_terms_any(
+    ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
@@ -131,7 +137,7 @@ function error_estimate_1d(
 end
 
 """
-    error_estimate_1d_threads(
+    error_estimate_1d_jet(
         f,
         a::Real,
         b::Real,
@@ -143,39 +149,69 @@ end
         kmax::Int = 128
     )
 
-Threaded variant of [`error_estimate_1d`](@ref).
+Estimate a ``1``-dimensional midpoint-residual truncation-error model using
+derivative-jet reuse.
 
 # Function description
-This routine keeps the same mathematical model as [`error_estimate_1d`](@ref) but
-parallelizes the loop over collected residual terms using Julia threading.
+This routine builds the same ``1``-dimensional asymptotic midpoint-residual
+error model as [`error_estimate_1d`](@ref), but instead of requesting each
+derivative order independently, it evaluates the required derivatives through a
+shared derivative jet.
 
-Each term is evaluated independently, and the final result is assembled into the
-same return structure as the non-threaded version.
+The residual-term model is obtained through the cached helper
+[`_get_residual_model_fixed`](@ref). After the residual orders ``k_i`` are
+identified, the function calls [`_derivative_values_for_ks`](@ref) to obtain
+all requested midpoint derivatives from a single jet-based evaluation path.
+
+For each collected residual order ``k_i``, it forms the contribution
+```math
+E \\approx \\sum_{i=1}^{n_{\text{err}}}
+\\texttt{coeff}_{k_i} \\, h^{k_i+1} \\, f^{(k_i)}(\bar{x}) \\, .
+```
 
 # Arguments
-- Same as [`error_estimate_1d`](@ref).
+- `f`: Scalar callable integrand ``f(x)``.
+- `a::Real`: Lower bound.
+- `b::Real`: Upper bound.
+- `N::Int`: Number of subintervals.
+- `rule::Symbol`: Quadrature rule symbol.
+- `boundary::Symbol`: Boundary pattern symbol.
 
 # Keyword arguments
-- Same as [`error_estimate_1d`](@ref).
+- `err_method::Symbol`: Derivative backend selector.
+- `nerr_terms::Int`: Number of nonzero residual terms to include.
+- `kmax::Int`: Maximum residual order scanned.
 
 # Returns
-- Same `NamedTuple` structure as [`error_estimate_1d`](@ref).
+- `NamedTuple` with fields:
+  - `ks`
+  - `coeffs`
+  - `derivatives`
+  - `terms`
+  - `total`
+  - `center`
+  - `h`
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
-- Propagates residual-extraction and derivative-evaluation errors.
+- Propagates residual-model extraction and jet-based derivative-evaluation
+  errors.
 
 # Notes
-- Threading overhead may dominate when only a small number of residual terms is used.
+- This is an asymptotic error model, not a rigorous bound.
+- A detected `k == 0` term is suppressed in the returned contribution.
+- If `ks` is empty, the function returns a zero-total result with empty arrays.
+- This variant is especially useful when multiple derivative orders are needed,
+  since one shared jet can serve all requested residual terms.
 """
-function error_estimate_1d_threads(
+function error_estimate_1d_jet(
     f,
     a::Real,
     b::Real,
     N::Int,
     rule::Symbol,
     boundary::Symbol;
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128
 )
@@ -187,7 +223,12 @@ function error_estimate_1d_threads(
     h  = (bb - aa) / N
     x̄ = (aa + bb) / 2
 
-    ks, coeffs, _center = _leading_residual_terms_any(
+    # ks, coeffs, _center = _leading_residual_terms_any(
+    #     rule, boundary, N;
+    #     nterms = nerr_terms,
+    #     kmax   = kmax
+    # )
+    ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
@@ -198,7 +239,31 @@ function error_estimate_1d_threads(
     derivatives = Vector{Float64}(undef, n)
     terms       = Vector{Float64}(undef, n)
 
-    Threads.@threads for i in eachindex(ks)
+    isempty(ks) && return (;
+        ks          = Int[],
+        coeffs      = Float64[],
+        derivatives = Float64[],
+        terms       = Float64[],
+        total       = 0.0,
+        center      = x̄,
+        h           = h
+    )
+
+    vals = _derivative_values_for_ks(
+        f,
+        x̄,
+        ks;
+        h = h,
+        rule = rule,
+        N = N,
+        dim = 1,
+        err_method = err_method,
+        side = :mid,
+        axis = :x,
+        stage = :midpoint,
+    )
+
+    @inbounds for i in eachindex(ks)
         k = ks[i]
 
         if k == 0
@@ -207,17 +272,8 @@ function error_estimate_1d_threads(
             continue
         end
 
-        coeff = coeffs[i]
-
-        dx = nth_derivative(
-            f, x̄, k;
-            h=h, rule=rule, N=N, dim=1,
-            side=:mid, axis=:x, stage=:midpoint,
-            err_method=err_method
-        )
-
-        derivatives[i] = dx
-        terms[i] = coeff * h^(k + 1) * dx
+        derivatives[i] = vals[i]
+        terms[i] = coeffs[i] * h^(k + 1) * derivatives[i]
     end
 
     return (;

@@ -15,13 +15,13 @@ rule = "gauss_p4"
 boundary = "LU_EXEX"
 
 [error]
-err_method = "forwarddiff"
+err_method = "refinement"
 fit_terms = 4
 nerr_terms = 3
 ff_shift = 0
 
 [execution]
-use_threads = true
+use_error_jet = true
 
 [output]
 name_prefix = "sample_1d"

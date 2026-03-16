@@ -9,6 +9,11 @@ It sits between the rule-specific residual backends and the dimension-specific
 error estimators, and it also exposes the public entry points used elsewhere in
 `Maranatha.jl`.
 
+This module specifically covers the **residual-based / derivative-based**
+branch of the error-estimation framework. The complementary refinement-based
+branch is coordinated separately by
+[`Maranatha.ErrorEstimate.ErrorDispatchRefine`](@ref).
+
 Its responsibilities fall into three broad categories:
 
 1. normalize residual-term extraction across Newton-Cotes, Gauss, and B-spline rules,
@@ -33,22 +38,22 @@ data came from:
 - floating-point Gauss logic,
 - floating-point B-spline logic.
 
-The companion helper [`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref) provides a
-lighter-weight path when only the residual indices are needed.
+For repeated use with the same rule configuration, the companion helper
+[`Maranatha.ErrorEstimate.ErrorDispatch._get_residual_model_fixed`](@ref)
+stores and reuses the normalized residual-term model through an internal cache.
+This avoids rebuilding the same residual metadata across multiple estimator calls.
 
 ---
 
-## Special handling for Gauss-Radau
+## Residual-model implementation note
 
-Inside [`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref), Gauss-Radau rules use a
-special branch that bypasses the generic floating-point moment scan.
+Rule-family-specific residual logic is handled inside the underlying residual
+backends and normalized by
+[`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_terms_any`](@ref).
 
-The reason is practical: in the Radau case, the leading residual sequence is
-known analytically, while a naive tolerance-based scan can misclassify very
-low-order moments due to floating cancellation.
-
-This branch therefore returns the expected sequence directly, preserving the
-stability of the downstream extrapolation/error model.
+The dispatch layer itself is intentionally kept lightweight: it does not expose
+separate public logic for every special-case rule family, but instead presents a
+uniform residual-term interface to the downstream estimators.
 
 ---
 
@@ -64,18 +69,45 @@ Supported backends are:
 - `:fastdifferentiation`
 - `:enzyme`
 
-The wrapper itself is intentionally simple: it dispatches to the selected
-backend and emits a context-rich fatal error if the selector is invalid.
+The scalar wrapper first checks an internal derivative cache and then dispatches
+to the selected backend. If the selector is invalid, it emits a context-rich
+fatal error.
+
+In addition to scalar derivative access, this module also provides
+jet-oriented helpers for reusing multiple derivative orders evaluated at the
+same point:
+
+- [`Maranatha.ErrorEstimate.ErrorDispatch.derivative_jet`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_from_jet`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch._derivative_values_for_ks`](@ref)
+
+These jet-based helpers are used by the `*_jet` estimators to reduce repeated
+differentiation work when several residual orders are needed at once.
+
+The module also exposes
+[`Maranatha.ErrorEstimate.ErrorDispatch.clear_error_estimate_caches!`](@ref),
+which clears the derivative and residual-model caches at the start of a fresh
+run when desired.
+
+These caches and derivative helpers are specific to the residual-based branch
+and are not used by the refinement-based path exposed through
+[`Maranatha.ErrorEstimate.ErrorDispatchRefine`](@ref).
 
 ### Included backend helpers
 
-[`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative`](@ref) 
-defines the backend-specific helpers:
+The backend-specific derivative helpers include:
 
 - [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_forwarddiff`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_taylor`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_fastdifferentiation`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.nth_derivative_enzyme`](@ref)
+
+and their jet-producing companions:
+
+- [`Maranatha.ErrorEstimate.ErrorDispatch.derivative_jet_forwarddiff`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.derivative_jet_taylor`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.derivative_jet_fastdifferentiation`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.derivative_jet_enzyme`](@ref)
 
 Each backend has slightly different strengths:
 
@@ -97,12 +129,12 @@ The included estimator files implement two layers:
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_3d`](@ref)
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_4d`](@ref)
 
-and their threaded companions:
+and their jet-based companions:
 
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_1d_threads`](@ref)
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_2d_threads`](@ref)
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_3d_threads`](@ref)
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_4d_threads`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_1d_jet`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_2d_jet`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_3d_jet`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_4d_jet`](@ref)
 
 These versions use explicit loop structures and are meant to keep the common
 low-dimensional cases transparent and easy to inspect.
@@ -110,10 +142,11 @@ low-dimensional cases transparent and easy to inspect.
 ### Generic ``n``-dimensional estimators
 
 - [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_nd`](@ref)
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_nd_threads`](@ref)
+- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_nd_jet`](@ref)
 
 These provide the same axis-separable model for arbitrary dimension using a
-generic odometer-style multi-index traversal.
+generic odometer-style multi-index traversal, with the `*_jet` path reusing
+multiple derivative orders through shared derivative-jet evaluations.
 
 ---
 
@@ -127,8 +160,9 @@ E \approx \sum_{i=1}^{n_{\text{err}}}
 \sum_{\mu=1}^{\texttt{dim}} I_\mu^{(k_i)},
 ```
 
-where each ``I_μ^{(k_i)}`` is a cross-axis integral containing a ``k_i``-th derivative
+where each `I_μ^{(k_i)}` is a cross-axis integral containing a `k_i`-th derivative
 along one selected axis and midpoint insertion along that axis,
+
 ```math
 I_{\mu}^{(k_i)} =
 \int\limits_a^b \cdots \int\limits_a^b
@@ -143,39 +177,18 @@ effects.
 
 ---
 
-## Threading strategy
-
-The threaded estimators keep the same mathematical definition as the non-threaded
-versions, but parallelize the dominant summation loops.
-
-Typical policy:
-
-- distribute independent node or axis loops via [`Threads.@threads`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.@threads),
-- accumulate partial sums into thread-local buffers,
-- reduce those partial sums at the end.
-
-The exact parallelization pattern differs by dimension:
-
-- in ``d = 1``, threading is over residual-term loops,
-- in ``d = 2, 3`` and ``4``, threading is over flattened tensor-product index grids,
-- in generic `n` dimension, threading is over axis contributions.
-
-This design favors simple thread safety and deterministic local work partitioning
-rather than aggressive optimization.
-
----
-
 ## Public API
 
-The two main public entry points are:
+The main public entry points are:
 
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
-- [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_threads`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_jet`](@ref)
 
 These are thin dispatchers that select the dimension-specific implementation.
 
-They intentionally do not duplicate the full mathematical logic themselves; that
-logic lives in the included estimator files.
+For refinement-based error estimation, see the separate dispatch layer
+[`Maranatha.ErrorEstimate.ErrorDispatchRefine`](@ref), whose public entry point
+is [`Maranatha.ErrorEstimate.ErrorDispatchRefine.error_estimate_refine`](@ref).
 
 ---
 
@@ -184,12 +197,13 @@ logic lives in the included estimator files.
 This module does **not** define quadrature rules or residual backends itself.
 Instead, it coordinates:
 
-- residual extraction,
-- derivative evaluation,
-- multidimensional assembly of the axis-separated model.
+* residual extraction,
+* derivative evaluation,
+* multidimensional assembly of the axis-separated model.
 
-It is therefore best thought of as the orchestration layer of
-`Maranatha.ErrorEstimate`, not as a standalone numerical method in isolation.
+It is therefore best thought of as the orchestration layer of the
+residual-based branch of `Maranatha.ErrorEstimate`, not as a standalone
+numerical method in isolation.
 
 ---
 
