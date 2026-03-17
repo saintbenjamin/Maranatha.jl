@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorGaussRefine.jl
+# src/ErrorEstimate/ErrorGaussRefinement.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,11 +8,11 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorGaussRefine
+module ErrorGaussRefinement
 
 import ..JobLoggerTools
-import ..Quadrature.Gauss
-import ..Quadrature.QuadratureDispatch
+import ..Gauss
+import ..QuadratureDispatch
 
 """
     _require_gauss_rule(
@@ -46,7 +46,7 @@ before calling Gauss-specific refinement routines.
 )::Nothing
     Gauss._is_gauss_rule(rule) ||
         JobLoggerTools.error_benji(
-            "ErrorGaussRefine only supports Gauss-family rules (got rule=$rule)"
+            "ErrorGaussRefinement only supports Gauss-family rules (got rule=$rule)"
         )
     return nothing
 end
@@ -556,7 +556,7 @@ function error_estimate_nd_gauss(
 end
 
 """
-    error_estimate_gauss(
+    error_estimate_refinement_gauss(
         f,
         a,
         b,
@@ -609,7 +609,7 @@ dimension-specific specialization:
 - Unlike the derivative-based error estimators, this interface does not depend
   on derivative backends or jet construction.
 """
-function error_estimate_gauss(
+function error_estimate_refinement_gauss(
     f,
     a,
     b,
@@ -637,4 +637,4 @@ function error_estimate_gauss(
     end
 end
 
-end  # module ErrorGaussRefine
+end  # module ErrorGaussRefinement

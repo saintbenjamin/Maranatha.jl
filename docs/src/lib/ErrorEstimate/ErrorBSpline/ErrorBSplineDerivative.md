@@ -1,8 +1,8 @@
-# Maranatha.ErrorEstimate.ErrorBSpline
+# Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative
 
 ## Overview
 
-`Maranatha.ErrorEstimate.ErrorBSpline` provides the midpoint-residual extraction
+`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative` provides the midpoint-residual extraction
 backend for B-spline quadrature rules inside `Maranatha.ErrorEstimate`.
 
 Like the Gauss residual backend, it works entirely in `Float64` and therefore
@@ -76,19 +76,19 @@ genuine leading residual structure.
 
 ## Function roles
 
-### [`Maranatha.ErrorEstimate.ErrorBSpline._exact_moment_shifted_float`](@ref)
+### [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative._exact_moment_shifted_float`](@ref)
 
 This helper evaluates the exact shifted monomial moment in closed form, but in
 `Float64`.
 
-### [`Maranatha.ErrorEstimate.ErrorBSpline._leading_midpoint_residual_terms_bspline_float`](@ref)
+### [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative._leading_midpoint_residual_terms_bspline_float`](@ref)
 
 This is the main residual extractor. It constructs the spline quadrature on the
 dimensionless interval, compares exact and quadrature moments, applies the
 tolerance test, and returns the first requested residual orders and
 coefficients.
 
-### [`Maranatha.ErrorEstimate.ErrorBSpline._leading_residual_ks_with_center_bspline_float`](@ref)
+### [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative._leading_residual_ks_with_center_bspline_float`](@ref)
 
 This wrapper keeps only the detected residual orders and returns the center tag
 `:mid`, matching the interface expected by the higher-level dispatch layer.
@@ -127,7 +127,7 @@ dispatch code.
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimate.ErrorBSpline,
+    Main.Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative,
 ]
 Private = true
 ```

@@ -1,8 +1,8 @@
-# Maranatha.ErrorEstimate.ErrorGauss
+# Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative
 
 ## Overview
 
-`Maranatha.ErrorEstimate.ErrorGauss` provides the midpoint-residual extraction
+`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative` provides the midpoint-residual extraction
 backend for the Gauss-family quadrature rules inside `Maranatha.ErrorEstimate`.
 
 Unlike the Newton-Cotes backend, this module works entirely in `Float64`.
@@ -69,12 +69,12 @@ false positives caused by roundoff.
 
 ## Function roles
 
-### [`Maranatha.ErrorEstimate.ErrorGauss._exact_moment_shifted_float`](@ref)
+### [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative._exact_moment_shifted_float`](@ref)
 
 This helper evaluates the exact shifted monomial moment in closed form, but in
 `Float64`.
 
-### [`Maranatha.ErrorEstimate.ErrorGauss._leading_midpoint_residual_terms_gauss_float`](@ref)
+### [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative._leading_midpoint_residual_terms_gauss_float`](@ref)
 
 This is the main backend entry point. It builds the composite Gauss grid,
 compares exact and quadrature moments, applies the tolerance test, and returns
@@ -117,7 +117,7 @@ in a form that the higher-level dispatch code can reuse.
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimate.ErrorGauss,
+    Main.Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative,
 ]
 Private = true
 ```

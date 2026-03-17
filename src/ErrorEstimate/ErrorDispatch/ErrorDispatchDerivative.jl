@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorDispatch.jl
+# src/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,117 +8,30 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorDispatch
-
-import ..LinearAlgebra
-import ..TaylorSeries
-import ..Enzyme
-import ..ForwardDiff
-# import ..Diffractor
-import ..FastDifferentiation
-import ..FastDifferentiation: @variables
+module ErrorDispatchDerivative
 
 import ..JobLoggerTools
-import ..Quadrature.NewtonCotes
-import ..Quadrature.Gauss
-import ..Quadrature.BSpline
-import ..Quadrature.QuadratureDispatch
-import ..ErrorEstimate.ErrorNewtonCotes
-import ..ErrorEstimate.ErrorGauss
-import ..ErrorEstimate.ErrorBSpline
+import ..NewtonCotes
+import ..Gauss
+import ..BSpline
+import ..QuadratureDispatch
+import ..AutoDerivativeDirect
+import ..AutoDerivativeJet
+import ..ErrorNewtonCotesDerivative
+import ..ErrorGaussDerivative
+import ..ErrorBSplineDerivative
+import .._RES_MODEL_CACHE
+import .._NTH_DERIV_CACHE
+import .._DERIV_JET_CACHE
 
 """
-    _RESIDUAL_MODEL_CACHE::Dict{Tuple, Tuple}
-
-Global cache for residual-model data keyed by
-`(rule, boundary, nterms, kmax)`.
-
-# Description
-This cache stores the tuple returned by
-[`_get_residual_model_fixed`](@ref), namely:
-
-- `ks`: leading residual indices,
-- `coeffs`: corresponding residual coefficients,
-- `center`: centering convention tag.
-
-The purpose of this cache is to avoid recomputing the same residual model
-for repeated error-estimation calls using identical quadrature settings.
-
-# Notes
-- The cache key intentionally excludes `Nref`, because the fixed residual model
-  is currently treated as depending only on `(rule, boundary, nterms, kmax)`.
-- Cached values are stored in the exact form returned by
-  [`_leading_residual_terms_any`](@ref).
-"""
-const _RESIDUAL_MODEL_CACHE = Dict{Tuple, Tuple}()
-
-"""
-    _NTH_DERIV_CACHE::Dict{Tuple{UInt,Float64,Int,Symbol},Float64}
-
-Global cache for scalar derivative evaluations.
-
-# Description
-This cache stores previously computed `n`th-derivative values so that repeated
-calls with the same function identity, evaluation point, derivative order, and
-backend symbol can reuse an earlier result.
-
-# Key structure
-Each key has the form:
-
-- `UInt`: hashed or encoded function identity,
-- `Float64`: evaluation point,
-- `Int`: derivative order,
-- `Symbol`: derivative backend or method tag.
-
-# Notes
-- This cache is intended for low-level derivative reuse inside the
-  error-estimation workflow.
-- Clear it with [`clear_error_estimate_caches!`](@ref) when a fresh run is
-  desired.
-"""
-const _NTH_DERIV_CACHE =
-    Dict{Tuple{UInt,Float64,Int,Symbol},Float64}()
-
-"""
-    DERIVATIVE_JET_CACHE::Dict{Tuple{Any,Float64,Int,Symbol},Vector{Float64}}
-
-Global cache for derivative jets.
-
-# Description
-This cache stores vectors of derivatives evaluated at a fixed point, typically
-of the form
-
-```julia
-[f(x), f'(x), f''(x), ...]
-```
-
-up to a requested maximum order. Reusing a previously computed jet is often
-more efficient than recomputing each derivative separately.
-
-# Key structure
-Each key has the form:
-
-- `Any`: function identity or callable object,
-- `Float64`: evaluation point,
-- `Int`: maximum derivative order,
-- `Symbol`: derivative backend or method tag.
-
-# Notes
-- This cache is especially useful for Taylor-series or automatic-differentiation
-  based derivative backends.
-- Clear it with [`clear_error_estimate_caches!`](@ref) when needed.
-"""
-const DERIVATIVE_JET_CACHE =
-    Dict{Tuple{Any,Float64,Int,Symbol},Vector{Float64}}()
-
-"""
-    clear_error_estimate_caches!() -> Nothing
+    clear_error_estimate_derivative_caches!() -> Nothing
 
 Clear all global caches used by the error-estimation layer.
 
 # Function description
-This helper empties the derivative-value cache, derivative-jet cache, and
-residual-model cache, then prints the resulting cache sizes through
+This helper empties the residual-model cache, derivative-value cache, and
+derivative-jet cache, then prints the resulting cache sizes through
 [`JobLoggerTools.println_benji`](@ref).
 
 This is useful when:
@@ -133,18 +46,18 @@ This is useful when:
 
 # Side effects
 - Mutates the following global caches:
+  - [`_RES_MODEL_CACHE`](@ref)
   - [`_NTH_DERIV_CACHE`](@ref)
-  - [`DERIVATIVE_JET_CACHE`](@ref)
-  - [`_RESIDUAL_MODEL_CACHE`](@ref)
+  - [`_DERIV_JET_CACHE`](@ref)
 - Emits diagnostic log lines showing the new cache sizes.
 
 # Notes
 - The printed sizes should normally all be zero immediately after this call.
 """
-function clear_error_estimate_caches!()
+function clear_error_estimate_derivative_caches!()
+    empty!(_RES_MODEL_CACHE)
     empty!(_NTH_DERIV_CACHE)
-    empty!(DERIVATIVE_JET_CACHE)
-    empty!(_RESIDUAL_MODEL_CACHE)
+    empty!(_DERIV_JET_CACHE)
     return nothing
 end
 
@@ -162,7 +75,7 @@ Return a cached residual model for a fixed quadrature configuration.
 # Function description
 This helper retrieves the leading residual-term model associated with a given
 quadrature rule and boundary pattern. If a matching model is already present in
-[`_RESIDUAL_MODEL_CACHE`](@ref), it is returned immediately. Otherwise, the
+[`_RES_MODEL_CACHE`](@ref), it is returned immediately. Otherwise, the
 model is constructed via [`_leading_residual_terms_any`](@ref), stored in the
 cache, and then returned.
 
@@ -199,8 +112,8 @@ function _get_residual_model_fixed(
 )
     key = (rule, boundary, nterms, kmax)
 
-    if haskey(_RESIDUAL_MODEL_CACHE, key)
-        return _RESIDUAL_MODEL_CACHE[key]
+    if haskey(_RES_MODEL_CACHE, key)
+        return _RES_MODEL_CACHE[key]
     end
 
     ks, coeffs, center = _leading_residual_terms_any(
@@ -209,11 +122,9 @@ function _get_residual_model_fixed(
         kmax   = kmax
     )
 
-    _RESIDUAL_MODEL_CACHE[key] = (ks, coeffs, center)
+    _RES_MODEL_CACHE[key] = (ks, coeffs, center)
     return ks, coeffs, center
 end
-
-include("ErrorDispatch/nth_derivative.jl")
 
 """
     _leading_residual_terms_any(
@@ -270,21 +181,21 @@ function _leading_residual_terms_any(
     if NewtonCotes._is_newton_cotes_rule(rule)
         # exact rational coefficients from β
         if nterms == 1
-            k, coeffR = ErrorNewtonCotes._leading_midpoint_residual_term(rule, boundary, Nsub; kmax=min(kmax, 64))
+            k, coeffR = ErrorNewtonCotesDerivative._leading_midpoint_residual_term(rule, boundary, Nsub; kmax=min(kmax, 64))
             return [k], [Float64(coeffR)], :mid
         else
-            ks, coeffsR = ErrorNewtonCotes._leading_midpoint_residual_terms(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
+            ks, coeffsR = ErrorNewtonCotesDerivative._leading_midpoint_residual_terms(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
             return ks, Float64.(coeffsR), :mid
         end
     end
 
     if Gauss._is_gauss_rule(rule)
-        ks, coeffs = ErrorGauss._leading_midpoint_residual_terms_gauss_float(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
+        ks, coeffs = ErrorGaussDerivative._leading_midpoint_residual_terms_gauss_float(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
         return ks, coeffs, :mid
     end
 
     if BSpline._is_bspline_rule(rule)
-        ks, coeffs = ErrorBSpline._leading_midpoint_residual_terms_bspline_float(
+        ks, coeffs = ErrorBSplineDerivative._leading_midpoint_residual_terms_bspline_float(
             rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0
         )
         return ks, coeffs, :mid
@@ -447,7 +358,7 @@ function _leading_residual_ks_with_center_any(
     end
 
     if BSpline._is_bspline_rule(rule)
-        ks, center = ErrorBSpline._leading_residual_ks_with_center_bspline_float(
+        ks, center = ErrorBSplineDerivative._leading_residual_ks_with_center_bspline_float(
             rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0, tol_abs=tol_abs, tol_rel=tol_rel
         )
         return ks, center
@@ -456,18 +367,18 @@ function _leading_residual_ks_with_center_any(
     JobLoggerTools.error_benji("Unsupported rule=$rule for residual ks extraction.")
 end
 
-include("ErrorDispatch/error_estimate_1d.jl")
-include("ErrorDispatch/error_estimate_2d.jl")
-include("ErrorDispatch/error_estimate_3d.jl")
-include("ErrorDispatch/error_estimate_4d.jl")
-include("ErrorDispatch/error_estimate_nd.jl")
-
 # ============================================================
 # Unified public API
 # ============================================================
 
+include("ErrorDispatchDerivative/error_estimate_derivative_direct_1d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_direct_2d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_direct_3d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_direct_4d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_direct_nd.jl")
+
 """
-    error_estimate(
+    error_estimate_derivative_direct(
         f,
         a,
         b,
@@ -485,14 +396,14 @@ This is the public non-threaded dispatcher for the error-estimation layer.
 
 It routes to the matching dimension-specific estimator:
 
-- [`error_estimate_1d`](@ref) for `dim == 1`
-- [`error_estimate_2d`](@ref) for `dim == 2`
-- [`error_estimate_3d`](@ref) for `dim == 3`
-- [`error_estimate_4d`](@ref) for `dim == 4`
-- [`error_estimate_nd`](@ref) otherwise
+- [`error_estimate_derivative_direct_1d`](@ref) for `dim == 1`
+- [`error_estimate_derivative_direct_2d`](@ref) for `dim == 2`
+- [`error_estimate_derivative_direct_3d`](@ref) for `dim == 3`
+- [`error_estimate_derivative_direct_4d`](@ref) for `dim == 4`
+- [`error_estimate_derivative_direct_nd`](@ref) otherwise
 
 All implementations share the same residual-term extraction logic and the same
-derivative-backend interface via [`nth_derivative`](@ref).
+derivative-backend interface via [`AutoDerivativeDirect.nth_derivative`](@ref).
 
 # Arguments
 - `f`: Integrand callable accepting `dim` positional arguments.
@@ -503,7 +414,7 @@ derivative-backend interface via [`nth_derivative`](@ref).
 - `boundary`: Boundary pattern symbol.
 
 # Keyword arguments
-- `err_method`: Derivative backend selector passed to [`nth_derivative`](@ref).
+- `err_method`: Derivative backend selector passed to [`AutoDerivativeDirect.nth_derivative`](@ref).
 - `nerr_terms`: Number of nonzero residual terms to include.
 
 # Returns
@@ -512,7 +423,7 @@ derivative-backend interface via [`nth_derivative`](@ref).
 # Errors
 - Propagates errors from the selected estimator.
 """
-function error_estimate(
+function error_estimate_derivative_direct(
     f, 
     a, 
     b, 
@@ -524,31 +435,31 @@ function error_estimate(
     nerr_terms::Int = 1
 )
     if dim == 1
-        return error_estimate_1d(
+        return error_estimate_derivative_direct_1d(
             f, a, b, N, rule, boundary,
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     elseif dim == 2
-        return error_estimate_2d(
+        return error_estimate_derivative_direct_2d(
             f, a, b, N, rule, boundary,
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     elseif dim == 3
-        return error_estimate_3d(
+        return error_estimate_derivative_direct_3d(
             f, a, b, N, rule, boundary,
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     elseif dim == 4
-        return error_estimate_4d(
+        return error_estimate_derivative_direct_4d(
             f, a, b, N, rule, boundary,
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     else
-        return error_estimate_nd(
+        return error_estimate_derivative_direct_nd(
             f, a, b, N, rule, boundary;
             dim = dim,
             err_method = err_method,
@@ -557,113 +468,14 @@ function error_estimate(
     end
 end
 
-"""
-    _derivative_values_for_ks(
-        g,
-        x0,
-        ks::AbstractVector{<:Integer};
-        h,
-        rule,
-        N,
-        dim::Int,
-        err_method::Symbol = :forwarddiff,
-        side::Symbol = :mid,
-        axis = 0,
-        stage::Symbol = :midpoint
-    ) -> Vector{Float64}
-
-Return selected derivative values of `g` at `x0` for the derivative orders
-listed in `ks`.
-
-# Function description
-This helper computes a derivative jet of `g` up to the maximum order appearing
-in `ks`, then extracts only the requested derivative orders and returns them as
-a dense `Float64` vector.
-
-More precisely, if
-
-```julia
-ks = [k₁, k₂, ..., k_m]
-```
-
-then the returned vector is
-
-```julia
-[g^(k₁)(x0), g^(k₂)(x0), ..., g^(k_m)(x0)]
-```
-
-with each entry obtained from the shared jet produced by
-[`derivative_jet`](@ref). This is useful when several specific derivative
-orders are needed at the same point, since one jet can serve all of them.
-
-# Arguments
-- `g`: Scalar callable.
-- `x0`: Evaluation point.
-- `ks::AbstractVector{<:Integer}`: Requested derivative orders.
-
-# Keyword arguments
-- `h`          : Grid spacing.
-- `rule`       : Quadrature rule symbol.
-- `N`          : Number of subdivisions.
-- `dim::Int`   : Problem dimensionality.
-- `err_method` : Backend selector
-  (`:forwarddiff | :taylorseries | :fastdifferentiation | :enzyme`).
-- `side`       : Boundary-location indicator (`:L`, `:R`, or `:mid`).
-- `axis`       : Axis index or symbolic name.
-- `stage`      : Stage tag for logging (e.g. `:midpoint` or `:boundary`).
-
-# Returns
-- `Vector{Float64}`:
-  A vector containing the requested derivative values in the same order as `ks`.
-
-# Notes
-- If `ks` is empty, the function returns `Float64[]`.
-- The derivative jet is computed only up to `maximum(ks)`.
-- Since extraction is performed from a shared jet, this helper is typically more
-  efficient than requesting each derivative separately.
-"""
-@inline function _derivative_values_for_ks(
-    g,
-    x0,
-    ks::AbstractVector{<:Integer};
-    h,
-    rule,
-    N,
-    dim::Int,
-    err_method::Symbol = :forwarddiff,
-    side::Symbol = :mid,
-    axis = 0,
-    stage::Symbol = :midpoint
-)
-    isempty(ks) && return Float64[]
-
-    nmax = maximum(ks)
-
-    jet = derivative_jet(
-        g,
-        x0,
-        nmax;
-        h = h,
-        rule = rule,
-        N = N,
-        dim = dim,
-        err_method = err_method,
-        side = side,
-        axis = axis,
-        stage = stage,
-    )
-
-    vals = Vector{Float64}(undef, length(ks))
-    @inbounds for i in eachindex(ks)
-        k = ks[i]
-        vals[i] = float(jet[k + 1])
-    end
-
-    return vals
-end
+include("ErrorDispatchDerivative/error_estimate_derivative_jet_1d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_jet_2d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_jet_3d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_jet_4d.jl")
+include("ErrorDispatchDerivative/error_estimate_derivative_jet_nd.jl")
 
 """
-    error_estimate_jet(
+    error_estimate_derivative_jet(
         f,
         a,
         b,
@@ -682,11 +494,11 @@ This function serves as a dimension-based dispatcher for the jet-oriented
 error-estimation pipeline. It selects the appropriate backend according to
 `dim`:
 
-- `dim == 1` → [`error_estimate_1d_jet`](@ref)
-- `dim == 2` → [`error_estimate_2d_jet`](@ref)
-- `dim == 3` → [`error_estimate_3d_jet`](@ref)
-- `dim == 4` → [`error_estimate_4d_jet`](@ref)
-- otherwise  → [`error_estimate_nd_jet`](@ref) with `dim = dim`
+- `dim == 1` → [`error_estimate_derivative_jet_1d`](@ref)
+- `dim == 2` → [`error_estimate_derivative_jet_2d`](@ref)
+- `dim == 3` → [`error_estimate_derivative_jet_3d`](@ref)
+- `dim == 4` → [`error_estimate_derivative_jet_4d`](@ref)
+- otherwise  → [`error_estimate_derivative_jet_nd`](@ref) with `dim = dim`
 
 Each dispatched routine uses derivative jets internally rather than requesting
 scalar derivatives one by one.
@@ -715,11 +527,11 @@ scalar derivatives one by one.
 - This dispatcher does not implement the estimator logic itself; it only routes
   the request to the dimension-appropriate backend.
 - For dimensions other than `1`, `2`, `3`, and `4`, the generic
-  [`error_estimate_nd_jet`](@ref) path is used.
+  [`error_estimate_derivative_jet_nd`](@ref) path is used.
 - This interface parallels the non-jet error-estimation dispatcher, but is
   specialized for jet-based derivative reuse.
 """
-function error_estimate_jet(
+function error_estimate_derivative_jet(
     f,
     a,
     b,
@@ -731,31 +543,31 @@ function error_estimate_jet(
     nerr_terms::Int = 1
 )
     if dim == 1
-        return error_estimate_1d_jet(
+        return error_estimate_derivative_jet_1d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     elseif dim == 2
-        return error_estimate_2d_jet(
+        return error_estimate_derivative_jet_2d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     elseif dim == 3
-        return error_estimate_3d_jet(
+        return error_estimate_derivative_jet_3d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     elseif dim == 4
-        return error_estimate_4d_jet(
+        return error_estimate_derivative_jet_4d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
             nerr_terms = nerr_terms
         )
     else
-        return error_estimate_nd_jet(
+        return error_estimate_derivative_jet_nd(
             f, a, b, N, rule, boundary;
             dim = dim,
             err_method = err_method,
@@ -764,4 +576,4 @@ function error_estimate_jet(
     end
 end
 
-end  # module ErrorDispatch
+end  # module ErrorDispatchDerivative

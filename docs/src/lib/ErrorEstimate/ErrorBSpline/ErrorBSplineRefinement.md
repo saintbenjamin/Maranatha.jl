@@ -1,8 +1,8 @@
-# Maranatha.ErrorEstimate.ErrorBSplineRefine
+# Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineRefinement
 
 ## Overview
 
-`Maranatha.ErrorEstimate.ErrorBSplineRefine` provides the refinement-based
+`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineRefinement` provides the refinement-based
 error-estimation backend for B-spline quadrature rules inside
 `Maranatha.ErrorEstimate`.
 
@@ -134,7 +134,7 @@ between error-estimation strategies.
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimate.ErrorBSplineRefine,
+    Main.Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineRefinement,
 ]
 Private = true
 ```

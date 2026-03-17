@@ -1,22 +1,30 @@
-# Maranatha.ErrorEstimate.ErrorNewtonCotes
+# Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesDerivative
 
 ## Overview
 
-`Maranatha.ErrorEstimate.ErrorNewtonCotes` provides the exact-rational midpoint
-residual extraction backend for the Newton-Cotes family inside
-`Maranatha.ErrorEstimate`.
+`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesDerivative` provides
+the exact-rational midpoint-residual extraction backend for the
+Newton–Cotes family inside `Maranatha.ErrorEstimate`.
 
-Its job is to analyze the composite Newton-Cotes coefficient vector ``\beta``
-and determine which midpoint-centered residual moments are truly nonzero.
+Its role is to determine which midpoint-centered residual moments of a
+composite Newton–Cotes rule are algebraically nonzero and to compute their
+exact coefficients.
 
-Because the whole pipeline is based on `Rational{BigInt}`, this backend can make
-that decision exactly rather than through floating-point tolerances.
+Unlike the Gauss and B-spline residual backends, this module operates entirely
+in exact arithmetic using `Rational{BigInt}`. As a result, residual detection
+does not rely on numerical tolerances and reflects the true algebraic structure
+of the rule.
 
 ---
 
 ## Core residual model
 
-For a composite rule on the dimensionless grid ``u \in [0, N_{\texttt{sub}}]``,
+For a composite rule on the dimensionless grid
+
+```math
+u \in [0, N_{\texttt{sub}}],
+```
+
 the midpoint is
 
 ```math
@@ -25,105 +33,96 @@ c = \frac{N_{\texttt{sub}}}{2}.
 
 For each order `k`, the backend compares:
 
-- the exact shifted monomial moment
-  ```math
-  \int\limits_0^{N_{\texttt{sub}}} du \, (u-c)^k \, ,
-  ```
-- the quadrature-induced moment
-  ```math
-  \sum_{j=0}^{N_{\texttt{sub}}} \beta_j \, (j-c)^k.
-  ```
+* the exact shifted monomial moment
 
-Their difference defines the residual moment:
+  ```math
+  \int_0^{N_{\texttt{sub}}} (u-c)^k \, du,
+  ```
+* the quadrature-induced moment produced by the composite rule.
+
+Their difference defines the residual moment
 
 ```math
 \texttt{diff}_k
 =
-\int\limits_0^{N_{\texttt{sub}}} du \, (u-c)^k 
+\int_0^{N_{\texttt{sub}}} (u-c)^k \, du
 -
-\sum_{j=0}^{N_{\texttt{sub}}} \beta_j (j-c)^k.
+\sum_j w_j (x_j-c)^k,
 ```
 
-The corresponding Taylor-style coefficient is
+and the associated Taylor-style coefficient is
 
 ```math
 \texttt{coeff}_k = \frac{\texttt{diff}_k}{k!}.
 ```
 
-This is the quantity used downstream in truncation-error modeling.
+The backend returns the leading nonzero residual orders and coefficients
+exactly.
 
 ---
 
-## Why exact arithmetic matters here
+## Why exact arithmetic matters
 
-For Newton-Cotes rules, whether a residual is *exactly zero* is structurally
-important: it determines the leading convergence order and which powers of `h`
-appear in the modeled truncation error.
+For Newton–Cotes rules, the presence or absence of a residual term is a
+structural property that determines the formal convergence order of the rule.
 
-Using exact rational arithmetic means:
+Exact rational arithmetic ensures that:
 
-- no tolerance choice is needed,
-- accidental near-zero floating-point artifacts are avoided,
-- leading-order detection reflects the actual algebraic structure of the rule.
+* zero residuals are detected exactly,
+* no tolerance selection is required,
+* floating-point cancellation artifacts are avoided,
+* leading-order detection matches the true polynomial exactness of the rule.
 
-That makes this backend the cleanest residual detector among the currently
-supported rule families.
+This makes the Newton–Cotes backend the most precise residual detector among
+the supported quadrature families.
 
 ---
 
 ## Function roles
 
-### [`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_midpoint_residual_term_from_beta`](@ref)
+### Residual extraction helpers
 
-This is the lowest-level exact scanner. It assumes the composite coefficient
-vector ``\beta`` is already available and returns only the first nonzero
-midpoint residual term.
+Low-level routines construct the composite Newton–Cotes rule and evaluate
+midpoint-shifted monomial residuals exactly. Both single-term and multi-term
+scanners are provided.
 
-### [`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_midpoint_residual_term`](@ref)
+### Order-only interface
 
-This wrapper starts from `(rule, boundary, Nsub)`, builds the exact composite
-weights, and then delegates to the `β`-based scanner.
+Certain helpers expose only the detected residual orders together with a
+center tag, allowing downstream code to determine leading powers without
+carrying exact coefficients.
 
-### [`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_residual_ks_with_center`](@ref)
+### Rule-based wrappers
 
-This helper collects only the residual orders `k`, together with the current
-center tag `:mid`. It is useful when downstream logic needs the leading powers
-but not the exact coefficients yet.
-
-### [`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_midpoint_residual_terms_from_beta`](@ref)
-
-This is the multi-term exact scanner starting from an already assembled
-coefficient vector ``\beta``.
-
-### [`Maranatha.ErrorEstimate.ErrorNewtonCotes._leading_midpoint_residual_terms`](@ref)
-
-This is the higher-level convenience wrapper that starts from the user-facing
-rule specification and returns multiple exact residual terms.
+Higher-level wrappers accept `(rule, boundary, Nsub)` and internally build the
+composite rule before performing residual analysis.
 
 ---
 
 ## Design note on centering
 
-This backend currently uses only the midpoint-centered convention and therefore
-returns `:mid` as the center tag.
+This backend currently uses a midpoint-centered convention exclusively and
+therefore reports the center tag `:mid`.
 
-The explicit center tag is still useful because it keeps the interface
-compatible with future alternative centering policies.
+The explicit tag is retained for interface compatibility with other residual
+backends and possible future centering policies.
 
 ---
 
 ## Scope note
 
-This backend does not estimate derivatives, combine residuals with physical
-midpoint probes, or assemble the final multidimensional truncation-error model.
+This backend is responsible only for extracting exact residual structure for
+Newton–Cotes rules.
 
-Its responsibility is narrower:
+It does not:
 
-- build or consume exact composite Newton-Cotes weights,
-- test midpoint-shifted monomial residuals,
-- return leading exact residual structure.
+* evaluate derivatives,
+* assemble multidimensional error models,
+* perform refinement-based estimation,
+* replace the Newton–Cotes quadrature construction layer.
 
-That separation keeps the exact residual logic isolated and easy to reason about.
+Its output is intended for use by higher-level dispatch code that combines
+residual data with physical derivative probes.
 
 ---
 
@@ -131,7 +130,7 @@ That separation keeps the exact residual logic isolated and easy to reason about
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimate.ErrorNewtonCotes,
+    Main.Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesDerivative,
 ]
 Private = true
 ```

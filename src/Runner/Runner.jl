@@ -39,7 +39,6 @@ import ..Utils.JobLoggerTools
 import ..Utils.MaranathaIO
 import ..Utils.MaranathaTOML
 import ..Quadrature.QuadratureDispatch
-import ..ErrorEstimate.ErrorDispatchRefine
 import ..ErrorEstimate.ErrorDispatch
 
 """
@@ -74,33 +73,43 @@ visualize the result with
 
 # What this function does
 
-At the beginning of the run, this routine clears the global derivative-based error-estimation caches via 
-[`ErrorDispatch.clear_error_estimate_caches!`](@ref) when a derivative-based backend is selected. 
-The refinement-based path does not use those caches.
+At the beginning of the run, this routine clears the global
+derivative-based error-estimation caches via
+[`ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!`](@ref)
+when a derivative-based backend is selected.
+The refinement-based path does not use these caches.
 
 For each subdivision count `N` in `nsamples`, this routine:
 
 1. computes the step size ``\\displaystyle{h = \\frac{b-a}{N}}``,
-2. evaluates the quadrature estimate via [`QuadratureDispatch.quadrature`](@ref),
-3. evaluates either a derivative-informed or refinement-based error-scale model,
-4. records the resulting step size, estimate, and error information for later
-   aggregation into the returned dataset.
+2. evaluates the quadrature estimate via
+   [`QuadratureDispatch.quadrature`](@ref),
+3. evaluates the error-scale model via the unified dispatcher
+   [`ErrorDispatch.error_estimate`](@ref),
+4. records the resulting step size, estimate, and error information.
 
 The collected results are returned as a single `NamedTuple` and can also be
 written to disk for later reuse.
 
 # Current error-estimation path
 
-The active error-estimation path depends first on `err_method`, and then on `use_error_jet`.
+All error estimation is delegated to the unified dispatcher
+[`ErrorDispatch.error_estimate`](@ref).
 
-- If `err_method == :refinement`, this routine calls [`ErrorDispatchRefine.error_estimate_refine`](@ref). 
-  In this path, `use_error_jet` is ignored because refinement-based estimation does not use derivative jets.
+The active backend is selected according to `err_method` and
+`use_error_jet`:
 
-- If `err_method != :refinement` and `use_error_jet = true`, this routine calls [`ErrorDispatch.error_estimate_jet`](@ref).
+- If `err_method == :refinement`, the refinement-based backend is used.
+  In this case, `use_error_jet` is ignored.
 
-- If `err_method != :refinement` and `use_error_jet = false`, this routine calls [`ErrorDispatch.error_estimate`](@ref).
+- If `err_method != :refinement` and `use_error_jet = true`,
+  a jet-based derivative estimator is used.
 
-Thus, the refinement backend is selected explicitly through `err_method = :refinement`, while `use_error_jet` only affects the derivative-based branch.
+- If `err_method != :refinement` and `use_error_jet = false`,
+  a direct derivative estimator is used.
+
+Thus, `err_method = :refinement` explicitly selects the refinement
+pipeline, while `use_error_jet` controls only the derivative-based branch.
 
 # Arguments
 
@@ -124,7 +133,15 @@ Thus, the refinement backend is selected explicitly through `err_method = :refin
 * `boundary::Symbol = :LU_EXEX`:
   Boundary pattern used consistently across the quadrature pipeline.
 
-* `err_method::Symbol = :refinement`: Error-estimation backend selector. If set to `:refinement`, use the refinement-based dispatcher [`ErrorDispatchRefine.error_estimate_refine`](@ref). Otherwise, use the derivative-based dispatcher with the requested derivative backend such as `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, or `:enzyme`.
+* `err_method::Symbol = :refinement`:
+  Error-estimation backend selector.
+
+  - `:refinement` selects the refinement-based estimator.
+  - Any other supported symbol (e.g. `:forwarddiff`, `:taylorseries`,
+    `:fastdifferentiation`, `:enzyme`) selects a derivative-based estimator.
+
+  The actual dispatch is performed by
+  [`ErrorDispatch.error_estimate`](@ref).
 
 * `fit_terms::Int = 4`:
   Suggested number of basis terms for a later least-``\\chi^2`` fit.
@@ -137,10 +154,13 @@ Thus, the refinement backend is selected explicitly through `err_method = :refin
   Suggested forward shift for downstream fit-power selection.
   This value is stored in the returned result but is not applied here.
 
-* `use_error_jet::Bool = false`: Controls only the derivative-based error-estimation branch. 
-If `true`, use [`ErrorDispatch.error_estimate_jet`](@ref). 
-If `false`, use [`ErrorDispatch.error_estimate`](@ref).
-This option is ignored when `err_method == :refinement`.
+* `use_error_jet::Bool = false`:
+  Controls only the derivative-based error-estimation branch.
+
+  - If `true`, a jet-based derivative estimator is used.
+  - If `false`, a direct derivative estimator is used.
+
+  This option has no effect when `err_method == :refinement`.
 
 * `name_prefix::String = "Maranatha"`:
   Prefix used when constructing output filenames.
@@ -188,8 +208,10 @@ not necessarily a strict truncation bound. Depending on `err_method`, it may com
   not necessarily a strict truncation bound.
 * `fit_terms` and `ff_shift` are preserved for convenience so that later fitting code
   can reuse the same workflow settings.
-* The derivative-based and refinement-based branches now coexist in the public API.
-The refinement branch is selected explicitly with `err_method = :refinement`, while `use_error_jet` only affects the derivative-based branch.
+* The derivative-based and refinement-based branches coexist in the public API
+  and are selected through `err_method`.
+  All backend selection is handled internally by
+  [`ErrorDispatch.error_estimate`](@ref).
 
 # Examples
 
@@ -246,7 +268,7 @@ function run_Maranatha(
     JobLoggerTools.log_stage_benji("Start run_Maranatha")
 
     if err_method !== :refinement
-        ErrorDispatch.clear_error_estimate_caches!()
+        ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!()
     end
     
     estimates = Float64[]      # List of quadrature results
@@ -267,43 +289,18 @@ function run_Maranatha(
             boundary
         )
 
-        err = if err_method === :refinement
-            ErrorDispatchRefine.error_estimate_refine(
-                integrand,
-                a,
-                b,
-                N,
-                dim,
-                rule,
-                boundary
-            )
-        else
-            if use_error_jet
-                ErrorDispatch.error_estimate_jet(
-                    integrand,
-                    a,
-                    b,
-                    N,
-                    dim,
-                    rule,
-                    boundary;
-                    err_method = err_method,
-                    nerr_terms = nerr_terms
-                )
-            else
-                ErrorDispatch.error_estimate(
-                    integrand,
-                    a,
-                    b,
-                    N,
-                    dim,
-                    rule,
-                    boundary;
-                    err_method = err_method,
-                    nerr_terms = nerr_terms
-                )
-            end
-        end
+        err = ErrorDispatch.error_estimate(
+            integrand,
+            a,
+            b,
+            N,
+            dim,
+            rule,
+            boundary;
+            err_method = err_method,
+            nerr_terms = nerr_terms,
+            use_error_jet = use_error_jet,
+        )
 
         push!(estimates, I)
         push!(error_infos, err)

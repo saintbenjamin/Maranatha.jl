@@ -13,6 +13,7 @@
 # =========================
 
 using SpecialFunctions
+using Bessels
 
 # ============================================================
 # TaylorSeries compatibility shims (local to this module)
@@ -397,4 +398,19 @@ function gtilde_F0000(
     y = t^p
     return T(p) * t^(p-1) * g_F0000_raw(y)
     # return g_F0000_raw(t)
+end
+
+function g_F0000_pure(
+    y::T
+) where {T<:AbstractFloat}
+    y == zero(T) && return T(1)/T(2)
+    y == one(T)  && return zero(T)
+
+    x = (one(T) - y) / y
+    eI0 = besseli0x(x)
+
+    termA = T(4) * T(pi)^2 * x * eI0^4
+    termB = - (one(T) - (one(T) + x/T(2)) * exp(-x/T(2))) / x
+
+    return (termA + termB) / y^2
 end

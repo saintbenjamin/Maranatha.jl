@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorBSpline.jl
+# src/ErrorEstimate/ErrorBSplineDerivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,10 +8,10 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorBSpline
+module ErrorBSplineDerivative
 
 import ..JobLoggerTools
-import ..Quadrature.BSpline
+import ..BSpline
 
 # ------------------------------------------------------------
 # Float64 midpoint residual terms for composite B-spline rules
@@ -270,4 +270,4 @@ function _leading_residual_ks_with_center_bspline_float(
     return ks, :mid
 end
 
-end # module ErrorBSpline
+end # module ErrorBSplineDerivative

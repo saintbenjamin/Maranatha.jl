@@ -1,11 +1,11 @@
-# Maranatha.ErrorEstimate.ErrorDispatchRefine
+# Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement
 
 ## Overview
 
-`Maranatha.ErrorEstimate.ErrorDispatchRefine` is the unified rule-family dispatch
+`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement` is the unified rule-family dispatch
 layer for the refinement-based error-estimation branch of `Maranatha.jl`.
 
-Where [`Maranatha.ErrorEstimate.ErrorDispatch`](@ref) coordinates the
+Where [`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative`](@ref) coordinates the
 residual-based asymptotic error model, this module provides a much lighter
 interface for coarse-versus-refined quadrature comparison.
 
@@ -55,13 +55,13 @@ construction.
 
 ## Architecture
 
-`Maranatha.ErrorEstimate.ErrorDispatchRefine` is intentionally small.
+`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement` is intentionally small.
 
 It sits above the rule-family-specific refinement backends:
 
-* [`Maranatha.ErrorEstimate.ErrorGaussRefine`](@ref)
-* [`Maranatha.ErrorEstimate.ErrorNewtonCotesRefine`](@ref)
-* [`Maranatha.ErrorEstimate.ErrorBSplineRefine`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussRefinement`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineRefinement`](@ref)
 
 and below higher-level workflow code such as
 [`Maranatha.Runner.run_Maranatha`](@ref).
@@ -75,7 +75,7 @@ families.
 ## Internal rule-family dispatch
 
 The internal helper
-[`Maranatha.ErrorEstimate.ErrorDispatchRefine._dispatch_refine`](@ref)
+[`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement._dispatch_refinement`](@ref)
 performs the actual rule-family selection.
 
 It checks the input `rule` in the following order:
@@ -87,11 +87,11 @@ It checks the input `rule` in the following order:
 The request is then forwarded to the corresponding backend:
 
 * Gauss-family rules →
-  [`Maranatha.ErrorEstimate.ErrorGaussRefine.error_estimate_gauss`](@ref)
+  [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussRefinement.error_estimate_refinement_gauss`](@ref)
 * Newton-Cotes rules →
-  [`Maranatha.ErrorEstimate.ErrorNewtonCotesRefine.error_estimate_newton_cotes`](@ref)
+  [`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes`](@ref)
 * B-spline rules →
-  [`Maranatha.ErrorEstimate.ErrorBSplineRefine.error_estimate_bspline`](@ref)
+  [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineRefinement.error_estimate_refinement_bspline`](@ref)
 
 If the rule does not belong to any supported refinement family, the dispatch
 layer raises a fatal error.
@@ -140,7 +140,7 @@ through after validation.
 ## No derivative or jet layer
 
 Unlike the residual-based dispatch module
-[`Maranatha.ErrorEstimate.ErrorDispatch`](@ref), this refinement dispatch layer
+[`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative`](@ref), this refinement dispatch layer
 does not coordinate any of the following:
 
 * derivative backend selection,
@@ -179,12 +179,12 @@ layer.
 
 The main public entry point is:
 
-* [`Maranatha.ErrorEstimate.ErrorDispatchRefine.error_estimate_refine`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement.error_estimate_refinement`](@ref)
 
 This function is the intended refinement-based counterpart of
 
-* [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate`](@ref)
-* [`Maranatha.ErrorEstimate.ErrorDispatch.error_estimate_jet`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative.error_estimate_derivative_direct`](@ref)
+* [`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative.error_estimate_derivative_jet`](@ref)
 
 in the residual / derivative branch.
 
@@ -217,7 +217,7 @@ refinement-based branch of `Maranatha.ErrorEstimate`.
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimate.ErrorDispatchRefine,
+    Main.Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement,
 ]
 Private = true
 ```

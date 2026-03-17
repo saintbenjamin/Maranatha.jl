@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorBSplineRefine.jl
+# src/ErrorEstimate/ErrorBSplineRefinement.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,10 +8,10 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorBSplineRefine
+module ErrorBSplineRefinement
 
 import ..JobLoggerTools
-import ..Quadrature.BSpline
+import ..BSpline
 
 # ============================================================
 # Internal helpers
@@ -48,7 +48,7 @@ calling B-spline-specific parsing or node/weight construction routines.
     rule::Symbol
 )::Nothing
     BSpline._is_bspline_rule(rule) ||
-        JobLoggerTools.error_benji("ErrorBSpline only supports B-spline rules (got rule=$rule)")
+        JobLoggerTools.error_benji("ErrorBSplineDerivative only supports B-spline rules (got rule=$rule)")
     return nothing
 end
 
@@ -1078,7 +1078,7 @@ function error_estimate_nd_bspline(
 end
 
 """
-    error_estimate_bspline(
+    error_estimate_refinement_bspline(
         f,
         a,
         b,
@@ -1135,7 +1135,7 @@ specializations:
 - Unlike the derivative-based error estimators, this interface does not depend
   on a derivative backend or jet construction.
 """
-function error_estimate_bspline(
+function error_estimate_refinement_bspline(
     f,
     a,
     b,
@@ -1163,4 +1163,4 @@ function error_estimate_bspline(
     end
 end
 
-end  # module ErrorBSplineRefine
+end  # module ErrorBSplineRefinement

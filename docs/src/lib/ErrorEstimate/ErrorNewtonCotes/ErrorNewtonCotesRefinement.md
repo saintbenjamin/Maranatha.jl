@@ -1,13 +1,13 @@
-# Maranatha.ErrorEstimate.ErrorNewtonCotesRefine
+# Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement
 
 ## Overview
 
-`Maranatha.ErrorEstimate.ErrorNewtonCotesRefine` provides the refinement-based
+`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement` provides the refinement-based
 error-estimation backend for the Newton-Cotes family inside
 `Maranatha.ErrorEstimate`.
 
 In contrast to
-[`Maranatha.ErrorEstimate.ErrorNewtonCotes`](@ref), which analyzes exact
+[`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesDerivative`](@ref), which analyzes exact
 midpoint residual moments of the composite coefficient vector ``\beta``, this
 module estimates truncation error empirically by comparing results obtained at
 different resolutions.
@@ -123,7 +123,7 @@ rule in this backend.
 
 ## Function roles
 
-### [`Maranatha.ErrorEstimate.ErrorNewtonCotesRefine.error_estimate_newton_cotes`](@ref)
+### [`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes`](@ref)
 
 This is the primary backend entry point.
 
@@ -173,11 +173,11 @@ Compared with the exact residual backend, the refinement approach:
 
 ## Design contrast with the exact backend
 
-`ErrorNewtonCotes` answers:
+`ErrorNewtonCotesDerivative` answers:
 
 > *What is the formal algebraic truncation structure of the rule?*
 
-`ErrorNewtonCotesRefine` answers:
+`ErrorNewtonCotesRefinement` answers:
 
 > *How much does the computed result change when the grid is refined?*
 
@@ -206,7 +206,7 @@ comparison.
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.ErrorEstimate.ErrorNewtonCotesRefine,
+    Main.Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement,
 ]
 Private = true
 ```

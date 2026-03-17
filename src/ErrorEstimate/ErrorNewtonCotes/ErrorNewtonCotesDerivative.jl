@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorNewtonCotes.jl
+# src/ErrorEstimate/ErrorNewtonCotesDerivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,11 +8,11 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorNewtonCotes
+module ErrorNewtonCotesDerivative
 
 import ..JobLoggerTools
-import ..Quadrature.NewtonCotes
-import ..Quadrature.QuadratureDispatch
+import ..NewtonCotes
+import ..QuadratureDispatch
 
 # ----------------------------
 # helper: collect first nonzero midpoint residual term
@@ -355,4 +355,4 @@ function _leading_midpoint_residual_terms(
     return _leading_midpoint_residual_terms_from_beta(βR, Nsub; nterms=nterms, kmax=kmax)
 end
 
-end  # module ErrorNewtonCotes
+end  # module ErrorNewtonCotesDerivative

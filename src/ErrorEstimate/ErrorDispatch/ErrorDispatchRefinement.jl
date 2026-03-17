@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorDispatchRefine.jl
+# src/ErrorEstimate/ErrorDispatchRefinement.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,20 +8,18 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorDispatchRefine
+module ErrorDispatchRefinement
 
 import ..JobLoggerTools
-import ..Quadrature.Gauss
-import ..Quadrature.NewtonCotes
-import ..Quadrature.BSpline
-
-import ..ErrorGaussRefine
-import ..ErrorNewtonCotesRefine
-import ..ErrorBSplineRefine
-
+import ..Gauss
+import ..NewtonCotes
+import ..BSpline
+import ..ErrorGaussRefinement
+import ..ErrorNewtonCotesRefinement
+import ..ErrorBSplineRefinement
 
 """
-    _dispatch_refine(
+    _dispatch_refinement(
         f,
         a,
         b,
@@ -41,9 +39,9 @@ refinement-based error-estimation interface.
 
 It selects the backend according to `rule`:
 
-- Gauss-family rules → [`ErrorGaussRefine.error_estimate_gauss`](@ref)
-- Newton-Cotes rules → [`ErrorNewtonCotesRefine.error_estimate_newton_cotes`](@ref)
-- B-spline rules → [`ErrorBSplineRefine.error_estimate_bspline`](@ref)
+- Gauss-family rules → [`ErrorGaussRefinement.error_estimate_refinement_gauss`](@ref)
+- Newton-Cotes rules → [`ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes`](@ref)
+- B-spline rules → [`ErrorBSplineRefinement.error_estimate_refinement_bspline`](@ref)
 
 If the rule does not belong to any supported refinement backend, an error is
 raised.
@@ -80,7 +78,7 @@ raised.
 - This helper is internal and performs family-level routing only.
 - The `λ` keyword is ignored for non-B-spline rules.
 """
-@inline function _dispatch_refine(
+@inline function _dispatch_refinement(
     f,
     a,
     b,
@@ -91,17 +89,17 @@ raised.
     λ::Float64 = 0.0,
 )
     if Gauss._is_gauss_rule(rule)
-        return ErrorGaussRefine.error_estimate_gauss(
+        return ErrorGaussRefinement.error_estimate_refinement_gauss(
             f, a, b, N, dim, rule, boundary
         )
 
     elseif NewtonCotes._is_newton_cotes_rule(rule)
-        return ErrorNewtonCotesRefine.error_estimate_newton_cotes(
+        return ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes(
             f, a, b, N, dim, rule, boundary
         )
 
     elseif BSpline._is_bspline_rule(rule)
-        return ErrorBSplineRefine.error_estimate_bspline(
+        return ErrorBSplineRefinement.error_estimate_refinement_bspline(
             f, a, b, N, dim, rule, boundary; λ=λ
         )
 
@@ -113,7 +111,7 @@ raised.
 end
 
 """
-    error_estimate_refine(
+    error_estimate_refinement(
         f,
         a,
         b,
@@ -172,7 +170,7 @@ comparison and returns its rule-specific refinement estimate object.
 - For non-B-spline rules, the `λ` keyword is accepted for interface uniformity
   but is not used.
 """
-function error_estimate_refine(
+function error_estimate_refinement(
     f,
     a,
     b,
@@ -182,9 +180,9 @@ function error_estimate_refine(
     boundary;
     λ::Float64 = 0.0,
 )
-    return _dispatch_refine(
+    return _dispatch_refinement(
         f, a, b, N, dim, rule, boundary; λ=λ
     )
 end
 
-end  # module ErrorDispatchRefine
+end  # module ErrorDispatchRefinement

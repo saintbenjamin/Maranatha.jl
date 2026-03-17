@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorGauss.jl
+# src/ErrorEstimate/ErrorGaussDerivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,10 +8,10 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorGauss
+module ErrorGaussDerivative
 
 import ..JobLoggerTools
-import ..Quadrature.Gauss
+import ..Gauss
 
 # ------------------------------------------------------------
 # Float64 midpoint residual terms for composite Gauss rules
@@ -192,4 +192,4 @@ function _leading_midpoint_residual_terms_gauss_float(
     JobLoggerTools.error_benji("Could not collect nterms=$nterms Gauss residual terms up to kmax=$kmax (Nsub=$Nsub).")
 end
 
-end  #  module ErrorGauss
+end  #  module ErrorGaussDerivative

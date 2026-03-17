@@ -63,8 +63,9 @@ Evaluate the F0000 transformed integrand at `t`.
   when `t` is a `ForwardDiff.Dual`.
 """
 function (f::F0000Integrand)(t)
-    eps_t = convert(typeof(t), f.eps)
-    return gtilde_F0000(t; p=f.p, eps=eps_t)
+    # eps_t = convert(typeof(t), f.eps)
+    # return gtilde_F0000(t; p=f.p, eps=eps_t)
+    return g_F0000_pure(t)
 end
 
 # ============================================================

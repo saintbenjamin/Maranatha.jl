@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative/error_estimate_derivative_direct_2d.jl
+# src/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative/error_estimate_derivative_jet_2d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -9,7 +9,7 @@
 # ============================================================================
 
 """
-    error_estimate_derivative_direct_2d(
+    error_estimate_derivative_jet_2d(
         f,
         a::Real,
         b::Real,
@@ -21,16 +21,20 @@
         kmax::Int = 128
     )
 
-Estimate a ``2``-dimensional axis-separable midpoint-residual truncation-error model.
+Estimate a ``2``-dimensional axis-separable midpoint-residual truncation-error
+model using derivative-jet reuse.
 
 # Function description
-This routine applies the ``1``-dimensional midpoint error operator along each
-axis of the square domain ``[a,b]^2`` and integrates the resulting derivative
-slices over the remaining axis.
+This routine builds the same ``2``-dimensional asymptotic midpoint-residual
+error model as [`error_estimate_derivative_direct_2d`](@ref), but instead of requesting each
+derivative order independently, it evaluates the required derivatives through
+shared jet-based calls along each axis slice.
 
 The residual-term model is obtained through the cached helper
-[`_get_residual_model_fixed`](@ref), which reuses previously constructed
-residual data for the same rule configuration when available.
+[`_get_residual_model_fixed`](@ref). After the residual orders ``k_i`` are
+identified, the function applies [`AutoDerivativeJet._derivative_values_for_ks`](@ref) to each
+slice function in order to reuse one derivative jet per slice rather than one
+scalar derivative call per requested order.
 
 For each collected residual order ``k``, it forms the model contribution
 ```math
@@ -64,15 +68,16 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
 - Propagates quadrature-node construction, residual-model extraction, and
-  derivative-evaluation errors.
+  jet-based derivative-evaluation errors.
 
 # Notes
 - Only axis-separable contributions are modeled.
 - Mixed derivative terms are intentionally omitted.
-- Residual-term reuse through caching reduces repeated setup cost across
-  multiple calls with the same rule configuration.
+- This variant is especially useful when several residual orders are needed for
+  each slice, since one shared jet can supply all requested derivatives on that
+  slice.
 """
-function error_estimate_derivative_direct_2d(
+function error_estimate_derivative_jet_2d(
     f,
     a::Real,
     b::Real,
@@ -103,48 +108,67 @@ function error_estimate_derivative_direct_2d(
 
     n = length(ks)
 
-    derivatives = Vector{Float64}(undef, n)
-    terms       = Vector{Float64}(undef, n)
+    derivatives = zeros(Float64, n)
+    terms       = zeros(Float64, n)
+
+    @inbounds for j in eachindex(xs)
+        y = xs[j]
+        gx(x) = f(x, y)
+
+        vals = AutoDerivativeJet._derivative_values_for_ks(
+            gx,
+            x̄,
+            ks;
+            h = h,
+            rule = rule,
+            N = N,
+            dim = 2,
+            err_method = err_method,
+            side = :mid,
+            axis = :x,
+            stage = :midpoint,
+        )
+
+        for it in eachindex(ks)
+            k = ks[it]
+            k == 0 && continue
+            derivatives[it] += wx[j] * vals[it]
+        end
+    end
+
+    @inbounds for i in eachindex(xs)
+        x = xs[i]
+        gy(y) = f(x, y)
+
+        vals = AutoDerivativeJet._derivative_values_for_ks(
+            gy,
+            ȳ,
+            ks;
+            h = h,
+            rule = rule,
+            N = N,
+            dim = 2,
+            err_method = err_method,
+            side = :mid,
+            axis = :y,
+            stage = :midpoint,
+        )
+
+        for it in eachindex(ks)
+            k = ks[it]
+            k == 0 && continue
+            derivatives[it] += wx[i] * vals[it]
+        end
+    end
 
     @inbounds for it in eachindex(ks)
         k = ks[it]
-
         if k == 0
             derivatives[it] = 0.0
             terms[it] = 0.0
-            continue
+        else
+            terms[it] = coeffs[it] * h^(k + 1) * derivatives[it]
         end
-
-        coeff = coeffs[it]
-
-        I1 = 0.0
-        for j in eachindex(xs)
-            y = xs[j]
-            gx(x) = f(x, y)
-
-            I1 += wx[j] * AutoDerivativeDirect.nth_derivative(
-                gx, x̄, k;
-                h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:x, stage=:midpoint,
-                err_method=err_method
-            )
-        end
-
-        I2 = 0.0
-        for i in eachindex(xs)
-            x = xs[i]
-            gy(y) = f(x, y)
-
-            I2 += wx[i] * AutoDerivativeDirect.nth_derivative(
-                gy, ȳ, k;
-                h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:y, stage=:midpoint,
-                err_method=err_method
-            )
-        end
-
-        derivatives[it] = I1 + I2
-        terms[it] = coeff * h^(k + 1) * derivatives[it]
     end
 
     return (;

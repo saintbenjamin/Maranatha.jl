@@ -12,7 +12,7 @@ multi-resolution convergence data that the fitter and plotter consume later.
 |:------|:---------------|
 | Runner | builds raw convergence datasets |
 | Quadrature | supplies tensor-product quadrature in arbitrary dimensions |
-| Error estimator | supplies derivative-informed error-scale estimators (scalar or jet-based) |
+| Error estimator | supplies derivative-based or refinement-based error-scale estimators |
 | Fitter | performs ``h \to 0`` extrapolation |
 | Plotter | visualizes convergence |
 | Reporter | generates structured summaries and archival report outputs |
@@ -67,10 +67,13 @@ At the start of each run, the runner clears internal error-estimation caches
 to avoid cross-run contamination when multiple datasets are generated in a
 single Julia session.
 
-Depending on the current implementation configuration, the error model may
-be computed either through repeated scalar derivative evaluations or through
-jet-based derivative reuse, which can significantly reduce differentiation
-cost when multiple residual orders are required.
+Depending on the selected configuration, the error model may be computed
+either through a refinement-based estimator or through a derivative-based
+estimator.
+
+When a derivative-based estimator is used, the implementation may evaluate
+derivatives either directly or through jet-based reuse, depending on the
+current backend configuration.
 
 ---
 
@@ -97,9 +100,12 @@ run_result = run_Maranatha(
 )
 ```
 
-In current versions, the error-estimation backend may internally use a
-jet-based derivative path for improved performance. This behavior is an
-implementation detail and does not change the external API.
+In current versions, the error-estimation backend may internally use either
+a refinement-based path or a derivative-based path.
+
+When a derivative-based estimator is selected, it may further use a jet-based
+derivative path for improved performance. These are implementation details and
+do not change the external API.
 
 ---
 

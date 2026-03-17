@@ -43,7 +43,7 @@ The framework exposes these responsibilities explicitly:
 |:-----|:-----|
 | Runner | builds raw convergence datasets |
 | Quadrature | supplies tensor-product quadrature in arbitrary dimensions |
-| Error estimator | supplies derivative-informed error-scale estimators |
+| Error estimator | supplies refinement-based or derivative-based error-scale estimators |
 | Fitter | performs ``h \to 0`` extrapolation |
 | Plotter | visualizes convergence behavior |
 | Reporter | generates structured report artifacts and internal-note outputs |
@@ -71,19 +71,27 @@ multi-point composite Newton–Cotes rules.
 
 ### Error modeling
 
-[`Maranatha.ErrorEstimate`](@ref) provides lightweight **derivative-informed
-error-scale estimators**.
+[`Maranatha.ErrorEstimate`](@ref) provides lightweight **error-scale estimators**
+used to characterize the resolution dependence of quadrature results.
 
-The estimator derives scaling behavior from **rule-family residual models**
-using midpoint residual moments.
+Two complementary approaches are supported:
 
-Multiple residual terms can be included:
+- **Refinement-based estimation**  
+  compares results at different resolutions (e.g. `h` vs. `h/2`) and measures
+  how the computed integral changes under grid refinement.
+
+- **Derivative-based estimation**  
+  derives scaling behavior from rule-family residual models using midpoint
+  residual moments and derivative probes of the integrand.
+
+For derivative-based estimators, multiple residual terms can be included:
 
 - LO
 - LO + NLO
 - higher-order contributions
 
-These terms provide consistent ``h``-scaling weights used during continuum extrapolation using least-``\chi^2`` fitting.
+These terms provide consistent ``h``-scaling weights used during continuum
+extrapolation via least-``\chi^2`` fitting.
 
 The estimator is not a strict truncation bound; instead it produces
 consistent scaling weights suitable for extrapolation.
@@ -137,7 +145,7 @@ The main orchestration entry point is
 It performs:
 
 1. multi-resolution quadrature
-2. error-scale estimation
+2. error-scale estimation (refinement-based or derivative-based)
 3. dataset construction
 
 The resulting dataset can then be passed to

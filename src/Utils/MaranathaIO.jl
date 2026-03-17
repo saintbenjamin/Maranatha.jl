@@ -51,16 +51,16 @@ It currently supports two error-entry layouts:
   error-entry structure.
 
 # Notes
-- Residual-based entries are currently tagged with `"err_format" => "standard"`.
-- Refinement-based entries are currently tagged with `"err_format" => "bspline_refine"`.
-- The `"bspline_refine"` tag is used as the generic refinement-style storage
+- Residual-based entries are currently tagged with `"err_format" => "derivative"`.
+- Refinement-based entries are currently tagged with `"err_format" => "refinement"`.
+- The `"bspline_refinement"` tag is used as the generic refinement-style storage
   format in the current implementation, even when the originating rule family is
   not B-spline.
 """
 function _err_entry_to_dict(e)
     if hasproperty(e, :ks)
         return Dict(
-            "err_format"   => "standard",
+            "err_format"   => "derivative",
             "ks"           => collect(Int.(e.ks)),
             "coeffs"       => collect(float.(e.coeffs)),
             "derivatives"  => collect(float.(e.derivatives)),
@@ -71,7 +71,7 @@ function _err_entry_to_dict(e)
         )
     elseif hasproperty(e, :estimate)
         return Dict(
-            "err_format"   => "bspline_refine",
+            "err_format"   => "refinement",
             "method"       => String(e.method),
             "rule"         => String(e.rule),
             "boundary"     => String(e.boundary),
@@ -89,7 +89,7 @@ function _err_entry_to_dict(e)
     else
         JobLoggerTools.error_benji(
             "Unsupported error entry format during serialization. " *
-            "Expected standard or bspline_refine structure."
+            "Expected derivative or refinement structure."
         )
     end
 end
@@ -109,8 +109,8 @@ code.
 
 Currently supported serialized formats are:
 
-- `"standard"` for residual-based error entries, and
-- `"bspline_refine"` for refinement-based error entries.
+- `"derivative"` for derivative-based error entries, and
+- `"refinement"` for refinement-based error entries.
 
 # Arguments
 - `e`:
@@ -126,13 +126,13 @@ Currently supported serialized formats are:
 # Notes
 - The reconstructed structure is intended to match the field layout expected by
   downstream Maranatha workflows.
-- The `"bspline_refine"` tag is currently used as the generic refinement-style
+- The `"bspline_refinement"` tag is currently used as the generic refinement-style
   serialization label in the implementation.
 """
 function _dict_to_err_entry(e)
-    fmt = get(e, "err_format", "standard")
+    fmt = get(e, "err_format", "refinement")
 
-    if fmt == "standard"
+    if fmt == "derivative"
         return (
             ks          = Vector{Int}(e["ks"]),
             coeffs      = Vector{Float64}(e["coeffs"]),
@@ -142,7 +142,7 @@ function _dict_to_err_entry(e)
             center      = e["center"] isa AbstractVector ? Tuple(Float64.(e["center"])) : Float64(e["center"]),
             h           = Float64(e["h"]),
         )
-    elseif fmt == "bspline_refine"
+    elseif fmt == "refinement"
         return (
             method      = Symbol(e["method"]),
             rule        = Symbol(e["rule"]),

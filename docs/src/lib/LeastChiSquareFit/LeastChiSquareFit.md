@@ -52,7 +52,7 @@ N_{\mathrm{ref}} = \mathrm{round}\!\left(\frac{b-a}{\min(h)}\right).
 ```
 
 The midpoint-residual backend is then queried through
-[`Maranatha.ErrorEstimate.ErrorDispatch._leading_residual_ks_with_center_any`](@ref), producing a list of
+[`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative._leading_residual_ks_with_center_any`](@ref), producing a list of
 candidate residual indices `ks`.
 
 ### 2. Map residual indices to fit powers

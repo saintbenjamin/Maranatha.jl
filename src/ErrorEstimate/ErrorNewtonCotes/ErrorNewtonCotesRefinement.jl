@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorNewtonCotesRefine.jl
+# src/ErrorEstimate/ErrorNewtonCotesRefinement.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -8,11 +8,11 @@
 # License: MIT License
 # ============================================================================
 
-module ErrorNewtonCotesRefine
+module ErrorNewtonCotesRefinement
 
 import ..JobLoggerTools
-import ..Quadrature.NewtonCotes
-import ..Quadrature.QuadratureDispatch
+import ..NewtonCotes
+import ..QuadratureDispatch
 
 """
     _require_newton_cotes_rule(
@@ -46,7 +46,7 @@ before calling Newton-Cotes-specific refinement routines.
 )::Nothing
     NewtonCotes._is_newton_cotes_rule(rule) ||
         JobLoggerTools.error_benji(
-            "ErrorNewtonCotesRefine only supports Newton-Cotes rules (got rule=$rule)"
+            "ErrorNewtonCotesRefinement only supports Newton-Cotes rules (got rule=$rule)"
         )
     return nothing
 end
@@ -566,7 +566,7 @@ function error_estimate_nd_newton_cotes(
 end
 
 """
-    error_estimate_newton_cotes(
+    error_estimate_refinement_newton_cotes(
         f,
         a,
         b,
@@ -619,7 +619,7 @@ dimension-specific specialization:
 - Unlike the derivative-based error estimators, this interface does not depend
   on derivative backends or jet construction.
 """
-function error_estimate_newton_cotes(
+function error_estimate_refinement_newton_cotes(
     f,
     a,
     b,
@@ -647,4 +647,4 @@ function error_estimate_newton_cotes(
     end
 end
 
-end  # module ErrorNewtonCotesRefine
+end  # module ErrorNewtonCotesRefinement

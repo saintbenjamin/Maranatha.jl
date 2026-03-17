@@ -19,7 +19,7 @@ import ..Utils.AvgErrFormatter
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
-import ..ErrorEstimate.ErrorDispatch
+import ..ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative
 
 """
     _extract_sigma_from_error_info(
@@ -183,7 +183,7 @@ function least_chi_square_fit(
 
     Nref = round(Int, (b - a) / maximum(float.(hs)))
 
-    ks, _center = ErrorDispatch._leading_residual_ks_with_center_any(
+    ks, _center = ErrorDispatchDerivative._leading_residual_ks_with_center_any(
         rule, boundary, Nref; nterms=nterms, kmax=256
     )
 
