@@ -45,7 +45,7 @@ The package is internally divided into independent submodules:
   Weighted least-``χ²`` extrapolation routines for estimating the
   ``h → 0`` continuum limit.
 
-- [`Maranatha.PlotTools`](@ref)  
+- [`Maranatha.Documentation.PlotTools`](@ref)  
   Visualization utilities for convergence behavior and quadrature structure.
 
 - [`Maranatha.Integrands`](@ref)  
@@ -109,7 +109,7 @@ include("ErrorEstimate/ErrorEstimate.jl")
 include("LeastChiSquareFit/LeastChiSquareFit.jl")
 include("Integrands/Integrands.jl")
 include("Runner/Runner.jl")
-include("PlotTools/PlotTools.jl")
+include("Documentation/Documentation.jl")
 
 using .Utils
 using .Quadrature
@@ -117,7 +117,7 @@ using .ErrorEstimate
 using .LeastChiSquareFit
 using .Integrands
 using .Runner
-using .PlotTools
+using .Documentation
 
 import .Runner: run_Maranatha
 export run_Maranatha
@@ -125,7 +125,7 @@ export run_Maranatha
 import .LeastChiSquareFit: least_chi_square_fit, print_fit_result
 export least_chi_square_fit, print_fit_result
 
-import .PlotTools: plot_convergence_result, plot_datapoints_result, plot_quadrature_coverage_1d
+import .Documentation.PlotTools: plot_convergence_result, plot_datapoints_result, plot_quadrature_coverage_1d
 export plot_convergence_result, plot_datapoints_result, plot_quadrature_coverage_1d
 
 import .Utils.MaranathaIO: load_datapoint_results, merge_datapoint_result_files, drop_nsamples_from_file
@@ -134,7 +134,7 @@ export load_datapoint_results, merge_datapoint_result_files, drop_nsamples_from_
 import .Utils.Wizard: run_wizard
 export run_wizard
 
-import .Utils.Reporter: write_convergence_summary, write_convergence_internal_note, write_convergence_summary_datapoints, write_convergence_internal_note_datapoints
+import .Documentation.Reporter: write_convergence_summary, write_convergence_internal_note, write_convergence_summary_datapoints, write_convergence_internal_note_datapoints
 export write_convergence_summary, write_convergence_internal_note, write_convergence_summary_datapoints, write_convergence_internal_note_datapoints
 
 end  # module Maranatha

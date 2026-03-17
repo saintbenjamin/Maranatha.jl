@@ -1,6 +1,6 @@
-# Maranatha.Utils.Reporter
+# Maranatha.Documentation.Reporter
 
-`Maranatha.Utils.Reporter` provides high-level reporting utilities for
+`Maranatha.Documentation.Reporter` provides high-level reporting utilities for
 generating structured summaries of convergence studies performed with
 `Maranatha.jl`.
 
@@ -20,18 +20,18 @@ shareable, and suitable for research documentation.
 ## Overview
 
 A typical `Maranatha.jl` workflow produces raw convergence data and, in many
-cases, a fitted continuum extrapolation. The `Maranatha.Utils.Reporter` module
+cases, a fitted continuum extrapolation. The `Maranatha.Documentation.Reporter` module
 transforms either stage into human-readable reports.
 
 ```
 Runner → LeastChiSquareFit → PlotTools → Reporter
 ```
 
-For fit-based reporting, `Maranatha.Utils.Reporter` consumes both the quadrature result and the
+For fit-based reporting, `Maranatha.Documentation.Reporter` consumes both the quadrature result and the
 fit result. For pre-fit reporting, it can also generate summaries and internal
 notes directly from raw datapoints and datapoints-only plots.
 
-The `Maranatha.Utils.Reporter` module is therefore the final stage of many pipelines.
+The `Maranatha.Documentation.Reporter` module is therefore the final stage of many pipelines.
 
 ---
 
@@ -202,9 +202,9 @@ summary and the corresponding saved datapoints figure.
 
 ---
 
-## When to use `Maranatha.Utils.Reporter`
+## When to use `Maranatha.Documentation.Reporter`
 
-Use `Maranatha.Utils.Reporter` when you need:
+Use `Maranatha.Documentation.Reporter` when you need:
 
 - research-grade documentation of numerical results,
 - shareable experiment summaries,
@@ -300,7 +300,7 @@ Reporter complements:
 
 - [`Maranatha.Runner`](@ref) — generates convergence datasets
 - [`Maranatha.LeastChiSquareFit`](@ref) — computes extrapolations
-- [`Maranatha.PlotTools`](@ref) — produces visualization artifacts
+- [`Maranatha.Documentation.PlotTools`](@ref) — produces visualization artifacts
 
 Reporter consumes the outputs of these modules to produce final reports.
 
@@ -310,7 +310,7 @@ Reporter consumes the outputs of these modules to produce final reports.
 
 ```@autodocs
 Modules = [
-    Main.Maranatha.Utils.Reporter,
+    Main.Maranatha.Documentation.Reporter,
 ]
 Private = true
 ```

@@ -1,5 +1,5 @@
 # ============================================================================
-# src/PlotTools/PlotTools.jl
+# src/Documentation/PlotTools/PlotTools.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -32,18 +32,18 @@ import ..PyPlot
 import ..LinearAlgebra
 import ..Printf: @sprintf
 
-import ..Utils.JobLoggerTools
-import ..Utils.AvgErrFormatter
-import ..Utils.MaranathaTOML
-import ..Quadrature.NewtonCotes
-import ..Quadrature.Gauss
-import ..Quadrature.BSpline
-import ..Quadrature.QuadratureDispatch
+import ..JobLoggerTools
+import ..AvgErrFormatter
+import ..MaranathaTOML
+import ..NewtonCotes
+import ..Gauss
+import ..BSpline
+import ..QuadratureDispatch
 
-include("set_pyplot_latex_style.jl")
-include("_smart_text_placement.jl")
-include("plot_convergence_result.jl")
-include("plot_datapoints_result.jl")
-include("plot_quadrature_coverage_1d.jl")
+include("PlotTools/set_pyplot_latex_style.jl")
+include("PlotTools/_smart_text_placement.jl")
+include("PlotTools/plot_convergence_result.jl")
+include("PlotTools/plot_datapoints_result.jl")
+include("PlotTools/plot_quadrature_coverage_1d.jl")
 
 end  # module PlotTools

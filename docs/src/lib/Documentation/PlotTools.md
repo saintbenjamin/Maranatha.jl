@@ -1,13 +1,13 @@
-# Maranatha.PlotTools
+# Maranatha.Documentation.PlotTools
 
-`Maranatha.PlotTools` contains the visualization layer of `Maranatha.jl`.
+`Maranatha.Documentation.PlotTools` contains the visualization layer of `Maranatha.jl`.
 
 In a typical workflow, plotting appears after dataset generation and, when
 relevant, after least-$\chi^2$ fitting:
 
 1. build a convergence dataset with [`Maranatha.Runner.run_Maranatha`](@ref)
 2. fit the extrapolation model with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
-3. visualize the result or inspect the raw datapoints with [`Maranatha.PlotTools`](@ref)
+3. visualize the result or inspect the raw datapoints with [`Maranatha.Documentation.PlotTools`](@ref)
 
 The module also provides a pedagogical 1D rule-coverage plot that is useful for
 intuition-building and debugging, rather than for extrapolation itself.
@@ -20,17 +20,17 @@ The plotting layer currently contains four main roles:
 
 | Function | Responsibility |
 |:--|:--|
-| [`Maranatha.PlotTools.set_pyplot_latex_style`](@ref) | Configure global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib`](https://matplotlib.org/stable/) styling for publication-like figures |
-| [`Maranatha.PlotTools._smart_text_placement!`](@ref) | Place annotation boxes while heuristically avoiding plotted objects |
-| [`Maranatha.PlotTools.plot_convergence_result`](@ref) | Visualize fitted extrapolation results and relative convergence error |
-| [`Maranatha.PlotTools.plot_datapoints_result`](@ref) | Inspect raw datapoints before fitting |
-| [`Maranatha.PlotTools.plot_quadrature_coverage_1d`](@ref) | Show how a selected $1$-dimensional quadrature rule samples or reconstructs the integrand |
+| [`Maranatha.Documentation.PlotTools.set_pyplot_latex_style`](@ref) | Configure global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib`](https://matplotlib.org/stable/) styling for publication-like figures |
+| [`Maranatha.Documentation.PlotTools._smart_text_placement!`](@ref) | Place annotation boxes while heuristically avoiding plotted objects |
+| [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref) | Visualize fitted extrapolation results and relative convergence error |
+| [`Maranatha.Documentation.PlotTools.plot_datapoints_result`](@ref) | Inspect raw datapoints before fitting |
+| [`Maranatha.Documentation.PlotTools.plot_quadrature_coverage_1d`](@ref) | Show how a selected $1$-dimensional quadrature rule samples or reconstructs the integrand |
 
 ---
 
 ## Internal Helpers
 
-### [`Maranatha.PlotTools.set_pyplot_latex_style`](@ref)
+### [`Maranatha.Documentation.PlotTools.set_pyplot_latex_style`](@ref)
 
 This helper configures global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib`](https://matplotlib.org/stable/) rendering parameters so that
 plots are visually consistent across the package.
@@ -45,7 +45,7 @@ It enables [$\LaTeX$](https://www.latex-project.org/)-style text rendering and a
 Because it modifies global plotting state, it is typically called internally by
 the higher-level plotting routines before generating a figure.
 
-### [`Maranatha.PlotTools._smart_text_placement!`](@ref)
+### [`Maranatha.Documentation.PlotTools._smart_text_placement!`](@ref)
 
 This is an internal plotting helper used to place an annotation box inside an
 axis while reducing visual collisions with plotted content.
@@ -76,15 +76,15 @@ text is then drawn using a semi-transparent rounded white box for readability.
 
 This helper is used by:
 
-- [`Maranatha.PlotTools.plot_convergence_result`](@ref)
-- [`Maranatha.PlotTools.plot_datapoints_result`](@ref)
-- [`Maranatha.PlotTools.plot_quadrature_coverage_1d`](@ref)
+- [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref)
+- [`Maranatha.Documentation.PlotTools.plot_datapoints_result`](@ref)
+- [`Maranatha.Documentation.PlotTools.plot_quadrature_coverage_1d`](@ref)
 
 ---
 
 ## Public API
 
-### [`Maranatha.PlotTools.plot_convergence_result`](@ref)
+### [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref)
 
 This routine visualizes a completed convergence fit. It is the natural plotting
 companion to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
@@ -146,7 +146,7 @@ The fit band is propagated from the parameter covariance:
 where $V = \texttt{fit\_result.cov}$.
 
 The annotation box, containing $I_0$ and $\chi^2/\mathrm{d.o.f.}$, is placed by
-[`Maranatha.PlotTools._smart_text_placement!`](@ref) so that it avoids the curve, markers, and error bars
+[`Maranatha.Documentation.PlotTools._smart_text_placement!`](@ref) so that it avoids the curve, markers, and error bars
 when possible.
 
 #### Relative-error plot
@@ -204,11 +204,11 @@ before forwarding them to the primary plotting method.
 This wrapper is useful when the user wants to plot directly from a stored or
 freshly generated Maranatha result object without manual unpacking.
 
-### [`Maranatha.PlotTools.plot_datapoints_result`](@ref)
+### [`Maranatha.Documentation.PlotTools.plot_datapoints_result`](@ref)
 
 This routine is a pre-fit diagnostic plotter.
 
-Unlike [`Maranatha.PlotTools.plot_convergence_result`](@ref), it does **not** use a fitted model. It simply
+Unlike [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref), it does **not** use a fitted model. It simply
 plots the sampled datapoints and their error bars so the user can inspect the
 raw convergence pattern before deciding how to fit it.
 
@@ -248,7 +248,7 @@ plotting.
 
 The figure includes a small annotation box containing the chosen axis scales and
 the selected `h_power`. Its position is selected with
-[`Maranatha.PlotTools._smart_text_placement!`](@ref).
+[`Maranatha.Documentation.PlotTools._smart_text_placement!`](@ref).
 
 #### Saved files
 
@@ -262,10 +262,10 @@ under `figs_dir`, with optional `pdfcrop` post-processing if available.
 
 #### Convenience wrapper
 
-As with [`Maranatha.PlotTools.plot_convergence_result`](@ref), a wrapper method accepts the standard
+As with [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref), a wrapper method accepts the standard
 Maranatha `result` object and forwards its stored fields to the primary method.
 
-### [`Maranatha.PlotTools.plot_quadrature_coverage_1d`](@ref)
+### [`Maranatha.Documentation.PlotTools.plot_quadrature_coverage_1d`](@ref)
 
 This routine is a pedagogical and debugging-oriented visualizer for $1$-dimensional
 quadrature rules.
@@ -283,7 +283,7 @@ The routine always draws:
 3. a quadrature-sum annotation
 
 The quadrature-sum label is automatically positioned by
-[`Maranatha.PlotTools._smart_text_placement!`](@ref).
+[`Maranatha.Documentation.PlotTools._smart_text_placement!`](@ref).
 
 #### B-spline rules
 
@@ -361,7 +361,7 @@ Because the integrand is loaded dynamically, the wrapper uses
 
 ```@autodocs
 Modules = [
-    Maranatha.PlotTools,
+    Maranatha.Documentation.PlotTools,
 ]
 Private = true
 ```

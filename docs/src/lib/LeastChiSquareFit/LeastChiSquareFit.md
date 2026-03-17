@@ -9,7 +9,7 @@ In a standard workflow:
 2. fit the convergence model with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
 3. inspect the fitted parameters with [`Maranatha.LeastChiSquareFit.print_fit_result`](@ref)
 4. optionally visualize the result with
-   [`Maranatha.PlotTools.plot_convergence_result`](@ref)
+   [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref)
 
 ---
 

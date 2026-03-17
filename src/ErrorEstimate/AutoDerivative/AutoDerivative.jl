@@ -23,8 +23,8 @@ error models. It combines two complementary differentiation strategies:
 
 These implementations are organized into the submodules
 
-- [`AutoDerivativeDirect`](@ref): scalar `n`-th derivative computation
-- [`AutoDerivativeJet`](@ref): derivative-jet construction
+- [`Maranatha.ErrorEstimate.AutoDerivative.AutoDerivativeDirect`](@ref): scalar `n`-th derivative computation
+- [`Maranatha.ErrorEstimate.AutoDerivative.AutoDerivativeJet`](@ref): derivative-jet construction
 
 Both submodules share global caches defined in
 `Maranatha.ErrorEstimate`, enabling reuse of expensive derivative results
@@ -51,7 +51,7 @@ run_Maranatha
 → AutoDerivative.nth_derivative / derivative_jet
 → backend-specific AD library
 
-````
+```
 
 ---
 

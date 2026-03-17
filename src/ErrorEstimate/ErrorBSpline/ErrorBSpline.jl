@@ -42,7 +42,7 @@ B-spline branch of the error-estimation dispatch tree:
 
 ### Derivative-based (residual) estimators
 
-Provided by [`ErrorBSplineDerivative`](@ref):
+Provided by [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative`](@ref):
 
 * Detect leading midpoint-centered residual terms of the composite rule
 * Construct asymptotic truncation-error models using derivatives
@@ -59,7 +59,7 @@ These estimators are most useful when:
 
 ### Refinement-based estimators
 
-Provided by [`ErrorBSplineRefinement`](@ref):
+Provided by [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineRefinement`](@ref):
 
 * Compare quadrature with subdivision counts `N` and `2N`
 * Use the absolute difference as an effective error scale

@@ -44,7 +44,7 @@ Newton-Cotes branch of the estimator hierarchy:
 
 ### Derivative-based (residual) estimators
 
-Provided by [`ErrorNewtonCotesDerivative`](@ref):
+Provided by [`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesDerivative`](@ref):
 
 * Construct exact midpoint-centered residual expansions using rational arithmetic
 * Use composite weights assembled from the Newton-Cotes rule
@@ -59,7 +59,7 @@ enabling high-precision leading-term extraction.
 
 ### Refinement-based estimators
 
-Provided by [`ErrorNewtonCotesRefinement`](@ref):
+Provided by [`Maranatha.ErrorEstimate.ErrorNewtonCotes.ErrorNewtonCotesRefinement`](@ref):
 
 * Compare quadrature results at subdivision counts `N` and a boundary-compatible refined count
 * Account for rule-specific validity constraints on composite subdivision sizes

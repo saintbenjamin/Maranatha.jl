@@ -107,7 +107,7 @@ convergence dataset.
 This is typically the second stage of a standard `Maranatha.jl` workflow:
 generate a dataset with [`Maranatha.Runner.run_Maranatha`](@ref), fit the convergence
 model with `least_chi_square_fit`, and optionally visualize the result with
-[`Maranatha.PlotTools.plot_convergence_result`](@ref).
+[`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref).
 
 The uncertainty model used in the weighted fit is extracted from `error_infos`,
 which may come either from residual-based estimators (typically exposing

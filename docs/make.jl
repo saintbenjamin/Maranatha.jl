@@ -94,15 +94,18 @@ makedocs(
             ],
         ],
         "LeastChiSquareFit"                  => "lib/LeastChiSquareFit/LeastChiSquareFit.md",
-        "PlotTools"                          => "lib/PlotTools/PlotTools.md",
         "Integrands"                         => "lib/Integrands/Integrands.md",
+        "Documentation"                      => Any[
+            "Documentation"                  => "lib/Documentation/Documentation.md",
+            "PlotTools"                      => "lib/Documentation/PlotTools.md",
+            "Reporter"                       => "lib/Documentation/Reporter.md",
+        ],
         "Utils"                              => Any[
             "Utils"                          => "lib/Utils/Utils.md",
             "AvgErrFormatter"                => "lib/Utils/AvgErrFormatter.md",
             "JobLoggerTools"                 => "lib/Utils/JobLoggerTools.md",
             "MaranathaIO"                    => "lib/Utils/MaranathaIO.md",
             "MaranathaTOML"                  => "lib/Utils/MaranathaTOML.md",
-            "Reporter"                       => "lib/Utils/Reporter.md",
             "Wizard"                         => "lib/Utils/Wizard.md",
         ]
     ],

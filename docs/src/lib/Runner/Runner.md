@@ -55,9 +55,9 @@ A typical workflow is:
 2. pass the returned result to
    [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
 3. inspect or visualize the fit using
-   [`Maranatha.PlotTools.plot_convergence_result`](@ref),
+   [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref),
 4. optionally generate structured reports using
-   [`Maranatha.Utils.Reporter.write_convergence_internal_note`](@ref).
+   [`Maranatha.Documentation.Reporter.write_convergence_internal_note`](@ref).
 
 The runner itself does not fit the continuum-limit model.
 It only prepares the data needed for later stages of analysis,

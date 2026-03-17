@@ -29,7 +29,7 @@ The main entry point is [`run_Maranatha`](@ref).
 For least-``\\chi^2`` extrapolation of the generated dataset, see
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
 For visualization of the resulting convergence behavior, see
-[`Maranatha.PlotTools.plot_convergence_result`](@ref).
+[`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref).
 """
 module Runner
 
@@ -69,7 +69,7 @@ This is typically the first stage of a standard `Maranatha.jl` workflow:
 use `run_Maranatha` to build a convergence dataset, then pass that dataset to
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref), and optionally
 visualize the result with
-[`Maranatha.PlotTools.plot_convergence_result`](@ref).
+[`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref).
 
 # What this function does
 

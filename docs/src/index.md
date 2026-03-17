@@ -158,13 +158,13 @@ for continuum extrapolation.
 
 ### Plotting utilities
 
-[`Maranatha.PlotTools`](@ref) provides visualization tools based on
+[`Maranatha.Documentation.PlotTools`](@ref) provides visualization tools based on
 [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl).
 
 The primary plotting routines include:
 
-- [`Maranatha.PlotTools.plot_convergence_result`](@ref)
-- [`Maranatha.PlotTools.plot_quadrature_coverage_1d`](@ref)
+- [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref)
+- [`Maranatha.Documentation.PlotTools.plot_quadrature_coverage_1d`](@ref)
 
 The convergence plot displays the fitted model and its covariance-based
 uncertainty band.
@@ -174,14 +174,14 @@ uncertainty band.
 ### Reporting utilities
 
 High-level report generation is provided by
-[`Maranatha.Utils.Reporter`](@ref).
+[`Maranatha.Documentation.Reporter`](@ref).
 
 This layer is responsible for turning numerical and plotting results into
 structured, shareable documentation artifacts such as summary tables,
 ``\LaTeX``-ready note projects, and optional PDF-build workflows.
 
 While the numerical core of `Maranatha.jl` computes convergence data and
-continuum fits, `Maranatha.Utils.Reporter` supports the final presentation and archival stage
+continuum fits, `Maranatha.Documentation.Reporter` supports the final presentation and archival stage
 of the workflow.
 
 ---

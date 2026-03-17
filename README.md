@@ -356,7 +356,7 @@ Internal modules:
 * [`Maranatha.Quadrature`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Quadrature/)
 * [`Maranatha.ErrorEstimate`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/ErrorEstimate/)
 * [`Maranatha.LeastChiSquareFit`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/LeastChiSquareFit/)
-* [`Maranatha.PlotTools`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/PlotTools/)
+* [`Maranatha.Documentation`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Documentation/)
 * [`Maranatha.Integrands`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Integrands/)
 * [`Maranatha.Utils`](https://saintbenjamin.github.io/Maranatha.jl/stable/lib/Utils/) — shared infrastructure, including reporting and reproducibility tools
 

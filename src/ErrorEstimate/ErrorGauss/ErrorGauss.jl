@@ -43,7 +43,7 @@ Gauss-family branch of the estimator hierarchy:
 
 ### Derivative-based (residual) estimators
 
-Provided by [`ErrorGaussDerivative`](@ref):
+Provided by [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative`](@ref):
 
 * Analyze midpoint-centered residual moments of composite Gauss rules
 * Construct asymptotic truncation-error models using derivatives
@@ -61,7 +61,7 @@ These estimators are most effective when:
 
 ### Refinement-based estimators
 
-Provided by [`ErrorGaussRefinement`](@ref):
+Provided by [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussRefinement`](@ref):
 
 * Compare quadrature results with subdivision counts `N` and `2N`
 * Use the difference as an empirical error scale
