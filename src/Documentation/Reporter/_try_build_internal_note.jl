@@ -170,7 +170,7 @@ function _try_build_internal_note(
 
     if has_make
         if !has_bibtex
-            @warn "bibtex not found. Build may still succeed if bibliography is not needed."
+            JobLoggerTools.warn_benji("bibtex not found. Build may still succeed if bibliography is not needed.")
         end
 
         try

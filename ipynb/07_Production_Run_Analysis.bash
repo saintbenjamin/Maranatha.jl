@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT="07_Production_Style_Merge_and_Report.jl"
+SCRIPT="07_Production_Run_Analysis.jl"
 LOG="run_$(date +%Y%m%d_%H%M%S).log"
 
 if [ $# -eq 0 ]; then
@@ -15,4 +15,4 @@ fi
     eval "$CMD"
 
     echo "$(date '+%F %T') DONE"
-} &> "$LOG"
+} 2>&1 | tee "$LOG"

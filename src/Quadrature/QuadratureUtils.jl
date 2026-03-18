@@ -42,6 +42,7 @@ At present, the module provides:
 | Function | Responsibility |
 |:--|:--|
 | [`_decode_boundary`](@ref) | map global boundary selectors to local endpoint types |
+| [`_sanitize_nsamples_newton_cotes`](@ref) | adjust subdivision sequences to satisfy Newton-Cotes tiling constraints |
 
 # Notes
 
@@ -53,6 +54,7 @@ At present, the module provides:
 module QuadratureUtils
 
 import ..JobLoggerTools
+import ..Quadrature
 
 """
     _decode_boundary(
@@ -101,5 +103,119 @@ Supported patterns are:
     end
 end
 
+"""
+    _sanitize_nsamples_newton_cotes(
+        nsamples::Vector{Int},
+        rule::Symbol,
+        boundary::Symbol
+    ) -> Vector{Int}
+
+Sanitize a candidate subdivision sequence for Newton-Cotes composite rules.
+
+# Function description
+Newton-Cotes composite formulas do not accept arbitrary subdivision counts.
+For a given local node count `p` and boundary pattern `boundary`, valid values
+must satisfy the tiling constraint
+
+```math
+N_{\\mathrm{sub}} = w_L + m (p-1) + w_R,
+```
+
+where `w_L` and `w_R` are the boundary block widths and `m ≥ 0` is an integer.
+
+This helper transforms an arbitrary input sequence into a valid sequence that:
+
+* preserves the original length,
+* forms a valid arithmetic progression with step `(p - 1)`,
+* starts from the nearest admissible value not exceeding the first input
+  element, or from the smallest admissible value if none is smaller.
+
+If `rule` is not a Newton-Cotes rule, the input is returned unchanged.
+
+# Arguments
+
+* `nsamples::Vector{Int}`
+  Candidate subdivision counts supplied by the caller.
+
+* `rule::Symbol`
+  Quadrature rule selector. Must be of the form `:newton_pK` to activate
+  Newton-Cotes sanitization.
+
+* `boundary::Symbol`
+  Boundary pattern symbol determining the left and right endpoint types.
+
+# Returns
+
+* `Vector{Int}`
+  A corrected subdivision sequence compatible with the Newton-Cotes composite
+  tiling constraint. The returned vector has the same length as `nsamples`.
+
+# Errors
+
+* Propagates validation errors from
+  `NewtonCotes._parse_newton_p`,
+  [`_decode_boundary`](@ref), and
+  `NewtonCotes._local_width`.
+* Does not throw for invalid subdivision counts; instead, it adjusts them.
+
+# Notes
+
+* This helper is intended for internal use by runner-level components that
+  accept user-supplied subdivision arrays.
+* A warning is emitted if the sequence is modified.
+* The resulting sequence always represents a monotone refinement ladder with
+  constant step `(p - 1)`.
+"""
+function _sanitize_nsamples_newton_cotes(
+    nsamples::Vector{Int},
+    rule::Symbol,
+    boundary::Symbol
+)::Vector{Int}
+
+    # Not Newton-Cotes → no change
+    if !Quadrature.NewtonCotes._is_newton_cotes_rule(rule)
+        return nsamples
+    end
+
+    isempty(nsamples) && return nsamples
+
+    p = Quadrature.NewtonCotes._parse_newton_p(rule)
+
+    Ltype, Rtype = _decode_boundary(boundary)
+    wL = Quadrature.NewtonCotes._local_width(p, Ltype)
+    wR = Quadrature.NewtonCotes._local_width(p, Rtype)
+
+    step = p - 1
+    base = wL + wR   # smallest valid N
+
+    N0 = first(nsamples)
+
+    # ---- nearest valid ≤ N0 ----
+    if N0 >= base
+        m = (N0 - base) ÷ step
+        start = base + m * step
+    else
+        start = base
+    end
+
+    # if start > N0 (only possible when N0 < base)
+    if start < base
+        start = base
+    end
+
+    # ---- build arithmetic progression ----
+    L = length(nsamples)
+    newN = [start + (i-1)*step for i in 1:L]
+
+    if newN != nsamples
+        JobLoggerTools.warn_benji(
+            "nsamples corrected for $rule, $boundary\n" *
+            "input = $(nsamples)\n" *
+            "using = $(newN)"
+        )
+    end
+
+    return newN
+end
 
 end  # module QuadratureUtils

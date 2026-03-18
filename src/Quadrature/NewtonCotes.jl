@@ -339,7 +339,7 @@ function _assemble_composite_beta_rational(
     Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
 
     if p >= 9
-        @warn "p=$p is high; NC weights can get enormous (exact rational). May become slow/heavy."
+        JobLoggerTools.warn_benji("p=$p is high; NC weights can get enormous (exact rational). May become slow/heavy.")
     end
 
     β = [RBig(0) for _ in 0:Nsub]  # β[j] stored at β[j+1]

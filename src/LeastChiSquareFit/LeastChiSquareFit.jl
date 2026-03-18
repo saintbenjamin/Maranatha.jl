@@ -251,9 +251,43 @@ function least_chi_square_fit(
         )
     end
 
-    any(!isfinite(s) || s <= 0.0 for s in σ) && JobLoggerTools.error_benji(
-        "Non-positive or non-finite σ encountered in least_chi_square_fit"
-    )
+    # ---- validate σ ----
+
+    # Non-finite or negative → fatal
+    bad_fatal = [(i, s) for (i, s) in pairs(σ) if !isfinite(s) || s < 0.0]
+    if !isempty(bad_fatal)
+        JobLoggerTools.warn_benji("σ (full array) = $(σ)")
+        JobLoggerTools.warn_benji("invalid (index, value) = $(bad_fatal)")
+        JobLoggerTools.error_benji(
+            "Non-finite or negative σ encountered in least_chi_square_fit"
+        )
+    end
+
+    # Exactly zero → drop those points
+    zero_idx = [i for (i, s) in pairs(σ) if s == 0.0]
+
+    use_mask = trues(length(σ))
+
+    if !isempty(zero_idx)
+        use_mask[zero_idx] .= false
+
+        kept = count(use_mask)
+        removed = length(zero_idx)
+
+        JobLoggerTools.warn_benji(
+            "σ == 0 detected at indices $(zero_idx). " *
+            "These points will be excluded from the fit.\n" *
+            "Kept points = $kept, removed = $removed."
+        )
+    end
+
+    # ---- apply mask (if any points removed) ----
+
+    if !all(use_mask)
+        h = h[use_mask]
+        y = y[use_mask]
+        σ = σ[use_mask]
+    end
 
     N = length(h)
 

@@ -38,6 +38,7 @@ import ..TOML
 import ..Utils.JobLoggerTools
 import ..Utils.MaranathaIO
 import ..Utils.MaranathaTOML
+import ..Quadrature.QuadratureUtils
 import ..Quadrature.QuadratureDispatch
 import ..ErrorEstimate.ErrorDispatch
 
@@ -276,6 +277,12 @@ function run_Maranatha(
     estimates = Float64[]      # List of quadrature results
     error_infos = NamedTuple[] # List of estimated error infos
     hs = Float64[]             # List of step sizes
+
+    nsamples = QuadratureUtils._sanitize_nsamples_newton_cotes(
+        nsamples, 
+        rule, 
+        boundary
+    )
 
     for N in nsamples
         h = (b - a) / N

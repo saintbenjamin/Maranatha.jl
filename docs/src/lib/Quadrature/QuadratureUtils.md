@@ -35,6 +35,7 @@ Currently, the module provides:
 | Function | Responsibility |
 |:--|:--|
 | [`Maranatha.Quadrature.QuadratureUtils._decode_boundary`](@ref) | convert global boundary selectors into local endpoint types |
+| [`Maranatha.Quadrature.QuadratureUtils._sanitize_nsamples_newton_cotes`](@ref) | adjust subdivision sequences to valid Newton-Cotes composite counts |
 
 ---
 
