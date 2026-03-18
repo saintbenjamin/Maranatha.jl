@@ -11,9 +11,11 @@ with a modular, rule-dispatched architecture for
 * structured **multi-dimensional tensor-product integration**
 * derivative-aware **residual-based error scale modeling**
 * covariance-aware **least $\chi^2$ fitting for $h \to 0$ extrapolation**
+* optional **threaded-subgrid CPU execution** and **CUDA-based GPU execution**
 
-It is designed for methodological research, with emphasis on 
-analytical transparency, reproducibility, and modular structure.
+It is designed for methodological research, with emphasis on
+analytical transparency, reproducibility, modular structure,
+and explicit control over execution backends.
 
 ---
 
@@ -82,6 +84,18 @@ save_file = true
 Assume that `sample_1d.jl` and `sample_1d.toml` are located
 in the current working directory.
 
+Execution backend selection depends on runtime settings:
+
+- serial execution is used by default,
+- threaded subgrid execution is used when Julia is started with multiple CPU threads,
+- CUDA execution is used only when `use_cuda = true` is explicitly requested.
+
+For example, CPU threading can be enabled before starting Julia with:
+
+```bash
+JULIA_NUM_THREADS=8 julia
+```
+
 The quadrature pipeline can then be executed using the
 high-level runner, producing a convergence dataset 
 across multiple quadrature resolutions.
@@ -90,6 +104,23 @@ across multiple quadrature resolutions.
 using Maranatha
 
 run_result = run_Maranatha("./sample_1d.toml")
+```
+
+To explicitly request GPU execution, use the direct-call interface and set
+`use_cuda = true`:
+
+```julia
+run_result = run_Maranatha(
+    integrand,
+    0.0,
+    pi;
+    dim = 1,
+    nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    err_method = :refinement,
+    use_cuda = true,
+)
 ```
 
 Once the dataset has been generated, the continuum limit
@@ -141,6 +172,9 @@ runtime.
 In many cases, refinement-based estimates provide error scales close to
 those obtained from theoretical derivative models while remaining much
 faster to compute.
+
+When combined with threaded subgrid execution on multi-core CPUs, this can
+substantially reduce wall-clock time for large tensor-product workloads.
 
 ---
 
@@ -208,6 +242,10 @@ non-smooth or singular problems.
   * `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`
 * Rational composite weight assembly (for Newton–Cotes rules),
   converted to `Float64` only at the final stage
+* Multiple execution backends:
+  * serial tensor-product evaluation
+  * threaded subgrid CPU backend
+  * CUDA-based GPU backend
 
 ---
 
@@ -251,6 +289,10 @@ Because it relies only on observable convergence behavior,
 the refinement method is particularly robust for complicated
 integrands where high-order derivatives are costly or unstable
 to compute.
+
+This also makes the refinement path especially compatible with accelerated
+execution backends such as threaded subgrid CPU evaluation and CUDA-based
+quadrature.
 
 ---
 
@@ -345,6 +387,7 @@ The fitter returns a `NamedTuple` containing extrapolation results, including:
 * Not adaptive (yet)
 * Not specialized for singular or discontinuous integrands
 * High-dimensional usage scales combinatorially (therefore intended mainly for controlled studies)
+* CUDA execution requires a compatible CUDA environment and GPU-callable integrands
 
 ---
 
@@ -382,6 +425,7 @@ Ongoing development focuses on:
 * robustness of high-dimensional extrapolation
 * improved stability of error-scale modeling
 * additional quadrature rule families
+* continued optimization of CPU-threaded and CUDA execution backends
 
 ---
 
@@ -416,6 +460,7 @@ MIT License
 * [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/)
 * [`Enzyme.jl`](https://enzyme.mit.edu/julia/stable/)
 * [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
+* [`CUDA.jl`](https://cuda.juliagpu.org/stable/)
 
 ---
 
