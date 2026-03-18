@@ -111,11 +111,16 @@ function error_estimate_derivative_jet_2d(
     derivatives = zeros(Float64, n)
     terms       = zeros(Float64, n)
 
+    jet_fun, backend_tag =
+        AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
+
     @inbounds for j in eachindex(xs)
         y = xs[j]
         gx(x) = f(x, y)
 
         vals = AutoDerivativeJet._derivative_values_for_ks(
+            jet_fun,
+            backend_tag,
             gx,
             x̄,
             ks;
@@ -123,7 +128,6 @@ function error_estimate_derivative_jet_2d(
             rule = rule,
             N = N,
             dim = 2,
-            err_method = err_method,
             side = :mid,
             axis = :x,
             stage = :midpoint,
@@ -141,6 +145,8 @@ function error_estimate_derivative_jet_2d(
         gy(y) = f(x, y)
 
         vals = AutoDerivativeJet._derivative_values_for_ks(
+            jet_fun,
+            backend_tag,
             gy,
             ȳ,
             ks;
@@ -148,7 +154,6 @@ function error_estimate_derivative_jet_2d(
             rule = rule,
             N = N,
             dim = 2,
-            err_method = err_method,
             side = :mid,
             axis = :y,
             stage = :midpoint,

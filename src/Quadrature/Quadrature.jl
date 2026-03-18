@@ -86,8 +86,6 @@ Primary entry point:
 module Quadrature
 
 import ..LinearAlgebra
-import ..CUDA
-import ..Base.Threads
 
 import ..Utils.JobLoggerTools
 

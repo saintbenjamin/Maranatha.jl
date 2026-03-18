@@ -155,11 +155,6 @@ dispatch, depending on the selected backend.
 module ErrorEstimate
 
 import ..LinearAlgebra
-import ..TaylorSeries
-import ..Enzyme
-import ..ForwardDiff
-import ..FastDifferentiation
-# import ..Diffractor
 
 import ..Utils.JobLoggerTools
 import ..Quadrature

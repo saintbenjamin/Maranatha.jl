@@ -102,6 +102,8 @@ function error_estimate_derivative_direct_1d(
     derivatives = Vector{Float64}(undef, n)
     terms       = Vector{Float64}(undef, n)
 
+    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+
     @inbounds for i in eachindex(ks)
         k = ks[i]
 
@@ -114,11 +116,12 @@ function error_estimate_derivative_direct_1d(
         coeff = coeffs[i]
 
         dx = AutoDerivativeDirect.nth_derivative(
+            deriv_fun,
+            backend_tag,
             f,
             x̄, k;
             h=h, rule=rule, N=N, dim=1,
             side=:mid, axis=:x, stage=:midpoint,
-            err_method=err_method
         )
 
         derivatives[i] = dx

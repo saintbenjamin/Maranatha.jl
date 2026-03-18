@@ -110,11 +110,6 @@ function error_estimate_derivative_jet_nd(
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
-    # ks, coeffs, _center = _leading_residual_terms_any(
-    #     rule, boundary, N;
-    #     nterms = nerr_terms,
-    #     kmax   = kmax
-    # )
     ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
@@ -134,11 +129,16 @@ function error_estimate_derivative_jet_nd(
     derivatives = zeros(Float64, length(ks))
     terms       = zeros(Float64, length(ks))
 
+    jet_fun, backend_tag =
+        AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
+
     fixed = Vector{Float64}(undef, dim)
     idx   = ones(Int, max(dim - 1, 1))
 
     if dim == 1
         vals = AutoDerivativeJet._derivative_values_for_ks(
+            jet_fun,
+            backend_tag,
             x -> f(x),
             x̄,
             ks;
@@ -146,7 +146,6 @@ function error_estimate_derivative_jet_nd(
             rule = rule,
             N = N,
             dim = dim,
-            err_method = err_method,
             side = :mid,
             axis = 1,
             stage = :midpoint,
@@ -192,6 +191,8 @@ function error_estimate_derivative_jet_nd(
             end
 
             vals = AutoDerivativeJet._derivative_values_for_ks(
+                jet_fun,
+                backend_tag,
                 x -> _call_with_axis(f, fixed, axis, x, dim),
                 x̄,
                 ks;
@@ -199,7 +200,6 @@ function error_estimate_derivative_jet_nd(
                 rule = rule,
                 N = N,
                 dim = dim,
-                err_method = err_method,
                 side = :mid,
                 axis = axis,
                 stage = :midpoint,

@@ -112,6 +112,8 @@ function error_estimate_derivative_direct_4d(
     derivatives = Vector{Float64}(undef, n)
     terms       = Vector{Float64}(undef, n)
 
+    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+
     @inbounds for it in eachindex(ks)
         kk = ks[it]
 
@@ -134,10 +136,11 @@ function error_estimate_derivative_direct_4d(
                     t = ts[l]
                     gx(x) = f(x, y, z, t)
                     I1 += wyj_wzk * wt[l] * AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
                         gx, x̄, kk;
                         h=h, rule=rule, N=N, dim=4,
                         side=:mid, axis=:x, stage=:midpoint,
-                        err_method=err_method
                     )
                 end
             end
@@ -154,10 +157,11 @@ function error_estimate_derivative_direct_4d(
                     t = ts[l]
                     gy(y) = f(x, y, z, t)
                     I2 += wxi_wzk * wt[l] * AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
                         gy, ȳ, kk;
                         h=h, rule=rule, N=N, dim=4,
                         side=:mid, axis=:y, stage=:midpoint,
-                        err_method=err_method
                     )
                 end
             end
@@ -174,10 +178,11 @@ function error_estimate_derivative_direct_4d(
                     t = ts[l]
                     gz(z) = f(x, y, z, t)
                     I3 += wxi_wyj * wt[l] * AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
                         gz, z̄, kk;
                         h=h, rule=rule, N=N, dim=4,
                         side=:mid, axis=:z, stage=:midpoint,
-                        err_method=err_method
                     )
                 end
             end
@@ -194,10 +199,11 @@ function error_estimate_derivative_direct_4d(
                     z = zs[k2]
                     gt(t) = f(x, y, z, t)
                     I4 += wxi_wyj * wz[k2] * AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
                         gt, t̄, kk;
                         h=h, rule=rule, N=N, dim=4,
                         side=:mid, axis=:t, stage=:midpoint,
-                        err_method=err_method
                     )
                 end
             end

@@ -110,6 +110,8 @@ function error_estimate_derivative_direct_3d(
     derivatives = Vector{Float64}(undef, n)
     terms       = Vector{Float64}(undef, n)
 
+    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+
     @inbounds for it in eachindex(ks)
         kk = ks[it]
 
@@ -130,10 +132,11 @@ function error_estimate_derivative_direct_3d(
                 gx(x) = f(x, y, z)
 
                 I1 += wyj * wz[k2] * AutoDerivativeDirect.nth_derivative(
+                    deriv_fun,
+                    backend_tag,
                     gx, x̄, kk;
                     h=h, rule=rule, N=N, dim=3,
                     side=:mid, axis=:x, stage=:midpoint,
-                    err_method=err_method
                 )
             end
         end
@@ -147,10 +150,11 @@ function error_estimate_derivative_direct_3d(
                 gy(y) = f(x, y, z)
 
                 I2 += wxi * wz[k2] * AutoDerivativeDirect.nth_derivative(
+                    deriv_fun,
+                    backend_tag,
                     gy, ȳ, kk;
                     h=h, rule=rule, N=N, dim=3,
                     side=:mid, axis=:y, stage=:midpoint,
-                    err_method=err_method
                 )
             end
         end
@@ -164,10 +168,11 @@ function error_estimate_derivative_direct_3d(
                 gz(z) = f(x, y, z)
 
                 I3 += wxi * wy[j] * AutoDerivativeDirect.nth_derivative(
+                    deriv_fun,
+                    backend_tag,
                     gz, z̄, kk;
                     h=h, rule=rule, N=N, dim=3,
                     side=:mid, axis=:z, stage=:midpoint,
-                    err_method=err_method
                 )
             end
         end

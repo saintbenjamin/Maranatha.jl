@@ -105,11 +105,6 @@ function error_estimate_derivative_jet_4d(
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    # ks, coeffs, _center = _leading_residual_terms_any(
-    #     rule, boundary, N;
-    #     nterms = nerr_terms,
-    #     kmax   = kmax
-    # )
     ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
@@ -120,6 +115,9 @@ function error_estimate_derivative_jet_4d(
 
     derivatives = zeros(Float64, n)
     terms       = zeros(Float64, n)
+
+    jet_fun, backend_tag =
+        AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
 
     @inbounds for j in eachindex(ys)
         y = ys[j]
@@ -132,6 +130,8 @@ function error_estimate_derivative_jet_4d(
                 gx(x) = f(x, y, z, t)
 
                 vals = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun,
+                    backend_tag,
                     gx,
                     x̄,
                     ks;
@@ -139,7 +139,6 @@ function error_estimate_derivative_jet_4d(
                     rule = rule,
                     N = N,
                     dim = 4,
-                    err_method = err_method,
                     side = :mid,
                     axis = :x,
                     stage = :midpoint,
@@ -166,6 +165,8 @@ function error_estimate_derivative_jet_4d(
                 gy(y) = f(x, y, z, t)
 
                 vals = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun,
+                    backend_tag,
                     gy,
                     ȳ,
                     ks;
@@ -173,7 +174,6 @@ function error_estimate_derivative_jet_4d(
                     rule = rule,
                     N = N,
                     dim = 4,
-                    err_method = err_method,
                     side = :mid,
                     axis = :y,
                     stage = :midpoint,
@@ -200,6 +200,8 @@ function error_estimate_derivative_jet_4d(
                 gz(z) = f(x, y, z, t)
 
                 vals = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun,
+                    backend_tag,
                     gz,
                     z̄,
                     ks;
@@ -207,7 +209,6 @@ function error_estimate_derivative_jet_4d(
                     rule = rule,
                     N = N,
                     dim = 4,
-                    err_method = err_method,
                     side = :mid,
                     axis = :z,
                     stage = :midpoint,
@@ -234,6 +235,8 @@ function error_estimate_derivative_jet_4d(
                 gt(t) = f(x, y, z, t)
 
                 vals = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun,
+                    backend_tag,
                     gt,
                     t̄,
                     ks;
@@ -241,7 +244,6 @@ function error_estimate_derivative_jet_4d(
                     rule = rule,
                     N = N,
                     dim = 4,
-                    err_method = err_method,
                     side = :mid,
                     axis = :t,
                     stage = :midpoint,

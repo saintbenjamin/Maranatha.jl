@@ -123,6 +123,8 @@ function error_estimate_derivative_direct_nd(
     fixed = Vector{Float64}(undef, dim)
     idx   = ones(Int, dim - 1)
 
+    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+
     @inbounds for it in eachindex(ks)
         k = ks[it]
 
@@ -140,11 +142,12 @@ function error_estimate_derivative_direct_nd(
 
             if dim == 1
                 Iaxis = AutoDerivativeDirect.nth_derivative(
+                    deriv_fun,
+                    backend_tag,
                     x -> f(x),
                     x̄, k;
                     h=h, rule=rule, N=N, dim=dim,
                     side=:mid, axis=axis, stage=:midpoint,
-                    err_method=err_method
                 )
             else
                 fill!(idx, 1)
@@ -164,11 +167,12 @@ function error_estimate_derivative_direct_nd(
                     end
 
                     Iaxis += wprod * AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
                         x -> _call_with_axis(f, fixed, axis, x, dim),
                         x̄, k;
                         h=h, rule=rule, N=N, dim=dim,
                         side=:mid, axis=axis, stage=:midpoint,
-                        err_method=err_method
                     )
 
                     q = dim - 1

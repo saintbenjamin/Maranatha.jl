@@ -50,10 +50,10 @@ main numerical algorithms of the package.
 module Utils
 
 import ..Printf
-import ..Dates
 import ..TOML
-import ..JLD2
 import ..LinearAlgebra
+import Dates
+import JLD2
 
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")

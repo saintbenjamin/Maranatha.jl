@@ -10,9 +10,6 @@
 
 module QuadratureDispatch
 
-import ..CUDA
-import ..Base.Threads
-
 import ..JobLoggerTools
 import ..QuadratureUtils
 import ..QuadratureNodes

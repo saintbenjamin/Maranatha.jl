@@ -106,6 +106,8 @@ function error_estimate_derivative_direct_2d(
     derivatives = Vector{Float64}(undef, n)
     terms       = Vector{Float64}(undef, n)
 
+    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+
     @inbounds for it in eachindex(ks)
         k = ks[it]
 
@@ -123,10 +125,11 @@ function error_estimate_derivative_direct_2d(
             gx(x) = f(x, y)
 
             I1 += wx[j] * AutoDerivativeDirect.nth_derivative(
+                deriv_fun,
+                backend_tag,
                 gx, x̄, k;
                 h=h, rule=rule, N=N, dim=2,
                 side=:mid, axis=:x, stage=:midpoint,
-                err_method=err_method
             )
         end
 
@@ -136,10 +139,11 @@ function error_estimate_derivative_direct_2d(
             gy(y) = f(x, y)
 
             I2 += wx[i] * AutoDerivativeDirect.nth_derivative(
+                deriv_fun,
+                backend_tag,
                 gy, ȳ, k;
                 h=h, rule=rule, N=N, dim=2,
                 side=:mid, axis=:y, stage=:midpoint,
-                err_method=err_method
             )
         end
 

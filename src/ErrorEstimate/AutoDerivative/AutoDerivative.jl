@@ -134,21 +134,13 @@ error-estimation layer rather than this module.
 """
 module AutoDerivative
 
-import ..LinearAlgebra
-import ..TaylorSeries
-import ..Enzyme
-import ..ForwardDiff
-# import ..Diffractor
-import ..FastDifferentiation
-import ..FastDifferentiation: @variables
-
 import ..JobLoggerTools
 import ..ErrorEstimate._RES_MODEL_CACHE
 import ..ErrorEstimate._NTH_DERIV_CACHE
 import ..ErrorEstimate._DERIV_JET_CACHE
 
-include("AutoDerivativeDirect.jl")
-include("AutoDerivativeJet.jl")
+include("AutoDerivativeDirect/AutoDerivativeDirect.jl")
+include("AutoDerivativeJet/AutoDerivativeJet.jl")
 
 using .AutoDerivativeDirect
 using .AutoDerivativeJet

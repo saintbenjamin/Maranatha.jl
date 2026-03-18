@@ -35,7 +35,9 @@ partial thread-local contributions into a final scalar quadrature value.
 """
 module QuadratureDispatchCUDA
 
-import ..CUDA
+import CUDA
+
+import ..JobLoggerTools
 import ..QuadratureNodes
 
 """
@@ -359,6 +361,10 @@ function quadrature_cuda(
     blocks = cld(total_points, threads)
 
     out = CUDA.zeros(Float64, threads * blocks)
+
+    JobLoggerTools.println_benji(
+        "CUDA backend: dim=$(dim), n=$(n) → total points=$(total_points) | blocks=$(blocks), threads/block=$(threads)"
+    )
 
     CUDA.@cuda threads=threads blocks=blocks _kernel_quadrature_nd!(
         out,

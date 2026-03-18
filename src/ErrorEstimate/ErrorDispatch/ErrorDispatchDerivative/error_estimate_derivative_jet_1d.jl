@@ -116,7 +116,11 @@ function error_estimate_derivative_jet_1d(
         h           = h
     )
 
+    jet_fun, backend_tag = AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
+
     vals = AutoDerivativeJet._derivative_values_for_ks(
+        jet_fun,
+        backend_tag,
         f,
         x̄,
         ks;
@@ -124,7 +128,6 @@ function error_estimate_derivative_jet_1d(
         rule = rule,
         N = N,
         dim = 1,
-        err_method = err_method,
         side = :mid,
         axis = :x,
         stage = :midpoint,

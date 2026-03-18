@@ -95,19 +95,10 @@ Jupyter notebooks located in the `ipynb/` directory of this repository.
 module Maranatha
 
 import Printf
-import Dates
-import CUDA
-import Base.Threads
 import Statistics
 import LinearAlgebra
-import TaylorSeries
-import Enzyme
-import ForwardDiff
-import FastDifferentiation
 # import Diffractor
 import TOML
-import JLD2
-import PyPlot
 
 include("Utils/Utils.jl")
 include("Quadrature/Quadrature.jl")

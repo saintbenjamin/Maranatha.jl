@@ -29,7 +29,7 @@ builders, and related reporting helpers for convergence studies.
 """
 module Documentation
 
-import ..PyPlot
+import PyPlot
 import ..LinearAlgebra
 import ..Printf
 

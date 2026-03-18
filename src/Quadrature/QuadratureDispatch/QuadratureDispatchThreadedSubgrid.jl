@@ -38,7 +38,7 @@ thread-local partial sums into a final quadrature value.
 """
 module QuadratureDispatchThreadedSubgrid
 
-import ..Base.Threads
+import Base.Threads
 
 import ..JobLoggerTools
 import ..QuadratureNodes
