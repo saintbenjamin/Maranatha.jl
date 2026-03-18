@@ -263,9 +263,11 @@ function run_Maranatha(
     name_prefix::String = "Maranatha",
     save_path::Union{Nothing,AbstractString}=nothing,
     write_summary::Bool=true,
+    use_cuda::Bool = false,
 )
-
     JobLoggerTools.log_stage_benji("Start run_Maranatha")
+
+    threaded_subgrid = (!use_cuda) && (Base.Threads.nthreads() > 1)
 
     if err_method !== :refinement
         ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!()
@@ -286,7 +288,9 @@ function run_Maranatha(
             N,
             dim,
             rule,
-            boundary
+            boundary;
+            use_cuda=use_cuda,
+            threaded_subgrid=threaded_subgrid
         )
 
         err = ErrorDispatch.error_estimate(
@@ -300,6 +304,7 @@ function run_Maranatha(
             err_method = err_method,
             nerr_terms = nerr_terms,
             use_error_jet = use_error_jet,
+            threaded_subgrid = threaded_subgrid
         )
 
         push!(estimates, I)

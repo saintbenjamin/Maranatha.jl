@@ -2,85 +2,41 @@
 
 ## Overview
 
-`Maranatha.Quadrature.QuadratureDispatch` is the rule-dispatch layer that connects
-the backend quadrature engines to the tensor-product integration interface.
+`Maranatha.Quadrature.QuadratureDispatch` is the tensor-product evaluation
+layer that connects backend quadrature rules to a uniform integration interface.
 
-It serves two main purposes:
+Its primary role is to evaluate tensor-product quadrature sums in dimensions
+`1`, `2`, `3`, `4`, or general `dim`, using nodes and weights supplied by
+the quadrature-node generator.
 
-1. convert a user-facing `(rule, boundary)` selection into concrete `1`-dimensional
-   nodes and weights,
-2. evaluate tensor-product quadrature sums in dimensions `1`, `2`, `3`, `4`, or
-   general `dim`.
-
-In practice, this module is the point where the backend rule families become a
-single uniform integration API.
+In practice, this module provides the common integration API used by the
+higher-level workflow once rule-specific nodes and weights are available.
 
 ---
 
-## Rule dispatch policy
+## Rule-family handling
 
-The public node/weight entry point is:
+Rule-family interpretation and node/weight construction are performed by the
+quadrature-node generator:
 
-- [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref)
+- [`Maranatha.Quadrature.QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)
 
-It dispatches by rule family:
+This module treats the generated nodes and weights as opaque inputs and does
+not depend on rule-specific implementation details.
 
-### Newton-Cotes family
-
-Rules of the form:
-
-- `:newton_p3`, `:newton_p4`, `:newton_p5`, ...
-
-are delegated to [`Maranatha.Quadrature.NewtonCotes`](@ref).
-
-The dispatch flow is:
-
-1. parse the local node count `p`,
-2. validate / decode the boundary mode,
-3. retrieve the composite global coefficient vector ``\beta``,
-4. generate uniform nodes on ``[a,b]``,
-5. convert coefficients into physical weights via ``w_j = \beta_j \, h``.
-
-This keeps the exact-rational assembly isolated in the Newton-Cotes backend.
-
-### Gauss family
-
-Rules of the form:
-
-- `:gauss_p2`, `:gauss_p3`, `:gauss_p4`, ...
-
-are delegated to [`Maranatha.Quadrature.Gauss`](@ref).
-
-That backend constructs composite Gauss-family nodes and weights by repeating a
-single-block Gauss rule across ``N`` uniform subintervals, with endpoint-sensitive
-variants applied only where the global boundary actually touches the interval edge.
-
-### B-spline family
-
-Rules of the form:
-
-- `:bspline_interp_p2`, `:bspline_interp_p3`, ...
-- `:bspline_smooth_p2`, `:bspline_smooth_p3`, ...
-
-are delegated to [`Maranatha.Quadrature.BSpline`](@ref).
-
-At present, this dispatch layer enforces the policy that B-spline quadrature is
-supported only for `boundary = :LU_ININ`, i.e. the clamped case.
+Consequently, all rule-family logic (Newton-Cotes, Gauss, B-spline, etc.)
+is encapsulated outside the dispatch layer.
 
 ---
 
 ## Boundary decoding
 
-The helper [`Maranatha.Quadrature.QuadratureDispatch._decode_boundary`](@ref) translates the global boundary selector into
-local endpoint tags for Newton-Cotes assembly:
+The helper [`Maranatha.Quadrature.QuadratureUtils._decode_boundary`](@ref)
+translates the global boundary selector into local endpoint tags used by
+rule-specific backends.
 
-- `:LU_ININ` -> `(:closed, :closed)`
-- `:LU_EXIN` -> `(:opened, :closed)`
-- `:LU_INEX` -> `(:closed, :opened)`
-- `:LU_EXEX` -> `(:opened, :opened)`
-
-This helper is intentionally small, but it plays an important role in keeping the
-boundary convention centralized and consistent across the stack.
+This dispatch layer does not interpret boundary semantics directly, but
+passes the selector to the underlying node generator.
 
 ---
 
@@ -166,14 +122,15 @@ becomes expensive quickly as `dim` grows.
 
 ## Scope notes
 
-This module is intentionally a dispatch-and-accumulation layer only.
+This module is intentionally a tensor-product accumulation layer only.
 
 It does **not**:
 
-- derive quadrature rules itself,
+- construct quadrature nodes or weights,
+- derive quadrature rules,
 - implement adaptive sampling,
 - perform error estimation,
-- apply multithreading,
+- apply multithreading (except via optional sub-dispatch backends),
 - change rule semantics based on the integrand.
 
 All such behavior belongs in other parts of the `Maranatha.jl` stack.

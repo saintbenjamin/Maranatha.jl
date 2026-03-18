@@ -100,7 +100,7 @@ function error_estimate_derivative_jet_4d(
     z̄ = (aa + bb) / 2
     t̄ = (aa + bb) / 2
 
-    xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx

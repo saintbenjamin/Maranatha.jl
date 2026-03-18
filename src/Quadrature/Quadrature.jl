@@ -73,10 +73,9 @@ semantics across the supported backends.
 
 # Public API
 
-Primary entry points:
+Primary entry point:
 
 - [`QuadratureDispatch.quadrature`](@ref)`(...)`
-- [`QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref)`(...)`
 
 # Notes
 
@@ -87,17 +86,23 @@ Primary entry points:
 module Quadrature
 
 import ..LinearAlgebra
+import ..CUDA
+import ..Base.Threads
 
 import ..Utils.JobLoggerTools
 
+include("QuadratureUtils.jl")
 include("NewtonCotes.jl")
 include("Gauss.jl")
 include("BSpline.jl")
+include("QuadratureNodes.jl")
 include("QuadratureDispatch.jl")
 
+using .QuadratureUtils
 using .NewtonCotes
 using .Gauss
 using .BSpline
+using .QuadratureNodes
 using .QuadratureDispatch
 
 end  # module Quadrature

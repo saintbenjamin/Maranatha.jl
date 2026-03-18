@@ -12,6 +12,7 @@ module ErrorGaussRefinement
 
 import ..JobLoggerTools
 import ..Gauss
+import ..QuadratureUtils
 import ..QuadratureDispatch
 
 """
@@ -65,7 +66,7 @@ Validate the basic inputs required by the Gauss refinement estimator.
 This helper performs the common input checks used by the Gauss-family
 refinement-based error-estimation layer. It verifies that the subdivision count
 and dimensionality are valid, confirms that `rule` belongs to the Gauss family,
-and delegates boundary validation to `QuadratureDispatch._decode_boundary`.
+and delegates boundary validation to `QuadratureUtils._decode_boundary`.
 
 # Arguments
 - `N::Int`:
@@ -99,7 +100,7 @@ and delegates boundary validation to `QuadratureDispatch._decode_boundary`.
     (N >= 1)   || JobLoggerTools.error_benji("Need N ≥ 1 (got N=$N)")
     (dim >= 1) || JobLoggerTools.error_benji("dim must be ≥ 1 (got dim=$dim)")
     _require_gauss_rule(rule)
-    QuadratureDispatch._decode_boundary(boundary)
+    QuadratureUtils._decode_boundary(boundary)
     return nothing
 end
 
@@ -157,7 +158,8 @@ dimensionality. The result is converted to `Float64` before being returned.
     N::Int,
     dim::Int,
     rule::Symbol,
-    boundary::Symbol,
+    boundary::Symbol;
+    threaded_subgrid::Bool = false
 )::Float64
     _require_gauss_inputs(N, dim, rule, boundary)
 
@@ -168,7 +170,8 @@ dimensionality. The result is converted to `Float64` before being returned.
         N,
         dim,
         rule,
-        boundary,
+        boundary;
+        threaded_subgrid = threaded_subgrid
     )
 
     return float(q)
@@ -253,7 +256,8 @@ function _estimate_by_refinement_gauss(
     N::Int,
     dim::Int,
     rule::Symbol,
-    boundary::Symbol,
+    boundary::Symbol;
+    threaded_subgrid::Bool = false
 )
     _require_gauss_inputs(N, dim, rule, boundary)
 
@@ -264,10 +268,24 @@ function _estimate_by_refinement_gauss(
     h_fine   = (bb - aa) / (2N)
 
     q_coarse = _quadrature_value_gauss(
-        f, aa, bb, N, dim, rule, boundary
+        f, 
+        aa, 
+        bb, 
+        N, 
+        dim, 
+        rule, 
+        boundary;
+        threaded_subgrid=threaded_subgrid
     )
     q_fine = _quadrature_value_gauss(
-        f, aa, bb, 2N, dim, rule, boundary
+        f, 
+        aa, 
+        bb, 
+        2N, 
+        dim, 
+        rule, 
+        boundary;
+        threaded_subgrid=threaded_subgrid
     )
 
     diff = q_fine - q_coarse
@@ -290,272 +308,6 @@ function _estimate_by_refinement_gauss(
 end
 
 """
-    error_estimate_1d_gauss(
-        f,
-        a::Real,
-        b::Real,
-        N::Int,
-        rule::Symbol,
-        boundary::Symbol,
-    )
-
-Estimate the 1D Gauss-family quadrature error by refinement.
-
-# Function description
-This public helper is the 1D specialization of the Gauss-family
-refinement-based error-estimation interface. It forwards the request to
-[`_estimate_by_refinement_gauss`](@ref) with `dim = 1`.
-
-# Arguments
-- `f`:
-  Scalar integrand callable accepting one positional argument.
-- `a::Real`:
-  Lower integration bound.
-- `b::Real`:
-  Upper integration bound.
-- `N::Int`:
-  Coarse subdivision count.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
-
-# Returns
-- Same named tuple returned by [`_estimate_by_refinement_gauss`](@ref),
-  specialized to `dim = 1`.
-
-# Errors
-- Propagates validation and quadrature-evaluation errors from the internal
-  refinement estimator.
-"""
-function error_estimate_1d_gauss(
-    f,
-    a::Real,
-    b::Real,
-    N::Int,
-    rule::Symbol,
-    boundary::Symbol,
-)
-    return _estimate_by_refinement_gauss(
-        f, a, b, N, 1, rule, boundary
-    )
-end
-
-"""
-    error_estimate_2d_gauss(
-        f,
-        a::Real,
-        b::Real,
-        N::Int,
-        rule::Symbol,
-        boundary::Symbol,
-    )
-
-Estimate the 2D Gauss-family quadrature error by refinement.
-
-# Function description
-This public helper is the 2D specialization of the Gauss-family
-refinement-based error-estimation interface. It forwards the request to
-[`_estimate_by_refinement_gauss`](@ref) with `dim = 2`.
-
-# Arguments
-- `f`:
-  Scalar integrand callable accepting two positional arguments.
-- `a::Real`:
-  Lower integration bound on each axis.
-- `b::Real`:
-  Upper integration bound on each axis.
-- `N::Int`:
-  Coarse subdivision count per axis.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
-
-# Returns
-- Same named tuple returned by [`_estimate_by_refinement_gauss`](@ref),
-  specialized to `dim = 2`.
-
-# Errors
-- Propagates validation and quadrature-evaluation errors from the internal
-  refinement estimator.
-"""
-function error_estimate_2d_gauss(
-    f,
-    a::Real,
-    b::Real,
-    N::Int,
-    rule::Symbol,
-    boundary::Symbol,
-)
-    return _estimate_by_refinement_gauss(
-        f, a, b, N, 2, rule, boundary
-    )
-end
-
-"""
-    error_estimate_3d_gauss(
-        f,
-        a::Real,
-        b::Real,
-        N::Int,
-        rule::Symbol,
-        boundary::Symbol,
-    )
-
-Estimate the 3D Gauss-family quadrature error by refinement.
-
-# Function description
-This public helper is the 3D specialization of the Gauss-family
-refinement-based error-estimation interface. It forwards the request to
-[`_estimate_by_refinement_gauss`](@ref) with `dim = 3`.
-
-# Arguments
-- `f`:
-  Scalar integrand callable accepting three positional arguments.
-- `a::Real`:
-  Lower integration bound on each axis.
-- `b::Real`:
-  Upper integration bound on each axis.
-- `N::Int`:
-  Coarse subdivision count per axis.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
-
-# Returns
-- Same named tuple returned by [`_estimate_by_refinement_gauss`](@ref),
-  specialized to `dim = 3`.
-
-# Errors
-- Propagates validation and quadrature-evaluation errors from the internal
-  refinement estimator.
-"""
-function error_estimate_3d_gauss(
-    f,
-    a::Real,
-    b::Real,
-    N::Int,
-    rule::Symbol,
-    boundary::Symbol,
-)
-    return _estimate_by_refinement_gauss(
-        f, a, b, N, 3, rule, boundary
-    )
-end
-
-"""
-    error_estimate_4d_gauss(
-        f,
-        a::Real,
-        b::Real,
-        N::Int,
-        rule::Symbol,
-        boundary::Symbol,
-    )
-
-Estimate the 4D Gauss-family quadrature error by refinement.
-
-# Function description
-This public helper is the 4D specialization of the Gauss-family
-refinement-based error-estimation interface. It forwards the request to
-[`_estimate_by_refinement_gauss`](@ref) with `dim = 4`.
-
-# Arguments
-- `f`:
-  Scalar integrand callable accepting four positional arguments.
-- `a::Real`:
-  Lower integration bound on each axis.
-- `b::Real`:
-  Upper integration bound on each axis.
-- `N::Int`:
-  Coarse subdivision count per axis.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
-
-# Returns
-- Same named tuple returned by [`_estimate_by_refinement_gauss`](@ref),
-  specialized to `dim = 4`.
-
-# Errors
-- Propagates validation and quadrature-evaluation errors from the internal
-  refinement estimator.
-"""
-function error_estimate_4d_gauss(
-    f,
-    a::Real,
-    b::Real,
-    N::Int,
-    rule::Symbol,
-    boundary::Symbol,
-)
-    return _estimate_by_refinement_gauss(
-        f, a, b, N, 4, rule, boundary
-    )
-end
-
-"""
-    error_estimate_nd_gauss(
-        f,
-        a::Real,
-        b::Real,
-        N::Int,
-        rule::Symbol,
-        boundary::Symbol;
-        dim::Int,
-    )
-
-Estimate the `dim`-dimensional Gauss-family quadrature error by refinement.
-
-# Function description
-This public helper is the generic `nd` specialization of the Gauss-family
-refinement-based error-estimation interface. It forwards the request to
-[`_estimate_by_refinement_gauss`](@ref) with the user-supplied `dim`.
-
-# Arguments
-- `f`:
-  Scalar integrand callable accepting `dim` positional arguments.
-- `a::Real`:
-  Lower integration bound on each axis.
-- `b::Real`:
-  Upper integration bound on each axis.
-- `N::Int`:
-  Coarse subdivision count per axis.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
-
-# Keyword arguments
-- `dim::Int`:
-  Problem dimensionality.
-
-# Returns
-- Same named tuple returned by [`_estimate_by_refinement_gauss`](@ref),
-  specialized to the requested `dim`.
-
-# Errors
-- Propagates validation and quadrature-evaluation errors from the internal
-  refinement estimator.
-"""
-function error_estimate_nd_gauss(
-    f,
-    a::Real,
-    b::Real,
-    N::Int,
-    rule::Symbol,
-    boundary::Symbol;
-    dim::Int,
-)
-    return _estimate_by_refinement_gauss(
-        f, a, b, N, dim, rule, boundary
-    )
-end
-
-"""
     error_estimate_refinement_gauss(
         f,
         a,
@@ -572,12 +324,6 @@ Unified public dispatcher for Gauss-family refinement-based error estimation.
 This function provides the main Gauss-family-specific entry point for the
 refinement-based error-estimation layer. It dispatches to the matching
 dimension-specific specialization:
-
-- `dim == 1` → [`error_estimate_1d_gauss`](@ref)
-- `dim == 2` → [`error_estimate_2d_gauss`](@ref)
-- `dim == 3` → [`error_estimate_3d_gauss`](@ref)
-- `dim == 4` → [`error_estimate_4d_gauss`](@ref)
-- otherwise  → [`error_estimate_nd_gauss`](@ref)
 
 # Arguments
 - `f`:
@@ -616,25 +362,22 @@ function error_estimate_refinement_gauss(
     N,
     dim,
     rule,
-    boundary,
+    boundary;
+    threaded_subgrid::Bool = false
 )
     _require_gauss_rule(rule)
-    QuadratureDispatch._decode_boundary(boundary)
+    QuadratureUtils._decode_boundary(boundary)
 
-    if dim == 1
-        return error_estimate_1d_gauss(f, a, b, N, rule, boundary)
-    elseif dim == 2
-        return error_estimate_2d_gauss(f, a, b, N, rule, boundary)
-    elseif dim == 3
-        return error_estimate_3d_gauss(f, a, b, N, rule, boundary)
-    elseif dim == 4
-        return error_estimate_4d_gauss(f, a, b, N, rule, boundary)
-    else
-        return error_estimate_nd_gauss(
-            f, a, b, N, rule, boundary;
-            dim = dim,
-        )
-    end
+    return _estimate_by_refinement_gauss(
+        f, 
+        a, 
+        b, 
+        N, 
+        dim, 
+        rule, 
+        boundary; 
+        threaded_subgrid=threaded_subgrid
+    )
 end
 
 end  # module ErrorGaussRefinement

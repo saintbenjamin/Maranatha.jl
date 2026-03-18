@@ -14,7 +14,7 @@ import ..JobLoggerTools
 import ..NewtonCotes
 import ..Gauss
 import ..BSpline
-import ..QuadratureDispatch
+import ..QuadratureUtils
 import ..AutoDerivativeDirect
 import ..AutoDerivativeJet
 import ..ErrorNewtonCotesDerivative
@@ -176,7 +176,7 @@ function _leading_residual_terms_any(
     kmax::Int = 128
 )::Tuple{Vector{Int}, Vector{Float64}, Symbol}
 
-    QuadratureDispatch._decode_boundary(boundary)
+    QuadratureUtils._decode_boundary(boundary)
 
     if NewtonCotes._is_newton_cotes_rule(rule)
         # exact rational coefficients from β
@@ -263,7 +263,7 @@ function _leading_residual_ks_with_center_any(
     (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1 (got $nterms)")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0 (got $kmax)")
 
-    QuadratureDispatch._decode_boundary(boundary)
+    QuadratureUtils._decode_boundary(boundary)
     center = :mid
 
     # ------------------------------------------------------------

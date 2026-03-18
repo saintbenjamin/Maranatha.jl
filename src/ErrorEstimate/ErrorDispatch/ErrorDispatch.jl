@@ -65,11 +65,9 @@ Key properties:
 
 ### Derivative-based estimation
 
-Selected when:
-
-```julia
-err_method != :refinement
-```
+Derivative-based estimation is selected when
+`err_method` is set to a derivative backend such as
+`:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, or `:enzyme`.
 
 Two sub-modes exist.
 
@@ -126,7 +124,10 @@ Derivative-based estimators internally use global caches:
 * derivative-jet cache
 
 These caches improve performance for repeated evaluations but are not
-automatically cleared by this module.
+automatically cleared by this module itself.
+
+Cache clearing is typically performed by higher-level orchestration
+code (e.g., the runner) at the start of each dataset construction.
 
 Cache management utilities are provided by the derivative dispatch layer.
 
@@ -170,6 +171,7 @@ import ..JobLoggerTools
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
+import ..Quadrature.QuadratureUtils
 import ..Quadrature.QuadratureDispatch
 import ..ErrorEstimate.AutoDerivative.AutoDerivativeDirect
 import ..ErrorEstimate.AutoDerivative.AutoDerivativeJet
@@ -202,6 +204,7 @@ using .ErrorDispatchRefinement
         nerr_terms::Int = 1,
         use_error_jet::Bool = false,
         λ::Float64 = 0.0,
+        threaded_subgrid::Bool = false
     )
 
 Unified public dispatcher for all supported error-estimation backends.
@@ -256,7 +259,11 @@ The dispatch rule is:
   Selects the jet-based derivative estimator when `err_method != :refinement`.
 - `λ::Float64 = 0.0`:
   Optional smoothing parameter passed through to the refinement backend.
-  This is used only for B-spline refinement rules and is ignored otherwise.
+  This parameter is used only for smoothing B-spline refinement rules
+  and is ignored by all other estimators.
+- `threaded_subgrid::Bool = false`:
+  Enables CPU threaded subgrid execution for refinement-based estimation.
+  Ignored by derivative-based estimators.
 
 # Returns
 - The named tuple returned by the selected backend.
@@ -284,6 +291,7 @@ function error_estimate(
     nerr_terms::Int = 1,
     use_error_jet::Bool = false,
     λ::Float64 = 0.0,
+    threaded_subgrid::Bool = false
 )
     if err_method === :refinement
         return ErrorDispatchRefinement.error_estimate_refinement(
@@ -295,6 +303,7 @@ function error_estimate(
             rule,
             boundary;
             λ = λ,
+            threaded_subgrid=threaded_subgrid
         )
     end
 

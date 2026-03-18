@@ -14,10 +14,10 @@
 `Maranatha.jl` is a numerical framework for **deterministic quadrature-based
 continuum extrapolation** on hypercube domains ``[a,b]^n``.
 
-Instead of relying on stochastic sampling (e.g. Monte Carlo or VEGAS),
-Maranatha evaluates integrals using deterministic quadrature rules across
-multiple resolutions and extrapolates the result to the
-continuum limit ``h → 0`` using least-``χ²`` fitting.
+Rather than stochastic sampling approaches (e.g. Monte Carlo or VEGAS),
+Maranatha focuses on deterministic multi-resolution quadrature and
+model-based continuum extrapolation to the limit ``h → 0``
+using least-``\\chi^2`` fitting.
 
 The framework follows a **pipeline-oriented workflow**:
 
@@ -36,6 +36,10 @@ The package is internally divided into independent submodules:
 - [`Maranatha.Quadrature`](@ref)  
   Multi-dimensional tensor-product quadrature with rule dispatch
   (Newton–Cotes, Gauss-family, B-spline).
+
+  Supports multiple execution backends including
+  serial evaluation, threaded subgrid partitioning,
+  and CUDA-based GPU acceleration.
 
 - [`Maranatha.ErrorEstimate`](@ref)  
   Derivative-based error-scale models derived from rule-family residual
@@ -92,6 +96,8 @@ module Maranatha
 
 import Printf
 import Dates
+import CUDA
+import Base.Threads
 import Statistics
 import LinearAlgebra
 import TaylorSeries

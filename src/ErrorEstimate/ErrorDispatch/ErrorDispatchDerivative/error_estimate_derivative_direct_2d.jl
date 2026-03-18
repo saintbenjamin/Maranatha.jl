@@ -93,7 +93,7 @@ function error_estimate_derivative_direct_2d(
     x̄ = (aa + bb) / 2
     ȳ = (aa + bb) / 2
 
-    xs, wx = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     ks, coeffs, _center = _get_residual_model_fixed(
         rule, boundary, N;

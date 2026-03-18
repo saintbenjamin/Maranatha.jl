@@ -56,57 +56,63 @@ makedocs(
     linkcheck = "linkcheck" in ARGS,
     linkcheck_ignore = linkcheck_ignore,
     pages = [
-        "Home"                               => "index.md",
-        "Runner"                             => "lib/Runner/Runner.md",
-        "Quadrature"                         => Any[
-            "Quadrature"                     => "lib/Quadrature/Quadrature.md",
-            "QuadratureDispatch"             => "lib/Quadrature/QuadratureDispatch.md",
-            "BSpline"                        => "lib/Quadrature/BSpline.md",
-            "Gauss"                          => "lib/Quadrature/Gauss.md",
-            "NewtonCotes"                    => "lib/Quadrature/NewtonCotes.md",
+        "Home"                                      => "index.md",
+        "Runner"                                    => "lib/Runner/Runner.md",
+        "Quadrature"                                => Any[
+            "Quadrature"                            => "lib/Quadrature/Quadrature.md",
+            "QuadratureUtils"                       => "lib/Quadrature/QuadratureUtils.md",
+            "QuadratureNodes"                       => "lib/Quadrature/QuadratureNodes.md",
+            "QuadratureDispatch"                    => Any[
+                "QuadratureDispatch"                => "lib/Quadrature/QuadratureDispatch.md",
+                "QuadratureDispatchCUDA"            => "lib/Quadrature/QuadratureDispatch/QuadratureDispatchCUDA.md",
+                "QuadratureDispatchThreadedSubgrid" => "lib/Quadrature/QuadratureDispatch/QuadratureDispatchThreadedSubgrid.md",
+            ],
+            "BSpline"                               => "lib/Quadrature/BSpline.md",
+            "Gauss"                                 => "lib/Quadrature/Gauss.md",
+            "NewtonCotes"                           => "lib/Quadrature/NewtonCotes.md",
         ],
-        "ErrorEstimate"                      => Any[
-            "ErrorEstimate"                  => "lib/ErrorEstimate/ErrorEstimate.md",
-            "AutoDerivative"                 => Any[
-                "AutoDerivative"             => "lib/ErrorEstimate/AutoDerivative/AutoDerivative.md",
-                "AutoDerivativeDirect"       => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect.md",
-                "AutoDerivativeJet"          => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet.md",
+        "ErrorEstimate"                             => Any[
+            "ErrorEstimate"                         => "lib/ErrorEstimate/ErrorEstimate.md",
+            "AutoDerivative"                        => Any[
+                "AutoDerivative"                    => "lib/ErrorEstimate/AutoDerivative/AutoDerivative.md",
+                "AutoDerivativeDirect"              => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect.md",
+                "AutoDerivativeJet"                 => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet.md",
             ],
-            "ErrorDispatch"                  => Any[
-                "ErrorDispatch"              => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatch.md",
-                "ErrorDispatchDerivative"    => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative.md",
-                "ErrorDispatchRefinement"    => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatchRefinement.md",
+            "ErrorDispatch"                         => Any[
+                "ErrorDispatch"                     => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatch.md",
+                "ErrorDispatchDerivative"           => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative.md",
+                "ErrorDispatchRefinement"           => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatchRefinement.md",
             ],
-            "ErrorBSpline"                   => Any[
-                "ErrorBSpline"               => "lib/ErrorEstimate/ErrorBSpline/ErrorBSpline.md",
-                "ErrorBSplineDerivative"     => "lib/ErrorEstimate/ErrorBSpline/ErrorBSplineDerivative.md",
-                "ErrorBSplineRefinement"     => "lib/ErrorEstimate/ErrorBSpline/ErrorBSplineRefinement.md",
+            "ErrorBSpline"                          => Any[
+                "ErrorBSpline"                      => "lib/ErrorEstimate/ErrorBSpline/ErrorBSpline.md",
+                "ErrorBSplineDerivative"            => "lib/ErrorEstimate/ErrorBSpline/ErrorBSplineDerivative.md",
+                "ErrorBSplineRefinement"            => "lib/ErrorEstimate/ErrorBSpline/ErrorBSplineRefinement.md",
             ],
-            "ErrorGauss"                     => Any[
-                "ErrorGauss"                 => "lib/ErrorEstimate/ErrorGauss/ErrorGauss.md",
-                "ErrorGaussDerivative"       => "lib/ErrorEstimate/ErrorGauss/ErrorGaussDerivative.md",
-                "ErrorGaussRefinement"       => "lib/ErrorEstimate/ErrorGauss/ErrorGaussRefinement.md",
+            "ErrorGauss"                            => Any[
+                "ErrorGauss"                        => "lib/ErrorEstimate/ErrorGauss/ErrorGauss.md",
+                "ErrorGaussDerivative"              => "lib/ErrorEstimate/ErrorGauss/ErrorGaussDerivative.md",
+                "ErrorGaussRefinement"              => "lib/ErrorEstimate/ErrorGauss/ErrorGaussRefinement.md",
             ],
-            "ErrorNewtonCotes"               => Any[
-                "ErrorNewtonCotes"           => "lib/ErrorEstimate/ErrorNewtonCotes/ErrorNewtonCotes.md",
-                "ErrorNewtonCotesDerivative" => "lib/ErrorEstimate/ErrorNewtonCotes/ErrorNewtonCotesDerivative.md",
-                "ErrorNewtonCotesRefinement" => "lib/ErrorEstimate/ErrorNewtonCotes/ErrorNewtonCotesRefinement.md",
+            "ErrorNewtonCotes"                      => Any[
+                "ErrorNewtonCotes"                  => "lib/ErrorEstimate/ErrorNewtonCotes/ErrorNewtonCotes.md",
+                "ErrorNewtonCotesDerivative"        => "lib/ErrorEstimate/ErrorNewtonCotes/ErrorNewtonCotesDerivative.md",
+                "ErrorNewtonCotesRefinement"        => "lib/ErrorEstimate/ErrorNewtonCotes/ErrorNewtonCotesRefinement.md",
             ],
         ],
-        "LeastChiSquareFit"                  => "lib/LeastChiSquareFit/LeastChiSquareFit.md",
-        "Integrands"                         => "lib/Integrands/Integrands.md",
-        "Documentation"                      => Any[
-            "Documentation"                  => "lib/Documentation/Documentation.md",
-            "PlotTools"                      => "lib/Documentation/PlotTools.md",
-            "Reporter"                       => "lib/Documentation/Reporter.md",
+        "LeastChiSquareFit"                         => "lib/LeastChiSquareFit/LeastChiSquareFit.md",
+        "Integrands"                                => "lib/Integrands/Integrands.md",
+        "Documentation"                             => Any[
+            "Documentation"                         => "lib/Documentation/Documentation.md",
+            "PlotTools"                             => "lib/Documentation/PlotTools.md",
+            "Reporter"                              => "lib/Documentation/Reporter.md",
         ],
-        "Utils"                              => Any[
-            "Utils"                          => "lib/Utils/Utils.md",
-            "AvgErrFormatter"                => "lib/Utils/AvgErrFormatter.md",
-            "JobLoggerTools"                 => "lib/Utils/JobLoggerTools.md",
-            "MaranathaIO"                    => "lib/Utils/MaranathaIO.md",
-            "MaranathaTOML"                  => "lib/Utils/MaranathaTOML.md",
-            "Wizard"                         => "lib/Utils/Wizard.md",
+        "Utils"                                     => Any[
+            "Utils"                                 => "lib/Utils/Utils.md",
+            "AvgErrFormatter"                       => "lib/Utils/AvgErrFormatter.md",
+            "JobLoggerTools"                        => "lib/Utils/JobLoggerTools.md",
+            "MaranathaIO"                           => "lib/Utils/MaranathaIO.md",
+            "MaranathaTOML"                         => "lib/Utils/MaranathaTOML.md",
+            "Wizard"                                => "lib/Utils/Wizard.md",
         ]
     ],
     checkdocs = :none,

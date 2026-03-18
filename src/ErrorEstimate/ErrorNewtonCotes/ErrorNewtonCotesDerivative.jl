@@ -12,7 +12,7 @@ module ErrorNewtonCotesDerivative
 
 import ..JobLoggerTools
 import ..NewtonCotes
-import ..QuadratureDispatch
+import ..QuadratureUtils
 
 # ----------------------------
 # helper: collect first nonzero midpoint residual term
@@ -138,7 +138,7 @@ function _leading_midpoint_residual_term(
 )::Tuple{Int, NewtonCotes.RBig}
 
     # boundary validation (also catches typos early)
-    QuadratureDispatch._decode_boundary(boundary)
+    QuadratureUtils._decode_boundary(boundary)
 
     NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji("midpoint residual model currently expects :newton_pK rules (got rule=$rule)")
 
@@ -340,7 +340,7 @@ function _leading_midpoint_residual_terms(
 )::Tuple{Vector{Int}, Vector{NewtonCotes.RBig}}
 
     # Validate boundary symbol (also catches typos early)
-    QuadratureDispatch._decode_boundary(boundary)
+    QuadratureUtils._decode_boundary(boundary)
 
     # This residual construction currently assumes ns rules
     NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji(

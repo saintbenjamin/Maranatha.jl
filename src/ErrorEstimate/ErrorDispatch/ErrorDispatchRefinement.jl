@@ -11,8 +11,8 @@
 module ErrorDispatchRefinement
 
 import ..JobLoggerTools
-import ..Gauss
 import ..NewtonCotes
+import ..Gauss
 import ..BSpline
 import ..ErrorGaussRefinement
 import ..ErrorNewtonCotesRefinement
@@ -87,20 +87,43 @@ raised.
     rule,
     boundary;
     λ::Float64 = 0.0,
+    threaded_subgrid::Bool = false
 )
     if Gauss._is_gauss_rule(rule)
         return ErrorGaussRefinement.error_estimate_refinement_gauss(
-            f, a, b, N, dim, rule, boundary
+            f, 
+            a, 
+            b, 
+            N, 
+            dim, 
+            rule, 
+            boundary;
+            threaded_subgrid=threaded_subgrid
         )
 
     elseif NewtonCotes._is_newton_cotes_rule(rule)
         return ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes(
-            f, a, b, N, dim, rule, boundary
+            f, 
+            a, 
+            b, 
+            N, 
+            dim, 
+            rule, 
+            boundary;
+            threaded_subgrid=threaded_subgrid
         )
 
     elseif BSpline._is_bspline_rule(rule)
         return ErrorBSplineRefinement.error_estimate_refinement_bspline(
-            f, a, b, N, dim, rule, boundary; λ=λ
+            f, 
+            a, 
+            b, 
+            N, 
+            dim, 
+            rule, 
+            boundary; 
+            λ=λ,
+            threaded_subgrid=threaded_subgrid
         )
 
     else
@@ -120,6 +143,7 @@ end
         rule,
         boundary;
         λ::Float64 = 0.0,
+        threaded_subgrid::Bool = false
     )
 
 Unified public dispatcher for refinement-based error estimation across all
@@ -179,9 +203,18 @@ function error_estimate_refinement(
     rule,
     boundary;
     λ::Float64 = 0.0,
+    threaded_subgrid::Bool = false
 )
     return _dispatch_refinement(
-        f, a, b, N, dim, rule, boundary; λ=λ
+        f, 
+        a, 
+        b, 
+        N, 
+        dim, 
+        rule, 
+        boundary; 
+        λ=λ,
+        threaded_subgrid
     )
 end
 

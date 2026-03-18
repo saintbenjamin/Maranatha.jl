@@ -107,6 +107,18 @@ When a derivative-based estimator is selected, it may further use a jet-based
 derivative path for improved performance. These are implementation details and
 do not change the external API.
 
+### Execution backend selection
+
+`run_Maranatha` automatically selects the quadrature execution backend:
+
+- **CUDA backend** is used when `use_cuda = true`.
+- **Threaded subgrid backend** is used when
+  `use_cuda = false` and Julia is started with multiple threads.
+- Otherwise, serial execution is used.
+
+The number of CPU threads is controlled by the environment variable
+`JULIA_NUM_THREADS`, which must be set before starting Julia.
+
 ---
 
 ## [`TOML`](https://toml.io/en/)-based usage
@@ -162,6 +174,10 @@ using Maranatha
 
 run_result = run_Maranatha("./sample_1d.toml")
 ```
+
+The execution backend is determined by runtime settings.
+CUDA execution requires explicit enabling in the API, while CPU
+parallelism depends on the number of Julia threads.
 
 ---
 

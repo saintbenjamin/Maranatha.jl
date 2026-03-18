@@ -67,6 +67,15 @@ The quadrature core uses an **exact-moment / Taylor-expansion-based
 construction** which enables a unified implementation of general
 multi-point composite Newton–Cotes rules.
 
+The quadrature layer supports multiple execution backends:
+
+- **Serial evaluation** (default)
+- **Threaded subgrid partitioning** for multi-core CPUs
+- **CUDA-based GPU acceleration** for massively parallel workloads
+
+The backend is selected automatically based on configuration
+options and hardware availability.
+
 ---
 
 ### Error modeling
@@ -286,6 +295,20 @@ plot_convergence_result(
     save_file = true
 )
 ```
+
+---
+
+### Execution backend selection
+
+Execution backend is determined as follows:
+
+- **CUDA backend** is used when `use_cuda = true`.
+- **Threaded subgrid backend** is used when
+  `use_cuda = false` and Julia is started with multiple threads.
+- Otherwise, serial execution is used.
+
+The number of CPU threads is controlled by the environment variable
+`JULIA_NUM_THREADS` set before starting Julia.
 
 ---
 

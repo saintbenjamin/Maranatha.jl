@@ -115,6 +115,7 @@ module ErrorNewtonCotes
 
 import ..JobLoggerTools
 import ..Quadrature.NewtonCotes
+import ..Quadrature.QuadratureUtils
 import ..Quadrature.QuadratureDispatch
 
 include("ErrorNewtonCotesDerivative.jl")

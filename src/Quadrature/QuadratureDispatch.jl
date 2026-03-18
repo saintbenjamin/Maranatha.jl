@@ -10,175 +10,366 @@
 
 module QuadratureDispatch
 
+import ..CUDA
+import ..Base.Threads
+
 import ..JobLoggerTools
-import ..Quadrature.NewtonCotes
-import ..Quadrature.Gauss
-import ..Quadrature.BSpline
+import ..QuadratureUtils
+import ..QuadratureNodes
+
+include("QuadratureDispatch/QuadratureDispatchThreadedSubgrid.jl")
+include("QuadratureDispatch/QuadratureDispatchCUDA.jl")
+
+using .QuadratureDispatchThreadedSubgrid
+using .QuadratureDispatchCUDA
 
 """
-    _decode_boundary(
-        boundary::Symbol
-    ) -> Tuple{Symbol,Symbol}
+    quadrature_1d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule,
+        boundary
+    ) -> Float64
 
-Decode a composite boundary selector into left/right local endpoint kinds.
+Evaluate a ``1``-dimensional quadrature over ``[a,b]``.
 
 # Function description
-This helper maps the global boundary pattern into a pair of local endpoint tags
-used by the Newton-Cotes composite assembly:
+This routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and computes:
+```math
+\\sum_i w_i f(x_i).
+```
 
-- `:closed` means the local block includes the endpoint node.
-- `:opened` means the local block uses the shifted open-type construction.
-
-Supported patterns are:
-
-- `:LU_ININ` -> `(:closed, :closed)`
-- `:LU_EXIN` -> `(:opened, :closed)`
-- `:LU_INEX` -> `(:closed, :opened)`
-- `:LU_EXEX` -> `(:opened, :opened)`
+Rule-specific validation is centralized in the node/weight generator.
 
 # Arguments
+- `f`: Integrand callable ``f(x)``.
+- `a`, `b`: Integration bounds.
+- `N`: Number of intervals / blocks.
+- `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol.
 
 # Returns
-- `Tuple{Symbol,Symbol}`: `(Ltype, Rtype)`, each equal to `:closed` or `:opened`.
+- `Float64`: Estimated integral value.
 
 # Errors
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `boundary` is not one of
-  `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, or `:LU_EXEX`.
+- Propagates any error thrown by
+  [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
 """
-@inline function _decode_boundary(
-    boundary::Symbol
+function quadrature_1d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule,
+    boundary;
+    λ::Float64 = 0.0
 )
-    if boundary === :LU_ININ
-        return (:closed, :closed)
-    elseif boundary === :LU_EXIN
-        return (:opened, :closed)
-    elseif boundary === :LU_INEX
-        return (:closed, :opened)
-    elseif boundary === :LU_EXEX
-        return (:opened, :opened)
-    else
-        JobLoggerTools.error_benji("boundary must be one of: :LU_ININ | :LU_EXIN | :LU_INEX | :LU_EXEX (got $boundary)")
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+
+    total = 0.0
+    @inbounds for j in eachindex(xs)
+        iszero(ws[j]) && continue
+        val = f(xs[j])
+        total += ws[j] * val
     end
+    return total
 end
 
 """
-    get_quadrature_1d_nodes_weights(
-        a::Real,
-        b::Real,
-        N::Int,
-        rule::Symbol,
-        boundary::Symbol
-    ) -> (xs, ws)
+    quadrature_2d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule,
+        boundary
+    ) -> Float64
 
-Construct ``1``-dimensional quadrature nodes and weights on ``[a,b]`` for a
-rule-dispatched quadrature backend.
+Evaluate a ``2``-dimensional tensor-product quadrature over ``[a,b] \\times [a,b]``.
 
 # Function description
-This routine is the public node/weight generator used by the tensor-product
-quadrature drivers. It dispatches to the appropriate backend according to
-`rule`.
-
-Supported rule families:
-
-- `:newton_p*` -> exact-rational composite Newton-Cotes assembly
-- `:gauss_p*` -> composite Gauss-family rules
-- `:bspline_*` -> spline-based quadrature rules
-
-For Newton-Cotes rules, the routine parses `p`, retrieves the composite
-coefficient vector ``\\beta``, generates uniform nodes on ``[a,b]``, and forms
-weights ``w_j = \\beta_j h`` with ``h = \\dfrac{b-a}{N}``.
-
-For Gauss-family rules, the routine delegates to the composite Gauss backend,
-which applies the requested family blockwise.
-
-For B-spline rules, the routine delegates to the spline backend. At present,
-these rules are restricted to `boundary = :LU_ININ`.
+# Function description
+This routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
+the tensor-product sum:
+```math
+\\sum_i \\sum_j w_i w_j f(x_i, y_j).
+```
 
 # Arguments
-- `a`, `b`: Lower and upper bounds of the interval.
-- `N`: Number of composite blocks / subintervals (``N \\ge 1``).
-- `rule`: Quadrature rule symbol.
-- `boundary`: Boundary pattern selector.
+- `f`: Integrand callable ``f(x, y)``.
+- `a`, `b`: Bounds used on both axes.
+- `N`: Number of intervals / blocks per axis.
+- `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol.
 
 # Returns
-- `xs::Vector{Float64}`: Quadrature nodes on ``[a,b]``.
-- `ws::Vector{Float64}`: Corresponding quadrature weights.
+- `Float64`: Estimated integral value.
 
 # Errors
-- Throws `ArgumentError` if ``N < 1``.
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if the boundary is invalid,
-  if rule-specific constraints fail, or if `rule` is unsupported.
+- Propagates any error thrown by
+  [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
 """
-function get_quadrature_1d_nodes_weights(
-    a::Real,
-    b::Real,
-    N::Int,
-    rule::Symbol,
-    boundary::Symbol
-)::Tuple{Vector{Float64}, Vector{Float64}}
+function quadrature_2d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule,
+    boundary;
+    λ::Float64 = 0.0
+)
 
-    N >= 1 || throw(ArgumentError("N must be ≥ 1"))
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    ys, wy = xs, wx   # same bounds
 
-    # boundary validation early
-    _decode_boundary(boundary)
+    total = 0.0
 
-    # --- composite Newton-Cotes branch ---
-    if NewtonCotes._is_newton_cotes_rule(rule)
-        p = NewtonCotes._parse_newton_p(rule)
-        β = NewtonCotes._get_beta_float(p, boundary, N)
-
-        aa = Float64(a)
-        bb = Float64(b)
-        h = (bb - aa) / Float64(N)
-
-        xs = collect(range(aa, bb; length=N+1))
-        ws = Vector{Float64}(undef, N+1)
-        @inbounds for j in 0:N
-            ws[j+1] = β[j+1] * h
-        end
-        return xs, ws
-    end
-
-    # --- composite Gauss branch ---
-    if Gauss._is_gauss_rule(rule)
-        npts = Gauss._parse_gauss_p(rule)  # points per block
-        return Gauss._composite_gauss_nodes_weights(a, b, N, npts, boundary)
-    end
-
-    # --- composite B-SPLINE branch ---
-    if BSpline._is_bspline_rule(rule)
-        # Policy: B-spline rules support only clamped boundary for now
-        if boundary !== :LU_ININ
-            JobLoggerTools.error_benji(
-                "B-spline rules currently support only boundary=:LU_ININ (clamped). " *
-                "Got boundary=$boundary for rule=$rule."
-            )
-        end
-
-        p = BSpline._parse_bspline_p(rule)
-        kind = BSpline._bspline_kind(rule)  # :interp or :smooth
-
-        # NOTE: smoothing λ is fixed to 0.0 for now (pure interpolation-like),
-        #       will be wired as a user option later.
-        if kind === :interp
-            return BSpline.bspline_nodes_weights(a, b, N, p, boundary; kind=:interp)
-        else
-            return BSpline.bspline_nodes_weights(a, b, N, p, boundary; kind=:smooth, λ=0.0)
+    @inbounds for i in eachindex(xs)
+        xi = xs[i]
+        wi = wx[i]
+        for j in eachindex(ys)
+            w = wi * wy[j]
+            iszero(w) && continue
+            val = f(xi, ys[j])
+            total += w * val
         end
     end
 
-    # ------------------------------------------------------------
-    # FALLBACK: other legacy rules (if any)
-    # ------------------------------------------------------------
-    JobLoggerTools.error_benji("Unsupported rule=$rule.")
+    return total
 end
 
-include("QuadratureDispatch/quadrature_1d.jl")
-include("QuadratureDispatch/quadrature_2d.jl")
-include("QuadratureDispatch/quadrature_3d.jl")
-include("QuadratureDispatch/quadrature_4d.jl")
-include("QuadratureDispatch/quadrature_nd.jl")
+"""
+    quadrature_3d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule,
+        boundary
+    ) -> Float64
+
+Evaluate a ``3``-dimensional tensor-product quadrature over ``[a,b]^3``.
+
+# Function description
+This routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
+the tensor-product sum:
+```math
+\\sum_i \\sum_j \\sum_k w_i w_j w_k f(x_i, y_j, z_k).
+```
+
+# Arguments
+- `f`: Integrand callable ``f(x, y, z)``.
+- `a`, `b`: Bounds used on all axes.
+- `N`: Number of intervals / blocks per axis.
+- `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol.
+
+# Returns
+- `Float64`: Estimated integral value.
+
+# Errors
+- Propagates any error thrown by
+  [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
+"""
+function quadrature_3d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule,
+    boundary;
+    λ::Float64 = 0.0
+)
+
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    ys, wy = xs, wx
+    zs, wz = xs, wx
+
+    total = 0.0
+
+    @inbounds for i in eachindex(xs)
+        xi = xs[i]
+        wi = wx[i]
+        for j in eachindex(ys)
+            yj = ys[j]
+            wij = wi * wy[j]
+            for k in eachindex(zs)
+                w = wij * wz[k]
+                iszero(w) && continue
+                val = f(xi, yj, zs[k])
+                total += w * val
+            end
+        end
+    end
+
+    return total
+end
+
+"""
+    quadrature_4d(
+        f, 
+        a, 
+        b, 
+        N, 
+        rule,
+        boundary
+    ) -> Float64
+
+Evaluate a ``4``-dimensional tensor-product quadrature over ``[a,b]^4``.
+
+# Function description
+This routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
+the tensor-product sum:
+```math
+\\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell f(x_i, y_j, z_k, t_\\ell) \\, .
+```
+
+# Arguments
+- `f`: Integrand callable ``f(x, y, z, t)``.
+- `a`, `b`: Bounds used on all axes.
+- `N`: Number of intervals / blocks per axis.
+- `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol.
+
+# Returns
+- `Float64`: Estimated integral value.
+
+# Errors
+- Propagates any error thrown by
+  [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
+"""
+function quadrature_4d(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule,
+    boundary;
+    λ::Float64 = 0.0
+)
+
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    ys, wy = xs, wx
+    zs, wz = xs, wx
+    ts, wt = xs, wx
+
+    total = 0.0
+    @inbounds for i in eachindex(xs)
+        xi = xs[i]
+        wi = wx[i]
+        for j in eachindex(ys)
+            yj = ys[j]
+            wij = wi * wy[j]
+            for k in eachindex(zs)
+                zk = zs[k]
+                wijk = wij * wz[k]
+                for l in eachindex(ts)
+                    w = wijk * wt[l]
+                    iszero(w) && continue
+                    val = f(xi, yj, zk, ts[l])
+                    total += w * val
+                end
+            end
+        end
+    end
+    return total
+end
+
+"""
+    quadrature_nd(
+        f,
+        a,
+        b,
+        N,
+        rule,
+        boundary;
+        dim::Int
+    ) -> Float64
+
+Perform a general tensor-product quadrature over ``[a,b]^{\\texttt{dim}}``.
+
+# Function description
+This routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`, then
+enumerates all tensor-product index tuples with an odometer-style update.
+
+For each multi-index ``(i_1, \\ldots, i_{\\texttt{dim}})``, it forms the weight
+product and evaluates the integrand as ``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})`` using splatting.
+
+# Arguments
+- `f`: Integrand callable accepting `dim` scalar arguments.
+- `a`, `b`: Bounds defining the hypercube ``[a,b]^{\\texttt{dim}}``.
+- `N`: Number of subdivisions / blocks per axis.
+- `rule`: Integration rule symbol.
+- `boundary`: Boundary pattern symbol.
+- `dim`: Number of dimensions.
+
+# Returns
+- `Float64`: Estimated integral value.
+
+# Errors
+- Throws `ArgumentError` if ``\\texttt{dim} < 1``.
+- Propagates any error thrown by
+  [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
+- Propagates any error thrown by `f`.
+"""
+function quadrature_nd(
+    f, 
+    a, 
+    b, 
+    N, 
+    rule,
+    boundary;
+    dim::Int,
+    λ::Float64 = 0.0
+)
+    dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
+
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+
+    # Multi-index over axes (1-based)
+    idx = ones(Int, dim)
+
+    total = 0.0
+    args = Vector{Float64}(undef, dim)
+
+    @inbounds while true
+        wprod = 1.0
+        for d in 1:dim
+            i = idx[d]
+            args[d] = xs[i]
+            wprod *= ws[i]
+        end
+
+        # Call f(x1, x2, ..., x_dim)
+        iszero(wprod) || (total += wprod * f(args...))
+
+        # Increment odometer-style index
+        d = dim
+        while d >= 1
+            idx[d] += 1
+            if idx[d] <= length(xs)
+                break
+            else
+                idx[d] = 1
+                d -= 1
+            end
+        end
+        d == 0 && break
+    end
+
+    return total
+end
 
 """
     quadrature(
@@ -196,8 +387,8 @@ Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
 # Function description
 This is the unified integration dispatcher for the quadrature layer.
 
-It first builds the underlying ``1``-dimensional nodes and weights through
-[`get_quadrature_1d_nodes_weights`](@ref), then chooses a dimension-specific
+It obtains the underlying ``1``-dimensional nodes and weights via
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref), then chooses a dimension-specific
 tensor-product evaluator:
 
 - [`quadrature_1d`](@ref) for `dim == 1`
@@ -227,24 +418,53 @@ hypercube ``[a,b]^{\\texttt{dim}}``.
 - Propagates any error thrown by `integrand`.
 """
 function quadrature(
-    integrand, 
-    a, 
-    b, 
-    N, 
-    dim, 
+    integrand,
+    a,
+    b,
+    N,
+    dim,
     rule,
-    boundary
+    boundary;
+    λ::Float64 = 0.0,
+    use_cuda::Bool = false,
+    threaded_subgrid::Bool = false,
 )
+    if use_cuda
+        return QuadratureDispatchCUDA.quadrature_cuda(
+            integrand,
+            a,
+            b,
+            N,
+            rule,
+            boundary;
+            dim = dim,
+            λ=λ
+        )
+    end
+
+    if threaded_subgrid
+        return QuadratureDispatchThreadedSubgrid.quadrature_threaded_subgrid(
+            integrand,
+            a,
+            b,
+            N,
+            rule,
+            boundary;
+            dim = dim,
+            λ=λ
+        )
+    end
+
     if dim == 1
-        return quadrature_1d(integrand, a, b, N, rule, boundary)
+        return quadrature_1d(integrand, a, b, N, rule, boundary; λ=λ)
     elseif dim == 2
-        return quadrature_2d(integrand, a, b, N, rule, boundary)
+        return quadrature_2d(integrand, a, b, N, rule, boundary; λ=λ)
     elseif dim == 3
-        return quadrature_3d(integrand, a, b, N, rule, boundary)
+        return quadrature_3d(integrand, a, b, N, rule, boundary; λ=λ)
     elseif dim == 4
-        return quadrature_4d(integrand, a, b, N, rule, boundary)
+        return quadrature_4d(integrand, a, b, N, rule, boundary; λ=λ)
     else
-        return quadrature_nd(integrand, a, b, N, rule, boundary; dim=dim)
+        return quadrature_nd(integrand, a, b, N, rule, boundary; λ=λ, dim = dim)
     end
 end
 

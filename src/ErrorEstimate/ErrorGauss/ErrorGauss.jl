@@ -117,6 +117,7 @@ module ErrorGauss
 
 import ..JobLoggerTools
 import ..Quadrature.Gauss
+import ..Quadrature.QuadratureUtils
 import ..Quadrature.QuadratureDispatch
 
 include("ErrorGaussDerivative.jl")

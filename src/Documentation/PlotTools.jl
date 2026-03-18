@@ -38,7 +38,7 @@ import ..MaranathaTOML
 import ..NewtonCotes
 import ..Gauss
 import ..BSpline
-import ..QuadratureDispatch
+import ..QuadratureNodes
 
 include("PlotTools/set_pyplot_latex_style.jl")
 include("PlotTools/_smart_text_placement.jl")

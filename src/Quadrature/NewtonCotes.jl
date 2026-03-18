@@ -11,7 +11,7 @@
 module NewtonCotes
 
 import ..JobLoggerTools
-import ..Quadrature
+import ..Quadrature.QuadratureUtils
 
 # ============================================================
 # Composite Newton–Cotes via exact rational assembly
@@ -267,7 +267,7 @@ function _check_condition(
     p >= 2 || JobLoggerTools.error_benji("p must be ≥ 2")
     Nsub >= 1 || JobLoggerTools.error_benji("Nsub must be ≥ 1")
 
-    Ltype, Rtype = Quadrature.QuadratureDispatch._decode_boundary(boundary)
+    Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
 
     wL = _local_width(p, Ltype)
     wR = _local_width(p, Rtype)
@@ -336,7 +336,7 @@ function _assemble_composite_beta_rational(
     Nsub::Int
 )::Vector{RBig}
     m, wL, wR = _check_condition(p, boundary, Nsub)
-    Ltype, Rtype = Quadrature.QuadratureDispatch._decode_boundary(boundary)
+    Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
 
     if p >= 9
         @warn "p=$p is high; NC weights can get enormous (exact rational). May become slow/heavy."
@@ -546,7 +546,7 @@ a valid Newton-Cotes composite tiling.
 # Errors
 
 * Propagates boundary-validation errors from
-  `Quadrature.QuadratureDispatch._decode_boundary`.
+  `QuadratureUtils._decode_boundary`.
 * Propagates errors from [`_local_width`](@ref) if the decoded local block type
   is invalid.
 
@@ -564,7 +564,7 @@ function _nearest_valid_Nsub(
     boundary::Symbol, 
     Nsub::Int
 )
-    Ltype, Rtype = Quadrature.QuadratureDispatch._decode_boundary(boundary)
+    Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
 
     wL = _local_width(p, Ltype)
     wR = _local_width(p, Rtype)

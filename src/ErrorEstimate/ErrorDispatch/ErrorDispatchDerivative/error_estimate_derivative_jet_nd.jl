@@ -104,7 +104,7 @@ function error_estimate_derivative_jet_nd(
 
     x̄ = (aa + bb) / 2
 
-    xs, ws = QuadratureDispatch.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
 
     @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)

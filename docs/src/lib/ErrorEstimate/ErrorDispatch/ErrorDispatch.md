@@ -74,14 +74,15 @@ expensive or non-smooth integrands.
 
 ## Public entry points
 
-The most commonly used interfaces include:
+The primary public interface is:
 
-- `error_estimate_derivative_direct`
-- `error_estimate_derivative_jet`
-- `error_estimate_refinement`
+- `error_estimate`
 
-These functions are typically invoked indirectly by higher-level workflows such
-as `run_Maranatha`.
+Additional functions such as
+`error_estimate_derivative_direct`,
+`error_estimate_derivative_jet`,
+and `error_estimate_refinement`
+serve as backend implementations and are typically not called directly.
 
 ---
 

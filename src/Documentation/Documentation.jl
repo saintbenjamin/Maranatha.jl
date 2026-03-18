@@ -39,7 +39,7 @@ import ..Utils.MaranathaTOML
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
-import ..Quadrature.QuadratureDispatch
+import ..Quadrature.QuadratureNodes
 
 include("PlotTools.jl")
 include("Reporter.jl")

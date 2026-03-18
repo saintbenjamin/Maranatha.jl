@@ -96,7 +96,7 @@ function plot_quadrature_coverage_1d(
     (is_ns || is_gaus || is_bs) || JobLoggerTools.error_benji("Unsupported rule family: rule=$rule")
 
     # Build global nodes/weights (single source of truth)
-    xs, ws = QuadratureDispatch.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary)
     (length(xs) == length(ws)) || JobLoggerTools.error_benji("Internal: xs/ws length mismatch")
 
     # -------------------------------

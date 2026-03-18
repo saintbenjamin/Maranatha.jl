@@ -83,7 +83,7 @@ Boundary selection controls endpoint clamping behavior.
 Provides the unified interface for node/weight generation and tensor-product
 integration:
 
-- [`Maranatha.Quadrature.QuadratureDispatch.get_quadrature_1d_nodes_weights`](@ref)
+- [`Maranatha.Quadrature.QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)
 - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_1d`](@ref)
 - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_2d`](@ref)
 - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_3d`](@ref)
