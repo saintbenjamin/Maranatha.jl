@@ -89,8 +89,8 @@ end
 
 """
     least_chi_square_fit(
-        a::Real,
-        b::Real,
+        a,
+        b,
         hs,
         estimates,
         error_infos,
@@ -117,10 +117,25 @@ single `:estimate` field).
 # Arguments
 
 * `a`, `b`:
-  Integration bounds, used to infer a representative subdivision count from the
-  smallest step size in `hs`.
+  Integration bounds used to infer a representative subdivision count from the
+  largest step size in `hs`.
+
+  Two domain conventions are supported:
+
+  - **Scalar bounds**:
+    if `a` and `b` are real scalars, the fitter interprets the domain as an
+    isotropic interval product and uses `abs(b - a)` as the representative span.
+
+  - **Axis-wise bounds**:
+    if `a` and `b` are tuples, the fitter uses `maximum(abs.(b .- a))` as a
+    scalar representative span when reconstructing `Nref` for residual-power
+    inference.
 * `hs`:
   Step-size collection.
+
+  This is expected to be the scalar step-size proxy used by downstream fitting.
+  In rectangular-domain workflows, this is typically the L2 norm of the
+  per-axis step tuple produced by [`Maranatha.Runner.run_Maranatha`](@ref).
 * `estimates`:
   Quadrature estimates corresponding to `hs`.
 * `error_infos`:
@@ -160,13 +175,16 @@ selected powers, and ``\\chi^2`` diagnostics.
 * The effective uncertainty vector `σ` is constructed from backend-specific
   error-info objects through [`_extract_sigma_from_error_info`](@ref), allowing
   both residual-based and refinement-based estimators to feed the same fitter.
+* For rectangular axis-wise domains, the fit itself still operates on the scalar
+  `hs` sequence supplied by the caller; it does not directly fit vector-valued
+  step sizes.
 
 For a fuller explanation of exponent selection, covariance construction, and workflow
 examples, see the `Maranatha.LeastChiSquareFit` documentation page.
 """
 function least_chi_square_fit(
-    a::Real,
-    b::Real,
+    a,
+    b,
     hs,
     estimates,
     error_infos,
@@ -176,7 +194,9 @@ function least_chi_square_fit(
     ff_shift::Int = 0,
     nerr_terms::Int = 1
 )
-    Nref = round(Int, (b - a) / maximum(float.(hs)))
+    Δ = b isa Tuple ? maximum(abs.(b .- a)) : abs(b - a)
+    hmax = maximum(float.(hs))
+    Nref = round(Int, Δ / hmax)
 
     ks, _center = ErrorDispatchDerivative._leading_residual_ks_with_center_any(
         rule, boundary, Nref; nterms = nterms, kmax = 256
@@ -302,6 +322,11 @@ Run [`least_chi_square_fit`](@ref) directly from a [`Maranatha.Runner.run_Marana
 
 If a keyword argument is omitted, the corresponding value stored in `result`
 is reused.
+
+This wrapper supports both isotropic and rectangular-domain `run_Maranatha`
+results. In rectangular-domain workflows, it uses `result.h`, which is the
+scalarized step-size sequence stored for downstream fitting, rather than the
+per-axis step tuples in `result.tuple_h`.
 
 # Arguments
 

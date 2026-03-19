@@ -1,7 +1,13 @@
 # Maranatha.jl
 
 **`Maranatha.jl`** is a numerical framework for **deterministic quadrature-based
-continuum extrapolation** on hypercube domains ``[a,b]^n``.
+continuum extrapolation** on hyperrectangular domains
+
+```math
+\prod_{i=1}^n [a_i, b_i]
+```
+
+including the special case of hypercubes ``[a,b]^n``.
 
 Many numerical integration tools rely on stochastic sampling
 (e.g. Monte Carlo or VEGAS-style algorithms).  
@@ -21,6 +27,9 @@ together with a model-informed uncertainty.
 This approach is particularly useful for **controlled numerical studies**
 where convergence structure is important and deterministic sampling
 can be exploited.
+
+The integration bounds may be specified either as common scalar limits
+for all axes or as axis-wise endpoints, allowing general rectangular domains.
 
 ---
 
@@ -55,7 +64,7 @@ The framework exposes these responsibilities explicitly:
 ### Integration layer
 
 [`Maranatha.Quadrature`](@ref) provides a unified front-end for tensor-product
-quadrature in arbitrary dimensions.
+quadrature in arbitrary dimensions on hyperrectangular domains.
 
 Supported rule families include:
 
@@ -150,6 +159,9 @@ benchmark problems.
 The main orchestration entry point is 
 [`Maranatha.Runner.run_Maranatha`](@ref).
 
+The integration domain supplied to the runner may be a scalar interval
+(applied to all axes) or axis-specific limits given as tuples or vectors.
+
 It performs:
 
 1. multi-resolution quadrature
@@ -216,6 +228,9 @@ integrand(x) = sin(x)
 Next prepare a configuration file describing the integration
 domain, sampling sequence, quadrature rule, and output options.
 
+The domain may be specified using scalar endpoints (for ``[a,b]^n``)
+or axis-wise endpoints for rectangular regions.
+
 Example configuration file (`sample_1d.toml`):
 
 ```toml
@@ -225,11 +240,11 @@ name = "integrand"
 
 [domain]
 a = 0.0
-b = 3.141592653589793
+b = 3.14159265358979323846264338327950588
 dim = 1
 
 [sampling]
-nsamples = [2,3,4,5,6,7,8,9]
+nsamples = [2, 3, 4, 5, 6, 7, 8, 9]
 
 [quadrature]
 rule = "gauss_p4"
@@ -243,6 +258,13 @@ ff_shift = 0
 
 [execution]
 use_error_jet = true
+real_type = "Double64"
+
+[output]
+name_prefix = "sample_1d"
+save_path = "jld2"
+write_summary = true
+save_file = true
 ```
 
 Assume that `sample_1d.jl` and `sample_1d.toml` are located in the current working directory.

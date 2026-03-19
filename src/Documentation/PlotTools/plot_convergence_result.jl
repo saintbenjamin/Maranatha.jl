@@ -10,8 +10,6 @@
 
 """
     plot_convergence_result(
-        a::Real,
-        b::Real,
         name::String,
         hs::AbstractVector{<:Real},
         estimates::AbstractVector{<:Real},
@@ -27,12 +25,14 @@ Plot a fitted convergence study using previously computed datapoints and an
 existing least-``\\chi^2`` fit result.
 
 # Arguments
-- `a::Real`, `b::Real`:
-  Integration bounds retained for workflow consistency.
 - `name::String`:
   Basename used for figure titles / output filenames.
 - `hs::AbstractVector{<:Real}`:
-  Step sizes used in the convergence study.
+  Scalar step-size sequence used in the convergence study.
+
+  In rectangular-domain workflows, this is expected to be the scalarized
+  step-size proxy used for fitting and plotting, rather than the original
+  per-axis step tuples.
 - `estimates::AbstractVector{<:Real}`:
   Measured quadrature estimates corresponding to `hs`.
 - `errors::Vector`:
@@ -76,10 +76,10 @@ existing least-``\\chi^2`` fit result.
 - This plotting routine accepts both residual-based and refinement-based
   error-info objects, provided that each entry exposes either `.total` or
   `.estimate`.
+- For rectangular-domain runs, the plotting logic still operates on the scalar
+  `hs` sequence supplied by the caller.
 """
 function plot_convergence_result(
-    a::Real,
-    b::Real,
     name::String,
     hs::AbstractVector{<:Real},
     estimates::AbstractVector{<:Real},
@@ -95,10 +95,6 @@ function plot_convergence_result(
     # Determine leading convergence power automatically
     # using composite NC residual model (midpoint expansion)
     # ------------------------------------------------------------
-
-    # Use the smallest h (largest N) as representative for order detection
-    # (assumes hs correspond to increasing resolution)
-    Nref = round(Int, (b - a) / minimum(float.(hs)))
 
     # --- Input checks ---
     n = length(hs)
@@ -156,7 +152,7 @@ function plot_convergence_result(
     # Model: I(h) = I0 + C1*h^p + C2*h^(p+2) + ...
     Cov = fit_result.cov
 
-    # [PATCH] enforce symmetry for numerical stability
+    # enforce symmetry for numerical stability
     CovS = LinearAlgebra.Symmetric(Matrix(Cov))
 
     # --------------------------------------------
@@ -185,7 +181,7 @@ function plot_convergence_result(
         φ = basis_vec(h)
         y = LinearAlgebra.dot(pvec, φ)
 
-        # [PATCH] prediction variance = φ' Cov φ, clipped at 0
+        # prediction variance = φ' Cov φ, clipped at 0
         var = LinearAlgebra.dot(φ, CovS * φ)
         # σ = sqrt(max(var, 0.0))
         σ = sqrt(abs(var))
@@ -466,6 +462,12 @@ object and forwards them to the primary `plot_convergence_result` method.
 
 # Errors
 - Propagates all validation and plotting errors from the primary method.
+
+# Notes
+- This wrapper uses `result.h` as the plotting x-axis sequence.
+- In rectangular-domain workflows, `result.h` is the scalarized step-size
+  sequence stored for downstream fitting and plotting, while `result.tuple_h`
+  retains the original per-axis step information.
 """
 function plot_convergence_result(
     result,
@@ -477,8 +479,6 @@ function plot_convergence_result(
     save_file::Bool = false,
 )
     return plot_convergence_result(
-        result.a,
-        result.b,
         name,
         result.h,
         result.avg,

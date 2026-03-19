@@ -35,9 +35,19 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
 
 # Arguments
 
-- `a`, `b`: Integration interval endpoints.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form in the generated summary.
+
 - `name`: Identifier for the experiment, integrand, or source file.
-- `hs`: Step sizes used in the quadrature study.
+- `hs`: Scalar step sizes used in the quadrature study.
+
+  In rectangular-domain workflows, this is expected to be the scalarized
+  step-size sequence used for plotting / reporting, not the original
+  per-axis step tuples.
+
 - `estimates`: Corresponding quadrature estimates.
 - `errors`: Error objects containing pointwise uncertainties.
 
@@ -80,10 +90,12 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
   the final report.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
+- For rectangular-domain workflows, the generated summary is based on the
+  scalarized `hs` sequence supplied to this function.
 """
 function write_convergence_summary_datapoints(
-    a::Real,
-    b::Real,
+    a,
+    b,
     name::String,
     hs::Vector{Float64},
     estimates::Vector{Float64},
@@ -216,6 +228,10 @@ or freshly computed Maranatha result without manually unpacking arrays.
 - `result`: Result object exposing fields such as `a`, `b`, `h`, `avg`,
   `err`, `rule`, and `boundary`.
 
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for plotting / reporting, while any original
+  per-axis step data remain in `result.tuple_h`.
+
 # Keyword arguments
 
 - `name`: Identifier used in the generated report and output filename.
@@ -237,6 +253,8 @@ or freshly computed Maranatha result without manually unpacking arrays.
 - This method is intended for the common workflow in which a user already has a
   Maranatha result object and wants to inspect or archive the raw quadrature
   datapoints before fitting.
+- This wrapper forwards `result.h`, i.e. the scalarized step-size sequence,
+  to the primary method.
 """
 function write_convergence_summary_datapoints(
     result;

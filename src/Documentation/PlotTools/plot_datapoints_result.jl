@@ -67,9 +67,13 @@ alignment, scaling, and possible oscillatory behavior.
 # Arguments
 - `name::String`:
   Basename used for output filenames.
-- `hs::Vector{Float64}`:
-  Step sizes used to define the horizontal coordinate.
-- `estimates::Vector{Float64}`:
+- `hs::AbstractVector{<:Real}`:
+  Scalar step-size sequence used to define the horizontal coordinate.
+
+  In rectangular-domain workflows, this is expected to be the scalarized
+  step-size proxy stored for downstream plotting, rather than the original
+  per-axis step tuples.
+- `estimates::AbstractVector{<:Real}`:
   Raw quadrature estimates.
 - `errors::Vector`:
   Collection of error-information objects used for plotting error bars.
@@ -109,6 +113,8 @@ alignment, scaling, and possible oscillatory behavior.
 - A convenience wrapper `plot_datapoints_result(result; ...)` is also provided.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
+- For rectangular-domain runs, the plotting logic still operates on the scalar
+  `hs` sequence supplied by the caller.
 """
 function plot_datapoints_result(
     name::String,
@@ -138,7 +144,6 @@ function plot_datapoints_result(
         "Unsupported yscale=$yscale (expected :linear or :log)"
     )
 
-    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
     @inline function _extract_error_total(e)
         if hasproperty(e, :total)
             return e.total
@@ -153,38 +158,35 @@ function plot_datapoints_result(
 
     T = promote_type(eltype(hs), eltype(estimates), typeof(h_power))
 
-    xvals = (T.(hs)) .^ convert(T, h_power)
-    err_abs = T.([_extract_error_total(e) for e in errors])
+    xvals_raw = (T.(hs)) .^ convert(T, h_power)
+    yvals_raw = T.(estimates)
+    yerrs_raw = T.([_extract_error_total(e) for e in errors])
 
-    yvals = T.(estimates)
-    yerrs = err_abs
-    ylabel_txt = ""
-
-    yvals = Float64.(estimates)
-    yerrs = err_abs
-    ylabel_txt = raw"$I(h)$"
-
-    mask = isfinite.(xvals) .& isfinite.(yvals) .& isfinite.(yerrs)
+    mask = isfinite.(Float64.(xvals_raw)) .&
+           isfinite.(Float64.(yvals_raw)) .&
+           isfinite.(Float64.(yerrs_raw))
 
     if xscale == :log
-        mask .&= xvals .> 0
+        mask .&= xvals_raw .> zero(T)
     end
     if yscale == :log
-        mask .&= yvals .> 0
+        mask .&= yvals_raw .> zero(T)
     end
 
-    xp = xvals[mask]
-    yp = yvals[mask]
-    ep = yerrs[mask]
+    xp = Float64.(xvals_raw[mask])
+    yp = Float64.(yvals_raw[mask])
+    ep = Float64.(yerrs_raw[mask])
 
     isempty(xp) && JobLoggerTools.error_benji(
         "No valid datapoints remain after filtering for plot_datapoints_result."
     )
 
-    p = sortperm(xp; rev=true)
+    p = sortperm(xp; rev = true)
     xp = xp[p]
     yp = yp[p]
     ep = ep[p]
+
+    ylabel_txt = raw"$I(h)$"
 
     set_pyplot_latex_style(0.5)
 
@@ -234,7 +236,7 @@ function plot_datapoints_result(
         PyPlot.savefig(resfile)
         if Sys.which("pdfcrop") !== nothing
             run(`pdfcrop $resfile`)
-            mv(cropped, resfile; force=true)
+            mv(cropped, resfile; force = true)
         end
     end
 
@@ -283,6 +285,12 @@ forwards them to the primary `plot_datapoints_result` method.
 
 # Errors
 - Propagates all validation and plotting errors from the primary method.
+
+# Notes
+- This wrapper uses `result.h` as the plotting x-axis sequence.
+- In rectangular-domain workflows, `result.h` is the scalarized step-size
+  sequence stored for downstream plotting, while `result.tuple_h` retains the
+  original per-axis step information.
 """
 function plot_datapoints_result(
     result;

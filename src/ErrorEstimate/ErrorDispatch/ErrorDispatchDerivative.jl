@@ -151,7 +151,7 @@ This helper normalizes the currently supported residual backends into a common
 return type:
 
 - Newton-Cotes rules use the exact-rational residual backend and convert the
-  resulting coefficients to `Float64` here.
+  resulting coefficients to the requested `real_type`.
 - Gauss-family rules use the `Float64` midpoint-residual backend directly.
 - B-spline rules use the `Float64` midpoint-residual backend directly.
 
@@ -411,7 +411,8 @@ include("ErrorDispatchDerivative/error_estimate_derivative_direct_nd.jl")
 Unified interface for estimating an axis-separable midpoint-residual truncation-error model.
 
 # Function description
-This is the public non-threaded dispatcher for the error-estimation layer.
+This is the public non-threaded dispatcher for the direct derivative-based
+error-estimation layer.
 
 It routes to the matching dimension-specific estimator:
 
@@ -424,17 +425,35 @@ It routes to the matching dimension-specific estimator:
 All implementations share the same residual-term extraction logic and the same
 derivative-backend interface via [`AutoDerivativeDirect.nth_derivative`](@ref).
 
+Both hypercube-style scalar bounds and axis-wise rectangular bounds are
+supported. Rectangular-domain support is provided by the selected
+dimension-specific backend.
+
 # Arguments
-- `f`: Integrand callable accepting `dim` positional arguments.
-- `a`, `b`: Scalar bounds of the hypercube domain.
-- `N`: Number of subintervals per axis.
-- `dim`: Number of dimensions.
-- `rule`: Quadrature rule symbol.
-- `boundary`: Boundary pattern symbol.
+- `f`:
+  Integrand callable accepting `dim` positional arguments.
+- `a`:
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds.
+- `b`:
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds.
+- `N`:
+  Number of subintervals per axis.
+- `dim`:
+  Number of dimensions.
+- `rule`:
+  Quadrature rule symbol.
+- `boundary`:
+  Boundary pattern symbol.
 
 # Keyword arguments
-- `err_method`: Derivative backend selector passed to [`AutoDerivativeDirect.nth_derivative`](@ref).
-- `nerr_terms`: Number of nonzero residual terms to include.
+- `err_method`:
+  Derivative backend selector passed to [`AutoDerivativeDirect.nth_derivative`](@ref).
+- `nerr_terms`:
+  Number of nonzero residual terms to include.
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and downstream
   derivative-estimator evaluation.
@@ -443,6 +462,8 @@ derivative-backend interface via [`AutoDerivativeDirect.nth_derivative`](@ref).
 - Same return object as the selected dimension-specific estimator.
 
 # Errors
+- Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
 - Propagates errors from the selected estimator.
 """
 function error_estimate_derivative_direct(
@@ -457,7 +478,15 @@ function error_estimate_derivative_direct(
     nerr_terms::Int = 1,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    T = if !isnothing(real_type)
+        real_type
+    elseif a isa AbstractVector || a isa Tuple
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+        promote_type(map(typeof, a)..., map(typeof, b)...)
+    else
+        promote_type(typeof(a), typeof(b))
+    end
 
     if dim == 1
         return error_estimate_derivative_direct_1d(
@@ -534,14 +563,29 @@ error-estimation pipeline. It selects the appropriate backend according to
 Each dispatched routine uses derivative jets internally rather than requesting
 scalar derivatives one by one.
 
+Both hypercube-style scalar bounds and axis-wise rectangular bounds are
+supported. Rectangular-domain support is provided by the selected
+dimension-specific backend.
+
 # Arguments
-- `f`: Integrand or scalar callable to be analyzed.
-- `a`: Lower integration bound or lower-domain descriptor.
-- `b`: Upper integration bound or upper-domain descriptor.
-- `N`: Number of subdivisions.
-- `dim`: Problem dimensionality.
-- `rule`: Quadrature rule symbol.
-- `boundary`: Boundary-condition symbol.
+- `f`:
+  Integrand or scalar callable to be analyzed.
+- `a`:
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds.
+- `b`:
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds.
+- `N`:
+  Number of subdivisions.
+- `dim`:
+  Problem dimensionality.
+- `rule`:
+  Quadrature rule symbol.
+- `boundary`:
+  Boundary-condition symbol.
 
 # Keyword arguments
 - `err_method::Symbol`:
@@ -556,6 +600,11 @@ scalar derivatives one by one.
 
 # Returns
 - The return value produced by the selected dimension-specific jet estimator.
+
+# Errors
+- Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
+- Propagates errors from the selected dimension-specific jet estimator.
 
 # Notes
 - This dispatcher does not implement the estimator logic itself; it only routes
@@ -577,7 +626,15 @@ function error_estimate_derivative_jet(
     nerr_terms::Int = 1,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    T = if !isnothing(real_type)
+        real_type
+    elseif a isa AbstractVector || a isa Tuple
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+        promote_type(map(typeof, a)..., map(typeof, b)...)
+    else
+        promote_type(typeof(a), typeof(b))
+    end
 
     if dim == 1
         return error_estimate_derivative_jet_1d(

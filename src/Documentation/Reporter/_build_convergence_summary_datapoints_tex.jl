@@ -32,7 +32,12 @@ fitting stage.
 
 # Arguments
 
-- `a`, `b`: Integration interval endpoints.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form via an internal formatter.
+
 - `name`: Display name of the experiment or dataset.
 - `hsp`: Filtered step sizes.
 - `hxp`: Filtered transformed step sizes, typically ``h^{p}``.
@@ -58,6 +63,8 @@ fitting stage.
   [`_fmt_tex_texttt_sci`](@ref) and [`_fmt_avgerr_tex`](@ref).
 - The output is designed to parallel the style of
   [`_build_convergence_summary_tex`](@ref) while omitting fit-specific content.
+- For rectangular-domain runs, the interval display summarizes the
+  per-axis bounds rather than reproducing full tuple structure verbatim.
 """
 function _build_convergence_summary_datapoints_tex(
     a, b, name, hsp, hxp, estp, errp;
@@ -70,6 +77,7 @@ function _build_convergence_summary_datapoints_tex(
     safe_name = _latex_escape_underscore(name)
     safe_rule = _latex_escape_underscore(String(rule))
     safe_boundary = _latex_escape_underscore(String(boundary))
+    interval_txt = _format_interval_for_note(a, b)
 
     io = IOBuffer()
 
@@ -83,7 +91,7 @@ function _build_convergence_summary_datapoints_tex(
     println(io, "Interval & Rule (Boundary) & Plot setup \\\\")
     println(io, "\\hline")
     println(io,
-        "\$[$(a), $(b)]\$ & " *
+        "\$$(interval_txt)\$ & " *
         "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) & " *
         "\$h^{$(h_power)}\$, \\texttt{$(String(xscale))}/\\texttt{$(String(yscale))} \\\\"
     )

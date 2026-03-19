@@ -41,7 +41,7 @@ include("Reporter/_fmt_md_code_sci.jl")
 include("Reporter/_fmt_avgerr_tex.jl")
 include("Reporter/_fmt_avgerr_md.jl")
 include("Reporter/_latex_escape_underscore.jl")
-
+include("Reporter/_format_interval_for_note.jl")
 include("Reporter/_build_fit_model_tex.jl")
 
 include("Reporter/write_convergence_summary.jl")

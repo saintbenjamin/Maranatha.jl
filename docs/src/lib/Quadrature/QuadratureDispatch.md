@@ -92,17 +92,23 @@ reproducible numerical behavior with minimal hidden control flow.
 
 ## Domain convention
 
-All tensor-product drivers integrate over a hypercube with the **same**
-interval applied on every axis:
+Tensor-product drivers support both uniform and axis-specific bounds.
+
+- If scalar endpoints are provided, the same interval is applied to all axes:
 
 ```math
 [a,b]^{\texttt{dim}}.
 ```
 
-This module does **not** implement mixed bounds such as
-$[a_1,b_1] \times [a_2,b_2] \times \cdots$.
-That restriction is deliberate and keeps the interface aligned with the rest of
-the package.
+* If tuples or vectors are provided, each axis may use distinct bounds:
+
+```math
+[a_1,b_1] \times [a_2,b_2] \times \cdots \times [a_{\texttt{dim}}, b_{\texttt{dim}}].
+```
+
+The dispatch layer treats the domain as an external specification and simply
+uses the coordinates supplied to the quadrature-node generator.
+
 
 ---
 

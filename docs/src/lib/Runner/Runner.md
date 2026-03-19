@@ -23,6 +23,10 @@ You define an integrand and a sequence of resolutions, and the runner returns a
 uniform dataset containing step sizes, quadrature estimates, and modeled error
 scales.
 
+The integration domain may be specified either as a common scalar interval
+(applied to all axes) or as axis-specific endpoints supplied as tuples or vectors,
+allowing general rectangular domains.
+
 ---
 
 ## What belongs in the API docstring vs. this page
@@ -103,6 +107,9 @@ run_result = run_Maranatha(
 In current versions, the error-estimation backend may internally use either
 a refinement-based path or a derivative-based path.
 
+For multi-dimensional problems, the limits `a` and `b` may be given as
+scalars or as collections specifying per-axis bounds.
+
 When a derivative-based estimator is selected, it may further use a jet-based
 derivative path for improved performance. These are implementation details and
 do not change the external API.
@@ -134,6 +141,9 @@ integrand(x) = sin(x)
 
 ### Example [`TOML`](https://toml.io/en/) file
 
+The domain section accepts either scalar endpoints (for ``[a,b]^n``)
+or axis-wise endpoints for rectangular regions.
+
 ```toml
 [integrand]
 file = "sample_1d.jl"
@@ -141,7 +151,7 @@ name = "integrand"
 
 [domain]
 a = 0.0
-b = 3.141592653589793
+b = 3.14159265358979323846264338327950588
 dim = 1
 
 [sampling]
@@ -159,10 +169,11 @@ ff_shift = 0
 
 [execution]
 use_error_jet = true
+real_type = "Double64"
 
 [output]
-name_prefix = "1D"
-save_path = "."
+name_prefix = "sample_1d"
+save_path = "jld2"
 write_summary = true
 save_file = true
 ```
@@ -194,6 +205,9 @@ The most commonly used fields are:
 - `result.fit_terms`, `result.ff_shift`
 
 These fields are usually enough to continue directly into the fitting stage.
+
+When axis-specific bounds are used, `result.a` and `result.b` retain the
+per-axis endpoint information.
 
 ---
 

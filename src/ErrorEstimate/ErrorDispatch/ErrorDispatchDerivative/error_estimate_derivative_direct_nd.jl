@@ -11,8 +11,8 @@
 """
     error_estimate_derivative_direct_nd(
         f,
-        a::Real,
-        b::Real,
+        a,
+        b,
         N::Int,
         rule::Symbol,
         boundary::Symbol;
@@ -27,7 +27,17 @@ Estimate an arbitrary-dimensional axis-separable midpoint-residual truncation-er
 
 # Function description
 This routine provides the generic ``n``-dimensional version of the
-midpoint-residual model on the hypercube ``[a,b]^n``.
+midpoint-residual model.
+
+Two domain conventions are supported:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the domain is interpreted as
+  ``[a,b]^{\\texttt{dim}}``.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors of length `dim`, the domain is interpreted as
+  ``[a_1,b_1] \\times \\cdots \\times [a_{\\texttt{dim}}, b_{\\texttt{dim}}]``.
 
 The residual-term model is obtained through the cached helper
 [`_get_residual_model_fixed`](@ref), which reuses previously constructed
@@ -40,8 +50,14 @@ odometer-style tensor-product traversal.
 
 # Arguments
 - `f`: Callable integrand accepting exactly `dim` scalar arguments.
-- `a::Real`: Lower bound.
-- `b::Real`: Upper bound.
+- `a`:
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds of length `dim`.
+- `b`:
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds of length `dim`.
 - `N::Int`: Number of subintervals per axis.
 - `rule::Symbol`: Quadrature rule symbol.
 - `boundary::Symbol`: Boundary pattern symbol.
@@ -68,6 +84,8 @@ odometer-style tensor-product traversal.
 
 # Errors
 - Throws `ArgumentError` if `dim < 1`.
+- Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1`.
 - Propagates quadrature-node construction, residual-model extraction, and
   derivative-evaluation errors.
@@ -135,7 +153,8 @@ function error_estimate_derivative_direct_nd(
     fixed = Vector{T}(undef, dim)
     idx   = ones(Int, dim - 1)
 
-    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+    deriv_fun, backend_tag =
+        AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
 
     @inbounds for it in eachindex(ks)
         k = ks[it]
@@ -153,13 +172,15 @@ function error_estimate_derivative_direct_nd(
             Iaxis = zero(T)
 
             if dim == 1
-                Iaxis = convert(T, AutoDerivativeDirect.nth_derivative(
-                    deriv_fun,
-                    backend_tag,
-                    x -> f(x),
-                    x̄, 
-                    k;
-                ))
+                Iaxis = convert(T,
+                    AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
+                        x -> f(x),
+                        x̄,
+                        k;
+                    )
+                )
             else
                 fill!(idx, 1)
 
@@ -177,13 +198,15 @@ function error_estimate_derivative_direct_nd(
                         t += 1
                     end
 
-                    Iaxis += wprod * convert(T, AutoDerivativeDirect.nth_derivative(
-                        deriv_fun,
-                        backend_tag,
-                        x -> _call_with_axis(f, fixed, axis, x, dim),
-                        x̄, 
-                        k;
-                    ))
+                    Iaxis += wprod * convert(T,
+                        AutoDerivativeDirect.nth_derivative(
+                            deriv_fun,
+                            backend_tag,
+                            x -> _call_with_axis(f, fixed, axis, x, dim),
+                            x̄,
+                            k;
+                        )
+                    )
 
                     q = dim - 1
                     while q >= 1

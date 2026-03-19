@@ -105,8 +105,8 @@ end
 """
     _quadrature_value_bspline(
         f,
-        a::Real,
-        b::Real,
+        a,
+        b,
         N::Int,
         dim::Int,
         rule::Symbol,
@@ -116,19 +116,36 @@ end
         real_type = nothing,
     ) -> Real
 
-Dispatch to the appropriate dimension-specific B-spline quadrature evaluator.
+Evaluate the B-spline quadrature approximation of `f`.
 
 # Function description
-This helper selects the specialized B-spline quadrature evaluator matching
-`dim`.
+This helper validates the input configuration and then calls
+`QuadratureDispatch.quadrature` to compute the quadrature approximation using
+the requested B-spline rule, boundary condition, subdivision count, and
+dimensionality.
+
+Two domain conventions are supported:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the domain is interpreted as
+  ``[a,b]^{\\texttt{dim}}``.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors of length `dim`, they are interpreted as
+  per-axis bounds, and the domain becomes
+  ``[a_1,b_1] \\times \\cdots \\times [a_{\\texttt{dim}}, b_{\\texttt{dim}}]``.
 
 # Arguments
 - `f`:
-  Scalar integrand callable.
-- `a::Real`:
-  Lower integration bound on each axis.
-- `b::Real`:
-  Upper integration bound on each axis.
+  Integrand callable accepting `dim` positional arguments.
+- `a`:
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds of length `dim`.
+- `b`:
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds of length `dim`.
 - `N::Int`:
   Number of composite blocks per axis.
 - `dim::Int`:
@@ -153,16 +170,19 @@ This helper selects the specialized B-spline quadrature evaluator matching
   The quadrature value produced by the selected evaluator, in the active scalar type.
 
 # Errors
-- Propagates errors from the selected dimension-specific routine.
+- Propagates validation errors from [`_require_bspline_inputs`](@ref).
+- Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
+- Propagates errors from `QuadratureDispatch.quadrature`.
 
 # Notes
-- This function only dispatches; it does not implement a separate quadrature
-  algorithm.
+- This helper performs no derivative-based work.
+- It is used internally by the refinement-based B-spline error estimator.
 """
 @inline function _quadrature_value_bspline(
     f,
-    a::Real,
-    b::Real,
+    a,
+    b,
     N::Int,
     dim::Int,
     rule::Symbol,
@@ -171,15 +191,24 @@ This helper selects the specialized B-spline quadrature evaluator matching
     threaded_subgrid::Bool = false,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    T = if !isnothing(real_type)
+        real_type
+    elseif a isa AbstractVector || a isa Tuple
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+        promote_type(map(typeof, a)..., map(typeof, b)...)
+    else
+        promote_type(typeof(a), typeof(b))
+    end
+
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     _require_bspline_inputs(N, dim, rule, boundary)
 
     q = QuadratureDispatch.quadrature(
         f,
-        convert(T, a),
-        convert(T, b),
+        a isa AbstractVector || a isa Tuple ? map(x -> convert(T, x), a) : convert(T, a),
+        b isa AbstractVector || b isa Tuple ? map(x -> convert(T, x), b) : convert(T, b),
         N,
         dim,
         rule,
@@ -195,8 +224,8 @@ end
 """
     _estimate_by_refinement_bspline(
         f,
-        a::Real,
-        b::Real,
+        a,
+        b,
         N::Int,
         dim::Int,
         rule::Symbol,
@@ -219,71 +248,92 @@ B-spline quadrature rules. It computes
 then forms their difference
 
 ```julia
-diff = q_fine - q_coarse.
+diff = q_fine - q_coarse
 ```
+
+Two domain conventions are supported:
+
+* **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the mesh sizes are scalar quantities.
+
+* **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors of length `dim`, the mesh sizes are
+  constructed componentwise and stored as per-axis tuples.
 
 The returned named tuple stores both quadrature values, the corresponding mesh
 sizes, and the absolute refinement difference used as the effective error
 estimate.
 
 # Arguments
-- `f`:
+
+* `f`:
   Integrand callable accepting `dim` positional arguments.
-- `a::Real`:
-  Lower integration bound.
-- `b::Real`:
-  Upper integration bound.
-- `N::Int`:
+* `a`:
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds of length `dim`.
+* `b`:
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds of length `dim`.
+* `N::Int`:
   Coarse subdivision count.
-- `dim::Int`:
+* `dim::Int`:
   Number of dimensions.
-- `rule::Symbol`:
+* `rule::Symbol`:
   B-spline quadrature rule symbol.
-- `boundary::Symbol`:
+* `boundary::Symbol`:
   Boundary-condition symbol.
 
 # Keyword arguments
-- `λ = nothing`:
+
+* `λ = nothing`:
   Optional smoothing parameter for smoothing B-spline rules. If `nothing`,
   zero is used in the active scalar type.
-- `threaded_subgrid::Bool = false`:
+* `threaded_subgrid::Bool = false`:
   Whether to allow threaded subgrid evaluation in the coarse and refined
   quadrature calls.
-- `real_type = nothing`:
+* `real_type = nothing`:
   Optional scalar type used internally for bound conversion, mesh sizes,
   and quadrature evaluation.
 
 # Returns
-- `NamedTuple` with fields:
-  - `method`      : method tag `:bspline_refinement_difference`
-  - `rule`        : quadrature rule symbol
-  - `boundary`    : boundary-condition symbol
-  - `N_coarse`    : coarse subdivision count
-  - `N_fine`      : refined subdivision count (`2N`)
-  - `dim`         : dimensionality
-  - `h_coarse`    : coarse mesh size
-  - `h_fine`      : refined mesh size
-  - `q_coarse`    : coarse quadrature value
-  - `q_fine`      : refined quadrature value
-  - `estimate`    : absolute refinement difference
-  - `signed_diff` : signed refinement difference
-  - `reference`   : refined quadrature value used as the internal reference
+
+* `NamedTuple` with fields:
+
+  * `method`      : method tag `:bspline_refinement_difference`
+  * `rule`        : quadrature rule symbol
+  * `boundary`    : boundary-condition symbol
+  * `N_coarse`    : coarse subdivision count
+  * `N_fine`      : refined subdivision count (`2N`)
+  * `dim`         : dimensionality
+  * `h_coarse`    : coarse mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
+  * `h_fine`      : refined mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
+  * `q_coarse`    : coarse quadrature value
+  * `q_fine`      : refined quadrature value
+  * `estimate`    : absolute refinement difference
+  * `signed_diff` : signed refinement difference
+  * `reference`   : refined quadrature value used as the internal reference
 
 # Errors
-- Throws if `rule` is not a supported B-spline rule.
-- Throws if `N < 1`.
-- Throws if `dim < 1`.
-- Propagates errors from the quadrature-evaluation layer.
+
+* Throws if `rule` is not a supported B-spline rule.
+* Throws if `N < 1`.
+* Throws if `dim < 1`.
+* Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
+* Propagates errors from the quadrature-evaluation layer.
 
 # Notes
-- This estimator does not use derivatives or residual moments.
-- The returned `estimate` is currently `abs(q_fine - q_coarse)` without an
+
+* This estimator does not use derivatives or residual moments.
+* The returned `estimate` is currently `abs(q_fine - q_coarse)` without an
   additional Richardson-style normalization factor.
 """
 function _estimate_by_refinement_bspline(
     f,
-    a::Real,
-    b::Real,
+    a,
+    b,
     N::Int,
     dim::Int,
     rule::Symbol,
@@ -292,16 +342,33 @@ function _estimate_by_refinement_bspline(
     threaded_subgrid::Bool = false,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    T = if !isnothing(real_type)
+        real_type
+    elseif a isa AbstractVector || a isa Tuple
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+        promote_type(map(typeof, a)..., map(typeof, b)...)
+    else
+        promote_type(typeof(a), typeof(b))
+    end
+
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     _require_bspline_inputs(N, dim, rule, boundary)
 
-    aa = convert(T, a)
-    bb = convert(T, b)
+    if a isa AbstractVector || a isa Tuple
+        aa = ntuple(i -> convert(T, a[i]), dim)
+        bb = ntuple(i -> convert(T, b[i]), dim)
 
-    h_coarse = (bb - aa) / T(N)
-    h_fine   = (bb - aa) / T(2N)
+        h_coarse = ntuple(i -> (bb[i] - aa[i]) / T(N), dim)
+        h_fine   = ntuple(i -> (bb[i] - aa[i]) / T(2N), dim)
+    else
+        aa = convert(T, a)
+        bb = convert(T, b)
+
+        h_coarse = (bb - aa) / T(N)
+        h_fine   = (bb - aa) / T(2N)
+    end
 
     q_coarse = _quadrature_value_bspline(
         f,
@@ -315,6 +382,7 @@ function _estimate_by_refinement_bspline(
         threaded_subgrid = threaded_subgrid,
         real_type = T,
     )
+
     q_fine = _quadrature_value_bspline(
         f,
         aa,
@@ -365,16 +433,32 @@ Unified public dispatcher for B-spline refinement-based error estimation.
 
 # Function description
 This function provides the main B-spline-specific entry point for the
-refinement-based error-estimation layer. It dispatches to the dimension-specific
-specializations:
+refinement-based error-estimation layer.
+
+It supports both of the following domain conventions:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the domain is interpreted as
+  ``[a,b]^{\\texttt{dim}}``.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors of length `dim`, they are interpreted as
+  per-axis bounds.
+
+The routine validates the rule family and boundary selector, then dispatches to
+[`_estimate_by_refinement_bspline`](@ref).
 
 # Arguments
 - `f`:
   Integrand callable accepting `dim` positional arguments.
 - `a`:
-  Lower integration bound.
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds.
 - `b`:
-  Upper integration bound.
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds.
 - `N`:
   Coarse subdivision count.
 - `dim`:
@@ -395,12 +479,13 @@ specializations:
   evaluation.
 
 # Returns
-- The named tuple produced by the selected dimension-specific refinement
-  estimator.
+- The named tuple produced by the selected refinement estimator.
 
 # Errors
 - Throws if `rule` is not a supported B-spline rule.
-- Propagates errors from the selected dimension-specific routine.
+- Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
+- Propagates errors from the selected refinement routine.
 
 # Notes
 - This dispatcher is intended for refinement-based error estimation only.
@@ -419,7 +504,16 @@ function error_estimate_refinement_bspline(
     threaded_subgrid::Bool = false,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    T = if !isnothing(real_type)
+        real_type
+    elseif a isa AbstractVector || a isa Tuple
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+        promote_type(map(typeof, a)..., map(typeof, b)...)
+    else
+        promote_type(typeof(a), typeof(b))
+    end
+
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     _require_bspline_rule(rule)

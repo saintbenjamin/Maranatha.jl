@@ -85,12 +85,18 @@ The refinement-based path does not use these caches.
 
 For each subdivision count `N` in `nsamples`, this routine:
 
-1. computes the step size ``\\displaystyle{h = \\frac{b-a}{N}}``,
+1. constructs the step size for the current subdivision count `N`,
 2. evaluates the quadrature estimate via
    [`QuadratureDispatch.quadrature`](@ref),
 3. evaluates the error-scale model via the unified dispatcher
    [`ErrorDispatch.error_estimate`](@ref),
 4. records the resulting step size, estimate, and error information.
+
+For scalar domains, the step size is the usual scalar quantity
+``\\displaystyle{h = \\frac{b-a}{N}}``.
+
+For axis-wise domains, the per-axis step size is constructed componentwise,
+and both the axis-wise step tuple/vector and its scalar L2 norm are recorded.
 
 The collected results are returned as a single `NamedTuple` and can also be
 written to disk for later reuse.
@@ -121,12 +127,27 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
   Callable integrand. It must accept `dim` scalar positional arguments.
 
 * `a`, `b`:
-  Scalar bounds defining the hypercube domain ``[a,b]^\\text{dim}``.
+  Integration bounds.
+
+  Two domain conventions are supported:
+
+  - **Scalar bounds**:
+    if `a` and `b` are real scalars, the domain is interpreted as the
+    hypercube ``[a,b]^\\mathrm{dim}``.
+
+  - **Axis-wise bounds**:
+    if `a` and `b` are tuples or vectors of length `dim`, the domain is
+    interpreted as a rectangular box with per-axis bounds
+    ``[a_1,b_1] \\times \\cdots \\times [a_{\\mathrm{dim}}, b_{\\mathrm{dim}}]``.
+
+  In the axis-wise case, each coordinate axis may use a different integration interval.
 
 # Keyword arguments
 
 * `dim::Int = 1`:
   Tensor-product quadrature dimension.
+
+  If `a` and `b` are tuples or vectors, their lengths must both equal `dim`.
 
 * `nsamples = [2, 3, 4, 5, 6, 7, 8, 9]`:
   Subdivision counts used to build the convergence dataset.
@@ -182,8 +203,8 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
 
 * `real_type = nothing`:
   Optional numeric scalar type used internally for all computations.
-  If `nothing`, `Float64` is used. Otherwise, inputs are converted to
-  `real_type` before evaluation.
+  If `nothing`, `Float64` is used. Otherwise, scalar bounds or each component
+  of axis-wise bounds is converted to `real_type` before evaluation.
 
 # Returns
 
@@ -193,7 +214,10 @@ or refinement-based error objects, depending on `err_method`.
 Important fields include:
 
 * `a`, `b`: integration bounds (stored in the selected `real_type`),
-* `h`: step sizes,
+* `h`: scalar step-size proxy used downstream; for axis-wise domains this is the
+  L2 norm of the per-axis step tuple/vector,
+* `tuple_h`: original step size at each resolution; this is scalar for hypercube
+  domains and axis-wise for rectangular domains,
 * `avg`: quadrature estimates,
 * `err`: error-estimator outputs,
 * `rule`, `boundary`, `dim`, `err_method`: execution metadata,
@@ -228,6 +252,10 @@ If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is writt
   and are selected through `err_method`.
   All backend selection is handled internally by
   [`ErrorDispatch.error_estimate`](@ref).
+* For rectangular axis-wise domains, this routine stores both the original per-axis
+  step information (`tuple_h`) and the scalarized L2 step measure (`h`), so that
+  downstream fitting and plotting code can continue to operate on a single scalar
+  resolution parameter.
 
 # Examples
 
@@ -250,7 +278,37 @@ run_result = run_Maranatha(
     real_type = Float64,
 )
 ```
-To use the refinement-based estimator instead, pass `err_method = :refinement`.
+
+Axis-wise rectangular domain:
+
+```julia
+using Maranatha
+using DoubleFloats
+
+run_result = run_Maranatha(
+    integrand_F0000_5d,
+    (
+        Double64(0.0),
+        Double64(0.0),
+        Double64(0.0),
+        Double64(0.0),
+        Double64(0.0),
+    ),
+    (
+        Double64(1.0),
+        Double64(pi),
+        Double64(pi),
+        Double64(pi),
+        Double64(pi),
+    );
+    dim = 5,
+    nsamples = [2, 3, 4, 5, 6],
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    err_method = :refinement,
+    real_type = Double64,
+)
+```
 
 Configuration-file workflow:
 
@@ -293,8 +351,21 @@ function run_Maranatha(
         ))
     end
 
-    aT = convert(T, a)
-    bT = convert(T, b)
+    # ------------------------------------------------------------
+    # Domain handling
+    # ------------------------------------------------------------
+    is_rect_domain = a isa AbstractVector || a isa Tuple
+
+    if !is_rect_domain
+        aT = convert(T, a)
+        bT = convert(T, b)
+    else
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+
+        aT = a isa Tuple ? ntuple(i -> convert(T, a[i]), dim) : T[convert(T, a[i]) for i in 1:dim]
+        bT = b isa Tuple ? ntuple(i -> convert(T, b[i]), dim) : T[convert(T, b[i]) for i in 1:dim]
+    end
 
     threaded_subgrid = (!use_cuda) && (Base.Threads.nthreads() > 1)
 
@@ -304,7 +375,8 @@ function run_Maranatha(
 
     estimates = T[]
     error_infos = NamedTuple[]
-    hs = T[]
+    hs    = Vector{Any}()
+    hs_l2 = Vector{T}()
 
     nsamples = QuadratureUtils._sanitize_nsamples_newton_cotes(
         nsamples,
@@ -313,8 +385,22 @@ function run_Maranatha(
     )
 
     for N in nsamples
-        h = (bT - aT) / T(N)
+        h = if !is_rect_domain
+            (bT - aT) / T(N)
+        else
+            aT isa Tuple ?
+                ntuple(i -> (bT[i] - aT[i]) / T(N), dim) :
+                T[(bT[i] - aT[i]) / T(N) for i in 1:dim]
+        end
+
         push!(hs, h)
+
+        # --- L2 norm scalar h ---
+        h_l2 = h isa Tuple ?
+            sqrt(sum(x -> x*x, h)) :
+            h
+
+        push!(hs_l2, h_l2)
 
         I = QuadratureDispatch.quadrature(
             integrand,
@@ -351,7 +437,8 @@ function run_Maranatha(
     result = (;
         a             = aT,
         b             = bT,
-        h             = hs,
+        h             = hs_l2,
+        tuple_h       = hs,
         avg           = estimates,
         err           = error_infos,
         rule          = rule,
@@ -448,11 +535,20 @@ function run_Maranatha(
         cfg.real_type === :Double64 ? DoubleFloats.Double64 :
         error("Unsupported real_type=$(cfg.real_type)")
 
+    # # --- Domain casting to selected real type T ---
+    # _cast_domain(x) =
+    #     x isa Tuple           ? Tuple(T(v) for v in x) :
+    #     x isa AbstractVector  ? [T(v) for v in x]      :
+    #                             T(x)
+
+    # aT = _cast_domain(cfg.a)
+    # bT = _cast_domain(cfg.b)
+
     return Base.invokelatest(
         run_Maranatha,
         integrand,
-        cfg.a,
-        cfg.b;
+        cfg.a, # aT,
+        cfg.b; # bT;
         dim             = cfg.dim,
         nsamples        = cfg.nsamples,
         rule            = cfg.rule,

@@ -37,9 +37,19 @@ usable scalar uncertainty field.
 
 # Arguments
 
-- `a`, `b`: Integration interval endpoints.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form in the generated summary.
+
 - `name`: Identifier for the experiment or integrand.
-- `hs`: Step sizes used in the quadrature study.
+- `hs`: Scalar step sizes used in the quadrature study.
+
+  In rectangular-domain workflows, this is expected to be the scalarized
+  step-size sequence used for fitting / plotting / reporting, not the
+  original per-axis step tuples.
+
 - `estimates`: Corresponding integral estimates.
 - `errors`: Error objects containing pointwise uncertainties.
 
@@ -77,10 +87,12 @@ usable scalar uncertainty field.
 - Non-finite values are excluded automatically.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
+- For rectangular-domain workflows, the generated summary is based on the
+  scalarized `hs` sequence supplied to this function.
 """
 function write_convergence_summary(
-    a::Real,
-    b::Real,
+    a,
+    b,
     name::String,
     hs::Vector{Float64},
     estimates::Vector{Float64},
@@ -90,6 +102,7 @@ function write_convergence_summary(
     fit_result;
     rule::Symbol = :gauss_p3,
     boundary::Symbol = :LU_ININ,
+    err_method::Symbol = :refinement,
     out_dir::String = ".",
     format::Symbol = :tex,
     save_file::Bool = true,
@@ -98,6 +111,8 @@ function write_convergence_summary(
     if length(estimates) != n || length(errors) != n
         JobLoggerTools.error_benji("Input length mismatch.")
     end
+
+    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
 
     hasproperty(fit_result, :powers)  || JobLoggerTools.error_benji("fit_result missing :powers")
     hasproperty(fit_result, :params)  || JobLoggerTools.error_benji("fit_result missing :params")
@@ -164,7 +179,7 @@ function write_convergence_summary(
         rule,
         boundary,
         fit_terms,
-        nerr_terms,
+        nerr_terms_eff,
     )
 
     if format == :tex
@@ -228,6 +243,11 @@ generation via the `nterms` and `nerr_terms` keyword arguments.
 # Arguments
 
 - `result`: Object containing quadrature outputs and metadata.
+
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for fitting / plotting / reporting, while any
+  original per-axis step data remain in `result.tuple_h`.
+
 - `fit_result`: Extrapolation fit result.
 
 # Keyword arguments
@@ -271,6 +291,8 @@ generation via the `nterms` and `nerr_terms` keyword arguments.
   result object returned by [`Maranatha.Runner.run_Maranatha`](@ref), while
   still allowing limited report-level customization without manually
   reconstructing the full argument list.
+- For rectangular-domain workflows, this wrapper forwards `result.h`, i.e. the
+  scalarized step-size sequence, rather than the original per-axis step tuples.
 """
 function write_convergence_summary(
     result,

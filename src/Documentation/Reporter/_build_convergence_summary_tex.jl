@@ -29,10 +29,15 @@ The output is intended for inclusion in larger [``\\LaTeX``](https://www.latex-p
 
 # Arguments
 
-- `a`, `b`: Integration interval.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form via an internal formatter.
+
 - `name`: Experiment identifier.
-- `hsp`: Step sizes (filtered and ordered).
-- `hxp`: Transformed step sizes (``h^p``).
+- `hsp`: Scalar step sizes (filtered and ordered).
+- `hxp`: Transformed scalar step sizes (``h^p``).
 - `estp`: Estimates at each resolution.
 - `errp`: Corresponding uncertainties.
 - `pvec`: Fit parameters.
@@ -54,6 +59,9 @@ The output is intended for inclusion in larger [``\\LaTeX``](https://www.latex-p
 
 - No preamble or document environment is included.
 - Numeric formatting uses specialized helpers for readability.
+- For rectangular-domain runs, the interval display summarizes the
+  per-axis bounds while the tabulated `h` columns use the scalarized step
+  sequence supplied to the fitter/reporting pipeline.
 """
 function _build_convergence_summary_tex(
     a, b, name, hsp, hxp, estp, errp,
@@ -65,6 +73,7 @@ function _build_convergence_summary_tex(
     safe_rule = _latex_escape_underscore(String(rule))
     safe_boundary = _latex_escape_underscore(String(boundary))
     fit_model_tex = _build_fit_model_tex(fit_powers)
+    interval_txt = _format_interval_for_note(a, b)
 
     io = IOBuffer()
 
@@ -83,10 +92,7 @@ function _build_convergence_summary_tex(
         λname = is_const ? raw"$\lambda_0$" : "\$\\lambda_$(i-1)\$"
         λtxt  = _fmt_avgerr_tex(pvec[i], λerr[i])
 
-        # --- Align sign: add phantom minus if not negative ---
         aligned = startswith(λtxt, "-") ? λtxt : "\\hphantom{-}$λtxt"
-
-        # --- Bold only for constant term ---
         valtex = is_const ? "\\mathbf{$aligned}" : aligned
 
         println(io, "$λname & \$$valtex\$ \\\\")
@@ -104,20 +110,24 @@ function _build_convergence_summary_tex(
     println(io, "\\begin{ruledtabular}")
     println(io, "\\caption{Run configuration for \\texttt{$(safe_name)}}")
 
-    println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
-
-    # --- Header row ---
-    println(io,
-        "Interval & Rule (Boundary) & Number of error terms \\\\"
-    )
-    println(io, "\\hline")
-
-    # --- Value row ---
-    println(io,
-        "\$[$(a), $(b)]\$ & " *
-        "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) & " *
-        "\$$(nerr_terms)\$ \\\\"
-    )
+    if nerr_terms == 0
+        println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
+        println(io, "Interval & Rule (Boundary) \\\\")
+        println(io, "\\hline")
+        println(io,
+            "\$$(interval_txt)\$ & " *
+            "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) \\\\"
+        )
+    else
+        println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
+        println(io, "Interval & Rule (Boundary) & Number of error terms \\\\")
+        println(io, "\\hline")
+        println(io,
+            "\$$(interval_txt)\$ & " *
+            "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) & " *
+            "\$$(nerr_terms)\$ \\\\"
+        )
+    end
 
     println(io, "\\end{tabular}")
     println(io, "\\end{ruledtabular}")
@@ -128,16 +138,13 @@ function _build_convergence_summary_tex(
     println(io, "\\begin{ruledtabular}")
     println(io, "\\caption{Quadrature estimates and uncertainties for different step sizes}")
     println(io, "\\begin{tabular}{@{\\quad} l @{\\quad} l @{\\quad} | @{\\quad} l @{\\quad}}")
-        println(io, "\$h\$ & \$h^{$(fit_powers[2])}\$ & \$\\hphantom{-}I(h)\$ \\\\")
+    println(io, "\$h\$ & \$h^{$(fit_powers[2])}\$ & \$\\hphantom{-}I(h)\$ \\\\")
     println(io, "\\hline")
     for i in eachindex(hsp)
         htxt  = _fmt_tex_texttt_sci(hsp[i])
         hptxt = _fmt_tex_texttt_sci(hxp[i])
         qtxt  = _fmt_avgerr_tex(estp[i], abs(errp[i]))
-
-        # --- Align sign ---
         qtxt = startswith(qtxt, "-") ? qtxt : "\\hphantom{-}$qtxt"
-
         println(io, "$htxt & $hptxt & \$$qtxt\$ \\\\")
     end
     println(io, "\\hline")

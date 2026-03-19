@@ -34,7 +34,12 @@ value or fit diagnostics.
 
 # Arguments
 
-- `a`, `b`: Integration interval endpoints.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form via an internal formatter.
+
 - `name`: Display name of the experiment or dataset.
 - `hsp`: Filtered step sizes.
 - `hxp`: Filtered transformed step sizes, typically ``h^{p}``.
@@ -59,6 +64,8 @@ value or fit diagnostics.
   [`_fmt_md_code_sci`](@ref) and [`_fmt_avgerr_md`](@ref).
 - The output is intended to be GitHub-friendly and visually parallel to the
   [``\\LaTeX``](https://www.latex-project.org/) version where possible.
+- For rectangular-domain runs, the interval display summarizes the
+  per-axis bounds rather than reproducing full tuple structure verbatim.
 """
 function _build_convergence_summary_datapoints_md(
     a, b, name, hsp, hxp, estp, errp;
@@ -69,6 +76,7 @@ function _build_convergence_summary_datapoints_md(
     boundary,
 )
     io = IOBuffer()
+    interval_txt = _format_interval_for_note(a, b)
 
     println(io, "# Convergence datapoints summary: $(name)")
     println(io, "")
@@ -78,7 +86,7 @@ function _build_convergence_summary_datapoints_md(
     println(io, "| Interval | Rule (Boundary) | Plot setup |")
     println(io, "|:--|:--|:--|")
     println(io,
-        "| `[$(a), $(b)]` | " *
+        "| `$(interval_txt)` | " *
         "`$(String(rule)) ($(String(boundary)))` | " *
         "`h^$(h_power)`, `$(String(xscale))/$(String(yscale))` |"
     )

@@ -11,8 +11,8 @@
 """
     error_estimate_derivative_direct_3d(
         f,
-        a::Real,
-        b::Real,
+        a,
+        b,
         N::Int,
         rule::Symbol,
         boundary::Symbol;
@@ -26,8 +26,17 @@ Estimate a ``3``-dimensional axis-separable midpoint-residual truncation-error m
 
 # Function description
 This routine applies the ``1``-dimensional midpoint error operator along each
-axis of the cube ``[a,b]^3`` and integrates the resulting derivative slices over
+axis of the integration domain and integrates the resulting derivative slices over
 the remaining two axes.
+
+Two domain conventions are supported:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the domain is interpreted as ``[a,b]^3``.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors of length `3`, the domain is interpreted as
+  ``[a_1,b_1] \\times [a_2,b_2] \\times [a_3,b_3]``.
 
 The residual-term model is obtained through the cached helper
 [`_get_residual_model_fixed`](@ref), which reuses previously constructed
@@ -40,40 +49,54 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 ```
 
 # Arguments
-- `f`: Scalar callable integrand ``f(x, y, z)``.
-- `a::Real`: Lower bound.
-- `b::Real`: Upper bound.
-- `N::Int`: Number of subintervals per axis.
-- `rule::Symbol`: Quadrature rule symbol.
-- `boundary::Symbol`: Boundary pattern symbol.
+
+* `f`: Scalar callable integrand `f(x, y, z)`.
+* `a`:
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a length-3
+  tuple/vector of per-axis lower bounds.
+* `b`:
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a length-3
+  tuple/vector of per-axis upper bounds.
+* `N::Int`: Number of subintervals per axis.
+* `rule::Symbol`: Quadrature rule symbol.
+* `boundary::Symbol`: Boundary pattern symbol.
 
 # Keyword arguments
-- `err_method::Symbol`: Derivative backend selector.
-- `nerr_terms::Int`: Number of nonzero residual terms to include.
-- `kmax::Int`: Maximum residual order scanned.
-- `real_type = nothing`:
+
+* `err_method::Symbol`: Derivative backend selector.
+* `nerr_terms::Int`: Number of nonzero residual terms to include.
+* `kmax::Int`: Maximum residual order scanned.
+* `real_type = nothing`:
   Optional scalar type used internally for bound conversion, quadrature nodes
   and weights, residual-coefficient conversion, and derivative evaluation.
 
 # Returns
-- `NamedTuple` with fields:
-  - `ks`
-  - `coeffs`
-  - `derivatives`
-  - `terms`
-  - `total`
-  - `center`
-  - `h`
+
+* `NamedTuple` with fields:
+
+  * `ks`
+  * `coeffs`
+  * `derivatives`
+  * `terms`
+  * `total`
+  * `center`
+  * `h`
 
 # Errors
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
-- Propagates quadrature-node construction, residual-model extraction, and
+
+* Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != 3`
+  or `length(b) != 3`.
+* Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1` or `kmax < 0`.
+* Propagates quadrature-node construction, residual-model extraction, and
   derivative-evaluation errors.
 
 # Notes
-- Only axis-separable contributions are included.
-- Mixed derivative terms are intentionally omitted.
-- Residual-term reuse through caching reduces repeated setup cost across
+
+* Only axis-separable contributions are included.
+* Mixed derivative terms are intentionally omitted.
+* Residual-term reuse through caching reduces repeated setup cost across
   multiple calls with the same rule configuration.
 """
 function error_estimate_derivative_direct_3d(
@@ -120,7 +143,8 @@ function error_estimate_derivative_direct_3d(
     derivatives = Vector{T}(undef, n)
     terms       = Vector{T}(undef, n)
 
-    deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+    deriv_fun, backend_tag =
+        AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
 
     @inbounds for it in eachindex(ks)
         kk = ks[it]
@@ -141,13 +165,15 @@ function error_estimate_derivative_direct_3d(
                 z = zs[k2]
                 gx(x) = f(x, y, z)
 
-                I1 += wyj * wz[k2] * convert(T, AutoDerivativeDirect.nth_derivative(
-                    deriv_fun,
-                    backend_tag,
-                    gx, 
-                    x̄, 
-                    kk;
-                ))
+                I1 += wyj * wz[k2] * convert(T,
+                    AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
+                        gx,
+                        x̄,
+                        kk;
+                    )
+                )
             end
         end
 
@@ -159,13 +185,15 @@ function error_estimate_derivative_direct_3d(
                 z = zs[k2]
                 gy(y) = f(x, y, z)
 
-                I2 += wxi * wz[k2] * convert(T, AutoDerivativeDirect.nth_derivative(
-                    deriv_fun,
-                    backend_tag,
-                    gy, 
-                    ȳ, 
-                    kk;
-                ))
+                I2 += wxi * wz[k2] * convert(T,
+                    AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
+                        gy,
+                        ȳ,
+                        kk;
+                    )
+                )
             end
         end
 
@@ -177,13 +205,15 @@ function error_estimate_derivative_direct_3d(
                 y = ys[j]
                 gz(z) = f(x, y, z)
 
-                I3 += wxi * wy[j] * convert(T, AutoDerivativeDirect.nth_derivative(
-                    deriv_fun,
-                    backend_tag,
-                    gz, 
-                    z̄, 
-                    kk;
-                ))
+                I3 += wxi * wy[j] * convert(T,
+                    AutoDerivativeDirect.nth_derivative(
+                        deriv_fun,
+                        backend_tag,
+                        gz,
+                        z̄,
+                        kk;
+                    )
+                )
             end
         end
 

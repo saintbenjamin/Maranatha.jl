@@ -42,6 +42,22 @@
 Place an annotation text box inside a plot axis while heuristically avoiding
 plotted points, curves, and vertical error bars.
 
+# Function description
+This helper evaluates a list of candidate text-anchor positions in axis-fraction
+coordinates, temporarily renders an invisible text box at each candidate, and
+scores the resulting display-space bounding box against nearby plot content.
+
+The score penalizes:
+
+- overlap with the axis frame,
+- direct overlap with plotted data points,
+- direct overlap with vertical error-bar segments,
+- direct overlap with plotted curve segments, and
+- near-misses within a fixed display-space padding window.
+
+After all candidate anchors in `prefer_order` are evaluated, the best-scoring
+placement is chosen and the visible annotation box is added to `ax`.
+
 # Arguments
 - `fig`:
   Figure object used to access the renderer.
@@ -52,26 +68,38 @@ plotted points, curves, and vertical error bars.
 - `x_points::AbstractVector{<:Real}`, `y_points::AbstractVector{<:Real}`:
   Data points to avoid when selecting the text position.
 - `x_curve::AbstractVector{<:Real} = Real[]`, `y_curve::AbstractVector{<:Real} = Real[]`:
-  Optional polyline coordinates to avoid.
+  Optional polyline coordinates to avoid. These must either both be empty or
+  both be non-empty.
 - `yerr_points::Union{Nothing,AbstractVector{<:Real}} = nothing`:
   Optional vertical error magnitudes associated with `x_points` / `y_points`.
 - `fontsize::Real = 10`:
   Font size used for the annotation box.
 - `prefer_order`:
-  Candidate anchor positions, given in axis-fraction coordinates.
+  Candidate anchor positions, given as tuples
+  `(x_fraction, y_fraction, vertical_align, horizontal_align)` in axis-fraction
+  coordinates.
 
 # Returns
 - `Nothing`:
   The function mutates `ax` by adding the selected annotation.
 
 # Errors
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if
+  `length(x_points) != length(y_points)`.
+- Throws if `yerr_points !== nothing` but `length(yerr_points) != length(x_points)`.
+- Throws if exactly one of `x_curve` and `y_curve` is empty.
+- Throws if both curve arrays are present but their lengths differ.
 - Propagates plotting-backend errors if renderer information cannot be obtained.
-- May propagate dimension or indexing errors if the supplied coordinate vectors are inconsistent.
 
 # Notes
 - This is an internal plotting helper.
 - Placement is evaluated in display space after rendering, so the chosen location
   depends on the actual rendered axis geometry.
+- Error bars are treated as vertical line segments centered on `y_points`.
+- Curve avoidance uses consecutive pairs of `(x_curve, y_curve)` as polyline
+  segments.
+- If no candidate survives scoring logic, the helper falls back to the
+  upper-left corner anchor `(0.02, 0.98, :top, :left)`.
 """
 function _smart_text_placement!(
     fig,
@@ -102,13 +130,35 @@ function _smart_text_placement!(
         (0.02, 0.25, :center, :left),
     )
 )
+    length(x_points) == length(y_points) || JobLoggerTools.error_benji(
+        "Length mismatch in _smart_text_placement!: length(x_points) != length(y_points)"
+    )
+
+    if yerr_points !== nothing
+        length(yerr_points) == length(x_points) || JobLoggerTools.error_benji(
+            "Length mismatch in _smart_text_placement!: length(yerr_points) != length(x_points)"
+        )
+    end
+
+    isempty(x_curve) == isempty(y_curve) || JobLoggerTools.error_benji(
+        "Curve inputs must both be empty or both be non-empty in _smart_text_placement!."
+    )
+
+    if !isempty(x_curve)
+        length(x_curve) == length(y_curve) || JobLoggerTools.error_benji(
+            "Length mismatch in _smart_text_placement!: length(x_curve) != length(y_curve)"
+        )
+    end
+
+    x_points_f = Float64.(x_points)
+    y_points_f = Float64.(y_points)
+    x_curve_f  = Float64.(x_curve)
+    y_curve_f  = Float64.(y_curve)
+    yerr_f = yerr_points === nothing ? nothing : Float64.(yerr_points)
 
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
 
-    # ------------------------------------------------------------
-    # Helpers
-    # ------------------------------------------------------------
     function _inflate_bbox(bb, pad)
         return (
             bb.x0 - pad,
@@ -129,13 +179,11 @@ function _smart_text_placement!(
     end
 
     function _segment_intersects_bbox(p1x, p1y, p2x, p2y, x0, x1, y0, y1)
-        # quick accept: endpoint inside
         if _point_inside_bbox(p1x, p1y, x0, x1, y0, y1) ||
            _point_inside_bbox(p2x, p2y, x0, x1, y0, y1)
             return true
         end
 
-        # Liang-Barsky style clipping
         dx = p2x - p1x
         dy = p2y - p1y
 
@@ -173,7 +221,6 @@ function _smart_text_placement!(
             return 0.0
         end
 
-        # approximate by endpoint distances + rect corner to segment distances
         function point_segment_distance(px, py, ax, ay, bx, by)
             vx = bx - ax
             vy = by - ay
@@ -201,44 +248,38 @@ function _smart_text_placement!(
         return dmin
     end
 
-    # ------------------------------------------------------------
-    # Transform points to display coordinates
-    # ------------------------------------------------------------
-    pts = isempty(x_points) ? zeros(0, 2) : ax.transData.transform(hcat(x_points, y_points))
+    pts = isempty(x_points_f) ?
+        zeros(0, 2) :
+        ax.transData.transform(hcat(x_points_f, y_points_f))
 
-    # errorbar vertical segments in display coords
     err_segments = Tuple{Float64,Float64,Float64,Float64}[]
-    if yerr_points !== nothing && !isempty(x_points)
-        ylo = y_points .- yerr_points
-        yhi = y_points .+ yerr_points
-        p_lo = ax.transData.transform(hcat(x_points, ylo))
-        p_hi = ax.transData.transform(hcat(x_points, yhi))
-        for i in eachindex(x_points)
+    if yerr_f !== nothing && !isempty(x_points_f)
+        ylo = y_points_f .- yerr_f
+        yhi = y_points_f .+ yerr_f
+        p_lo = ax.transData.transform(hcat(x_points_f, ylo))
+        p_hi = ax.transData.transform(hcat(x_points_f, yhi))
+        for i in eachindex(x_points_f)
             push!(err_segments, (p_lo[i,1], p_lo[i,2], p_hi[i,1], p_hi[i,2]))
         end
     end
 
-    # curve polyline segments in display coords
     crv_segments = Tuple{Float64,Float64,Float64,Float64}[]
-    if !isempty(x_curve) && length(x_curve) == length(y_curve) && length(x_curve) >= 2
-        crv = ax.transData.transform(hcat(x_curve, y_curve))
+    if !isempty(x_curve_f) && length(x_curve_f) >= 2
+        crv = ax.transData.transform(hcat(x_curve_f, y_curve_f))
         for i in 1:(size(crv,1)-1)
             push!(crv_segments, (crv[i,1], crv[i,2], crv[i+1,1], crv[i+1,2]))
         end
     end
 
-    # axes bbox in display coords
     axbb = ax.get_window_extent(renderer=renderer)
 
     best = nothing
     best_score = Inf
 
-    # pixel pads
     pad = 8.0
     near_pad = 18.0
 
     for (xf, yf, va_sym, ha_sym) in prefer_order
-        # measure with final bbox included
         t = ax.text(
             xf, yf, text;
             transform=ax.transAxes,
@@ -260,12 +301,10 @@ function _smart_text_placement!(
 
         score = 0.0
 
-        # penalty if text box goes outside axes region
         if x0 < axbb.x0 || x1 > axbb.x1 || y0 < axbb.y0 || y1 > axbb.y1
             score += 1e6
         end
 
-        # point overlap + near-miss penalty
         @inbounds for i in axes(pts, 1)
             px = pts[i, 1]
             py = pts[i, 2]
@@ -280,7 +319,6 @@ function _smart_text_placement!(
             end
         end
 
-        # errorbar overlap + near-miss penalty
         for (xA, yA, xB, yB) in err_segments
             d = _segment_rect_distance(xA, yA, xB, yB, x0, x1, y0, y1)
             if d == 0.0
@@ -290,7 +328,6 @@ function _smart_text_placement!(
             end
         end
 
-        # curve overlap + near-miss penalty
         for (xA, yA, xB, yB) in crv_segments
             d = _segment_rect_distance(xA, yA, xB, yB, x0, x1, y0, y1)
             if d == 0.0
@@ -300,7 +337,6 @@ function _smart_text_placement!(
             end
         end
 
-        # slight bias toward higher positions, but very weak
         score += 0.1 * abs(0.5 - yf)
 
         if score < best_score

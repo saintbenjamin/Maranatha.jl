@@ -48,9 +48,19 @@ Makefile
 
 # Arguments
 
-- `a`, `b`: Integration bounds.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form inside the generated note.
+
 - `name`: Identifier for the experiment or integrand.
-- `hs`: Step sizes used in the convergence study.
+- `hs`: Scalar step sizes used in the convergence study.
+
+  In rectangular-domain workflows, this is expected to be the scalarized
+  step-size sequence used for fitting / plotting / reporting, not the
+  original per-axis step tuples.
+
 - `estimates`: Integral estimates corresponding to `hs`.
 - `errors`: Error objects or uncertainty containers.
 - `fit_terms`: Number of extrapolation fit terms.
@@ -89,11 +99,15 @@ A `NamedTuple` containing paths and build status information, including:
 
 - Existing note directories are removed before creation.
 - Plot files are expected to exist in `out_dir`.
-- PDF compilation depends on external [``\\LaTeX``](https://www.latex-project.org/) tools.
+- PDF compilation depends on external [``\\LaTeX``](https://www.latex-project.org/) 
+  tools.
+- For rectangular-domain workflows, the generated note is based on the
+  scalarized `hs` sequence supplied to this function; original per-axis
+  step tuples are not embedded by this helper.
 """
 function write_convergence_internal_note(
-    a::Real,
-    b::Real,
+    a,
+    b,
     name::String,
     hs::Vector{Float64},
     estimates::Vector{Float64},
@@ -101,6 +115,7 @@ function write_convergence_internal_note(
     fit_terms::Int,
     nerr_terms::Int,
     fit_result;
+    err_method::Symbol=:refinement,
     rule::Symbol = :gauss_p3,
     boundary::Symbol = :LU_ININ,
     out_dir::String = ".",
@@ -122,12 +137,14 @@ function write_convergence_internal_note(
     hasproperty(fit_result, :estimate) || JobLoggerTools.error_benji("fit_result missing :estimate")
     hasproperty(fit_result, :error_estimate) || JobLoggerTools.error_benji("fit_result missing :error_estimate")
 
+    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
+
     summary_basename = _build_convergence_summary_basename(
         name,
         rule,
         boundary,
         fit_terms,
-        nerr_terms,
+        nerr_terms_eff,
     )
 
     note_dirname = "inote_" * summary_basename
@@ -329,6 +346,11 @@ report generation via the `nterms` and `nerr_terms` keyword arguments.
 
 - `result`: Object exposing fields such as `a`, `b`, `h`, `avg`,
   `err`, `fit_terms`, `nerr_terms`, `rule`, and `boundary`.
+
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for fitting / plotting / reporting, while any
+  original per-axis step data remain in `result.tuple_h`.
+
 - `fit_result`: Extrapolation fit result.
 
 # Keyword arguments
@@ -372,6 +394,9 @@ This wrapper is intended for convenience when working directly with the
 result object returned by [`Maranatha.Runner.run_Maranatha`](@ref), while
 still allowing limited report-level customization without reconstructing
 the full argument list manually.
+
+For rectangular-domain workflows, this wrapper forwards `result.h`, i.e. the
+scalarized step-size sequence, rather than the original per-axis step tuples.
 """
 function write_convergence_internal_note(
     result,

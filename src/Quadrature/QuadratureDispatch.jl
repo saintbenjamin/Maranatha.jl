@@ -105,40 +105,57 @@ end
         real_type = nothing,
     ) -> Real
 
-Evaluate a ``2``-dimensional tensor-product quadrature over ``[a,b] \\times [a,b]``.
+Evaluate a ``2``-dimensional tensor-product quadrature.
 
 # Function description
-# Function description
-This routine obtains ``1``-dimensional nodes and weights from
-[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
-the tensor-product sum:
+This routine supports two domain conventions:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the same interval ``[a,b]`` is used on both axes.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors, they are interpreted as per-axis bounds,
+  and the domain becomes
+  ``[a_1,b_1] \\times [a_2,b_2]``.
+
+The routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref) for each active axis and forms
+the tensor-product sum
 ```math
 \\sum_i \\sum_j w_i w_j f(x_i, y_j).
 ```
 
 # Arguments
-- `f`: Integrand callable ``f(x, y)``.
-- `a`, `b`: Bounds used on both axes.
-- `N`: Number of intervals / blocks per axis.
-- `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol.
+
+* `f`: Integrand callable `f(x, y)`.
+* `a`, `b`:
+  Either scalar bounds used on both axes, or length-2 tuples/vectors specifying
+  per-axis rectangular bounds.
+* `N`: Number of intervals / blocks per axis.
+* `rule`: Integration rule symbol.
+* `boundary`: Boundary pattern symbol.
 
 # Keyword arguments
-- `λ = nothing`:
+
+* `λ = nothing`:
   Optional smoothing parameter used only for smoothing B-spline rules.
   If `nothing`, zero is used in the active scalar type.
-- `real_type = nothing`:
+* `real_type = nothing`:
   Optional scalar type used internally for node/weight construction and
   accumulation.
 
 # Returns
-- `Real`:
+
+* `Real`:
   Estimated integral value in the active scalar type.
 
 # Errors
-- Propagates any error thrown by
+
+* Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != 2`
+  or `length(b) != 2`.
+* Propagates any error thrown by
   [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
-- Propagates any error thrown by `f`.
+* Propagates any error thrown by `f`.
 """
 function quadrature_2d(
     f,
@@ -153,10 +170,29 @@ function quadrature_2d(
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, b, N, rule, boundary; λ = λT, real_type = T
-    )
-    ys, wy = xs, wx
+    # ------------------------------------------------------------
+    # Branch 1: Hypercube case (same interval on both axes)
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a, b, N, rule, boundary; λ = λT, real_type = T
+        )
+        ys, wy = xs, wx
+    else
+        # --------------------------------------------------------
+        # Branch 2: Per-axis intervals
+        # a and b must be length-2 containers
+        # --------------------------------------------------------
+        length(a) == 2 || throw(ArgumentError("length(a) must be 2 for 2D"))
+        length(b) == 2 || throw(ArgumentError("length(b) must be 2 for 2D"))
+
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[1], b[1], N, rule, boundary; λ = λT, real_type = T
+        )
+        ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[2], b[2], N, rule, boundary; λ = λT, real_type = T
+        )
+    end
 
     total = zero(T)
 
@@ -166,8 +202,7 @@ function quadrature_2d(
         for j in eachindex(ys)
             w = wi * wy[j]
             iszero(w) && continue
-            val = f(xi, ys[j])
-            total += w * val
+            total += w * f(xi, ys[j])
         end
     end
 
@@ -186,39 +221,57 @@ end
         real_type = nothing,
     ) -> Real
 
-Evaluate a ``3``-dimensional tensor-product quadrature over ``[a,b]^3``.
+Evaluate a ``3``-dimensional tensor-product quadrature.
 
 # Function description
-This routine obtains ``1``-dimensional nodes and weights from
-[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
-the tensor-product sum:
+This routine supports two domain conventions:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the same interval ``[a,b]`` is used on all three axes.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors, they are interpreted as per-axis bounds,
+  and the domain becomes
+  ``[a_1,b_1] \\times [a_2,b_2] \\times [a_3,b_3]``.
+
+The routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref) for each active axis and forms
+the tensor-product sum
 ```math
 \\sum_i \\sum_j \\sum_k w_i w_j w_k f(x_i, y_j, z_k).
 ```
 
 # Arguments
-- `f`: Integrand callable ``f(x, y, z)``.
-- `a`, `b`: Bounds used on all axes.
-- `N`: Number of intervals / blocks per axis.
-- `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol.
+
+* `f`: Integrand callable `f(x, y, z)`.
+* `a`, `b`:
+  Either scalar bounds used on all axes, or length-3 tuples/vectors specifying
+  per-axis rectangular bounds.
+* `N`: Number of intervals / blocks per axis.
+* `rule`: Integration rule symbol.
+* `boundary`: Boundary pattern symbol.
 
 # Keyword arguments
-- `λ = nothing`:
+
+* `λ = nothing`:
   Optional smoothing parameter used only for smoothing B-spline rules.
   If `nothing`, zero is used in the active scalar type.
-- `real_type = nothing`:
+* `real_type = nothing`:
   Optional scalar type used internally for node/weight construction and
   accumulation.
 
 # Returns
-- `Real`:
+
+* `Real`:
   Estimated integral value in the active scalar type.
 
 # Errors
-- Propagates any error thrown by
+
+* Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != 3`
+  or `length(b) != 3`.
+* Propagates any error thrown by
   [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
-- Propagates any error thrown by `f`.
+* Propagates any error thrown by `f`.
 """
 function quadrature_3d(
     f,
@@ -233,11 +286,33 @@ function quadrature_3d(
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, b, N, rule, boundary; λ = λT, real_type = T
-    )
-    ys, wy = xs, wx
-    zs, wz = xs, wx
+    # ------------------------------------------------------------
+    # Branch 1: Hypercube case (same interval on all axes)
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a, b, N, rule, boundary; λ = λT, real_type = T
+        )
+        ys, wy = xs, wx
+        zs, wz = xs, wx
+    else
+        # --------------------------------------------------------
+        # Branch 2: Per-axis intervals
+        # a and b must be length-3 containers
+        # --------------------------------------------------------
+        length(a) == 3 || throw(ArgumentError("length(a) must be 3 for 3D"))
+        length(b) == 3 || throw(ArgumentError("length(b) must be 3 for 3D"))
+
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[1], b[1], N, rule, boundary; λ = λT, real_type = T
+        )
+        ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[2], b[2], N, rule, boundary; λ = λT, real_type = T
+        )
+        zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[3], b[3], N, rule, boundary; λ = λT, real_type = T
+        )
+    end
 
     total = zero(T)
 
@@ -250,8 +325,7 @@ function quadrature_3d(
             for k in eachindex(zs)
                 w = wij * wz[k]
                 iszero(w) && continue
-                val = f(xi, yj, zs[k])
-                total += w * val
+                total += w * f(xi, yj, zs[k])
             end
         end
     end
@@ -271,39 +345,57 @@ end
         real_type = nothing,
     ) -> Real
 
-Evaluate a ``4``-dimensional tensor-product quadrature over ``[a,b]^4``.
+Evaluate a ``4``-dimensional tensor-product quadrature.
 
 # Function description
-This routine obtains ``1``-dimensional nodes and weights from
-[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)` and forms
-the tensor-product sum:
+This routine supports two domain conventions:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the same interval ``[a,b]`` is used on all four axes.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors, they are interpreted as per-axis bounds,
+  and the domain becomes
+  ``[a_1,b_1] \\times [a_2,b_2] \\times [a_3,b_3] \\times [a_4,b_4]``.
+
+The routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref) for each active axis and forms
+the tensor-product sum
 ```math
 \\sum_i \\sum_j \\sum_k \\sum_\\ell w_i w_j w_k w_\\ell f(x_i, y_j, z_k, t_\\ell) \\, .
 ```
 
 # Arguments
-- `f`: Integrand callable ``f(x, y, z, t)``.
-- `a`, `b`: Bounds used on all axes.
-- `N`: Number of intervals / blocks per axis.
-- `rule`: Integration rule symbol.
-- `boundary`: Boundary pattern symbol.
+
+* `f`: Integrand callable `f(x, y, z, t)`.
+* `a`, `b`:
+  Either scalar bounds used on all axes, or length-4 tuples/vectors specifying
+  per-axis rectangular bounds.
+* `N`: Number of intervals / blocks per axis.
+* `rule`: Integration rule symbol.
+* `boundary`: Boundary pattern symbol.
 
 # Keyword arguments
-- `λ = nothing`:
+
+* `λ = nothing`:
   Optional smoothing parameter used only for smoothing B-spline rules.
   If `nothing`, zero is used in the active scalar type.
-- `real_type = nothing`:
+* `real_type = nothing`:
   Optional scalar type used internally for node/weight construction and
   accumulation.
 
 # Returns
-- `Real`:
+
+* `Real`:
   Estimated integral value in the active scalar type.
 
 # Errors
-- Propagates any error thrown by
+
+* Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != 4`
+  or `length(b) != 4`.
+* Propagates any error thrown by
   [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
-- Propagates any error thrown by `f`.
+* Propagates any error thrown by `f`.
 """
 function quadrature_4d(
     f,
@@ -318,12 +410,37 @@ function quadrature_4d(
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, b, N, rule, boundary; λ = λT, real_type = T
-    )
-    ys, wy = xs, wx
-    zs, wz = xs, wx
-    ts, wt = xs, wx
+    # ------------------------------------------------------------
+    # Branch 1: Hypercube case (same interval on all axes)
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a, b, N, rule, boundary; λ = λT, real_type = T
+        )
+        ys, wy = xs, wx
+        zs, wz = xs, wx
+        ts, wt = xs, wx
+    else
+        # --------------------------------------------------------
+        # Branch 2: Per-axis intervals
+        # a and b must be length-4 containers
+        # --------------------------------------------------------
+        length(a) == 4 || throw(ArgumentError("length(a) must be 4 for 4D"))
+        length(b) == 4 || throw(ArgumentError("length(b) must be 4 for 4D"))
+
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[1], b[1], N, rule, boundary; λ = λT, real_type = T
+        )
+        ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[2], b[2], N, rule, boundary; λ = λT, real_type = T
+        )
+        zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[3], b[3], N, rule, boundary; λ = λT, real_type = T
+        )
+        ts, wt = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[4], b[4], N, rule, boundary; λ = λT, real_type = T
+        )
+    end
 
     total = zero(T)
 
@@ -339,8 +456,7 @@ function quadrature_4d(
                 for l in eachindex(ts)
                     w = wijk * wt[l]
                     iszero(w) && continue
-                    val = f(xi, yj, zk, ts[l])
-                    total += w * val
+                    total += w * f(xi, yj, zk, ts[l])
                 end
             end
         end
@@ -362,19 +478,33 @@ end
         real_type = nothing,
     ) -> Real
 
-Perform a general tensor-product quadrature over ``[a,b]^{\\texttt{dim}}``.
+Perform a general tensor-product quadrature in `dim` dimensions.
 
 # Function description
-This routine obtains ``1``-dimensional nodes and weights from
-[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)`(a, b, N, rule, boundary)`, then
-enumerates all tensor-product index tuples with an odometer-style update.
+This routine supports two domain conventions:
+
+- **Hypercube-style input**:
+  if `a` and `b` are scalar bounds, the domain is interpreted as
+  ``[a,b]^{\\texttt{dim}}``.
+
+- **Axis-wise rectangular input**:
+  if `a` and `b` are tuples or vectors of length `dim`, they are interpreted as
+  per-axis bounds, and the domain becomes
+  ``[a_1,b_1] \\times \\cdots \\times [a_{\\texttt{dim}}, b_{\\texttt{dim}}]``.
+
+The routine obtains ``1``-dimensional nodes and weights from
+[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref), then enumerates all
+tensor-product index tuples with an odometer-style update.
 
 For each multi-index ``(i_1, \\ldots, i_{\\texttt{dim}})``, it forms the weight
-product and evaluates the integrand as ``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})`` using splatting.
+product and evaluates the integrand as
+``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})`` using splatting.
 
 # Arguments
 - `f`: Integrand callable accepting `dim` scalar arguments.
-- `a`, `b`: Bounds defining the hypercube ``[a,b]^{\\texttt{dim}}``.
+- `a`, `b`:
+  Either scalar bounds defining a hypercube domain, or tuples/vectors of length
+  `dim` defining a rectangular per-axis domain.
 - `N`: Number of subdivisions / blocks per axis.
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol.
@@ -396,6 +526,8 @@ product and evaluates the integrand as ``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})
 
 # Errors
 - Throws `ArgumentError` if ``\\texttt{dim} < 1``.
+- Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
+  or `length(b) != dim`.
 - Propagates any error thrown by
   [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
 - Propagates any error thrown by `f`.
@@ -416,29 +548,85 @@ function quadrature_nd(
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, b, N, rule, boundary; λ = λT, real_type = T
-    )
+    # ------------------------------------------------------------
+    # Branch 1: Hypercube case (same interval on all axes)
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a, b, N, rule, boundary; λ = λT, real_type = T
+        )
+
+        idx = ones(Int, dim)
+        total = zero(T)
+        args = Vector{T}(undef, dim)
+
+        @inbounds while true
+            wprod = one(T)
+
+            for d in 1:dim
+                i = idx[d]
+                args[d] = xs[i]
+                wprod *= ws[i]
+            end
+
+            if !iszero(wprod)
+                total += wprod * f(args...)
+            end
+
+            d = dim
+            while d >= 1
+                idx[d] += 1
+                if idx[d] <= length(xs)
+                    break
+                else
+                    idx[d] = 1
+                    d -= 1
+                end
+            end
+            d == 0 && break
+        end
+
+        return total
+    end
+
+    # ------------------------------------------------------------
+    # Branch 2: Per-axis intervals (rectangular domain)
+    # a and b must be vectors/tuples of length dim
+    # ------------------------------------------------------------
+    length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+    length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
+
+    xs_list = Vector{Vector{T}}(undef, dim)
+    ws_list = Vector{Vector{T}}(undef, dim)
+
+    for d in 1:dim
+        xs_list[d], ws_list[d] =
+            QuadratureNodes.get_quadrature_1d_nodes_weights(
+                a[d], b[d], N, rule, boundary; λ = λT, real_type = T
+            )
+    end
 
     idx = ones(Int, dim)
-
     total = zero(T)
     args = Vector{T}(undef, dim)
 
     @inbounds while true
         wprod = one(T)
+
         for d in 1:dim
             i = idx[d]
-            args[d] = xs[i]
-            wprod *= ws[i]
+            args[d] = xs_list[d][i]
+            wprod *= ws_list[d][i]
         end
 
-        iszero(wprod) || (total += wprod * f(args...))
+        if !iszero(wprod)
+            total += wprod * f(args...)
+        end
 
         d = dim
         while d >= 1
             idx[d] += 1
-            if idx[d] <= length(xs)
+            if idx[d] <= length(xs_list[d])
                 break
             else
                 idx[d] = 1
@@ -483,13 +671,22 @@ The optional parameter `λ` is forwarded mainly for smoothing B-spline rules,
 and `real_type` controls the internal scalar type used for conversion and
 accumulation.
 
+This dispatcher accepts both hypercube-style scalar bounds and axis-wise
+rectangular bounds. Support for axis-wise bounds is provided by the selected
+backend; on the local CPU path, rectangular domains are supported for
+`quadrature_2d`, `quadrature_3d`, `quadrature_4d`, and `quadrature_nd`.
+
 # Arguments
 - `integrand`:
   Callable integrand accepting `dim` scalar positional arguments.
 - `a`:
-  Lower integration bound on each axis.
+  Lower integration bound specification.
+  This may be either a scalar lower bound shared across all axes, or a tuple/vector
+  of per-axis lower bounds.
 - `b`:
-  Upper integration bound on each axis.
+  Upper integration bound specification.
+  This may be either a scalar upper bound shared across all axes, or a tuple/vector
+  of per-axis upper bounds.
 - `N`:
   Number of subdivisions or composite blocks per axis.
 - `dim`:
@@ -519,7 +716,7 @@ accumulation.
 # Errors
 - Propagates validation and backend errors from the selected execution path.
 - Throws `ArgumentError` indirectly if the selected backend rejects the supplied
-  dimensionality or rule configuration.
+  dimensionality, rule configuration, or bound layout.
 
 # Notes
 - Backend priority is `use_cuda` first, then `threaded_subgrid`, then the local
@@ -543,6 +740,9 @@ function quadrature(
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
+    # ------------------------------------------------------------
+    # CUDA backend
+    # ------------------------------------------------------------
     if use_cuda
         return QuadratureDispatchCUDA.quadrature_cuda(
             integrand,
@@ -557,6 +757,9 @@ function quadrature(
         )
     end
 
+    # ------------------------------------------------------------
+    # Threaded CPU backend
+    # ------------------------------------------------------------
     if threaded_subgrid
         return QuadratureDispatchThreadedSubgrid.quadrature_threaded_subgrid(
             integrand,
@@ -571,6 +774,9 @@ function quadrature(
         )
     end
 
+    # ------------------------------------------------------------
+    # Dimension-specialized local paths
+    # ------------------------------------------------------------
     if dim == 1
         return quadrature_1d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
     elseif dim == 2
@@ -581,9 +787,14 @@ function quadrature(
         return quadrature_4d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
     else
         return quadrature_nd(
-            integrand, a, b, N, rule, boundary;
-            λ = λT,
+            integrand,
+            a,
+            b,
+            N,
+            rule,
+            boundary;
             dim = dim,
+            λ = λT,
             real_type = T,
         )
     end

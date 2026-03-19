@@ -12,7 +12,13 @@
     module Maranatha
 
 `Maranatha.jl` is a numerical framework for **deterministic quadrature-based
-continuum extrapolation** on hypercube domains ``[a,b]^n``.
+continuum extrapolation** on hyperrectangular domains
+
+```math
+\\prod_{i=1}^n [a_i, b_i]
+```
+
+which includes the special case of hypercubes ``[a,b]^n``.
 
 Rather than stochastic sampling approaches (e.g. Monte Carlo or VEGAS),
 Maranatha focuses on deterministic multi-resolution quadrature and
@@ -23,11 +29,15 @@ The framework follows a **pipeline-oriented workflow**:
 
 1. deterministic quadrature evaluation
 2. derivative-informed error-scale estimation
-3. least-``χ²`` extrapolation to ``h → 0``
+3. least-``\\chi^2`` extrapolation to ``h → 0``
 4. convergence visualization
 
 This design allows controlled numerical studies where convergence behavior
 is explicitly modeled rather than statistically inferred.
+
+The integration domain may be specified either as a scalar interval
+(common bounds for all axes) or as axis-wise endpoints, allowing
+general rectangular domains.
 
 ## Core components
 
@@ -36,6 +46,8 @@ The package is internally divided into independent submodules:
 - [`Maranatha.Quadrature`](@ref)  
   Multi-dimensional tensor-product quadrature with rule dispatch
   (Newton–Cotes, Gauss-family, B-spline).
+
+  Supports both uniform hypercubes and axis-wise rectangular domains.
 
   Supports multiple execution backends including
   serial evaluation, threaded subgrid partitioning,
@@ -105,6 +117,9 @@ print_fit_result(fit_result)
 
 plot_convergence_result(run_result, fit_result)
 ```
+
+The integration bounds supplied to `run_Maranatha` may be scalars
+(for ``[a,b]^n``) or tuples/vectors specifying per-axis limits.
 
 For detailed documentation, tutorials, and complete workflow examples,
 please refer to the project documentation site or the example

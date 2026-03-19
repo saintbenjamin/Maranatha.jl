@@ -19,6 +19,209 @@ import ..Utils.JobLoggerTools
 # 1. Serialization helpers
 # ============================================================
 
+# ------------------------------------------------------------
+# Geometry / TOML helper utilities
+# ------------------------------------------------------------
+
+"""
+    _is_scalar_domain_value(x) -> Bool
+
+Return `true` if `x` represents a scalar domain value.
+
+# Function description
+
+This predicate distinguishes scalar endpoints from multi-axis domain
+representations. A value is considered scalar if it is neither a `Tuple`
+nor an `AbstractVector`.
+
+It is typically used when determining whether a problem domain is
+one-dimensional (scalar) or multi-dimensional (tuple/vector-based).
+
+# Arguments
+
+- `x`: Domain endpoint candidate.
+
+# Returns
+
+- `Bool`: `true` if `x` is scalar-like, `false` if it represents a
+  multi-component domain.
+"""
+@inline _is_scalar_domain_value(x) = !(x isa Tuple) && !(x isa AbstractVector)
+
+"""
+    _storable_domain_value(x)
+
+Convert a domain value into a container suitable for serialization.
+
+# Function description
+
+This helper normalizes domain endpoints for storage (e.g., in TOML or JSON)
+by converting tuple- or vector-like objects into concrete vectors while
+leaving scalar values unchanged.
+
+The goal is to ensure that serialized representations use standard,
+portable container types.
+
+# Arguments
+
+- `x`: Domain value (scalar, tuple, or vector-like).
+
+# Returns
+
+- A storable representation:
+
+  - `Vector` if `x` is a tuple or vector-like object,
+  - the original value if `x` is scalar.
+"""
+@inline function _storable_domain_value(x)
+    if x isa Tuple
+        return collect(x)
+    elseif x isa AbstractVector
+        return collect(x)
+    else
+        return x
+    end
+end
+
+"""
+    _restore_domain_value(x, T)
+
+Reconstruct a domain value from a serialized representation.
+
+# Function description
+
+This routine reverses the transformation applied by
+[`_storable_domain_value`](@ref), converting stored vector data back
+into the domain representation expected by the computational code.
+
+If the input is vector-like, the elements are converted to type `T`
+and returned as a tuple. Scalar inputs are converted directly to `T`.
+
+# Arguments
+
+- `x`: Stored domain value.
+- `T`: Target numeric type.
+
+# Returns
+
+- A domain value of type `T`:
+
+  - `Tuple{T,...}` if `x` is vector-like,
+  - scalar `T` otherwise.
+"""
+@inline function _restore_domain_value(x, T)
+    if x isa AbstractVector
+        return Tuple(convert.(T, x))
+    else
+        return convert(T, x)
+    end
+end
+
+"""
+    _to_axis_vector(x, dim::Int) -> Vector
+
+Convert a domain specification into an explicit per-axis vector.
+
+# Function description
+
+This helper produces a length-`dim` vector of axis values from a domain
+specification that may be scalar or multi-component.
+
+Supported behaviors:
+
+- Tuple input: elements are copied into a new vector.
+- Vector input: collected into a new vector.
+- Scalar input: replicated across all dimensions.
+
+This is useful when constructing tensor-product grids or performing
+dimension-wise operations.
+
+# Arguments
+
+- `x`: Domain value (scalar, tuple, or vector-like).
+- `dim`: Target dimensionality.
+
+# Returns
+
+- `Vector`: A length-`dim` vector of axis values.
+"""
+@inline function _to_axis_vector(x, dim::Int)
+    if x isa Tuple
+        return [x[i] for i in 1:dim]
+    elseif x isa AbstractVector
+        return collect(x)
+    else
+        return fill(x, dim)
+    end
+end
+
+"""
+    _toml_safe(x)
+
+Convert an arbitrary object into a TOML-compatible representation.
+
+# Function description
+
+This recursive helper transforms complex Julia objects into values that
+can be safely serialized in TOML format.
+
+The conversion rules aim to preserve meaning while ensuring compatibility
+with TOML's restricted data model.
+
+Supported conversions include:
+
+- Primitive TOML types (`Bool`, integers, strings) → unchanged
+- Floating-point values → preserved if standard (`Float32`, `Float64`),
+  otherwise converted to string
+- Symbols → converted to strings
+- Tuples and vectors → converted elementwise to arrays
+- Dictionaries and named tuples → converted to `Dict{String,Any}`
+  with recursively processed values
+- Other types → converted to string representations
+
+# Arguments
+
+- `x`: Arbitrary Julia object.
+
+# Returns
+
+- A TOML-safe value composed only of supported scalar types,
+  arrays, and string-keyed dictionaries.
+
+# Notes
+
+- This function prioritizes robustness over round-trip fidelity.
+- Non-standard numeric types may be stringified to avoid loss of
+  information during serialization.
+"""
+@inline function _toml_safe(x)
+    if x isa Bool || x isa Integer || x isa AbstractString
+        return x
+    elseif x isa AbstractFloat
+        return x isa Float32 || x isa Float64 ? x : string(x)
+    elseif x isa Symbol
+        return String(x)
+    elseif x isa Tuple
+        return [_toml_safe(v) for v in x]
+    elseif x isa AbstractVector
+        return [_toml_safe(v) for v in x]
+    elseif x isa Dict
+        out = Dict{String,Any}()
+        for (k, v) in x
+            out[string(k)] = _toml_safe(v)
+        end
+        return out
+    elseif x isa NamedTuple
+        out = Dict{String,Any}()
+        for k in keys(x)
+            out[string(k)] = _toml_safe(getproperty(x, k))
+        end
+        return out
+    else
+        return string(x)
+    end
+end
+
 """
     _err_entry_to_dict(
         e
@@ -30,6 +233,11 @@ Convert a single internal error-entry object into a serialization-friendly dicti
 This helper normalizes one element of `res.err` into a plain dictionary composed
 of standard scalar and container types suitable for storage in `JLD2`, `TOML`,
 or related external formats.
+
+This conversion supports both scalar-step and axis-wise-step error entries.
+Fields such as `:center`, `:h`, `:h_coarse`, and `:h_fine` are preserved through
+`_storable_domain_value`, so rectangular-domain metadata can be serialized
+without losing per-axis structure.
 
 It currently supports two error-entry layouts:
 
@@ -63,8 +271,8 @@ function _err_entry_to_dict(e)
             "derivatives"  => collect(e.derivatives),
             "terms"        => collect(e.terms),
             "total"        => e.total,
-            "center"       => e.center isa Tuple ? collect(e.center) : e.center,
-            "h"            => e.h,
+            "center"       => _storable_domain_value(e.center),
+            "h"            => _storable_domain_value(e.h),
         )
     elseif hasproperty(e, :estimate)
         return Dict(
@@ -75,8 +283,8 @@ function _err_entry_to_dict(e)
             "N_coarse"     => Int(e.N_coarse),
             "N_fine"       => Int(e.N_fine),
             "dim"          => Int(e.dim),
-            "h_coarse"     => e.h_coarse,
-            "h_fine"       => e.h_fine,
+            "h_coarse"     => _storable_domain_value(e.h_coarse),
+            "h_fine"       => _storable_domain_value(e.h_fine),
             "q_coarse"     => e.q_coarse,
             "q_fine"       => e.q_fine,
             "estimate"     => e.estimate,
@@ -123,6 +331,9 @@ Currently supported serialized formats are:
 # Notes
 - The reconstructed structure is intended to match the field layout expected by
   downstream Maranatha workflows.
+- Scalar and axis-wise geometric fields are restored through
+  [`_restore_domain_value`](@ref), so rectangular-domain error metadata is
+  reconstructed as tuples when appropriate.
 """
 function _dict_to_err_entry(e)
     fmt = get(e, "err_format", "refinement")
@@ -131,20 +342,14 @@ function _dict_to_err_entry(e)
         coeffs = collect(e["coeffs"])
         T = isempty(coeffs) ? Float64 : eltype(coeffs)
 
-        center_val = if e["center"] isa AbstractVector
-            Tuple(convert.(T, e["center"]))
-        else
-            convert(T, e["center"])
-        end
-
         return (
             ks          = Vector{Int}(e["ks"]),
             coeffs      = Vector{T}(coeffs),
             derivatives = Vector{T}(e["derivatives"]),
             terms       = Vector{T}(e["terms"]),
             total       = convert(T, e["total"]),
-            center      = center_val,
-            h           = convert(T, e["h"]),
+            center      = _restore_domain_value(e["center"], T),
+            h           = _restore_domain_value(e["h"], T),
         )
     elseif fmt == "refinement"
         T = typeof(e["estimate"])
@@ -155,8 +360,8 @@ function _dict_to_err_entry(e)
             N_coarse    = Int(e["N_coarse"]),
             N_fine      = Int(e["N_fine"]),
             dim         = Int(e["dim"]),
-            h_coarse    = convert(T, e["h_coarse"]),
-            h_fine      = convert(T, e["h_fine"]),
+            h_coarse    = _restore_domain_value(e["h_coarse"], T),
+            h_fine      = _restore_domain_value(e["h_fine"], T),
             q_coarse    = convert(T, e["q_coarse"]),
             q_fine      = convert(T, e["q_fine"]),
             estimate    = convert(T, e["estimate"]),
@@ -233,7 +438,9 @@ types.
 The conversion preserves the full stored content, including:
 
 - global integration metadata,
-- step sizes and averages,
+- scalarized step sizes in `res.h`,
+- original per-axis step information in `res.tuple_h` when present,
+- quadrature estimates, and
 - detailed per-datapoint error descriptors.
 
 The resulting structure is suitable for storage in formats such as `JLD2` or
@@ -259,14 +466,19 @@ later through [`dict_to_namedtuple`](@ref).
 - This helper is intended to pair with [`dict_to_namedtuple`](@ref).
 - Each entry of `res.err` may represent either a residual-based or a
   refinement-based error object.
+- For rectangular-domain results, `tuple_h` preserves the original per-axis
+  step tuples while `h` preserves the scalar fitting step sequence.
 """
 function namedtuple_to_dict(
     res
 )
     return Dict(
-        "a"             => res.a,
-        "b"             => res.b,
+        "a"             => _storable_domain_value(res.a),
+        "b"             => _storable_domain_value(res.b),
         "h"             => collect(res.h),
+        "tuple_h"       => hasproperty(res, :tuple_h) ?
+                           [_storable_domain_value(hi) for hi in res.tuple_h] :
+                           [_storable_domain_value(hi) for hi in res.h],
         "avg"           => collect(res.avg),
         "rule"          => String(res.rule),
         "boundary"      => String(res.boundary),
@@ -297,6 +509,8 @@ including:
 
 - numeric vectors,
 - symbolic rule / boundary metadata,
+- scalarized step sizes in `h`,
+- original per-axis step information in `tuple_h`, and
 - the vector of per-datapoint error descriptors.
 
 The reconstructed `err` field may therefore contain either residual-based or
@@ -314,11 +528,13 @@ refinement-based error-entry objects, depending on the serialized content.
   the expected serialized layout.
 
 # Notes
-- The stored `center` field is reconstructed as either a scalar in the active
-  `real_type` or a tuple in that same scalar type, depending on the serialized
+- Stored geometric fields are reconstructed as either scalars in the active
+  `real_type` or tuples in that same scalar type, depending on the serialized
   representation.
 - Refinement-based error entries are reconstructed from their serialized
   `"err_format"` tag in the same unified `err` vector as residual-based entries.
+- If the serialized payload includes `tuple_h`, it is restored explicitly;
+  otherwise, `h` is reused as a fallback for backward compatibility.
 """
 function dict_to_namedtuple(
     d
@@ -337,10 +553,17 @@ function dict_to_namedtuple(
         Float64
     end
 
+    tuple_h_restored = if haskey(d, "tuple_h")
+        [_restore_domain_value(hi, T) for hi in d["tuple_h"]]
+    else
+        [_restore_domain_value(hi, T) for hi in d["h"]]
+    end
+
     return (
-        a             = convert(T, d["a"]),
-        b             = convert(T, d["b"]),
+        a             = _restore_domain_value(d["a"], T),
+        b             = _restore_domain_value(d["b"], T),
         h             = Vector{T}(d["h"]),
+        tuple_h       = tuple_h_restored,
         avg           = Vector{T}(d["avg"]),
         err           = err,
         rule          = Symbol(d["rule"]),
@@ -375,7 +598,8 @@ inspection and diagnostics.
 The summary includes:
 
 - integration metadata,
-- step sizes,
+- scalarized step sizes,
+- original per-axis step information when available,
 - quadrature estimates,
 - total-like scalar error estimates extracted from each error entry, and
 - full per-datapoint error decomposition in serialized dictionary form.
@@ -399,13 +623,16 @@ human-readable summary export rather than structured round-trip recovery.
 - The exported `err_total` field is built through [`_err_entry_total`](@ref),
   allowing both residual-based and refinement-based error entries to contribute
   to the same human-readable summary format.
+- For rectangular-domain results, both `h` and `tuple_h` are exported so the
+  human-readable summary retains the scalar fitting proxy and the original
+  per-axis step structure.
 """
 function generate_summary_dict(
     res
 )
     return Dict(
-        "a"             => res.a,
-        "b"             => res.b,
+        "a"             => _toml_safe(res.a),
+        "b"             => _toml_safe(res.b),
         "dim"           => Int(res.dim),
         "rule"          => String(res.rule),
         "boundary"      => String(res.boundary),
@@ -415,11 +642,12 @@ function generate_summary_dict(
         "ff_shift"      => Int(res.ff_shift),
         "use_error_jet" => Bool(res.use_error_jet),
         "use_cuda"      => getproperty(res, :use_cuda),
-        "real_type"     => getproperty(res, :real_type),
-        "h"             => collect(res.h),
-        "avg"           => collect(res.avg),
-        "err_total"     => [_err_entry_total(e) for e in res.err],
-        "err"           => [_err_entry_to_dict(e) for e in res.err]
+        "real_type"     => string(getproperty(res, :real_type)),
+        "h"             => _toml_safe(collect(res.h)),
+        "tuple_h"       => hasproperty(res, :tuple_h) ? _toml_safe(res.tuple_h) : _toml_safe(res.h),
+        "avg"           => _toml_safe(collect(res.avg)),
+        "err_total"     => _toml_safe([_err_entry_total(e) for e in res.err]),
+        "err"           => _toml_safe([_err_entry_to_dict(e) for e in res.err]),
     )
 end
 
@@ -530,7 +758,7 @@ end
         atol=1e-10
     ) -> Vector{Int}
 
-Infer subdivision counts `N` from the stored step sizes `h`.
+Infer subdivision counts `N` from the stored step-size information.
 
 # Function description
 This helper reconstructs the effective subdivision counts from the standard
@@ -540,45 +768,102 @@ relation
 N = \\frac{b-a}{h}.
 ```
 
-It is useful when a result object stores only `h` values but the corresponding
-integer sample counts are needed for inspection, diagnostics, or filename
-construction.
+It supports both isotropic and rectangular-domain result layouts.
+
+* If `res.tuple_h` is available and contains axis-wise step tuples/vectors,
+  the subdivision count is reconstructed independently on each axis and then
+  checked for consistency across axes.
+* Otherwise, the helper falls back to the scalar `res.h` values.
+
+It is useful when a result object stores step-size information but the
+corresponding integer sample counts are needed for inspection, diagnostics, or
+filename construction.
 
 # Arguments
-- `res`: Result object containing `a`, `b`, and stored step sizes `h`.
+
+* `res`: Result object containing `a`, `b`, and stored step-size information.
 
 # Keyword arguments
-- `atol`: Absolute tolerance used when checking numerical consistency with an
+
+* `atol`: Absolute tolerance used when checking numerical consistency with an
   integer subdivision count.
 
 # Returns
-- `Vector{Int}`: Inferred subdivision counts.
+
+* `Vector{Int}`: Inferred subdivision counts.
 
 # Errors
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if a stored step size is not
+
+* Throws (via [`JobLoggerTools.error_benji`](@ref)) if a stored step size is not
   numerically consistent with an integer `N`.
+* Throws if axis-wise step reconstruction yields inconsistent inferred `N`
+  values across axes.
 
 # Notes
-- This helper assumes the standard Maranatha convention `h = (b-a)/N`.
+
+* This helper prefers `tuple_h` when available because it preserves the
+  original per-axis step information for rectangular domains.
+* When only scalar `h` is available in a multi-axis rectangular domain, the
+  helper requires that the scalar value be compatible with all axis lengths.
 """
 function infer_nsamples(
     res;
     atol = 1e-10,
 )
     T = eltype(res.h)
-    L = res.b - res.a
     atolT = convert(T, atol)
     Ns = Int[]
 
-    for hi in res.h
-        x = L / hi
-        Ni = round(Int, x)
+    a_axes = _to_axis_vector(res.a, res.dim)
+    b_axes = _to_axis_vector(res.b, res.dim)
+    L_axes = [b_axes[i] - a_axes[i] for i in 1:res.dim]
 
-        isapprox(x, T(Ni); atol = atolT, rtol = zero(T)) || JobLoggerTools.error_benji(
-            "Failed to infer integer N from h=$hi on interval [$(res.a), $(res.b)]"
-        )
+    tuple_hs = if hasproperty(res, :tuple_h)
+        res.tuple_h
+    else
+        res.h
+    end
 
-        push!(Ns, Ni)
+    for hi in tuple_hs
+        if hi isa Tuple || hi isa AbstractVector
+            h_axes = _to_axis_vector(hi, res.dim)
+
+            N_candidates = Int[]
+            for i in 1:res.dim
+                x = L_axes[i] / h_axes[i]
+                Ni = round(Int, x)
+
+                isapprox(x, T(Ni); atol = atolT, rtol = zero(T)) || JobLoggerTools.error_benji(
+                    "Failed to infer integer N from tuple_h=$(hi) on axis $i"
+                )
+
+                push!(N_candidates, Ni)
+            end
+
+            all(N -> N == N_candidates[1], N_candidates) || JobLoggerTools.error_benji(
+                "Inconsistent inferred N across axes for tuple_h=$(hi): $(N_candidates)"
+            )
+
+            push!(Ns, N_candidates[1])
+        else
+            x = L_axes[1] / hi
+            Ni = round(Int, x)
+
+            isapprox(x, T(Ni); atol = atolT, rtol = zero(T)) || JobLoggerTools.error_benji(
+                "Failed to infer integer N from h=$hi"
+            )
+
+            if res.dim > 1
+                for i in 2:res.dim
+                    xi = L_axes[i] / hi
+                    isapprox(xi, T(Ni); atol = atolT, rtol = zero(T)) || JobLoggerTools.error_benji(
+                        "Scalar h=$hi is incompatible with rectangular multi-axis domain."
+                    )
+                end
+            end
+
+            push!(Ns, Ni)
+        end
     end
 
     return Ns
@@ -741,6 +1026,12 @@ function _assert_same_result_shape(
         res.use_error_jet == ref.use_error_jet || JobLoggerTools.error_benji(
             "Merge mismatch at result $i: use_error_jet differs ($(res.use_error_jet) != $(ref.use_error_jet))"
         )
+        getproperty(res, :use_cuda) == getproperty(ref, :use_cuda) || JobLoggerTools.error_benji(
+            "Merge mismatch at result $i: use_cuda differs ($(getproperty(res, :use_cuda)) != $(getproperty(ref, :use_cuda)))"
+        )
+        string(getproperty(res, :real_type)) == string(getproperty(ref, :real_type)) || JobLoggerTools.error_benji(
+            "Merge mismatch at result $i: real_type differs ($(getproperty(res, :real_type)) != $(getproperty(ref, :real_type)))"
+        )
     end
 
     return nothing
@@ -755,7 +1046,7 @@ end
 Check that a collection of step sizes contains no duplicate values.
 
 # Function description
-This helper sorts the supplied step sizes and checks adjacent values for
+This helper sorts the supplied scalar step sizes and checks adjacent values for
 numerical duplication within the specified absolute tolerance.
 
 It is used as a merge-safety check when combining datapoint result blocks.
@@ -808,11 +1099,12 @@ Merge multiple compatible datapoint result blocks into one result object.
 This routine concatenates the aligned datapoint arrays
 
 - `h`
+- `tuple_h`
 - `avg`
 - `err`
 
-from several compatible result objects, optionally checks for duplicate step
-sizes, and optionally sorts the merged datapoints by descending `h`.
+from several compatible result objects, optionally checks for duplicate scalar
+step sizes, and optionally sorts the merged datapoints by descending `h`.
 
 Global metadata fields are copied from the first input result after shape
 compatibility has been verified.
@@ -837,6 +1129,8 @@ compatibility has been verified.
 # Notes
 - This helper performs metadata-based safety checks, not full semantic identity
   checks on the originating problem.
+- For rectangular-domain results, `tuple_h` is merged alongside `h` so the
+  original per-axis step information is preserved after concatenation.
 """
 function merge_datapoint_results(
     results...;
@@ -856,6 +1150,7 @@ function merge_datapoint_results(
     h_all = T[]
     avg_all = T[]
     err_all = eltype(result_list[1].err)[]
+    tuple_h_all = Any[]
 
     for (i, res) in enumerate(result_list)
         length(res.h) == length(res.avg) || JobLoggerTools.error_benji(
@@ -865,9 +1160,15 @@ function merge_datapoint_results(
             "Length mismatch in result $i: length(h) != length(err)"
         )
 
+        local_tuple_h = hasproperty(res, :tuple_h) ? res.tuple_h : res.h
+        length(res.h) == length(local_tuple_h) || JobLoggerTools.error_benji(
+            "Length mismatch in result $i: length(h) != length(tuple_h)"
+        )
+
         append!(h_all, T.(res.h))
         append!(avg_all, T.(res.avg))
         append!(err_all, res.err)
+        append!(tuple_h_all, local_tuple_h)
     end
 
     if !allow_duplicate_h
@@ -879,6 +1180,7 @@ function merge_datapoint_results(
         h_all = h_all[p]
         avg_all = avg_all[p]
         err_all = err_all[p]
+        tuple_h_all = tuple_h_all[p]
     end
 
     ref = result_list[1]
@@ -887,6 +1189,7 @@ function merge_datapoint_results(
         a             = ref.a,
         b             = ref.b,
         h             = h_all,
+        tuple_h       = tuple_h_all,
         avg           = avg_all,
         err           = err_all,
         rule          = ref.rule,
@@ -1005,10 +1308,10 @@ end
 Remove selected subdivision counts from a result object.
 
 # Function description
-This helper reconstructs the stored subdivision counts from the step sizes via
+It reconstructs the stored subdivision counts from the step-size information via
 [`infer_nsamples`](@ref), builds a keep-mask, and returns a filtered copy of
-the input result with the corresponding datapoint-aligned arrays reduced
-consistently.
+the input result with all datapoint-aligned arrays reduced consistently,
+including `tuple_h` when present.
 
 # Arguments
 - `res`: Result object to filter.
@@ -1028,6 +1331,8 @@ consistently.
 # Notes
 - Global metadata fields are copied from the original result, including
   `use_cuda` and `real_type` when present.
+- If the result stores `tuple_h`, that per-axis step information is filtered in
+  sync with `h`, `avg`, and `err`.
 """
 function drop_nsamples_from_result(
     res,
@@ -1044,24 +1349,28 @@ function drop_nsamples_from_result(
         "drop_nsamples_from_result would remove all datapoints."
     )
 
-    h_new   = res.h[keep_mask]
-    avg_new = res.avg[keep_mask]
-    err_new = res.err[keep_mask]
+    h_new       = res.h[keep_mask]
+    tuple_h_new = hasproperty(res, :tuple_h) ? res.tuple_h[keep_mask] : res.h[keep_mask]
+    avg_new     = res.avg[keep_mask]
+    err_new     = res.err[keep_mask]
 
     return (
-        a           = res.a,
-        b           = res.b,
-        h           = h_new,
-        avg         = avg_new,
-        err         = err_new,
-        rule        = res.rule,
-        boundary    = res.boundary,
-        dim         = res.dim,
-        err_method  = res.err_method,
-        nerr_terms  = res.nerr_terms,
-        fit_terms   = res.fit_terms,
-        ff_shift    = res.ff_shift,
+        a             = res.a,
+        b             = res.b,
+        h             = h_new,
+        tuple_h       = tuple_h_new,
+        avg           = avg_new,
+        err           = err_new,
+        rule          = res.rule,
+        boundary      = res.boundary,
+        dim           = res.dim,
+        err_method    = res.err_method,
+        nerr_terms    = res.nerr_terms,
+        fit_terms     = res.fit_terms,
+        ff_shift      = res.ff_shift,
         use_error_jet = res.use_error_jet,
+        use_cuda      = getproperty(res, :use_cuda),
+        real_type     = getproperty(res, :real_type),
     )
 end
 

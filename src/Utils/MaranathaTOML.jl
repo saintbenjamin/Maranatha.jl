@@ -39,6 +39,116 @@ const VALID_ERR_METHODS = Set([
 ])
 
 """
+    _is_domain_collection(x) -> Bool
+
+Return `true` if `x` represents a multi-component domain endpoint.
+
+# Function description
+
+This predicate checks whether a domain value encodes multiple coordinates,
+such as a tuple or vector used to specify per-axis bounds in a
+multi-dimensional integration domain.
+
+Scalar values return `false`, while tuple- or vector-like values return `true`.
+
+# Arguments
+
+- `x`: Domain endpoint candidate.
+
+# Returns
+
+- `Bool`: `true` if `x` is a tuple or vector, `false` otherwise.
+"""
+@inline function _is_domain_collection(x)
+    return x isa Tuple || x isa AbstractVector
+end
+
+"""
+    _normalize_domain_endpoint(x)
+
+Normalize a domain endpoint into a storable container form.
+
+# Function description
+
+This helper converts tuple- or vector-like endpoints into a concrete
+`Vector`, ensuring a consistent mutable container representation for
+downstream processing or serialization. Scalar values are returned
+unchanged.
+
+The normalization avoids ambiguity between tuples and arrays when
+handling domain metadata.
+
+# Arguments
+
+- `x`: Domain endpoint (scalar, tuple, or vector-like).
+
+# Returns
+
+- A normalized value:
+
+  - `Vector` if `x` is a tuple or vector,
+  - the original value if `x` is scalar.
+"""
+@inline function _normalize_domain_endpoint(x)
+    if x isa Tuple
+        return collect(x)
+    elseif x isa AbstractVector
+        return collect(x)
+    else
+        return x
+    end
+end
+
+"""
+    _domain_axis_values(x, dim::Int) -> Vector
+
+Expand a domain endpoint into explicit per-axis values.
+
+# Function description
+
+This routine produces a length-`dim` vector describing the endpoint value
+along each coordinate axis.
+
+Behavior depends on the input type:
+
+- Tuple input: elements are copied into a new vector after verifying
+  that the tuple length equals `dim`.
+- Vector input: collected into a new vector after verifying length.
+- Scalar input: replicated across all dimensions.
+
+Length mismatches for tuple or vector inputs trigger an error, ensuring
+that domain specifications remain dimensionally consistent.
+
+# Arguments
+
+- `x`: Domain endpoint (scalar, tuple, or vector-like).
+- `dim`: Expected number of dimensions.
+
+# Returns
+
+- `Vector`: A length-`dim` vector of axis endpoint values.
+
+# Errors
+
+- Throws an error if a tuple or vector input does not have length `dim`.
+"""
+@inline function _domain_axis_values(x, dim::Int)
+    if x isa Tuple
+        length(x) == dim || error(
+            "Domain tuple length mismatch: expected dim=$(dim), got length=$(length(x))."
+        )
+        return [x[i] for i in 1:dim]
+    elseif x isa AbstractVector
+        length(x) == dim || error(
+            "Domain vector length mismatch: expected dim=$(dim), got length=$(length(x))."
+        )
+        return collect(x)
+    else
+        return fill(x, dim)
+    end
+end
+
+"""
     load_integrand_from_file(
         path::AbstractString;
         func_name::Symbol = :integrand
@@ -111,6 +221,14 @@ forms expected by the Maranatha run pipeline.
 In particular, relative paths are interpreted relative to the [`TOML`](https://toml.io/en/) file
 location rather than the current working directory.
 
+Domain endpoints are accepted in two forms:
+
+- scalar values, representing an isotropic domain shared across all axes, or
+- arrays, representing per-axis bounds for rectangular domains.
+
+When arrays are used, they are preserved as normalized vector-like endpoint data
+and later validated against `dim`.
+
 # Arguments
 - `toml_path::AbstractString`: Path to the [`TOML`](https://toml.io/en/) configuration file.
 
@@ -129,6 +247,8 @@ location rather than the current working directory.
 - If `[error].err_method` is omitted, it defaults to `:refinement`,
   which activates the resolution-refinement error estimator.
 - If `[execution].use_error_jet` is omitted, it defaults to `false`.
+- Rectangular-domain TOML input is supported by allowing `[domain].a` and
+  `[domain].b` to be arrays of length `dim`.
 """
 function parse_run_config_from_toml(
     toml_path::AbstractString
@@ -182,13 +302,23 @@ function parse_run_config_from_toml(
     real_type = get(execution_section, "real_type", "Float64")
     real_type = real_type isa Symbol ? real_type : Symbol(String(real_type))
 
+    a_raw = _normalize_domain_endpoint(domain_section["a"])
+    b_raw = _normalize_domain_endpoint(domain_section["b"])
+
+    if _is_domain_collection(a_raw) != _is_domain_collection(b_raw)
+        error(
+            "Invalid TOML domain specification: `[domain].a` and `[domain].b` " *
+            "must both be scalars, or both be arrays."
+        )
+    end
+
     return (
         toml_path      = abs_toml_path,
         integrand_file = integrand_file,
         integrand_name = integrand_name,
 
-        a = domain_section["a"],
-        b = domain_section["b"],
+        a = a_raw,
+        b = b_raw,
         dim = Int(get(domain_section, "dim", 1)),
 
         nsamples = Int.(sampling_section["nsamples"]),
@@ -224,6 +354,12 @@ and numerically suitable for execution.
 The validation is intentionally limited to conditions that can be checked
 reliably without executing the user-defined integrand itself.
 
+It supports both isotropic and rectangular-domain configurations:
+
+- if `cfg.a` and `cfg.b` are scalars, the same interval is used on every axis;
+- if `cfg.a` and `cfg.b` are tuple/vector-like collections, they are interpreted
+  as per-axis bounds and must match `cfg.dim`.
+
 # Arguments
 - `cfg`: Normalized configuration bundle, typically produced by
   [`parse_run_config_from_toml`](@ref).
@@ -232,7 +368,8 @@ reliably without executing the user-defined integrand itself.
 - `Nothing`.
 
 # Errors
-- Throws if `a >= b`.
+- Throws if any axis fails the strict bound check `a[i] < b[i]`.
+- Throws if scalar / collection domain styles are mixed between `a` and `b`.
 - Throws if `dim < 1`.
 - Throws if `nsamples` is empty or contains invalid entries.
 - Throws if the integrand file does not exist.
@@ -245,15 +382,30 @@ reliably without executing the user-defined integrand itself.
 - This helper does not verify whether the loaded integrand signature is
   compatible with the requested dimensionality.
 - CUDA mode currently supports only `:Float32` and `:Float64`.
+- For rectangular domains, endpoint-length consistency is checked through
+  [`_domain_axis_values`](@ref).
 """
 function validate_run_config(cfg)::Nothing
-    cfg.a < cfg.b || error(
-        "Invalid domain: require a < b, but got a=$(cfg.a), b=$(cfg.b)."
-    )
-
     cfg.dim >= 1 || error(
         "Invalid dim: dim must be >= 1, but got dim=$(cfg.dim)."
     )
+
+    a_axes = _domain_axis_values(cfg.a, cfg.dim)
+    b_axes = _domain_axis_values(cfg.b, cfg.dim)
+
+    for i in 1:cfg.dim
+        a_axes[i] < b_axes[i] || error(
+            "Invalid domain on axis $i: require a[$i] < b[$i], " *
+            "but got a[$i]=$(a_axes[i]), b[$i]=$(b_axes[i])."
+        )
+    end
+
+    if _is_domain_collection(cfg.a) != _is_domain_collection(cfg.b)
+        error(
+            "Invalid domain specification: `a` and `b` must both be scalars, " *
+            "or both be tuple/vector-like collections."
+        )
+    end
 
     !isempty(cfg.nsamples) || error(
         "Invalid nsamples: the list must not be empty."

@@ -31,7 +31,25 @@ The structure mirrors the [``\\LaTeX``](https://www.latex-project.org/) version 
 
 # Arguments
 
-Same as [`_build_convergence_summary_tex`](@ref).
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form via an internal formatter.
+
+- `name`: Display name of the experiment or dataset.
+- `hsp`: Filtered scalar step sizes used in the fit / report.
+- `hxp`: Filtered transformed horizontal coordinates, typically ``h^{p}``.
+- `estp`: Filtered quadrature estimates.
+- `errp`: Filtered pointwise uncertainties.
+- `pvec`: Best-fit parameter vector.
+- `λerr`: One-sigma parameter uncertainties.
+- `fit_powers`: Powers used in the fitted model basis.
+- `I0`: Extrapolated ``h \\to 0`` estimate.
+- `I0_err`: Uncertainty of the extrapolated estimate.
+- `red`: Reduced chi-square value.
+- `nerr_terms`: Number of error terms used in the derivative-based model,
+  when applicable.
 
 # Returns
 
@@ -41,34 +59,46 @@ Same as [`_build_convergence_summary_tex`](@ref).
 
 - Designed for GitHub-compatible Markdown rendering.
 - Mathematical expressions are emitted using fenced `math` blocks.
+- For rectangular-domain runs, the interval display summarizes the
+  per-axis bounds while the tabulated `h` columns use the scalarized step
+  sequence supplied to the fitter/reporting pipeline.
 """
 function _build_convergence_summary_md(
     a, b, name, hsp, hxp, estp, errp,
     pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-    rule, boundary
+    rule, boundary, err_method=:refinement
+
 )
     io = IOBuffer()
+    interval_txt = _format_interval_for_note(a, b)
+
+    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
 
     println(io, "# Convergence summary: $(name)")
     println(io, "")
 
-    # ------------------------------------------------------------
-    # Run configuration (column style — matches LaTeX)
-    # ------------------------------------------------------------
     println(io, "## Run configuration")
     println(io, "")
-    println(io, "| Interval | Rule (Boundary) | Number of error terms |")
-    println(io, "|:--|:--|:--|")
-    println(io,
-        "| `[$(a), $(b)]` | " *
-        "`$(String(rule)) ($(String(boundary)))` | " *
-        "`$(nerr_terms)` |"
-    )
+
+    if nerr_terms_eff == 0
+        println(io, "| Interval | Rule (Boundary) |")
+        println(io, "|:--|:--|")
+        println(io,
+            "| `$(interval_txt)` | " *
+            "`$(String(rule)) ($(String(boundary)))` |"
+        )
+    else
+        println(io, "| Interval | Rule (Boundary) | Number of error terms |")
+        println(io, "|:--|:--|:--|")
+        println(io,
+            "| `$(interval_txt)` | " *
+            "`$(String(rule)) ($(String(boundary)))` | " *
+            "`$(nerr_terms)` |"
+        )
+    end
+
     println(io, "")
 
-    # ------------------------------------------------------------
-    # Quadrature estimates
-    # ------------------------------------------------------------
     println(io, "## Quadrature estimates and uncertainties for different step sizes")
     println(io, "")
     println(io, "| \$h\$ | \$h^$(fit_powers[2])\$ | \$I(h)\$ |")
@@ -85,13 +115,9 @@ function _build_convergence_summary_md(
     hptxt = _fmt_md_code_sci(0.0)
     qtxt  = _fmt_avgerr_md(I0, I0_err)
 
-    # highlight extrapolated value (Markdown version of bold)
     println(io, "| $htxt | $hptxt | **$qtxt** |")
     println(io, "")
 
-    # ------------------------------------------------------------
-    # Fit results
-    # ------------------------------------------------------------
     println(io, "## Least-chi-square fit results for extrapolation to \$h \\to 0\$")
     println(io, "")
     fit_model_tex = _build_fit_model_tex(fit_powers)
@@ -106,7 +132,6 @@ function _build_convergence_summary_md(
         λname = fit_powers[i] == 0 ? "\$\\lambda_0\$" : "\$\\lambda_$(i-1)\$"
         λtxt  = _fmt_avgerr_md(pvec[i], λerr[i])
 
-        # bold constant term to match LaTeX
         if fit_powers[i] == 0
             println(io, "| $λname | **$λtxt** |")
         else

@@ -414,3 +414,53 @@ function g_F0000_pure(
 
     return (termA + termB) / y^2
 end
+
+function g_F0000_5d(
+    y::T,
+    θ1::T,
+    θ2::T,
+    θ3::T,
+    θ4::T,
+) where {T<:AbstractFloat}
+
+    πT = T(pi)
+
+    # ------------------------------------------------------------
+    # Endpoint prescription
+    # ------------------------------------------------------------
+    # The original 1D integrand has removable / special endpoint values:
+    #   g_F0000_pure(0) = 1/2
+    #   g_F0000_pure(1) = 0
+    #
+    # In the 5D representation, we distribute that scalar endpoint value
+    # uniformly over the four dummy angular directions, so that integrating
+    # over θ1..θ4 still reproduces the same endpoint contribution.
+    # ------------------------------------------------------------
+    if y == zero(T)
+        return (T(1) / T(2)) / πT^4
+    elseif y == one(T)
+        return zero(T)
+    end
+
+    x = (one(T) - y) / y
+
+    s = (one(T) - cos(θ1)) +
+        (one(T) - cos(θ2)) +
+        (one(T) - cos(θ3)) +
+        (one(T) - cos(θ4))
+
+    # True 5D representation of
+    #   4π^2 x * besseli0x(x)^4
+    termA_5d = (T(4) * x / πT^2) * exp(-x * s)
+
+    # Fake 5D lifting of the B-term:
+    # constant in θ1..θ4, normalized by 1/π^4 so that
+    # integration over θ1..θ4 reproduces the original 1D term.
+    termB_1d = -(
+        one(T) - (one(T) + x / T(2)) * exp(-x / T(2))
+    ) / x
+
+    termB_5d = termB_1d / πT^4
+
+    return (termA_5d + termB_5d) / y^2
+end

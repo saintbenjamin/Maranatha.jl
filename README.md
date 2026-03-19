@@ -55,7 +55,7 @@ name = "integrand"
 
 [domain]
 a = 0.0
-b = 3.141592653589793
+b = 3.14159265358979323846264338327950588
 dim = 1
 
 [sampling]
@@ -73,10 +73,11 @@ ff_shift = 0
 
 [execution]
 use_error_jet = true
+real_type = "Double64"
 
 [output]
-name_prefix = "1D"
-save_path = "."
+name_prefix = "sample_1d"
+save_path = "jld2"
 write_summary = true
 save_file = true
 ```
@@ -112,14 +113,18 @@ To explicitly request GPU execution, use the direct-call interface and set
 ```julia
 run_result = run_Maranatha(
     integrand,
-    0.0,
-    pi;
+    Double64(0.0),
+    Double64(pi);
     dim = 1,
     nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
     rule = :gauss_p4,
     boundary = :LU_EXEX,
     err_method = :refinement,
+    fit_terms = 4,
+    save_path = joinpath(".", "jld2")
+    write_summary = true,
     use_cuda = true,
+    real_type = Double64
 )
 ```
 
@@ -233,7 +238,8 @@ non-smooth or singular problems.
 
 ### 🔢 Integration
 
-* General **multi-dimensional tensor-product quadrature** on $[a,b]^d$
+* General **multi-dimensional tensor-product quadrature** on rectangular domains  
+  $[a_1,b_1] \times \cdots \times [a_d,b_d]$ (hypercube $[a,b]^d$ is a special case)
 * Unified quadrature dispatcher supporting:
   * Newton–Cotes (`:newton_p2`, `:newton_p3`, ...)
   * Gauss-family rules (`:gauss_p2`, `:gauss_p3`, ...)
@@ -358,7 +364,8 @@ end
 
 The runner returns a `NamedTuple` containing the raw convergence-study data, including:
 
-* `result.a`, `result.b` — integration bounds
+* `result.a`, `result.b` — integration bounds  
+  (scalars for hypercubes or axis-wise arrays/tuples for rectangular domains)
 * `result.h` — step sizes
 * `result.avg` — quadrature estimates
 * `result.err` — error-information objects
@@ -382,7 +389,7 @@ The fitter returns a `NamedTuple` containing extrapolation results, including:
 ## ⚠️ Scope & Assumptions
 
 * Uniform tensor-product grids only
-* Hypercube domains $[a,b]^d$
+* Rectangular domains $[a_i, b_i]$ per axis (hypercubes are a special case)
 * Designed primarily for smooth integrands
 * Not adaptive (yet)
 * Not specialized for singular or discontinuous integrands

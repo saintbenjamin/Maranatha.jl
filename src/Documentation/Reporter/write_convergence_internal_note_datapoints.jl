@@ -49,12 +49,25 @@ inote_<summary_basename>/
 ```
 # Arguments
 
-- `a`, `b`: Integration interval endpoints.
+- `a`, `b`: Integration domain endpoints.
+
+  These may be either scalars (uniform-domain case) or tuples specifying
+  per-axis bounds for rectangular domains. The interval is rendered in a
+  compact textual form inside the generated note.
+
 - `name`: Identifier for the experiment, dataset, or source file.
-- `hs`: Step sizes used in the convergence study.
+- `hs`: Scalar step sizes used in the convergence study.
+
+  In rectangular-domain workflows, this is expected to be the scalarized
+  step-size sequence used for plotting/reporting, not the original per-axis
+  step tuples.
+
 - `estimates`: Quadrature estimates corresponding to `hs`.
 - `errors`: Error objects or uncertainty containers.
-  Each entry is expected to provide a `.total` field in the current workflow.
+  Each entry is expected to provide either:
+
+  - a `.total` field, as in residual-based workflows, or
+  - an `.estimate` field, as in refinement-based workflows.
 
 # Keyword arguments
 
@@ -96,10 +109,13 @@ including:
 - The `name` argument may be a plain identifier or a path-like string; it is
   split internally into display and file-safe forms via [`_split_report_name`](@ref).
 - PDF compilation depends on external [``\\LaTeX``](https://www.latex-project.org/) tools such as `pdflatex`.
+- For rectangular-domain workflows, the note still reports the scalarized `hs`
+  sequence supplied to this function; original per-axis step tuples are not
+  embedded by this helper.
 """
 function write_convergence_internal_note_datapoints(
-    a::Real,
-    b::Real,
+    a,
+    b,
     name::String,
     hs::Vector{Float64},
     estimates::Vector{Float64},
@@ -326,6 +342,10 @@ datapoints-only internal note without manually unpacking arrays.
 - `result`: Object exposing fields such as `a`, `b`, `h`, `avg`, `err`,
   `rule`, and `boundary`.
 
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for plotting/reporting, while any original per-axis
+  step data remain in `result.tuple_h`.
+
 # Keyword arguments
 
 - `name`: Identifier used in the note title, captions, and output filenames.
@@ -351,6 +371,9 @@ A `NamedTuple` identical in structure to the return value of the primary
 
 - This method is especially useful in notebook or pipeline workflows where the
   raw result object is already available in memory.
+- This wrapper forwards `result.h` to the primary method.
+- For rectangular-domain workflows, that means the generated note is based on
+  the scalarized step-size sequence rather than the original per-axis step tuples.
 """
 function write_convergence_internal_note_datapoints(
     result;
