@@ -20,18 +20,18 @@ shareable, and suitable for research documentation.
 ## Overview
 
 A typical `Maranatha.jl` workflow produces raw convergence data and, in many
-cases, a fitted continuum extrapolation. The `Maranatha.Documentation.Reporter` module
-transforms either stage into human-readable reports.
+cases, a fitted continuum extrapolation. The `Maranatha.Documentation.Reporter`
+module transforms either stage into human-readable reports.
 
 ```
 Runner → LeastChiSquareFit → PlotTools → Reporter
 ```
 
-For fit-based reporting, `Maranatha.Documentation.Reporter` consumes both the quadrature result and the
+For fit-based reporting, the module consumes both the quadrature result and the
 fit result. For pre-fit reporting, it can also generate summaries and internal
 notes directly from raw datapoints and datapoints-only plots.
 
-The `Maranatha.Documentation.Reporter` module is therefore the final stage of many pipelines.
+The module therefore represents the final stage of many pipelines.
 
 ---
 
@@ -60,9 +60,9 @@ and
 Outputs can be produced in multiple formats, including [$\LaTeX$](https://www.latex-project.org/)-ready
 snippets for direct inclusion in documents.
 
-This allows Reporter to support both:
+This allows the module to support both:
 - post-fit reporting workflows, and
-- pre-fit inspection / archival workflows based only on raw datapoints.
+- pre-fit inspection or archival workflows based only on raw datapoints.
 
 ---
 
@@ -103,7 +103,7 @@ The build system:
 - uses `make` if present,
 - falls back to direct `pdflatex` builds,
 - handles bibliography processing when needed,
-- reports missing dependencies with actionable diagnostics.
+- reports missing dependencies with clear diagnostics.
 
 ---
 
@@ -230,7 +230,7 @@ Reporter emphasizes:
 
 ### Reproducibility
 
-Every generated report contains enough information to rebuild the
+Every generated report contains sufficient information to rebuild the
 document independently.
 
 ---
@@ -274,12 +274,12 @@ contains the corresponding summary and figure assets.
 Typical contents include:
 
 | Component | Purpose |
-|----------|----------|
-Master `.tex` | Stand-alone document |
-Summary table | Numerical results or datapoints-only summary |
-Figure include file | Plot layout |
-`figs/` directory | Plot assets |
-Makefile | Reproducible build |
+|:--|:--|
+| Master `.tex` | Stand-alone document |
+| Summary table | Numerical results or datapoints-only summary |
+| Figure include file | Plot layout |
+| `figs/` directory | Plot assets |
+| Makefile | Reproducible build |
 
 ---
 

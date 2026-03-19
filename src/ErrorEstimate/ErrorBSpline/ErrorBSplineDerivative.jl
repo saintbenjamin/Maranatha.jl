@@ -26,9 +26,9 @@ import ..BSpline
 """
     _exact_moment_shifted_float(
         Nsub::Int, 
-        c::Float64, 
+        c, 
         k::Int
-    ) -> Float64
+    ) -> Real
 
 Compute the exact shifted monomial moment ``\\displaystyle{\\int\\limits_0^N \\left( u - c \\right)^k du}`` in `Float64`.
 
@@ -49,24 +49,28 @@ reference exact moment in floating point.
 - `k`: Monomial power.
 
 # Returns
-- `Float64`: Exact shifted moment computed in `Float64`.
+- `Real`:
+  Exact shifted moment computed in the same scalar type as `c`.
 
 # Errors
 - No explicit validation is performed here; callers are expected to provide
   meaningful inputs.
 
 # Notes
-- This helper is intentionally `Float64`-only and mirrors the tolerance-based
-  residual detection policy used for B-spline rules.
-- Large `k` can cause overflow or accuracy loss in `Float64`.
+- Despite the historical function name, this helper follows the scalar type of
+  `c` and is not restricted to `Float64`.
+- It is used by the midpoint-centered B-spline residual detector to compute the
+  reference exact moment in floating point.
+- Large `k` can cause overflow or accuracy loss depending on the active scalar type.
 """
 @inline function _exact_moment_shifted_float(
-    Nsub::Int, 
-    c::Float64, 
+    Nsub::Int,
+    c,
     k::Int
-)::Float64
-    Nf = Float64(Nsub)
-    return ((Nf - c)^(k + 1) - (0.0 - c)^(k + 1)) / Float64(k + 1)
+)
+    T = typeof(c)
+    Nf = T(Nsub)
+    return ((Nf - c)^(k + 1) - (zero(T) - c)^(k + 1)) / T(k + 1)
 end
 
 """
@@ -76,10 +80,11 @@ end
         Nsub::Int;
         nterms::Int = 2,
         kmax::Int = 128,
-        λ::Float64 = 0.0,
-        tol_abs::Float64 = 5e4 * eps(Float64),
-        tol_rel::Float64 = 5e4 * eps(Float64)
-    ) -> (ks::Vector{Int}, coeffs::Vector{Float64})
+        λ = 0.0,
+        tol_abs = nothing,
+        tol_rel = nothing,
+        real_type = Float64,
+    ) -> Tuple
 
 Collect the first `nterms` detected nonzero midpoint-shifted residual coefficients
 for composite B-spline quadrature rules on ``u \\in [0, N_{\\texttt{sub}}]``.
@@ -128,12 +133,20 @@ The first `nterms` detected pairs are returned.
 - `nterms`: Number of detected nonzero residual terms to collect.
 - `kmax`: Maximum moment order to scan.
 - `λ`: Smoothing strength for smoothing spline rules.
-- `tol_abs`: Absolute tolerance used in residual detection.
-- `tol_rel`: Relative tolerance used in residual detection.
+- `tol_abs`: Absolute tolerance used in residual detection. If `nothing`, a
+  type-scaled default is used.
+- `tol_rel`: Relative tolerance used in residual detection. If `nothing`, a
+  type-scaled default is used.
+- `real_type = Float64`:
+  Scalar type used internally for node generation, moment evaluation, and
+  residual coefficients.
 
 # Returns
-- `ks::Vector{Int}`: Detected residual indices `k`.
-- `coeffs::Vector{Float64}`: Residual coefficients `\\dfrac{\\texttt{diff}_k}{k!}``` aligned with `ks`.
+- `ks::Vector{Int}`:
+  Detected residual indices `k`.
+- `coeffs`:
+  Residual coefficients ``\\dfrac{\\texttt{diff}_k}{k!}`` aligned with `ks`,
+  stored in the active `real_type`.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1`, `kmax < 0`, or `Nsub < 1`.
@@ -145,6 +158,8 @@ The first `nterms` detected pairs are returned.
 - Nodes and weights are generated on ``[0, N_{\\texttt{sub}}]`` using
   [`BSpline.bspline_nodes_weights`](@ref).
 - Residual detection is tolerance-based, not exact.
+- Despite the historical function name, this routine supports configurable
+  scalar types through `real_type`.
 """
 function _leading_midpoint_residual_terms_bspline_float(
     rule::Symbol,
@@ -152,10 +167,16 @@ function _leading_midpoint_residual_terms_bspline_float(
     Nsub::Int;
     nterms::Int = 2,
     kmax::Int = 128,
-    λ::Float64 = 0.0,
-    tol_abs::Float64 = 5e4 * eps(Float64),
-    tol_rel::Float64 = 5e4 * eps(Float64)
-)::Tuple{Vector{Int}, Vector{Float64}}
+    λ = 0.0,
+    tol_abs = nothing,
+    tol_rel = nothing,
+    real_type = Float64,
+)::Tuple
+
+    T = real_type
+    λT = convert(T, λ)
+    tol_abs_T = isnothing(tol_abs) ? T(5e4) * eps(T) : convert(T, tol_abs)
+    tol_rel_T = isnothing(tol_rel) ? T(5e4) * eps(T) : convert(T, tol_rel)
 
     (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
@@ -163,46 +184,43 @@ function _leading_midpoint_residual_terms_bspline_float(
 
     BSpline._is_bspline_rule(rule) || JobLoggerTools.error_benji("expected :bspline_interp_pK or :bspline_smooth_pK (got $rule)")
     p    = BSpline._parse_bspline_p(rule)
-    kind = BSpline._bspline_kind(rule)  # :interp or :smooth
+    kind = BSpline._bspline_kind(rule)
 
-    # Build B-spline quadrature on [0, Nsub].
-    # We set N = Nsub so the "resolution parameter" matches the dimensionless tiling length.
-    a = 0.0
-    b = Float64(Nsub)
+    a = zero(T)
+    b = T(Nsub)
 
     xs, ws = if kind === :interp
-        BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind=:interp)
+        BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind = :interp, real_type = T)
     else
-        (λ >= 0.0) || JobLoggerTools.error_benji("λ must be ≥ 0 for smoothing spline (got λ=$λ)")
-        BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind=:smooth, λ=λ)
+        (λT >= zero(T)) || JobLoggerTools.error_benji("λ must be ≥ 0 for smoothing spline (got λ=$λT)")
+        BSpline.bspline_nodes_weights(a, b, Nsub, p, boundary; kind = :smooth, λ = λT, real_type = T)
     end
 
-    c = Float64(Nsub) / 2.0
+    c = T(Nsub) / T(2)
 
     ks     = Int[]
-    coeffs = Float64[]
+    coeffs = T[]
 
-    inv_fact = 1.0  # 1/0!
+    inv_fact = one(T)
     for k in 0:kmax
         exact = _exact_moment_shifted_float(Nsub, c, k)
 
-        approx = 0.0
+        approx = zero(T)
         @inbounds for i in eachindex(xs)
             approx += ws[i] * (xs[i] - c)^k
         end
 
         diff = exact - approx
 
-        if abs(diff) > (tol_abs + tol_rel * abs(exact))
+        if abs(diff) > (tol_abs_T + tol_rel_T * abs(exact))
             push!(ks, k)
-            push!(coeffs, diff * inv_fact)  # diff/k!
+            push!(coeffs, diff * inv_fact)
             length(ks) == nterms && return ks, coeffs
         end
 
-        # update inv_fact = 1/(k+1)!
         kk = k + 1
-        inv_fact /= kk
-        inv_fact == 0.0 && break
+        inv_fact /= T(kk)
+        inv_fact == zero(T) && break
     end
 
     JobLoggerTools.error_benji("Could not collect nterms=$nterms B-spline residual terms up to kmax=$kmax (Nsub=$Nsub).")
@@ -215,10 +233,11 @@ end
         Nsub::Int;
         nterms::Int,
         kmax::Int = 256,
-        λ::Float64 = 0.0,
-        tol_abs::Float64 = 5e4 * eps(Float64),
-        tol_rel::Float64 = 5e4 * eps(Float64)
-    ) -> (ks::Vector{Int}, center::Symbol)
+        λ = 0.0,
+        tol_abs = nothing,
+        tol_rel = nothing,
+        real_type = Float64,
+    ) -> Tuple{Vector{Int}, Symbol}
 
 Return detected residual indices `k` and the center tag `:mid` for B-spline rules.
 
@@ -241,8 +260,12 @@ This matches the interface used by the higher-level residual dispatch layer.
 - `nterms`: Number of residual indices to return.
 - `kmax`: Maximum moment order to scan.
 - `λ`: Smoothing strength for smoothing spline rules.
-- `tol_abs`: Absolute tolerance for residual detection.
-- `tol_rel`: Relative tolerance for residual detection.
+- `tol_abs`: Absolute tolerance for residual detection. If `nothing`, a
+  type-scaled default is used.
+- `tol_rel`: Relative tolerance for residual detection. If `nothing`, a
+  type-scaled default is used.
+- `real_type = Float64`:
+  Scalar type used internally for residual detection.
 
 # Returns
 - `ks::Vector{Int}`: Detected residual indices.
@@ -258,14 +281,20 @@ function _leading_residual_ks_with_center_bspline_float(
     Nsub::Int;
     nterms::Int,
     kmax::Int = 256,
-    λ::Float64 = 0.0,
-    tol_abs::Float64 = 5e4 * eps(Float64),
-    tol_rel::Float64 = 5e4 * eps(Float64)
+    λ = 0.0,
+    tol_abs = nothing,
+    tol_rel = nothing,
+    real_type = Float64,
 )::Tuple{Vector{Int}, Symbol}
 
     ks, _coeffs = _leading_midpoint_residual_terms_bspline_float(
         rule, boundary, Nsub;
-        nterms=nterms, kmax=kmax, λ=λ, tol_abs=tol_abs, tol_rel=tol_rel
+        nterms = nterms,
+        kmax = kmax,
+        λ = λ,
+        tol_abs = tol_abs,
+        tol_rel = tol_rel,
+        real_type = real_type,
     )
     return ks, :mid
 end

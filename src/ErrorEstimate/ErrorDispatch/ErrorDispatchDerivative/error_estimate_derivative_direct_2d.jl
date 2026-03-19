@@ -18,7 +18,8 @@
         boundary::Symbol;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate a ``2``-dimensional axis-separable midpoint-residual truncation-error model.
@@ -50,6 +51,9 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, quadrature nodes
+  and weights, residual-coefficient conversion, and derivative evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -81,30 +85,37 @@ function error_estimate_derivative_direct_2d(
     boundary::Symbol;
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
 
-    x̄ = (aa + bb) / 2
-    ȳ = (aa + bb) / 2
+    x̄ = (aa + bb) / T(2)
+    ȳ = (aa + bb) / T(2)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        aa, bb, N, rule, boundary;
+        real_type = T,
+    )
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     n = length(ks)
 
-    derivatives = Vector{Float64}(undef, n)
-    terms       = Vector{Float64}(undef, n)
+    derivatives = Vector{T}(undef, n)
+    terms       = Vector{T}(undef, n)
 
     deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
 
@@ -112,39 +123,39 @@ function error_estimate_derivative_direct_2d(
         k = ks[it]
 
         if k == 0
-            derivatives[it] = 0.0
-            terms[it] = 0.0
+            derivatives[it] = zero(T)
+            terms[it] = zero(T)
             continue
         end
 
         coeff = coeffs[it]
 
-        I1 = 0.0
+        I1 = zero(T)
         for j in eachindex(xs)
             y = xs[j]
             gx(x) = f(x, y)
 
-            I1 += wx[j] * AutoDerivativeDirect.nth_derivative(
+            I1 += wx[j] * convert(T, AutoDerivativeDirect.nth_derivative(
                 deriv_fun,
                 backend_tag,
-                gx, x̄, k;
-                h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:x, stage=:midpoint,
-            )
+                gx, 
+                x̄, 
+                k;
+            ))
         end
 
-        I2 = 0.0
+        I2 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
             gy(y) = f(x, y)
 
-            I2 += wx[i] * AutoDerivativeDirect.nth_derivative(
+            I2 += wx[i] * convert(T, AutoDerivativeDirect.nth_derivative(
                 deriv_fun,
                 backend_tag,
-                gy, ȳ, k;
-                h=h, rule=rule, N=N, dim=2,
-                side=:mid, axis=:y, stage=:midpoint,
-            )
+                gy, 
+                ȳ, 
+                k;
+            ))
         end
 
         derivatives[it] = I1 + I2

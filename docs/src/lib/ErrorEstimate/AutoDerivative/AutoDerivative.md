@@ -8,8 +8,8 @@ in `Maranatha.jl`.
 ## Overview
 
 `Maranatha.ErrorEstimate.AutoDerivative` provides a unified interface for
-evaluating high-order derivatives required by truncation-error models.
-It encapsulates multiple differentiation strategies behind a consistent API,
+evaluating derivatives required by truncation-error models.
+It encapsulates supported differentiation strategies behind a consistent API,
 allowing the error-estimation layer to request derivatives without committing
 to a specific backend.
 

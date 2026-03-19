@@ -75,8 +75,20 @@ makedocs(
             "ErrorEstimate"                         => "lib/ErrorEstimate/ErrorEstimate.md",
             "AutoDerivative"                        => Any[
                 "AutoDerivative"                    => "lib/ErrorEstimate/AutoDerivative/AutoDerivative.md",
-                "AutoDerivativeDirect"              => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect.md",
-                "AutoDerivativeJet"                 => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet.md",
+                "AutoDerivativeDirect"              => Any[
+                    "AutoDerivativeDirect"          => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/AutoDerivativeDirect.md",
+                    "ADEnzyme"                      => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADEnzyme.md",
+                    "ADFastDifferentiation"         => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADFastDifferentiation.md",
+                    "ADForwardDiff"                 => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADForwardDiff.md",
+                    "ADTaylorSeries"                => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADTaylorSeries.md",
+                ],
+                "AutoDerivativeJet"                 => Any[
+                    "AutoDerivativeJet"             => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/AutoDerivativeJet.md",
+                    "ADEnzyme"                      => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADEnzyme.md",
+                    "ADFastDifferentiation"         => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADFastDifferentiation.md",
+                    "ADForwardDiff"                 => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADForwardDiff.md",
+                    "ADTaylorSeries"                => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADTaylorSeries.md",
+                ],
             ],
             "ErrorDispatch"                         => Any[
                 "ErrorDispatch"                     => "lib/ErrorEstimate/ErrorDispatch/ErrorDispatch.md",

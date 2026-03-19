@@ -67,8 +67,9 @@ end
         boundary::Symbol,
         Nref::Int;
         nterms::Int,
-        kmax::Int
-    ) -> Tuple{Vector{Int}, Vector{Float64}, Symbol}
+        kmax::Int,
+        real_type = Float64,
+    ) -> Tuple{Vector{Int}, Vector, Symbol}
 
 Return a cached residual model for a fixed quadrature configuration.
 
@@ -93,13 +94,16 @@ The returned tuple contains:
 # Keyword arguments
 - `nterms`: Number of leading nonzero residual terms to collect.
 - `kmax`: Maximum moment order scanned while searching for residual terms.
+- `real_type = Float64`:
+  Scalar type used for residual-coefficient conversion and cache separation.
 
 # Returns
-- `Tuple{Vector{Int}, Vector{Float64}, Symbol}`:
-  `(ks, coeffs, center)` for the requested residual model.
+- `Tuple{Vector{Int}, Vector, Symbol}`:
+  `(ks, coeffs, center)` for the requested residual model, with `coeffs`
+  stored in the active scalar type.
 
 # Notes
-- The cache key is `(rule, boundary, nterms, kmax)`.
+- The cache key is `(rule, boundary, nterms, kmax, real_type)`.
 - `Nref` is forwarded to the builder when the model is first created, but it is
   not part of the cache key in the current implementation.
 """
@@ -108,9 +112,11 @@ function _get_residual_model_fixed(
     boundary::Symbol,
     Nref::Int;
     nterms::Int,
-    kmax::Int
+    kmax::Int,
+    real_type = Float64,
 )
-    key = (rule, boundary, nterms, kmax)
+    T = real_type
+    key = (rule, boundary, nterms, kmax, T)
 
     if haskey(_RES_MODEL_CACHE, key)
         return _RES_MODEL_CACHE[key]
@@ -119,7 +125,8 @@ function _get_residual_model_fixed(
     ks, coeffs, center = _leading_residual_terms_any(
         rule, boundary, Nref;
         nterms = nterms,
-        kmax   = kmax
+        kmax   = kmax,
+        real_type = T,
     )
 
     _RES_MODEL_CACHE[key] = (ks, coeffs, center)
@@ -132,8 +139,9 @@ end
         boundary::Symbol,
         Nsub::Int;
         nterms::Int = 1,
-        kmax::Int = 128
-    ) -> (ks, coeffs_float, center)
+        kmax::Int = 128,
+        real_type = Float64,
+    ) -> Tuple{Vector{Int}, Vector, Symbol}
 
 Collect the first `nterms` nonzero midpoint-shifted residual coefficients
 for a supported quadrature backend.
@@ -157,10 +165,12 @@ The returned `center` tag is currently always `:mid`.
 # Keyword arguments
 - `nterms`: Number of leading nonzero residual terms to return.
 - `kmax`: Maximum moment order to scan.
+- `real_type = Float64`:
+  Scalar type used for coefficient conversion in the unified return value.
 
 # Returns
 - `ks::Vector{Int}`: Residual indices where a nonzero moment was detected.
-- `coeffs_float::Vector{Float64}`: Factorial-scaled residual coefficients.
+- `coeffs`: Factorial-scaled residual coefficients in the active scalar type.
 - `center::Symbol`: Centering convention tag, currently `:mid`.
 
 # Errors
@@ -173,32 +183,39 @@ function _leading_residual_terms_any(
     boundary::Symbol,
     Nsub::Int;
     nterms::Int = 1,
-    kmax::Int = 128
-)::Tuple{Vector{Int}, Vector{Float64}, Symbol}
+    kmax::Int = 128,
+    real_type = Float64,
+)::Tuple{Vector{Int}, Vector, Symbol}
 
+    T = real_type
     QuadratureUtils._decode_boundary(boundary)
 
     if NewtonCotes._is_newton_cotes_rule(rule)
-        # exact rational coefficients from β
         if nterms == 1
-            k, coeffR = ErrorNewtonCotesDerivative._leading_midpoint_residual_term(rule, boundary, Nsub; kmax=min(kmax, 64))
-            return [k], [Float64(coeffR)], :mid
+            k, coeffR = ErrorNewtonCotesDerivative._leading_midpoint_residual_term(
+                rule, boundary, Nsub; kmax = min(kmax, 64)
+            )
+            return [k], T[convert(T, coeffR)], :mid
         else
-            ks, coeffsR = ErrorNewtonCotesDerivative._leading_midpoint_residual_terms(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
-            return ks, Float64.(coeffsR), :mid
+            ks, coeffsR = ErrorNewtonCotesDerivative._leading_midpoint_residual_terms(
+                rule, boundary, Nsub; nterms = nterms, kmax = kmax
+            )
+            return ks, T.(coeffsR), :mid
         end
     end
 
     if Gauss._is_gauss_rule(rule)
-        ks, coeffs = ErrorGaussDerivative._leading_midpoint_residual_terms_gauss_float(rule, boundary, Nsub; nterms=nterms, kmax=kmax)
-        return ks, coeffs, :mid
+        ks, coeffs = ErrorGaussDerivative._leading_midpoint_residual_terms_gauss_float(
+            rule, boundary, Nsub; nterms = nterms, kmax = kmax
+        )
+        return ks, T.(coeffs), :mid
     end
 
     if BSpline._is_bspline_rule(rule)
         ks, coeffs = ErrorBSplineDerivative._leading_midpoint_residual_terms_bspline_float(
-            rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0
+            rule, boundary, Nsub; nterms = nterms, kmax = kmax, λ = 0.0
         )
-        return ks, coeffs, :mid
+        return ks, T.(coeffs), :mid
     end
 
     JobLoggerTools.error_benji("Unsupported rule for residual model: rule=$rule")
@@ -211,9 +228,10 @@ end
         Nsub::Int;
         nterms::Int,
         kmax::Int = 256,
-        tol_abs::Float64 = 5e4 * eps(Float64),
-        tol_rel::Float64 = 5e4 * eps(Float64)
-    ) -> (ks, center)
+        tol_abs = nothing,
+        tol_rel = nothing,
+        real_type = Float64,
+    ) -> Tuple{Vector{Int}, Symbol}
 
 Extract only the residual indices `k` of the first `nterms` nonzero midpoint-shifted
 residual moments, together with the centering convention.
@@ -238,8 +256,12 @@ The center is currently always `:mid`.
 # Keyword arguments
 - `nterms`: Number of residual indices to collect.
 - `kmax`: Maximum moment order to scan.
-- `tol_abs`: Absolute tolerance for floating-point residual detection.
-- `tol_rel`: Relative tolerance for floating-point residual detection.
+- `tol_abs`: Absolute tolerance for floating-point residual detection. If `nothing`,
+  a type-scaled default is used.
+- `tol_rel`: Relative tolerance for floating-point residual detection. If `nothing`,
+  a type-scaled default is used.
+- `real_type = Float64`:
+  Scalar type used internally for floating-point residual tests.
 
 # Returns
 - `ks::Vector{Int}`: Residual indices where a nonzero moment was detected.
@@ -256,9 +278,14 @@ function _leading_residual_ks_with_center_any(
     Nsub::Int;
     nterms::Int,
     kmax::Int = 256,
-    tol_abs::Float64 = 5e4 * eps(Float64),
-    tol_rel::Float64 = 5e4 * eps(Float64)
+    tol_abs = nothing,
+    tol_rel = nothing,
+    real_type = Float64,
 )::Tuple{Vector{Int}, Symbol}
+
+    T = real_type
+    tol_abs_T = isnothing(tol_abs) ? T(5e4) * eps(T) : convert(T, tol_abs)
+    tol_rel_T = isnothing(tol_rel) ? T(5e4) * eps(T) : convert(T, tol_rel)
 
     (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1 (got $nterms)")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0 (got $kmax)")
@@ -266,24 +293,24 @@ function _leading_residual_ks_with_center_any(
     QuadratureUtils._decode_boundary(boundary)
     center = :mid
 
-    # ------------------------------------------------------------
-    # Newton-Cotes rules: exact rational test (diff != 0)
-    # ------------------------------------------------------------
     if NewtonCotes._is_newton_cotes_rule(rule)
         ks = Int[]
         c  = NewtonCotes.RBig(BigInt(Nsub), 2)
         Nrb = NewtonCotes.RBig(BigInt(Nsub), 1)
 
-        β = NewtonCotes._assemble_composite_beta_rational(NewtonCotes._parse_newton_p(rule), boundary, Nsub)
+        β = NewtonCotes._assemble_composite_beta_rational(
+            NewtonCotes._parse_newton_p(rule), boundary, Nsub
+        )
 
         for k in 0:kmax
-            exact = ((Nrb - c)^(k+1) - (NewtonCotes.RBig(0) - c)^(k+1)) /
-                    NewtonCotes.RBig(BigInt(k+1), 1)
+            exact = ((Nrb - c)^(k + 1) - (NewtonCotes.RBig(0) - c)^(k + 1)) /
+                    NewtonCotes.RBig(BigInt(k + 1), 1)
 
             approx = NewtonCotes.RBig(0)
             @inbounds for j in 0:Nsub
-                wj = β[j+1]; wj == 0 && continue
-                approx += wj * (NewtonCotes.RBig(BigInt(j),1) - c)^k
+                wj = β[j + 1]
+                wj == 0 && continue
+                approx += wj * (NewtonCotes.RBig(BigInt(j), 1) - c)^k
             end
 
             if exact - approx != 0
@@ -292,74 +319,64 @@ function _leading_residual_ks_with_center_any(
             end
         end
 
-        JobLoggerTools.error_benji("Could not collect nterms=$nterms Newton-Cotes residual ks up to kmax=$kmax")
+        JobLoggerTools.error_benji(
+            "Could not collect nterms=$nterms Newton-Cotes residual ks up to kmax=$kmax"
+        )
     end
 
-    # ------------------------------------------------------------
-    # Gauss rules: Float64 test with tolerances
-    # ------------------------------------------------------------
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)
 
         if boundary === :LU_INEX || boundary === :LU_EXIN
-            # For Gauss–Radau rules (one endpoint included), the leading residual
-            # moment indices are known analytically: the quadrature is exact for
-            # polynomials up to degree (2npts - 2), so the first non-vanishing
-            # centered moment occurs at k = 2*npts - 1.  Subsequent residual
-            # moments appear with step 2 (odd powers only).
-            #
-            # The generic Float64 tolerance-based moment test can misclassify
-            # low-order moments (e.g. k=0) due to roundoff and cancellation in
-            # the composite rule, which would corrupt the extrapolation model.
-            #
-            # Therefore we bypass the numerical detection and generate the
-            # residual indices directly from the theoretical sequence.
             ks = Int[]
-            k0 = 2*npts - 1
-            for j in 0:(nterms-1)
-                push!(ks, k0 + 2*j)
+            k0 = 2 * npts - 1
+            for j in 0:(nterms - 1)
+                push!(ks, k0 + 2 * j)
             end
             return ks, center
         end
 
-        # dimensionless u-grid on [0, Nsub]
         U, W = Gauss._composite_gauss_u_grid(Nsub, npts, boundary)
-        c = Float64(Nsub) / 2.0
+        UT = T.(U)
+        WT = T.(W)
+        c = T(Nsub) / T(2)
 
         ks = Int[]
         for k in 1:kmax
-            # k=0 is the constant moment (weight sum). It should be exact by construction,
-            # but with Float64 tolerance tests and mixed per-block families (Option A),
-            # tiny floating drift can falsely flag k=0 as "nonzero residual".
-            # Never use k=0 as a residual index for convergence power inference.
+            exact = ((T(Nsub) - c)^(k + 1) - (zero(T) - c)^(k + 1)) / T(k + 1)
 
-            # exact moment ∫_0^N (u-c)^k du  (Float64)
-            exact = ((Float64(Nsub) - c)^(k+1) - (0.0 - c)^(k+1)) / Float64(k+1)
-
-            approx = 0.0
-            @inbounds for i in eachindex(U)
-                approx += W[i] * (U[i] - c)^k
+            approx = zero(T)
+            @inbounds for i in eachindex(UT)
+                approx += WT[i] * (UT[i] - c)^k
             end
 
             diff = exact - approx
 
-            # IMPORTANT: tolerance-based "nonzero"
-            if abs(diff) > (tol_abs + tol_rel * abs(exact))
+            if abs(diff) > (tol_abs_T + tol_rel_T * abs(exact))
                 push!(ks, k)
                 length(ks) == nterms && return ks, center
             end
         end
 
         if !isempty(ks) && ks[1] == 0
-            JobLoggerTools.error_benji("Gauss residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$boundary Nsub=$Nsub")
+            JobLoggerTools.error_benji(
+                "Gauss residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$boundary Nsub=$Nsub"
+            )
         end
 
-        JobLoggerTools.error_benji("Could not collect nterms=$nterms Gauss residual ks up to kmax=$kmax")
+        JobLoggerTools.error_benji(
+            "Could not collect nterms=$nterms Gauss residual ks up to kmax=$kmax"
+        )
     end
 
     if BSpline._is_bspline_rule(rule)
         ks, center = ErrorBSplineDerivative._leading_residual_ks_with_center_bspline_float(
-            rule, boundary, Nsub; nterms=nterms, kmax=kmax, λ=0.0, tol_abs=tol_abs, tol_rel=tol_rel
+            rule, boundary, Nsub;
+            nterms = nterms,
+            kmax = kmax,
+            λ = 0.0,
+            tol_abs = Float64(tol_abs_T),
+            tol_rel = Float64(tol_rel_T)
         )
         return ks, center
     end
@@ -386,8 +403,10 @@ include("ErrorDispatchDerivative/error_estimate_derivative_direct_nd.jl")
         dim,
         rule,
         boundary;
-        nerr_terms::Int = 1
-    ) -> Float64
+        err_method::Symbol = :forwarddiff,
+        nerr_terms::Int = 1,
+        real_type = nothing,
+    )
 
 Unified interface for estimating an axis-separable midpoint-residual truncation-error model.
 
@@ -416,6 +435,9 @@ derivative-backend interface via [`AutoDerivativeDirect.nth_derivative`](@ref).
 # Keyword arguments
 - `err_method`: Derivative backend selector passed to [`AutoDerivativeDirect.nth_derivative`](@ref).
 - `nerr_terms`: Number of nonzero residual terms to include.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and downstream
+  derivative-estimator evaluation.
 
 # Returns
 - Same return object as the selected dimension-specific estimator.
@@ -424,46 +446,54 @@ derivative-backend interface via [`AutoDerivativeDirect.nth_derivative`](@ref).
 - Propagates errors from the selected estimator.
 """
 function error_estimate_derivative_direct(
-    f, 
-    a, 
-    b, 
-    N, 
-    dim, 
+    f,
+    a,
+    b,
+    N,
+    dim,
     rule,
     boundary;
     err_method::Symbol = :forwarddiff,
-    nerr_terms::Int = 1
+    nerr_terms::Int = 1,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     if dim == 1
         return error_estimate_derivative_direct_1d(
-            f, a, b, N, rule, boundary,
+            f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     elseif dim == 2
         return error_estimate_derivative_direct_2d(
-            f, a, b, N, rule, boundary,
+            f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     elseif dim == 3
         return error_estimate_derivative_direct_3d(
-            f, a, b, N, rule, boundary,
+            f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     elseif dim == 4
         return error_estimate_derivative_direct_4d(
-            f, a, b, N, rule, boundary,
+            f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     else
         return error_estimate_derivative_direct_nd(
             f, a, b, N, rule, boundary;
             dim = dim,
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     end
 end
@@ -484,7 +514,8 @@ include("ErrorDispatchDerivative/error_estimate_derivative_jet_nd.jl")
         rule,
         boundary;
         err_method::Symbol = :forwarddiff,
-        nerr_terms::Int = 1
+        nerr_terms::Int = 1,
+        real_type = nothing,
     )
 
 Dispatch to the jet-based error estimator for the requested dimensionality.
@@ -519,6 +550,9 @@ scalar derivatives one by one.
 - `nerr_terms::Int`:
   Number of residual contributions to retain when constructing the effective
   error estimate.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and downstream
+  jet-estimator evaluation.
 
 # Returns
 - The return value produced by the selected dimension-specific jet estimator.
@@ -540,38 +574,46 @@ function error_estimate_derivative_jet(
     rule,
     boundary;
     err_method::Symbol = :forwarddiff,
-    nerr_terms::Int = 1
+    nerr_terms::Int = 1,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     if dim == 1
         return error_estimate_derivative_jet_1d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     elseif dim == 2
         return error_estimate_derivative_jet_2d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     elseif dim == 3
         return error_estimate_derivative_jet_3d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     elseif dim == 4
         return error_estimate_derivative_jet_4d(
             f, a, b, N, rule, boundary;
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     else
         return error_estimate_derivative_jet_nd(
             f, a, b, N, rule, boundary;
             dim = dim,
             err_method = err_method,
-            nerr_terms = nerr_terms
+            nerr_terms = nerr_terms,
+            real_type = T,
         )
     end
 end

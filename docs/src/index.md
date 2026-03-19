@@ -30,7 +30,7 @@ The design of `Maranatha.jl` follows a structured computational pipeline:
 
 1. **Quadrature evaluation**  
 2. **Error-scale estimation**
-3. **continuum extrapolation using Least-``\chi^2`` fitting**
+3. **Continuum extrapolation using Least-``\chi^2`` fitting**
 4. **Structured reporting and archival output**
 5. **Visualization of convergence behavior**
 
@@ -107,7 +107,7 @@ consistent scaling weights suitable for extrapolation.
 
 ---
 
-### Continuum extrapolation using least ``\chi^2`` fitting
+### Continuum extrapolation using least-``\chi^2`` fitting
 
 [`Maranatha.LeastChiSquareFit`](@ref) performs weighted least-``\chi^2`` fitting
 to estimate the continuum limit.
@@ -148,8 +148,7 @@ benchmark problems.
 ### Execution layer
 
 The main orchestration entry point is 
-
-[`Maranatha.Runner.run_Maranatha`](@ref)
+[`Maranatha.Runner.run_Maranatha`](@ref).
 
 It performs:
 
@@ -202,7 +201,7 @@ using a configuration file and a simple integrand definition.
 
 ### Step 1 :: define an integrand
 
-First define a small integrand in a Julia souce file
+First define a small integrand in a Julia source file
 
 Example integrand file (`sample_1d.jl`):
 
@@ -266,7 +265,7 @@ run_result = run_Maranatha("sample_1d.toml")
 
 ### Step 4 :: perform continuum extrapolation
 
-Once the dataset has been generated, the continuum limit ``h \to 0`` can be estimated by performing a least ``\chi^2`` fit.
+Once the dataset has been generated, the continuum limit ``h \to 0`` can be estimated by performing a least-``\chi^2`` fit.
 
 ```julia
 fit_result = least_chi_square_fit(
@@ -304,7 +303,7 @@ Execution backend is determined as follows:
 
 - **CUDA backend** is used when `use_cuda = true`.
 - **Threaded subgrid backend** is used when
-  `use_cuda = false` and Julia is started with multiple threads.
+  `use_cuda = false` and multiple Julia threads are available.
 - Otherwise, serial execution is used.
 
 The number of CPU threads is controlled by the environment variable

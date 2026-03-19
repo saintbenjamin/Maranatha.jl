@@ -75,11 +75,11 @@ Exact-rational residual extraction for Newton-Cotes rules.
 
 ### 2. [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussDerivative`](@ref)
 
-Float64 residual extraction for Gauss-family rules.
+Configurable-real-type residual extraction for Gauss-family rules.
 
 ### 3. [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative`](@ref)
 
-Float64 residual extraction for B-spline quadrature rules.
+Configurable-real-type residual extraction for B-spline quadrature rules.
 
 ### 4. [`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative`](@ref)
 
@@ -110,7 +110,7 @@ Unified dispatch layer for rule-family refinement-based error estimation.
 
 For the residual-based branch, high-order derivatives are obtained through the
 shared automatic-differentiation layer provided by
-[`AutoDerivative`](@ref).
+[`Maranatha.ErrorEstimate.AutoDerivative`](@ref).
 
 Two complementary derivative strategies are supported:
 
@@ -135,6 +135,7 @@ refined quadrature evaluations.
 
 Primary entry points include:
 
+- [`ErrorDispatch.error_estimate`](@ref)
 - [`ErrorDispatch.ErrorDispatchDerivative.error_estimate_derivative_direct`](@ref)
 - [`ErrorDispatch.ErrorDispatchDerivative.error_estimate_derivative_jet`](@ref)
 - [`ErrorDispatch.ErrorDispatchRefinement.error_estimate_refinement`](@ref)
@@ -163,7 +164,7 @@ import ..Quadrature
     _RES_MODEL_CACHE::Dict{Tuple, Tuple}
 
 Global cache for residual-model data keyed by
-`(rule, boundary, nterms, kmax)`.
+`(rule, boundary, nterms, kmax, real_type)`.
 
 # Description
 This cache stores the tuple returned by
@@ -178,7 +179,8 @@ for repeated error-estimation calls using identical quadrature settings.
 
 # Notes
 - The cache key intentionally excludes `Nref`, because the fixed residual model
-  is currently treated as depending only on `(rule, boundary, nterms, kmax)`.
+  is currently treated as depending only on
+  `(rule, boundary, nterms, kmax, real_type)`.
 - Cached values are stored in the exact form returned by
   [`ErrorDispatch.ErrorDispatchDerivative._leading_residual_terms_any`](@ref).
 """
@@ -191,16 +193,17 @@ Global cache for scalar derivative evaluations.
 
 # Description
 This cache stores previously computed `n`th-derivative values so that repeated
-calls with the same function identity, evaluation point, derivative order, and
-backend symbol can reuse an earlier result.
+calls with the same function identity, evaluation point, derivative order,
+backend symbol, and active scalar type can reuse an earlier result.
 
 # Key structure
 Each key has the form:
 
-- `UInt`: hashed or encoded function identity,
-- `Float64`: evaluation point,
+- `UInt`: encoded function identity via `objectid`,
+- evaluation point in the active scalar type,
 - `Int`: derivative order,
-- `Symbol`: derivative backend or method tag.
+- `Symbol`: derivative backend tag,
+- active scalar type.
 
 # Notes
 - This cache is intended for low-level derivative reuse inside the
@@ -208,8 +211,7 @@ Each key has the form:
 - Clear it with [`ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!`](@ref) when a fresh run is
   desired.
 """
-const _NTH_DERIV_CACHE =
-    Dict{Tuple{UInt,Float64,Int,Symbol},Float64}()
+const _NTH_DERIV_CACHE = Dict{Tuple, Any}()
 
 """
     _DERIV_JET_CACHE::Dict{Tuple{Any,Float64,Int,Symbol},Vector{Float64}}
@@ -225,23 +227,24 @@ of the form
 ```
 
 up to a requested maximum order. Reusing a previously computed jet is often
-more efficient than recomputing each derivative separately.
+more efficient than recomputing each derivative separately. The cache key also
+tracks the active scalar type used for jet construction.
 
 # Key structure
 Each key has the form:
 
-- `Any`: function identity or callable object,
-- `Float64`: evaluation point,
+- callable identity,
+- evaluation point in the active scalar type,
 - `Int`: maximum derivative order,
-- `Symbol`: derivative backend or method tag.
+- `Symbol`: derivative backend tag,
+- active scalar type.
 
 # Notes
 - This cache is especially useful for Taylor-series or automatic-differentiation
   based derivative backends.
 - Clear it with [`ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!`](@ref) when needed.
 """
-const _DERIV_JET_CACHE =
-    Dict{Tuple{Any,Float64,Int,Symbol},Vector{Float64}}()
+const _DERIV_JET_CACHE = Dict{Tuple, AbstractVector}()
 
 include("AutoDerivative/AutoDerivative.jl")
 include("ErrorNewtonCotes/ErrorNewtonCotes.jl")

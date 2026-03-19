@@ -13,11 +13,11 @@
         fig,
         ax;
         text::AbstractString,
-        x_points::Vector{Float64},
-        y_points::Vector{Float64},
-        x_curve::Vector{Float64}=Float64[],
-        y_curve::Vector{Float64}=Float64[],
-        yerr_points::Union{Nothing,Vector{Float64}}=nothing,
+        x_points::AbstractVector{<:Real},
+        y_points::AbstractVector{<:Real},
+        x_curve::AbstractVector{<:Real}=Real[],
+        y_curve::AbstractVector{<:Real}=Real[],
+        yerr_points::Union{Nothing,AbstractVector{<:Real}}=nothing,
         fontsize::Real=10,
         prefer_order = (
             (0.98, 0.98, :top,    :right),
@@ -49,11 +49,11 @@ plotted points, curves, and vertical error bars.
   Axis object on which the text is placed.
 - `text::AbstractString`:
   Annotation string to place.
-- `x_points::Vector{Float64}`, `y_points::Vector{Float64}`:
+- `x_points::AbstractVector{<:Real}`, `y_points::AbstractVector{<:Real}`:
   Data points to avoid when selecting the text position.
-- `x_curve::Vector{Float64} = Float64[]`, `y_curve::Vector{Float64} = Float64[]`:
+- `x_curve::AbstractVector{<:Real} = Real[]`, `y_curve::AbstractVector{<:Real} = Real[]`:
   Optional polyline coordinates to avoid.
-- `yerr_points::Union{Nothing,Vector{Float64}} = nothing`:
+- `yerr_points::Union{Nothing,AbstractVector{<:Real}} = nothing`:
   Optional vertical error magnitudes associated with `x_points` / `y_points`.
 - `fontsize::Real = 10`:
   Font size used for the annotation box.
@@ -74,14 +74,14 @@ plotted points, curves, and vertical error bars.
   depends on the actual rendered axis geometry.
 """
 function _smart_text_placement!(
-    fig, 
+    fig,
     ax;
     text::AbstractString,
-    x_points::Vector{Float64},
-    y_points::Vector{Float64},
-    x_curve::Vector{Float64}=Float64[],
-    y_curve::Vector{Float64}=Float64[],
-    yerr_points::Union{Nothing,Vector{Float64}}=nothing,
+    x_points::AbstractVector{<:Real},
+    y_points::AbstractVector{<:Real},
+    x_curve::AbstractVector{<:Real}=Real[],
+    y_curve::AbstractVector{<:Real}=Real[],
+    yerr_points::Union{Nothing,AbstractVector{<:Real}}=nothing,
     fontsize::Real=10,
     prefer_order = (
         (0.98, 0.98, :top,    :right),

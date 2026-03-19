@@ -17,7 +17,7 @@ import TaylorSeries
         f,
         x::Real,
         nmax::Int
-    ) -> Vector{Float64}
+    ) -> AbstractVector{<:Real}
 
 Compute the derivative jet of `f` at `x` using `TaylorSeries.jl`.
 
@@ -40,7 +40,8 @@ at the same evaluation point.
 - `nmax::Int`: Maximum derivative order to compute.
 
 # Returns
-- `Vector{Float64}`: Derivative jet of length `nmax + 1`.
+- `AbstractVector{<:Real}`:
+  Derivative jet of length `nmax + 1`, stored in the same scalar type as `x`.
 
 # Errors
 - Throws `ArgumentError` if `nmax < 0`.
@@ -48,28 +49,29 @@ at the same evaluation point.
 
 # Notes
 - If `nmax == 0`, the function returns `[f(x)]` as a one-element vector.
-- The output is always converted to `Float64`.
+- The output is converted to the same scalar type as `x` (not necessarily `Float64`).
 """
 function derivative_jet_taylor(
     f,
     x::Real,
     nmax::Int
 )
+    T = typeof(x)
     nmax >= 0 || throw(ArgumentError("nmax must be ≥ 0 (got nmax=$nmax)"))
 
-    x0 = float(x)
-    nmax == 0 && return [float(f(x0))]
+    x0 = convert(T, x)
+    nmax == 0 && return T[convert(T, f(x0))]
 
-    t = TaylorSeries.Taylor1(Float64, nmax)
+    t = TaylorSeries.Taylor1(T, nmax)
     y = f(x0 + t)
 
-    ders = Vector{Float64}(undef, nmax + 1)
-    ders[1] = float(TaylorSeries.constant_term(y))
+    ders = Vector{T}(undef, nmax + 1)
+    ders[1] = convert(T, TaylorSeries.constant_term(y))
 
     tmp = y
     for n in 1:nmax
         tmp = TaylorSeries.derivative(tmp)
-        ders[n + 1] = float(TaylorSeries.constant_term(tmp))
+        ders[n + 1] = convert(T, TaylorSeries.constant_term(tmp))
     end
 
     return ders

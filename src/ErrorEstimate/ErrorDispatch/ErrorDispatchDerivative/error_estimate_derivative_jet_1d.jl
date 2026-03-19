@@ -18,7 +18,8 @@
         boundary::Symbol;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate a ``1``-dimensional midpoint-residual truncation-error model using
@@ -53,6 +54,9 @@ E \\approx \\sum_{i=1}^{n_{\text{err}}}
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, midpoint placement,
+  residual-coefficient conversion, and jet-based derivative evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -85,60 +89,58 @@ function error_estimate_derivative_jet_1d(
     boundary::Symbol;
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
-    x̄ = (aa + bb) / 2
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
+    x̄ = (aa + bb) / T(2)
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     n = length(ks)
 
-    derivatives = Vector{Float64}(undef, n)
-    terms       = Vector{Float64}(undef, n)
+    derivatives = Vector{T}(undef, n)
+    terms       = Vector{T}(undef, n)
 
     isempty(ks) && return (;
         ks          = Int[],
-        coeffs      = Float64[],
-        derivatives = Float64[],
-        terms       = Float64[],
-        total       = 0.0,
+        coeffs      = T[],
+        derivatives = T[],
+        terms       = T[],
+        total       = zero(T),
         center      = x̄,
         h           = h
     )
 
     jet_fun, backend_tag = AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
 
-    vals = AutoDerivativeJet._derivative_values_for_ks(
+    vals0 = AutoDerivativeJet._derivative_values_for_ks(
         jet_fun,
         backend_tag,
         f,
         x̄,
         ks;
-        h = h,
-        rule = rule,
-        N = N,
-        dim = 1,
-        side = :mid,
-        axis = :x,
-        stage = :midpoint,
     )
+    vals = T.(vals0)
 
     @inbounds for i in eachindex(ks)
         k = ks[i]
 
         if k == 0
-            derivatives[i] = 0.0
-            terms[i] = 0.0
+            derivatives[i] = zero(T)
+            terms[i] = zero(T)
             continue
         end
 

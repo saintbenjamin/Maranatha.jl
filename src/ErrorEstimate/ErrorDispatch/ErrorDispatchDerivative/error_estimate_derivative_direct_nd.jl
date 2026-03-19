@@ -16,10 +16,11 @@
         N::Int,
         rule::Symbol,
         boundary::Symbol;
-        err_method::Symbol = :forwarddiff,
         dim::Int,
+        err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate an arbitrary-dimensional axis-separable midpoint-residual truncation-error model.
@@ -50,6 +51,10 @@ odometer-style tensor-product traversal.
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, quadrature nodes
+  and weights, residual-coefficient conversion, midpoint placement, and
+  derivative evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -84,43 +89,50 @@ function error_estimate_derivative_direct_nd(
     dim::Int,
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
 
-    x̄ = (aa + bb) / 2
+    x̄ = (aa + bb) / T(2)
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        aa, bb, N, rule, boundary;
+        real_type = T,
+    )
 
-    @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
+    @inline function _call_with_axis(f, fixed, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     isempty(ks) && return (;
         ks = Int[],
-        coeffs = Float64[],
-        derivatives = Float64[],
-        terms = Float64[],
-        total = 0.0,
+        coeffs = T[],
+        derivatives = T[],
+        terms = T[],
+        total = zero(T),
         center = ntuple(_ -> x̄, dim),
         h = h
     )
 
-    derivatives = Vector{Float64}(undef, length(ks))
-    terms       = Vector{Float64}(undef, length(ks))
+    derivatives = Vector{T}(undef, length(ks))
+    terms       = Vector{T}(undef, length(ks))
 
-    fixed = Vector{Float64}(undef, dim)
+    fixed = Vector{T}(undef, dim)
     idx   = ones(Int, dim - 1)
 
     deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
@@ -129,31 +141,30 @@ function error_estimate_derivative_direct_nd(
         k = ks[it]
 
         if k == 0
-            derivatives[it] = 0.0
-            terms[it] = 0.0
+            derivatives[it] = zero(T)
+            terms[it] = zero(T)
             continue
         end
 
         coeff = coeffs[it]
-        total_axes = 0.0
+        total_axes = zero(T)
 
         for axis in 1:dim
-            Iaxis = 0.0
+            Iaxis = zero(T)
 
             if dim == 1
-                Iaxis = AutoDerivativeDirect.nth_derivative(
+                Iaxis = convert(T, AutoDerivativeDirect.nth_derivative(
                     deriv_fun,
                     backend_tag,
                     x -> f(x),
-                    x̄, k;
-                    h=h, rule=rule, N=N, dim=dim,
-                    side=:mid, axis=axis, stage=:midpoint,
-                )
+                    x̄, 
+                    k;
+                ))
             else
                 fill!(idx, 1)
 
                 while true
-                    wprod = 1.0
+                    wprod = one(T)
                     t = 1
 
                     for d in 1:dim
@@ -166,14 +177,13 @@ function error_estimate_derivative_direct_nd(
                         t += 1
                     end
 
-                    Iaxis += wprod * AutoDerivativeDirect.nth_derivative(
+                    Iaxis += wprod * convert(T, AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
                         x -> _call_with_axis(f, fixed, axis, x, dim),
-                        x̄, k;
-                        h=h, rule=rule, N=N, dim=dim,
-                        side=:mid, axis=axis, stage=:midpoint,
-                    )
+                        x̄, 
+                        k;
+                    ))
 
                     q = dim - 1
                     while q >= 1

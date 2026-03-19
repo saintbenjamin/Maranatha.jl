@@ -13,8 +13,8 @@
         a::Real,
         b::Real,
         name::String,
-        hs::Vector{Float64},
-        estimates::Vector{Float64},
+        hs::AbstractVector{<:Real},
+        estimates::AbstractVector{<:Real},
         errors::Vector,
         fit_result;
         rule::Symbol = :gauss_p3,
@@ -31,9 +31,9 @@ existing least-``\\chi^2`` fit result.
   Integration bounds retained for workflow consistency.
 - `name::String`:
   Basename used for figure titles / output filenames.
-- `hs::Vector{Float64}`:
+- `hs::AbstractVector{<:Real}`:
   Step sizes used in the convergence study.
-- `estimates::Vector{Float64}`:
+- `estimates::AbstractVector{<:Real}`:
   Measured quadrature estimates corresponding to `hs`.
 - `errors::Vector`:
   Collection of error-information objects used for pointwise error bars.
@@ -81,8 +81,8 @@ function plot_convergence_result(
     a::Real,
     b::Real,
     name::String,
-    hs::Vector{Float64},
-    estimates::Vector{Float64},
+    hs::AbstractVector{<:Real},
+    estimates::AbstractVector{<:Real},
     errors::Vector,
     fit_result;
     rule::Symbol = :gauss_p3,
@@ -172,10 +172,11 @@ function plot_convergence_result(
     )
 
     function basis_vec(h)
-        v = Vector{Float64}(undef, length(pvec))
+        T = typeof(h)
+        v = Vector{T}(undef, length(pvec))
         @inbounds for i in 1:length(pvec)
             pow = fit_powers[i]
-            v[i] = (pow == 0) ? 1.0 : h^pow
+            v[i] = (pow == 0) ? one(T) : h^pow
         end
         return v
     end
@@ -198,10 +199,10 @@ function plot_convergence_result(
     x_range_log = 10 .^ range(log10(xmin), log10(xmax); length=200)
 
     # prepend zero explicitly
-    x_range = vcat(0.0, x_range_log)
+    x_range = vcat(zero(eltype(x_range_log)), x_range_log)
 
     # model needs h, not x; x = h^lead_pow  =>  h = x^(1/lead_pow)
-    h_range = x_range .^ (1.0 / Float64(lead_pow))
+    h_range = x_range .^ (one(eltype(x_range)) / convert(eltype(x_range), lead_pow))
 
     y_fit = similar(h_range)
     y_err = similar(h_range)
@@ -328,7 +329,7 @@ function plot_convergence_result(
     # --- Fit curve + curve uncertainty band for relative error ---
     # Use same x_range_log as before (no zero for log-log)
     x_range2 = x_range_log
-    h_range2 = x_range2 .^ (1.0 / Float64(lead_pow))
+    h_range2 = x_range2 .^ (one(eltype(x_range2)) / convert(eltype(x_range2), lead_pow))
 
     rel_fit = similar(h_range2)
     rel_sig = similar(h_range2)
@@ -479,8 +480,8 @@ function plot_convergence_result(
         result.a,
         result.b,
         name,
-        Vector{Float64}(result.h),
-        Vector{Float64}(result.avg),
+        result.h,
+        result.avg,
         result.err,
         fit_result;
         rule = rule,

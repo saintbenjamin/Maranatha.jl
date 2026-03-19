@@ -23,8 +23,8 @@ Compute the ``n``-th derivative of a scalar callable `f` at `x`
 using a Taylor-series expansion via [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/).
 
 # Function description
-This routine expands ``f(x + t)``` around the scalar point ``x`` using
-[`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1) 
+This routine expands ``f(x + t)`` around the scalar point ``x`` using
+[`TaylorSeries.Taylor1`](https://juliadiff.org/TaylorSeries.jl/stable/api/#TaylorSeries.Taylor1)
 up to order ``n``, then extracts the ``n``-th derivative
 from the resulting series.
 
@@ -43,19 +43,24 @@ higher-order expansion in a single Taylor-series pass.
 - Throws `ArgumentError` if `n < 0`.
 
 # Notes
-- The expansion center is converted to `Float64`.
+- The expansion center is converted to the same scalar type as `x` (not necessarily `Float64`).
 - This backend is useful as an alternative high-order derivative path and as a
   comparison point against other AD methods.
 """
-@inline function nth_derivative_taylor(f, x::Real, n::Int)
+@inline function nth_derivative_taylor(
+    f, 
+    x::Real, 
+    n::Int
+)
+    T = typeof(x)
     n < 0 && throw(ArgumentError("n must be nonnegative"))
-    n == 0 && return f(x)
+    n == 0 && return convert(T, f(x))
 
-    x0 = float(x)                         # force scalar center
-    t  = TaylorSeries.Taylor1(Float64, n) # pure Taylor variable (const term = 0)
+    x0 = convert(T, x)
+    t  = TaylorSeries.Taylor1(T, n)
 
-    y = f(x0 + t)                         # CRITICAL: expand around x0
-    return TaylorSeries.constant_term(TaylorSeries.derivative(y, n))
+    y = f(x0 + t)
+    return convert(T, TaylorSeries.constant_term(TaylorSeries.derivative(y, n)))
 end
 
 end  # module ADTaylorSeries

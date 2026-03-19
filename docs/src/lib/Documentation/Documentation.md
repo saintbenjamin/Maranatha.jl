@@ -5,7 +5,8 @@ combining visualization tools and report-generation utilities for
 convergence studies.
 
 In a typical workflow, numerical results are produced by computational
-modules and then transformed into human-readable artifacts by this layer.
+modules and are subsequently transformed into human-readable artifacts
+by this documentation layer.
 
 ```
 Computation Layer
@@ -41,8 +42,8 @@ Together, these tools form the final stage of most `Maranatha.jl` pipelines.
 
 ## Plotting layer — `PlotTools`
 
-[`Maranatha.Documentation.PlotTools`](@ref) provides visualization routines for
-both fitted and pre-fit workflows.
+[`Maranatha.Documentation.PlotTools`](@ref) provides visualization routines
+for both post-fit and pre-fit workflows.
 
 Typical uses include:
 
@@ -77,7 +78,7 @@ Unlike plotting utilities, Reporter focuses on producing **shareable
 research artifacts** rather than visual diagnostics alone.
 
 The generated outputs are designed to be reproducible and suitable for
-archival or collaboration.
+long-term archival, collaboration, and formal research dissemination.
 
 ---
 
@@ -163,7 +164,7 @@ studies.
 * [`Maranatha.LeastChiSquareFit`](@ref) — extrapolation fitting
 * [`Maranatha.Quadrature`](@ref) — quadrature rule definitions
 
-It represents the final stage in many computational workflows.
+It represents the final post-processing stage in many computational workflows.
 
 ---
 

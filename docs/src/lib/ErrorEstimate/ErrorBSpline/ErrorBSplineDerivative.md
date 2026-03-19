@@ -5,9 +5,9 @@
 `Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative` provides the midpoint-residual extraction
 backend for B-spline quadrature rules inside `Maranatha.ErrorEstimate`.
 
-Like the Gauss residual backend, it works entirely in `Float64` and therefore
-detects nonzero residual structure through tolerance tests rather than exact
-arithmetic.
+Like the Gauss residual backend, it works in floating-point arithmetic and
+therefore detects nonzero residual structure through tolerance tests rather
+than exact arithmetic.
 
 ---
 
@@ -24,7 +24,7 @@ For each scanned order ``k``, the backend compares:
 
 - the exact shifted monomial moment
   ```math
-  \int\limits_0^N du \, (u-c)^k \, ,
+  \int\limits_0^{N_{\texttt{sub}}} du \, (u-c)^k \, ,
   ```
 - the quadrature-induced moment
   ```math
@@ -36,7 +36,7 @@ Their difference defines the residual moment,
 ```math
 \texttt{diff}_k
 =
-\int\limits_0^N du \, (u-c)^k
+\int\limits_0^{N_{\texttt{sub}}} du \, (u-c)^k
 -
 \sum_i w_i \, (x_i-c)^k,
 ```
@@ -78,8 +78,8 @@ genuine leading residual structure.
 
 ### [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative._exact_moment_shifted_float`](@ref)
 
-This helper evaluates the exact shifted monomial moment in closed form, but in
-`Float64`.
+This helper evaluates the exact shifted monomial moment in closed form in the
+active floating-point scalar type.
 
 ### [`Maranatha.ErrorEstimate.ErrorBSpline.ErrorBSplineDerivative._leading_midpoint_residual_terms_bspline_float`](@ref)
 
@@ -97,9 +97,9 @@ This wrapper keeps only the detected residual orders and returns the center tag
 
 ## Design note
 
-This backend constructs the spline quadrature directly on ``[0, N_{\texttt{sub}}]``
-so that the dimensionless interval used in residual probing matches the tiling
-parameter used elsewhere in the error-model pipeline.
+This backend constructs the spline quadrature directly on
+``[0, N_{\texttt{sub}}]`` so that the dimensionless interval used in residual
+probing matches the tiling parameter used elsewhere in the error-model pipeline.
 
 That keeps the midpoint-centered moment tests aligned with the intended
 composite-grid interpretation.

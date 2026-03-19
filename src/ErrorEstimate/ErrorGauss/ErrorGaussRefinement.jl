@@ -112,8 +112,10 @@ end
         N::Int,
         dim::Int,
         rule::Symbol,
-        boundary::Symbol,
-    ) -> Float64
+        boundary::Symbol;
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
+    ) -> Real
 
 Evaluate the Gauss-family quadrature approximation of `f` on `[a, b]^dim`.
 
@@ -121,7 +123,7 @@ Evaluate the Gauss-family quadrature approximation of `f` on `[a, b]^dim`.
 This helper validates the input configuration and then calls
 `QuadratureDispatch.quadrature` to compute the quadrature approximation using
 the requested Gauss-family rule, boundary condition, subdivision count, and
-dimensionality. The result is converted to `Float64` before being returned.
+dimensionality.
 
 # Arguments
 - `f`:
@@ -139,9 +141,16 @@ dimensionality. The result is converted to `Float64` before being returned.
 - `boundary::Symbol`:
   Boundary-condition symbol.
 
+# Keyword arguments
+- `threaded_subgrid::Bool = false`:
+  Whether to allow CPU threaded subgrid execution in the quadrature backend.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and quadrature
+  evaluation.
+
 # Returns
-- `Float64`:
-  The quadrature value produced by the Gauss-family backend.
+- `Real`:
+  The quadrature value produced by the Gauss-family backend, in the active scalar type.
 
 # Errors
 - Propagates validation errors from [`_require_gauss_inputs`](@ref).
@@ -159,22 +168,26 @@ dimensionality. The result is converted to `Float64` before being returned.
     dim::Int,
     rule::Symbol,
     boundary::Symbol;
-    threaded_subgrid::Bool = false
-)::Float64
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
+)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     _require_gauss_inputs(N, dim, rule, boundary)
 
     q = QuadratureDispatch.quadrature(
         f,
-        a,
-        b,
+        convert(T, a),
+        convert(T, b),
         N,
         dim,
         rule,
         boundary;
-        threaded_subgrid = threaded_subgrid
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
 
-    return float(q)
+    return q
 end
 
 """
@@ -185,7 +198,9 @@ end
         N::Int,
         dim::Int,
         rule::Symbol,
-        boundary::Symbol,
+        boundary::Symbol;
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
 
 Estimate the Gauss-family quadrature error by comparing coarse and refined
@@ -224,6 +239,14 @@ and both quadrature evaluations.
 - `boundary::Symbol`:
   Boundary-condition symbol.
 
+# Keyword arguments
+- `threaded_subgrid::Bool = false`:
+  Whether to allow CPU threaded subgrid execution in the coarse and refined
+  quadrature calls.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, mesh sizes,
+  and quadrature evaluation.
+
 # Returns
 - `NamedTuple` with fields:
   - `method`      : method tag `:gauss_refinement_difference`
@@ -257,35 +280,41 @@ function _estimate_by_refinement_gauss(
     dim::Int,
     rule::Symbol,
     boundary::Symbol;
-    threaded_subgrid::Bool = false
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     _require_gauss_inputs(N, dim, rule, boundary)
 
-    aa = float(a)
-    bb = float(b)
+    aa = convert(T, a)
+    bb = convert(T, b)
 
-    h_coarse = (bb - aa) / N
-    h_fine   = (bb - aa) / (2N)
+    h_coarse = (bb - aa) / T(N)
+    h_fine   = (bb - aa) / T(2N)
 
     q_coarse = _quadrature_value_gauss(
-        f, 
-        aa, 
-        bb, 
-        N, 
-        dim, 
-        rule, 
+        f,
+        aa,
+        bb,
+        N,
+        dim,
+        rule,
         boundary;
-        threaded_subgrid=threaded_subgrid
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
+
     q_fine = _quadrature_value_gauss(
-        f, 
-        aa, 
-        bb, 
-        2N, 
-        dim, 
-        rule, 
+        f,
+        aa,
+        bb,
+        2N,
+        dim,
+        rule,
         boundary;
-        threaded_subgrid=threaded_subgrid
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
 
     diff = q_fine - q_coarse
@@ -315,7 +344,9 @@ end
         N,
         dim,
         rule,
-        boundary,
+        boundary;
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
 
 Unified public dispatcher for Gauss-family refinement-based error estimation.
@@ -341,6 +372,13 @@ dimension-specific specialization:
 - `boundary`:
   Boundary-condition symbol.
 
+# Keyword arguments
+- `threaded_subgrid::Bool = false`:
+  Whether to allow CPU threaded subgrid execution in the underlying refinement calls.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and refinement
+  evaluation.
+
 # Returns
 - The named tuple produced by the selected dimension-specific refinement
   estimator.
@@ -363,20 +401,22 @@ function error_estimate_refinement_gauss(
     dim,
     rule,
     boundary;
-    threaded_subgrid::Bool = false
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
     _require_gauss_rule(rule)
     QuadratureUtils._decode_boundary(boundary)
 
     return _estimate_by_refinement_gauss(
-        f, 
-        a, 
-        b, 
-        N, 
-        dim, 
-        rule, 
-        boundary; 
-        threaded_subgrid=threaded_subgrid
+        f,
+        a,
+        b,
+        N,
+        dim,
+        rule,
+        boundary;
+        threaded_subgrid = threaded_subgrid,
+        real_type = real_type,
     )
 end
 

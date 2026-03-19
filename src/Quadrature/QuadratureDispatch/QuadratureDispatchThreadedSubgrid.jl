@@ -267,7 +267,8 @@ end
         rule,
         boundary;
         nthreads_req::Int = Threads.nthreads(),
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Evaluate a one-dimensional quadrature approximation using thread-parallel
@@ -294,11 +295,15 @@ distributed across Julia threads; otherwise, a serial fallback is used.
   Boundary-condition symbol.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
 
 # Returns
-- Quadrature approximation of the one-dimensional integral.
+- Quadrature approximation of the one-dimensional integral in the active scalar type.
 
 # Notes
 - If `nthreads_req <= 1` or only one quadrature node is present, the function
@@ -313,15 +318,23 @@ function quadrature_1d_threaded_subgrid(
     rule,
     boundary;
     nthreads_req::Int = Threads.nthreads(),
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary;
+        λ = λT,
+        real_type = T,
+    )
     nx = length(xs)
 
     if nthreads_eff <= 1 || nx == 1
-        total = 0.0
+        total = zero(T)
         @inbounds for i in eachindex(xs)
             w = wx[i]
             iszero(w) && continue
@@ -335,11 +348,11 @@ function quadrature_1d_threaded_subgrid(
 
     JobLoggerTools.println_benji("Global grid: $(nx)^1 points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
 
-    partial = zeros(Float64, Threads.maxthreadid())
+    partial = zeros(T, Threads.maxthreadid())
 
     Threads.@threads for bid in eachindex(blocks)
         (r1,) = blocks[bid]
-        local_sum = 0.0
+        local_sum = zero(T)
 
         @inbounds for i in r1
             w = wx[i]
@@ -362,7 +375,8 @@ end
         rule,
         boundary;
         nthreads_req::Int = Threads.nthreads(),
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Evaluate a two-dimensional tensor-product quadrature approximation using
@@ -390,11 +404,15 @@ serially.
   Boundary-condition symbol.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
 
 # Returns
-- Quadrature approximation of the two-dimensional integral.
+- Quadrature approximation of the two-dimensional integral in the active scalar type.
 
 # Notes
 - The same one-dimensional nodes and weights are reused on both axes.
@@ -408,15 +426,23 @@ function quadrature_2d_threaded_subgrid(
     rule,
     boundary;
     nthreads_req::Int = Threads.nthreads(),
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary;
+        λ = λT,
+        real_type = T,
+    )
     nx = length(xs)
 
     if nthreads_eff <= 1 || nx == 1
-        total = 0.0
+        total = zero(T)
         @inbounds for i in eachindex(xs)
             xi = xs[i]
             wi = wx[i]
@@ -434,11 +460,11 @@ function quadrature_2d_threaded_subgrid(
 
     JobLoggerTools.println_benji("Global grid: $(nx)^2 points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
 
-    partial = zeros(Float64, Threads.maxthreadid())
+    partial = zeros(T, Threads.maxthreadid())
 
     Threads.@threads for bid in eachindex(blocks)
         r1, r2 = blocks[bid]
-        local_sum = 0.0
+        local_sum = zero(T)
 
         @inbounds for i in r1
             xi = xs[i]
@@ -465,7 +491,8 @@ end
         rule,
         boundary;
         nthreads_req::Int = Threads.nthreads(),
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Evaluate a three-dimensional tensor-product quadrature approximation using
@@ -492,11 +519,15 @@ thread. Otherwise, the full tensor-product loop is evaluated serially.
   Boundary-condition symbol.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
 
 # Returns
-- Quadrature approximation of the three-dimensional integral.
+- Quadrature approximation of the three-dimensional integral in the active scalar type.
 
 # Notes
 - The same one-dimensional nodes and weights are reused on all axes.
@@ -510,15 +541,23 @@ function quadrature_3d_threaded_subgrid(
     rule,
     boundary;
     nthreads_req::Int = Threads.nthreads(),
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary;
+        λ = λT,
+        real_type = T,
+    )
     nx = length(xs)
 
     if nthreads_eff <= 1 || nx == 1
-        total = 0.0
+        total = zero(T)
         @inbounds for i in eachindex(xs)
             xi = xs[i]
             wi = wx[i]
@@ -540,11 +579,11 @@ function quadrature_3d_threaded_subgrid(
 
     JobLoggerTools.println_benji("Global grid: $(nx)^3 points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
 
-    partial = zeros(Float64, Threads.maxthreadid())
+    partial = zeros(T, Threads.maxthreadid())
 
     Threads.@threads for bid in eachindex(blocks)
         r1, r2, r3 = blocks[bid]
-        local_sum = 0.0
+        local_sum = zero(T)
 
         @inbounds for i in r1
             xi = xs[i]
@@ -575,7 +614,8 @@ end
         rule,
         boundary;
         nthreads_req::Int = Threads.nthreads(),
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Evaluate a four-dimensional tensor-product quadrature approximation using
@@ -603,11 +643,15 @@ evaluated directly.
   Boundary-condition symbol.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
 
 # Returns
-- Quadrature approximation of the four-dimensional integral.
+- Quadrature approximation of the four-dimensional integral in the active scalar type.
 
 # Notes
 - The same one-dimensional nodes and weights are reused on all axes.
@@ -621,15 +665,23 @@ function quadrature_4d_threaded_subgrid(
     rule,
     boundary;
     nthreads_req::Int = Threads.nthreads(),
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary;
+        λ = λT,
+        real_type = T,
+    )
     nx = length(xs)
 
     if nthreads_eff <= 1 || nx == 1
-        total = 0.0
+        total = zero(T)
         @inbounds for i in eachindex(xs)
             xi = xs[i]
             wi = wx[i]
@@ -655,11 +707,11 @@ function quadrature_4d_threaded_subgrid(
 
     JobLoggerTools.println_benji("Global grid: $(nx)^4 points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
 
-    partial = zeros(Float64, Threads.maxthreadid())
+    partial = zeros(T, Threads.maxthreadid())
 
     Threads.@threads for bid in eachindex(blocks)
         r1, r2, r3, r4 = blocks[bid]
-        local_sum = 0.0
+        local_sum = zero(T)
 
         @inbounds for i in r1
             xi = xs[i]
@@ -695,7 +747,8 @@ end
         boundary;
         dim::Int,
         nthreads_req::Int = Threads.nthreads(),
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Evaluate a generic `dim`-dimensional tensor-product quadrature approximation
@@ -725,11 +778,15 @@ entire tensor-product grid is traversed with an iterative multi-index update.
   Number of dimensions.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
 
 # Returns
-- Quadrature approximation of the `dim`-dimensional integral.
+- Quadrature approximation of the `dim`-dimensional integral in the active scalar type.
 
 # Errors
 - Throws `ArgumentError` if `dim < 1`.
@@ -749,22 +806,30 @@ function quadrature_nd_threaded_subgrid(
     boundary;
     dim::Int,
     nthreads_req::Int = Threads.nthreads(),
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
 
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary;
+        λ = λT,
+        real_type = T,
+    )
     nx = length(xs)
 
     if nthreads_eff <= 1 || nx == 1
         idx = ones(Int, dim)
-        args = Vector{Float64}(undef, dim)
-        total = 0.0
+        args = Vector{T}(undef, dim)
+        total = zero(T)
 
         @inbounds while true
-            wprod = 1.0
+            wprod = one(T)
             for d in 1:dim
                 ii = idx[d]
                 args[d] = xs[ii]
@@ -794,7 +859,7 @@ function quadrature_nd_threaded_subgrid(
 
     JobLoggerTools.println_benji("Global grid: $(nx)^$(dim) points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
 
-    partial = zeros(Float64, Threads.maxthreadid())
+    partial = zeros(T, Threads.maxthreadid())
 
     Threads.@threads for bid in eachindex(blocks)
         ranges = blocks[bid]
@@ -802,11 +867,11 @@ function quadrature_nd_threaded_subgrid(
         idx = [first(r) for r in ranges]
         stop = [last(r) for r in ranges]
 
-        args = Vector{Float64}(undef, dim)
-        local_sum = 0.0
+        args = Vector{T}(undef, dim)
+        local_sum = zero(T)
 
         @inbounds while true
-            wprod = 1.0
+            wprod = one(T)
             for d in 1:dim
                 ii = idx[d]
                 args[d] = xs[ii]
@@ -844,7 +909,8 @@ end
         boundary;
         dim::Int,
         nthreads_req::Int = Threads.nthreads(),
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Unified public dispatcher for thread-parallel subgrid tensor-product
@@ -872,11 +938,16 @@ It dispatches to the matching dimension-specific implementation for `dim = 1`,
   Number of dimensions.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
 
 # Returns
-- Quadrature approximation produced by the selected threaded subgrid backend.
+- Quadrature approximation produced by the selected threaded subgrid backend,
+  in the active scalar type.
 
 # Errors
 - Throws `ArgumentError` if `dim < 1`.
@@ -895,40 +966,49 @@ function quadrature_threaded_subgrid(
     boundary;
     dim::Int,
     nthreads_req::Int = Threads.nthreads(),
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
+
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     if dim == 1
         return quadrature_1d_threaded_subgrid(
             f, a, b, N, rule, boundary;
             nthreads_req = nthreads_req,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     elseif dim == 2
         return quadrature_2d_threaded_subgrid(
             f, a, b, N, rule, boundary;
             nthreads_req = nthreads_req,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     elseif dim == 3
         return quadrature_3d_threaded_subgrid(
             f, a, b, N, rule, boundary;
             nthreads_req = nthreads_req,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     elseif dim == 4
         return quadrature_4d_threaded_subgrid(
             f, a, b, N, rule, boundary;
             nthreads_req = nthreads_req,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     else
         return quadrature_nd_threaded_subgrid(
             f, a, b, N, rule, boundary;
             dim = dim,
             nthreads_req = nthreads_req,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     end
 end

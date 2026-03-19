@@ -49,8 +49,8 @@ end
 """
     plot_datapoints_result(
         name::String,
-        hs::Vector{Float64},
-        estimates::Vector{Float64},
+        hs::AbstractVector{<:Real},
+        estimates::AbstractVector{<:Real},
         errors::Vector;
         h_power::Real = 1,
         xscale::Symbol = :linear,
@@ -112,8 +112,8 @@ alignment, scaling, and possible oscillatory behavior.
 """
 function plot_datapoints_result(
     name::String,
-    hs::Vector{Float64},
-    estimates::Vector{Float64},
+    hs::AbstractVector{<:Real},
+    estimates::AbstractVector{<:Real},
     errors::Vector;
     h_power::Real = 1,
     xscale::Symbol = :linear,
@@ -141,9 +141,9 @@ function plot_datapoints_result(
     # Support both residual-based (.total) and refinement-based (.estimate) error objects.
     @inline function _extract_error_total(e)
         if hasproperty(e, :total)
-            return float(e.total)
+            return e.total
         elseif hasproperty(e, :estimate)
-            return abs(float(e.estimate))
+            return abs(e.estimate)
         else
             JobLoggerTools.error_benji(
                 "Unsupported error-info structure for datapoint plot (need :total or :estimate)."
@@ -151,11 +151,13 @@ function plot_datapoints_result(
         end
     end
 
-    xvals = Float64.(hs) .^ float(h_power)
-    err_abs = [_extract_error_total(e) for e in errors]
+    T = promote_type(eltype(hs), eltype(estimates), typeof(h_power))
 
-    yvals = Float64[]
-    yerrs = Float64[]
+    xvals = (T.(hs)) .^ convert(T, h_power)
+    err_abs = T.([_extract_error_total(e) for e in errors])
+
+    yvals = T.(estimates)
+    yerrs = err_abs
     ylabel_txt = ""
 
     yvals = Float64.(estimates)
@@ -295,8 +297,8 @@ function plot_datapoints_result(
 )
     return plot_datapoints_result(
         name,
-        Vector{Float64}(result.h),
-        Vector{Float64}(result.avg),
+        result.h,
+        result.avg,
         result.err;
         h_power = h_power,
         xscale = xscale,

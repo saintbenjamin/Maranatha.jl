@@ -10,8 +10,8 @@ Instead of analyzing midpoint residual moments, this module estimates the
 integration error by comparing quadrature results computed at two different
 resolutions.
 
-Like the main B-spline residual backend, all computations are performed in
-`Float64`.
+Like the main B-spline residual backend, computations are performed in
+floating-point arithmetic.
 
 ---
 
@@ -37,7 +37,7 @@ The refinement error indicator is based on their difference:
 \Delta I = I_{h/2} - I_h .
 ```
 
-Assuming asymptotic convergence,
+Under the standard asymptotic convergence assumption,
 
 ```math
 I_h = I^\* + C h^p + O(h^{p+1}),
@@ -65,7 +65,8 @@ constraints on admissible subdivision counts. Therefore, refinement typically
 uses a simple proportional rule such as doubling the subdivision count.
 
 The refined rule is generated using the same spline family and smoothing
-parameters as the original rule.
+parameters as the original rule so that differences reflect resolution changes
+only.
 
 ---
 
@@ -91,8 +92,8 @@ As a result:
 * no derivative backends are involved,
 * the method can be significantly faster than derivative-based estimators.
 
-This makes refinement-based estimation a strong default for spline rules in
-practical workloads.
+This makes refinement-based estimation a strong and robust choice for spline
+rules in practical workloads.
 
 ---
 
@@ -109,7 +110,7 @@ The backend rebuilds the spline quadrature on a refined grid while preserving:
 
 ### Error indicator computation
 
-The main output is a scalar error estimate derived from the difference between
+The main output is a scalar error indicator derived from the difference between
 coarse and refined quadrature values.
 
 ---

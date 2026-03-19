@@ -18,7 +18,8 @@
         boundary::Symbol;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate a ``1``-dimensional midpoint-residual truncation-error model.
@@ -51,6 +52,9 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, midpoint placement,
+  residual-coefficient conversion, and derivative evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -79,28 +83,32 @@ function error_estimate_derivative_direct_1d(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
-    err_method::Symbol = :forwarddiff,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
-    x̄ = (aa + bb) / 2
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
+    x̄ = (aa + bb) / T(2)
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     n = length(ks)
 
-    derivatives = Vector{Float64}(undef, n)
-    terms       = Vector{Float64}(undef, n)
+    derivatives = Vector{T}(undef, n)
+    terms       = Vector{T}(undef, n)
 
     deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
 
@@ -108,8 +116,8 @@ function error_estimate_derivative_direct_1d(
         k = ks[i]
 
         if k == 0
-            derivatives[i] = 0.0
-            terms[i] = 0.0
+            derivatives[i] = zero(T)
+            terms[i] = zero(T)
             continue
         end
 
@@ -119,13 +127,12 @@ function error_estimate_derivative_direct_1d(
             deriv_fun,
             backend_tag,
             f,
-            x̄, k;
-            h=h, rule=rule, N=N, dim=1,
-            side=:mid, axis=:x, stage=:midpoint,
+            x̄, 
+            k;
         )
 
-        derivatives[i] = dx
-        terms[i] = coeff * h^(k + 1) * dx
+        derivatives[i] = convert(T, dx)
+        terms[i] = coeff * h^(k + 1) * derivatives[i]
     end
 
     return (;

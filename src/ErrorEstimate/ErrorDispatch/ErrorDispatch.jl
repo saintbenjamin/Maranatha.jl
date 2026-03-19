@@ -203,8 +203,9 @@ using .ErrorDispatchRefinement
         err_method::Symbol = :refinement,
         nerr_terms::Int = 1,
         use_error_jet::Bool = false,
-        λ::Float64 = 0.0,
-        threaded_subgrid::Bool = false
+        λ = nothing,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
 
 Unified public dispatcher for all supported error-estimation backends.
@@ -257,13 +258,17 @@ The dispatch rule is:
   Ignored when `err_method == :refinement`.
 - `use_error_jet::Bool = false`:
   Selects the jet-based derivative estimator when `err_method != :refinement`.
-- `λ::Float64 = 0.0`:
+- `λ = nothing`:
   Optional smoothing parameter passed through to the refinement backend.
-  This parameter is used only for smoothing B-spline refinement rules
-  and is ignored by all other estimators.
+  If `nothing`, zero is used in the active scalar type. This parameter is used
+  only for smoothing B-spline refinement rules and is ignored by all other
+  estimators.
 - `threaded_subgrid::Bool = false`:
   Enables CPU threaded subgrid execution for refinement-based estimation.
   Ignored by derivative-based estimators.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and backend
+  evaluation.
 
 # Returns
 - The named tuple returned by the selected backend.
@@ -290,9 +295,13 @@ function error_estimate(
     err_method::Symbol = :refinement,
     nerr_terms::Int = 1,
     use_error_jet::Bool = false,
-    λ::Float64 = 0.0,
-    threaded_subgrid::Bool = false
+    λ = nothing,
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     if err_method === :refinement
         return ErrorDispatchRefinement.error_estimate_refinement(
             f,
@@ -302,8 +311,9 @@ function error_estimate(
             dim,
             rule,
             boundary;
-            λ = λ,
-            threaded_subgrid=threaded_subgrid
+            λ = λT,
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
         )
     end
 
@@ -318,6 +328,7 @@ function error_estimate(
             boundary;
             err_method = err_method,
             nerr_terms = nerr_terms,
+            real_type = T,
         )
     else
         return ErrorDispatchDerivative.error_estimate_derivative_direct(
@@ -330,6 +341,7 @@ function error_estimate(
             boundary;
             err_method = err_method,
             nerr_terms = nerr_terms,
+            real_type = T,
         )
     end
 end

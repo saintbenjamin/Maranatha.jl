@@ -19,7 +19,8 @@
         dim::Int,
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate an arbitrary-dimensional axis-separable midpoint-residual
@@ -55,6 +56,10 @@ odometer-style tensor-product traversal.
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, quadrature nodes
+  and weights, residual-coefficient conversion, midpoint placement, and
+  jet-based derivative evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -92,70 +97,71 @@ function error_estimate_derivative_jet_nd(
     dim::Int,
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
 
-    x̄ = (aa + bb) / 2
+    x̄ = (aa + bb) / T(2)
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        aa, bb, N, rule, boundary;
+        real_type = T,
+    )
 
-    @inline function _call_with_axis(f, fixed::Vector{Float64}, axis::Int, x, dim::Int)
+    @inline function _call_with_axis(f, fixed, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     isempty(ks) && return (;
         ks = Int[],
-        coeffs = Float64[],
-        derivatives = Float64[],
-        terms = Float64[],
-        total = 0.0,
+        coeffs = T[],
+        derivatives = T[],
+        terms = T[],
+        total = zero(T),
         center = ntuple(_ -> x̄, dim),
         h = h
     )
 
-    derivatives = zeros(Float64, length(ks))
-    terms       = zeros(Float64, length(ks))
+    derivatives = zeros(T, length(ks))
+    terms       = zeros(T, length(ks))
 
     jet_fun, backend_tag =
         AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
 
-    fixed = Vector{Float64}(undef, dim)
+    fixed = Vector{T}(undef, dim)
     idx   = ones(Int, max(dim - 1, 1))
 
     if dim == 1
-        vals = AutoDerivativeJet._derivative_values_for_ks(
+        vals0 = AutoDerivativeJet._derivative_values_for_ks(
             jet_fun,
             backend_tag,
             x -> f(x),
             x̄,
             ks;
-            h = h,
-            rule = rule,
-            N = N,
-            dim = dim,
-            side = :mid,
-            axis = 1,
-            stage = :midpoint,
         )
+        vals = T.(vals0)
 
         @inbounds for it in eachindex(ks)
             k = ks[it]
             if k == 0
-                derivatives[it] = 0.0
-                terms[it] = 0.0
+                derivatives[it] = zero(T)
+                terms[it] = zero(T)
             else
                 derivatives[it] = vals[it]
                 terms[it] = coeffs[it] * h^(k + 1) * derivatives[it]
@@ -177,7 +183,7 @@ function error_estimate_derivative_jet_nd(
         fill!(idx, 1)
 
         while true
-            wprod = 1.0
+            wprod = one(T)
             t = 1
 
             @inbounds for d in 1:dim
@@ -190,20 +196,14 @@ function error_estimate_derivative_jet_nd(
                 t += 1
             end
 
-            vals = AutoDerivativeJet._derivative_values_for_ks(
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
                 jet_fun,
                 backend_tag,
                 x -> _call_with_axis(f, fixed, axis, x, dim),
                 x̄,
                 ks;
-                h = h,
-                rule = rule,
-                N = N,
-                dim = dim,
-                side = :mid,
-                axis = axis,
-                stage = :midpoint,
             )
+            vals = T.(vals0)
 
             @inbounds for it in eachindex(ks)
                 k = ks[it]
@@ -228,8 +228,8 @@ function error_estimate_derivative_jet_nd(
     @inbounds for it in eachindex(ks)
         k = ks[it]
         if k == 0
-            derivatives[it] = 0.0
-            terms[it] = 0.0
+            derivatives[it] = zero(T)
+            terms[it] = zero(T)
         else
             terms[it] = coeffs[it] * h^(k + 1) * derivatives[it]
         end

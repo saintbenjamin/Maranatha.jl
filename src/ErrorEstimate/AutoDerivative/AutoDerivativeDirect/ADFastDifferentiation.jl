@@ -51,28 +51,19 @@ function nth_derivative_fastdifferentiation(
     x::Real,
     n::Int
 )
+    T = typeof(x)
     n >= 0 || throw(ArgumentError("n must be ≥ 0 (got n=$n)"))
-    n == 0 && return f(x)
+    n == 0 && return convert(T, f(x))
 
-    # Clear global symbolic cache to prevent graph reuse across calls.
     FastDifferentiation.clear_cache()
 
-    # Declare symbolic differentiation variable.
     @variables t
 
-    # Build symbolic expression graph by evaluating f on the symbolic variable.
     expr = f(t)
-
-    # Construct the n-th derivative symbolically.
     dexpr = FastDifferentiation.derivative(expr, ntuple(_ -> t, n)...)
-
-    # Compile symbolic expression into a numerical evaluation function.
     exe = FastDifferentiation.make_function([dexpr], [t])
 
-    # Evaluate the compiled derivative at the requested point.
-    return exe(float(x))[1]
+    return convert(T, exe(convert(T, x))[1])
 end
 
 end  # module ADFastDifferentiation
-
-

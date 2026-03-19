@@ -9,14 +9,14 @@ relevant, after least-$\chi^2$ fitting:
 2. fit the extrapolation model with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
 3. visualize the result or inspect the raw datapoints with [`Maranatha.Documentation.PlotTools`](@ref)
 
-The module also provides a pedagogical 1D rule-coverage plot that is useful for
-intuition-building and debugging, rather than for extrapolation itself.
+The module also provides a pedagogical 1D rule-coverage plot useful for
+intuition-building and debugging rather than for extrapolation itself.
 
 ---
 
 ## Overview
 
-The plotting layer currently contains four main roles:
+The plotting layer currently provides the following main roles:
 
 | Function | Responsibility |
 |:--|:--|
@@ -86,8 +86,8 @@ This helper is used by:
 
 ### [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref)
 
-This routine visualizes a completed convergence fit. It is the natural plotting
-companion to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
+This routine visualizes a completed convergence fit and serves as the primary
+plotting companion to [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
 
 It accepts raw convergence data together with a previously computed fit result
 and reconstructs the fitted model directly from the stored fit object. No new
@@ -206,7 +206,7 @@ freshly generated Maranatha result object without manual unpacking.
 
 ### [`Maranatha.Documentation.PlotTools.plot_datapoints_result`](@ref)
 
-This routine is a pre-fit diagnostic plotter.
+This routine provides a pre-fit diagnostic visualization of sampled datapoints.
 
 Unlike [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref), it does **not** use a fitted model. It simply
 plots the sampled datapoints and their error bars so the user can inspect the
@@ -267,8 +267,8 @@ Maranatha `result` object and forwards its stored fields to the primary method.
 
 ### [`Maranatha.Documentation.PlotTools.plot_quadrature_coverage_1d`](@ref)
 
-This routine is a pedagogical and debugging-oriented visualizer for $1$-dimensional
-quadrature rules.
+This routine provides a pedagogical and debugging-oriented visualization of
+$1$-dimensional quadrature rules.
 
 It is fundamentally different from the fit-oriented plotters above. Instead of
 showing convergence across resolutions, it shows how a **single selected 1D

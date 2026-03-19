@@ -42,7 +42,6 @@ Newton iterations for Gauss-Radau and Gauss-Lobatto root solves.
     n::Int, 
     x::Float64
 )::Tuple{Float64,Float64}
-    # returns (P_n(x), P_{n-1}(x))
     n >= 0 || error("n must be ≥ 0")
     if n == 0
         return 1.0, 0.0
@@ -137,10 +136,6 @@ strictly inside ``[-1,1]`` for numerical stability during Newton updates.
     return x
 end
 
-# ------------------------------------------------------------
-# 1) Gauss–Legendre (Golub–Welsch) on [-1,1]
-# ------------------------------------------------------------
-
 """
     gauss_legendre_nodes_weights_float(
         n::Int
@@ -172,13 +167,6 @@ function gauss_legendre_nodes_weights_float(
 )::Tuple{Vector{Float64},Vector{Float64}}
     n >= 1 || error("n must be ≥ 1")
 
-    # For Legendre w(x)=1 on [-1,1], orthonormal recurrence has:
-    #   a_k = 0
-    #   b_k = k / sqrt(4k^2 - 1),  k=1..n-1
-    #
-    # J = LinearAlgebra.SymTridiagonal(a, b)
-    # nodes = eigenvalues(J)
-    # weights = μ0 * (v1_i)^2, μ0 = ∫_{-1}^{1} 1 dx = 2
     a = zeros(Float64, n)
     b = Vector{Float64}(undef, n-1)
     @inbounds for k in 1:(n-1)
@@ -196,18 +184,6 @@ function gauss_legendre_nodes_weights_float(
     end
     return t, w
 end
-
-# ------------------------------------------------------------
-# 2) Gauss–Radau (one endpoint fixed)
-#
-# Facts (Legendre weight 1):
-# - Left Radau (includes x=-1): remaining roots are zeros of  F(x)=P_n(x)+P_{n-1}(x)
-# - Right Radau(includes x=+1): remaining roots are zeros of F(x)=P_n(x)-P_{n-1}(x)
-# - Endpoint weight: 2/n^2
-# - Other weights:
-#     left  (-1 fixed): w_i = (1 + x_i) / (n^2 * [P_{n-1}(x_i)]^2)
-#     right (+1 fixed): w_i = (1 - x_i) / (n^2 * [P_{n-1}(x_i)]^2)
-# ------------------------------------------------------------
 
 """
     gauss_radau_left_nodes_weights_float(
@@ -241,17 +217,14 @@ function gauss_radau_left_nodes_weights_float(
 )::Tuple{Vector{Float64},Vector{Float64}}
     n >= 2 || error("Radau needs n ≥ 2 (got n=$n)")
 
-    # nodes: x1=-1 plus (n-1) roots of P_n + P_{n-1}
     t = Vector{Float64}(undef, n)
     w = Vector{Float64}(undef, n)
 
     t[1] = -1.0
     w[1] = 2.0 / (Float64(n) * Float64(n))
 
-    # initial guesses: use GL(n-1) nodes as seeds (works well in practice)
     seeds, _ = gauss_legendre_nodes_weights_float(n-1)
 
-    # Newton for each root in (-1,1)
     @inbounds for i in 1:(n-1)
         x = _clamp_open(seeds[i])
         for _ in 1:80
@@ -268,12 +241,10 @@ function gauss_radau_left_nodes_weights_float(
         end
         t[i+1] = x
 
-        # weight for interior node
         Pnm1, _ = _legendre_Pn_deriv(n-1, x)
         w[i+1] = (1.0 + x) / ((Float64(n)^2) * (Pnm1*Pnm1))
     end
 
-    # sort by nodes (keep weights aligned)
     p = sortperm(t)
     return t[p], w[p]
 end
@@ -341,19 +312,6 @@ function gauss_radau_right_nodes_weights_float(
     p = sortperm(t)
     return t[p], w[p]
 end
-
-# ------------------------------------------------------------
-# 3) Gauss–Lobatto (both endpoints fixed)
-#
-# Facts:
-# - n nodes includes both endpoints: x1=-1, xn=+1
-# - interior nodes are roots of P'_{n-1}(x)=0
-#   Use equivalent G(x) = P_{n-2}(x) - x*P_{n-1}(x) = 0 for interior roots
-#   because (1-x^2)P'_{n-1} = (n-1)(P_{n-2} - x P_{n-1})
-# - weights:
-#     w1 = wn = 2/(n(n-1))
-#     interior: w_i = 2 / (n(n-1) * [P_{n-1}(x_i)]^2)
-# ------------------------------------------------------------
 
 """
     gauss_lobatto_nodes_weights_float(
@@ -431,15 +389,16 @@ function gauss_lobatto_nodes_weights_float(
 end
 
 """
-    _GAUSS_CACHE :: Dict{Tuple{Int,Symbol}, (nodes, weights)}
+    _GAUSS_CACHE :: Dict{Tuple{Int,Symbol,DataType}, Tuple{Vector,Vector}}
 
 Process-local cache for single-interval Gauss-family nodes and weights on ``[-1,1]``.
 
 # Description
-This cache stores previously constructed Gauss-family rules keyed by `(n, boundary)`.
+This cache stores previously constructed Gauss-family rules keyed by
+`(n, boundary, real_type)`.
 It avoids repeated eigen-solves or Newton root-finding for identical requests.
 """
-const _GAUSS_CACHE = Dict{Tuple{Int,Symbol}, Tuple{Vector{Float64},Vector{Float64}}}()
+const _GAUSS_CACHE = Dict{Tuple{Int,Symbol,DataType}, Tuple{Vector,Vector}}()
 
 """
     _is_gauss_rule(
@@ -501,23 +460,30 @@ end
 """
     _gauss_family_nodes_weights(
         n::Int,
-        boundary::Symbol
-    ) -> (nodes, weights)
+        boundary::Symbol;
+        real_type = nothing,
+    ) -> Tuple
 
 Return the single-interval Gauss-family nodes and weights on ``[-1,1]`` for a given
 boundary selector.
 
 # Function description
 This dispatcher selects among Gauss-Legendre, left-Radau, right-Radau, and Lobatto
-according to `boundary`. Results are cached in [`_GAUSS_CACHE`](@ref).
+according to `boundary`. Results are cached in [`_GAUSS_CACHE`](@ref) and converted
+to the requested scalar type.
 
 # Arguments
 - `n`: Number of points per rule.
 - `boundary`: One of `:LU_EXEX`, `:LU_INEX`, `:LU_EXIN`, or `:LU_ININ`.
 
+# Keyword arguments
+- `real_type = nothing`:
+  Optional scalar type used for the returned nodes and weights.
+  If `nothing`, `Float64` is used.
+
 # Returns
-- `nodes::Vector{Float64}`: Nodes on ``[-1,1]``.
-- `weights::Vector{Float64}`: Weights aligned with `nodes`.
+- `nodes`: Nodes on ``[-1,1]`` in the active scalar type.
+- `weights`: Weights aligned with `nodes`, in the active scalar type.
 
 # Errors
 - Throws via [`JobLoggerTools.error_benji`](@ref) if `boundary` is invalid or if `n` is
@@ -525,14 +491,17 @@ according to `boundary`. Results are cached in [`_GAUSS_CACHE`](@ref).
 """
 function _gauss_family_nodes_weights(
     n::Int,
-    boundary::Symbol
-)::Tuple{Vector{Float64},Vector{Float64}}
+    boundary::Symbol;
+    real_type = nothing,
+)::Tuple
 
-    key = (n, boundary)
+    T = isnothing(real_type) ? Float64 : real_type
+
+    key = (n, boundary, T)
     cached = get(_GAUSS_CACHE, key, nothing)
     cached !== nothing && return cached
 
-    t, w = if boundary === :LU_EXEX
+    t0, w0 = if boundary === :LU_EXEX
         gauss_legendre_nodes_weights_float(n)
     elseif boundary === :LU_INEX
         n >= 2 || JobLoggerTools.error_benji("Gauss-Radau requires n ≥ 2 (got n=$n)")
@@ -546,6 +515,9 @@ function _gauss_family_nodes_weights(
     else
         JobLoggerTools.error_benji("boundary must be :LU_ININ|:LU_EXIN|:LU_INEX|:LU_EXEX (got $boundary)")
     end
+
+    t = T.(t0)
+    w = T.(w0)
 
     _GAUSS_CACHE[key] = (t, w)
     return t, w
@@ -583,23 +555,6 @@ receive endpoint-sensitive Radau behavior while interior blocks remain Legendre.
     blk::Int,
     N::Int
 )::Symbol
-    # Map a *global* boundary selector to a *per-block* selector.
-    #
-    # Policy (Option A):
-    # - Interior blocks always use Gauss–Legendre (:LU_EXEX).
-    # - Global boundary conditions are applied only to the first/last block.
-    #
-    # Meaning:
-    #   :LU_EXEX -> all blocks :LU_EXEX
-    #   :LU_INEX -> first block  :LU_INEX, others :LU_EXEX
-    #   :LU_EXIN -> last  block  :LU_EXIN, others :LU_EXEX
-    #   :LU_ININ -> first block  :LU_INEX, last block :LU_EXIN, interior :LU_EXEX
-    #
-    # Note:
-    # - We intentionally do NOT apply Radau/Lobatto to every block, because the
-    #   "boundary" selector in Maranatha is a global interval concept, not a
-    #   per-subinterval concept.
-
     if boundary === :LU_EXEX
         return :LU_EXEX
     elseif boundary === :LU_INEX
@@ -627,8 +582,10 @@ end
         b,
         N,
         npts,
-        boundary
-    ) -> (xs, ws)
+        boundary;
+        real_type = nothing,
+        λ = nothing,
+    ) -> Tuple
 
 Construct composite Gauss-family nodes and weights on ``[a,b]`` by repeating an
 `npts`-point rule over `N` uniform subintervals.
@@ -645,9 +602,16 @@ boundary treatment is applied only to the true first and last blocks through
 - `npts`: Number of Gauss points per block.
 - `boundary`: Global boundary selector.
 
+# Keyword arguments
+- `real_type = nothing`:
+  Optional scalar type used internally for node and weight construction.
+- `λ = nothing`:
+  Reserved optional parameter forwarded for interface compatibility.
+  It is currently unused by the Gauss backend.
+
 # Returns
-- `xs::Vector{Float64}`: Composite node array on ``[a,b]``.
-- `ws::Vector{Float64}`: Composite weight array aligned with `xs`.
+- `xs`: Composite node array on ``[a,b]`` in the active scalar type.
+- `ws`: Composite weight array aligned with `xs`, in the active scalar type.
 
 # Errors
 - Does not validate `N` explicitly; invalid inputs may fail downstream.
@@ -658,29 +622,30 @@ function _composite_gauss_nodes_weights(
     b::Real,
     N::Int,
     npts::Int,
-    boundary::Symbol
-)::Tuple{Vector{Float64},Vector{Float64}}
+    boundary::Symbol;
+    real_type = nothing,
+    λ = nothing,
+)::Tuple
 
-    aa = Float64(a)
-    bb = Float64(b)
-    h  = (bb - aa) / Float64(N)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
 
-    # t, w = _gauss_family_nodes_weights(npts, boundary)
-    
-    xs = Vector{Float64}(undef, npts * N)
-    ws = Vector{Float64}(undef, npts * N)
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
 
-    half = 0.5
+    xs = Vector{T}(undef, npts * N)
+    ws = Vector{T}(undef, npts * N)
+
+    half = T(0.5)
     idx = 1
-    for blk in 0:(N-1)
-        # Use per-block boundary so that "boundary" remains a global-interval concept.
+    for blk in 0:(N - 1)
         local_boundary = _local_boundary_for_block(boundary, blk, N)
-        t, w = _gauss_family_nodes_weights(npts, local_boundary)  # on [-1,1]
+        t, w = _gauss_family_nodes_weights(npts, local_boundary; real_type = T)
 
-        xL = aa + Float64(blk) * h
+        xL = aa + T(blk) * h
         xR = xL + h
         mid   = (xL + xR) * half
-        scale = (xR - xL) * half  # = h/2
+        scale = (xR - xL) * half
 
         @inbounds for i in 1:npts
             xs[idx] = mid + scale * t[i]
@@ -696,8 +661,9 @@ end
     _composite_gauss_u_grid(
         N,
         npts,
-        boundary
-    ) -> (U, W)
+        boundary;
+        real_type = Float64,
+    ) -> Tuple
 
 Build a dimensionless composite Gauss grid on ``u \\in [0,N]``.
 
@@ -711,9 +677,13 @@ returns the concatenated nodes and weights on the ``u`` grid.
 - `npts`: Number of points per block.
 - `boundary`: Global boundary selector.
 
+# Keyword arguments
+- `real_type = Float64`:
+  Scalar type used for the returned dimensionless nodes and weights.
+
 # Returns
-- `U::Vector{Float64}`: Dimensionless composite nodes on ``[0,N]``.
-- `W::Vector{Float64}`: Dimensionless composite weights aligned with `U`.
+- `U`: Dimensionless composite nodes on ``[0,N]`` in the active scalar type.
+- `W`: Dimensionless composite weights aligned with `U`, in the active scalar type.
 
 # Errors
 - Throws `ArgumentError("N must be ≥ 1")` if ``N < 1``.
@@ -722,27 +692,25 @@ returns the concatenated nodes and weights on the ``u`` grid.
 function _composite_gauss_u_grid(
     N::Int,
     npts::Int,
-    boundary::Symbol
-)::Tuple{Vector{Float64},Vector{Float64}}
+    boundary::Symbol;
+    real_type = Float64,
+)::Tuple
 
+    T = real_type
     N >= 1 || throw(ArgumentError("N must be ≥ 1"))
 
-    # t, w = _gauss_family_nodes_weights(npts, boundary)  # on [-1,1]
+    U = Vector{T}(undef, npts * N)
+    W = Vector{T}(undef, npts * N)
 
-    U = Vector{Float64}(undef, npts * N)
-    W = Vector{Float64}(undef, npts * N)
-
-    half = 0.5
+    half = T(0.5)
     idx = 1
-    for m in 0:(N-1)
-        # Match the composite quadrature construction: apply global boundary
-        # only to the first/last block, and use Legendre on interior blocks.
+    for m in 0:(N - 1)
         local_boundary = _local_boundary_for_block(boundary, m, N)
-        t, w = _gauss_family_nodes_weights(npts, local_boundary)  # on [-1,1]
+        t, w = _gauss_family_nodes_weights(npts, local_boundary; real_type = T)
 
-        mm = Float64(m)
+        mm = T(m)
         @inbounds for i in 1:npts
-            U[idx] = mm + (t[i] + 1.0) * half
+            U[idx] = mm + (t[i] + one(T)) * half
             W[idx] = w[i] * half
             idx += 1
         end

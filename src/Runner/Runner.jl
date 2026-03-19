@@ -33,6 +33,7 @@ For visualization of the resulting convergence behavior, see
 """
 module Runner
 
+import ..DoubleFloats
 import ..TOML
 
 import ..Utils.JobLoggerTools
@@ -58,7 +59,9 @@ import ..ErrorEstimate.ErrorDispatch
         use_error_jet::Bool = false,
         name_prefix::String = "Maranatha",
         save_path::Union{Nothing,AbstractString} = nothing,
-        write_summary::Bool = true
+        write_summary::Bool = true,
+        use_cuda::Bool = false,
+        real_type = nothing
     )
 
 Run a multi-resolution quadrature study, estimate an error scale at each resolution 
@@ -118,7 +121,7 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
   Callable integrand. It must accept `dim` scalar positional arguments.
 
 * `a`, `b`:
-  Scalar bounds defining the hypercube domain ``[a,b]^n``.
+  Scalar bounds defining the hypercube domain ``[a,b]^\\text{dim}``.
 
 # Keyword arguments
 
@@ -130,6 +133,7 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
 
 * `rule::Symbol = :gauss_p4`:
   Quadrature rule identifier forwarded to both quadrature and error estimation.
+  (Also used together with `real_type` to determine the numeric backend.)
 
 * `boundary::Symbol = :LU_EXEX`:
   Boundary pattern used consistently across the quadrature pipeline.
@@ -172,6 +176,15 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
 * `write_summary::Bool = true`:
   If `true`, write a [`TOML`](https://toml.io/en/) summary alongside the saved `JLD2` dataset.
 
+* `use_cuda::Bool = false`:
+  If `true`, evaluate quadrature and error estimation using CUDA kernels
+  (currently supported only for `Float32` and `Float64` real types).
+
+* `real_type = nothing`:
+  Optional numeric scalar type used internally for all computations.
+  If `nothing`, `Float64` is used. Otherwise, inputs are converted to
+  `real_type` before evaluation.
+
 # Returns
 
 A `NamedTuple` containing the raw convergence-study dataset and associated metadata.
@@ -179,12 +192,13 @@ The `err` field may therefore contain either derivative-based error objects
 or refinement-based error objects, depending on `err_method`.
 Important fields include:
 
-* `a`, `b`: integration bounds,
+* `a`, `b`: integration bounds (stored in the selected `real_type`),
 * `h`: step sizes,
 * `avg`: quadrature estimates,
 * `err`: error-estimator outputs,
 * `rule`, `boundary`, `dim`, `err_method`: execution metadata,
-* `nerr_terms`, `fit_terms`, `ff_shift`, `use_error_jet`: downstream configuration hints.
+* `nerr_terms`, `fit_terms`, `ff_shift`, `use_error_jet`,
+  `use_cuda`, `real_type`: downstream configuration hints.
 
 # Saving behavior
 
@@ -205,8 +219,9 @@ If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is writt
 
 * `run_Maranatha` generates datasets only; it does not perform fitting.
 * The error object is an error-scale model intended for stable downstream weighting,
-not necessarily a strict truncation bound. Depending on `err_method`, it may come either from a derivative-based asymptotic model or from a refinement-based coarse-versus-fine quadrature difference.
-  not necessarily a strict truncation bound.
+  not necessarily a strict truncation bound. Depending on `err_method`, it may come
+  either from a derivative-based asymptotic model or from a refinement-based
+  coarse-versus-fine quadrature difference.
 * `fit_terms` and `ff_shift` are preserved for convenience so that later fitting code
   can reuse the same workflow settings.
 * The derivative-based and refinement-based branches coexist in the public API
@@ -232,6 +247,7 @@ run_result = run_Maranatha(
     rule = :gauss_p4,
     boundary = :LU_EXEX,
     err_method = :refinement,
+    real_type = Float64,
 )
 ```
 To use the refinement-based estimator instead, pass `err_method = :refinement`.
@@ -252,58 +268,71 @@ function run_Maranatha(
     integrand,
     a,
     b;
-    dim=1,
-    nsamples=[2, 3, 4, 5, 6, 7, 8, 9],
-    rule=:gauss_p4,
-    boundary=:LU_EXEX,
-    err_method::Symbol = :refinement,  # :forwarddiff | :taylorseries | :fastdifferentiation | :enzyme
+    dim = 1,
+    nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    err_method::Symbol = :refinement,
     fit_terms::Int = 4,
     nerr_terms::Int = 3,
     ff_shift::Int = 0,
     use_error_jet::Bool = false,
     name_prefix::String = "Maranatha",
-    save_path::Union{Nothing,AbstractString}=nothing,
-    write_summary::Bool=true,
+    save_path::Union{Nothing,AbstractString} = nothing,
+    write_summary::Bool = true,
     use_cuda::Bool = false,
+    real_type = nothing,
 )
     JobLoggerTools.log_stage_benji("Start run_Maranatha")
+
+    T = isnothing(real_type) ? Float64 : real_type
+
+    if use_cuda && !(T === Float32 || T === Float64)
+        throw(ArgumentError(
+            "CUDA mode currently supports only Float32 or Float64 real_type (got $(T))."
+        ))
+    end
+
+    aT = convert(T, a)
+    bT = convert(T, b)
 
     threaded_subgrid = (!use_cuda) && (Base.Threads.nthreads() > 1)
 
     if err_method !== :refinement
         ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!()
     end
-    
-    estimates = Float64[]      # List of quadrature results
-    error_infos = NamedTuple[] # List of estimated error infos
-    hs = Float64[]             # List of step sizes
+
+    estimates = T[]
+    error_infos = NamedTuple[]
+    hs = T[]
 
     nsamples = QuadratureUtils._sanitize_nsamples_newton_cotes(
-        nsamples, 
-        rule, 
+        nsamples,
+        rule,
         boundary
     )
 
     for N in nsamples
-        h = (b - a) / N
+        h = (bT - aT) / T(N)
         push!(hs, h)
 
         I = QuadratureDispatch.quadrature(
             integrand,
-            a,
-            b,
+            aT,
+            bT,
             N,
             dim,
             rule,
             boundary;
-            use_cuda=use_cuda,
-            threaded_subgrid=threaded_subgrid
+            use_cuda = use_cuda,
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
         )
 
         err = ErrorDispatch.error_estimate(
             integrand,
-            a,
-            b,
+            aT,
+            bT,
             N,
             dim,
             rule,
@@ -311,7 +340,8 @@ function run_Maranatha(
             err_method = err_method,
             nerr_terms = nerr_terms,
             use_error_jet = use_error_jet,
-            threaded_subgrid = threaded_subgrid
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
         )
 
         push!(estimates, I)
@@ -319,23 +349,24 @@ function run_Maranatha(
     end
 
     result = (;
-        a           = a,
-        b           = b,
-        h           = hs,
-        avg         = estimates,
-        err         = error_infos,
-        rule        = rule,
-        boundary    = boundary,
-        dim         = dim,
-        err_method  = err_method,
-        nerr_terms  = nerr_terms,
-        fit_terms   = fit_terms,
-        ff_shift    = ff_shift,
+        a             = aT,
+        b             = bT,
+        h             = hs,
+        avg           = estimates,
+        err           = error_infos,
+        rule          = rule,
+        boundary      = boundary,
+        dim           = dim,
+        err_method    = err_method,
+        nerr_terms    = nerr_terms,
+        fit_terms     = fit_terms,
+        ff_shift      = ff_shift,
         use_error_jet = use_error_jet,
+        use_cuda      = use_cuda,
+        real_type     = string(T),
     )
 
     if save_path !== nothing
-        # ---- normalize to current working directory ----
         save_path_abs = isabspath(save_path) ? save_path : joinpath(pwd(), save_path)
 
         mkpath(save_path_abs)
@@ -411,23 +442,31 @@ function run_Maranatha(
         func_name = cfg.integrand_name
     )
 
+    T = cfg.real_type === :Float32  ? Float32  :
+        cfg.real_type === :Float64  ? Float64  :
+        cfg.real_type === :BigFloat ? BigFloat :
+        cfg.real_type === :Double64 ? DoubleFloats.Double64 :
+        error("Unsupported real_type=$(cfg.real_type)")
+
     return Base.invokelatest(
         run_Maranatha,
         integrand,
         cfg.a,
         cfg.b;
-        dim           = cfg.dim,
-        nsamples      = cfg.nsamples,
-        rule          = cfg.rule,
-        boundary      = cfg.boundary,
-        err_method    = cfg.err_method,
-        fit_terms     = cfg.fit_terms,
-        nerr_terms    = cfg.nerr_terms,
-        ff_shift      = cfg.ff_shift,
+        dim             = cfg.dim,
+        nsamples        = cfg.nsamples,
+        rule            = cfg.rule,
+        boundary        = cfg.boundary,
+        err_method      = cfg.err_method,
+        fit_terms       = cfg.fit_terms,
+        nerr_terms      = cfg.nerr_terms,
+        ff_shift        = cfg.ff_shift,
         use_error_jet   = cfg.use_error_jet,
-        name_prefix   = cfg.name_prefix,
-        save_path     = cfg.save_path,
-        write_summary = cfg.write_summary,
+        name_prefix     = cfg.name_prefix,
+        save_path       = cfg.save_path,
+        write_summary   = cfg.write_summary,
+        use_cuda        = cfg.use_cuda,
+        real_type       = T,
     )
 end
 

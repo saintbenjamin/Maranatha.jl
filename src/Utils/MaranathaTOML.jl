@@ -179,13 +179,16 @@ function parse_run_config_from_toml(
         normpath(save_path_raw) :
         normpath(joinpath(cfg_dir, save_path_raw))
 
+    real_type = get(execution_section, "real_type", "Float64")
+    real_type = real_type isa Symbol ? real_type : Symbol(String(real_type))
+
     return (
         toml_path      = abs_toml_path,
         integrand_file = integrand_file,
         integrand_name = integrand_name,
 
-        a = Float64(domain_section["a"]),
-        b = Float64(domain_section["b"]),
+        a = domain_section["a"],
+        b = domain_section["b"],
         dim = Int(get(domain_section, "dim", 1)),
 
         nsamples = Int.(sampling_section["nsamples"]),
@@ -199,6 +202,8 @@ function parse_run_config_from_toml(
         ff_shift   = Int(get(error_section, "ff_shift", 0)),
 
         use_error_jet = Bool(get(execution_section, "use_error_jet", false)),
+        use_cuda      = Bool(get(execution_section, "use_cuda", false)),
+        real_type     = real_type,
 
         name_prefix   = String(get(output_section, "name_prefix", "Maranatha")),
         save_path     = save_path,
@@ -233,10 +238,13 @@ reliably without executing the user-defined integrand itself.
 - Throws if the integrand file does not exist.
 - Throws if `fit_terms < 1`, `nerr_terms < 1`, or `ff_shift < 0`.
 - Throws if `err_method` is not contained in [`VALID_ERR_METHODS`](@ref).
+- Throws if `real_type` is not one of the supported scalar-type selectors.
+- Throws if `use_cuda == true` but `real_type` is not CUDA-compatible.
 
 # Notes
 - This helper does not verify whether the loaded integrand signature is
   compatible with the requested dimensionality.
+- CUDA mode currently supports only `:Float32` and `:Float64`.
 """
 function validate_run_config(cfg)::Nothing
     cfg.a < cfg.b || error(
@@ -279,6 +287,17 @@ function validate_run_config(cfg)::Nothing
         "Unsupported err_method: $(cfg.err_method). Supported values are " *
         "$(collect(VALID_ERR_METHODS))."
     )
+
+    cfg.real_type in (:Float32, :Float64, :Double64, :BigFloat) || error(
+        "Unsupported real_type: $(cfg.real_type). Supported values are " *
+        "[:Float32, :Float64, :Double64, :BigFloat]."
+    )
+
+    if cfg.use_cuda
+        cfg.real_type in (:Float32, :Float64) || error(
+            "CUDA mode requires real_type to be :Float32 or :Float64, but got $(cfg.real_type)."
+        )
+    end
 
     return nothing
 end

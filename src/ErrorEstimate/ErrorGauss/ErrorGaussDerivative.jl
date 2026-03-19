@@ -23,9 +23,9 @@ import ..Gauss
 """
     _exact_moment_shifted_float(
         Nsub::Int, 
-        c::Float64, 
+        c, 
         k::Int
-    ) -> Float64
+    ) -> Real
 
 Compute the exact shifted monomial moment
 ``\\displaystyle{ \\int\\limits_{0}^{N_{\\texttt{sub}}} du \\; (u - c)^k}``
@@ -50,25 +50,29 @@ the exact midpoint-shifted monomial moment against the quadrature-induced one.
 - `k`: Nonnegative integer power.
 
 # Returns
-- `Float64`: Exact shifted moment value in `Float64`.
+- `Real`:
+  Exact shifted moment value in the same scalar type as `c`.
 
 # Errors
 - No explicit validation is performed here; invalid inputs are assumed to be
   filtered by callers.
 
 # Notes
-- This helper is intentionally `Float64`-only and follows the tolerance-based
-  philosophy of the Gauss residual backend.
-- Large `k` can lead to overflow or loss of accuracy in `Float64`.
+- Despite the historical function name, this helper follows the scalar type of
+  `c` and is not restricted to `Float64`.
+- It is used by [`_leading_midpoint_residual_terms_gauss_float`](@ref) to compare
+  the exact midpoint-shifted monomial moment against the quadrature-induced one.
+- Large `k` can lead to overflow or loss of accuracy depending on the active scalar type.
 """
 @inline function _exact_moment_shifted_float(
-    Nsub::Int, 
-    c::Float64, 
+    Nsub::Int,
+    c,
     k::Int
-)::Float64
-    Nf = Float64(Nsub)
-    kp1 = Float64(k + 1)
-    return ((Nf - c)^(k + 1) - (0.0 - c)^(k + 1)) / kp1
+)
+    T = typeof(c)
+    Nf = T(Nsub)
+    kp1 = T(k + 1)
+    return ((Nf - c)^(k + 1) - (zero(T) - c)^(k + 1)) / kp1
 end
 
 """
@@ -77,8 +81,9 @@ end
         boundary::Symbol,
         Nsub::Int;
         nterms::Int = 2,
-        kmax::Int = 128
-    ) -> (ks, coeffs)
+        kmax::Int = 128,
+        real_type = Float64,
+    ) -> Tuple
 
 Detect the leading nonzero midpoint-shifted residual terms for a composite Gauss-family rule.
 
@@ -123,10 +128,16 @@ aligned vectors `(ks, coeffs)`.
 # Keyword arguments
 - `nterms`: Number of leading nonzero residual terms to collect.
 - `kmax`: Maximum moment order to scan.
+- `real_type = Float64`:
+  Scalar type used internally for Gauss grid construction, moment evaluation,
+  and residual coefficients.
 
 # Returns
-- `ks::Vector{Int}`: Residual orders where a nonzero moment is detected.
-- `coeffs::Vector{Float64}`: Factorial-scaled coefficients aligned with `ks`.
+- `ks::Vector{Int}`: 
+  Residual orders where a nonzero moment is detected.
+- `coeffs`:
+  Factorial-scaled coefficients aligned with `ks`, stored in the active
+  `real_type`.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
@@ -138,14 +149,19 @@ aligned vectors `(ks, coeffs)`.
 - Residual detection is tolerance-based rather than exact.
 - This routine is intended for leading-order / coefficient extraction, not for
   rigorous error bounds.
+- Despite the historical function name, this routine supports configurable
+  scalar types through `real_type`.
 """
 function _leading_midpoint_residual_terms_gauss_float(
     rule::Symbol,
     boundary::Symbol,
     Nsub::Int;
     nterms::Int = 2,
-    kmax::Int = 128
-)::Tuple{Vector{Int}, Vector{Float64}}
+    kmax::Int = 128,
+    real_type = Float64,
+)::Tuple
+
+    T = real_type
 
     (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
@@ -153,23 +169,21 @@ function _leading_midpoint_residual_terms_gauss_float(
     Gauss._is_gauss_rule(rule) || JobLoggerTools.error_benji("expected :gauss_pK (got $rule)")
     npts = Gauss._parse_gauss_p(rule)
 
-    # dimensionless u-grid for composite Gauss on [0, Nsub]
-    U, W = Gauss._composite_gauss_u_grid(Nsub, npts, boundary)
+    U, W = Gauss._composite_gauss_u_grid(Nsub, npts, boundary; real_type = T)
 
-    c = Float64(Nsub) / 2.0
+    c = T(Nsub) / T(2)
 
-    # tolerances for Float64 (same spirit as your generator)
-    tol_abs = 5e4 * eps(Float64)
-    tol_rel = 5e4 * eps(Float64)
+    tol_abs = T(5e4) * eps(T)
+    tol_rel = T(5e4) * eps(T)
 
     ks = Int[]
-    coeffs = Float64[]
+    coeffs = T[]
 
-    inv_fact = 1.0  # 1/0!
+    inv_fact = one(T)
     for k in 0:kmax
         exact = _exact_moment_shifted_float(Nsub, c, k)
 
-        approx = 0.0
+        approx = zero(T)
         @inbounds for i in eachindex(U)
             approx += W[i] * (U[i] - c)^k
         end
@@ -181,12 +195,9 @@ function _leading_midpoint_residual_terms_gauss_float(
             length(ks) == nterms && return ks, coeffs
         end
 
-        # update inv_fact -> 1/k!
-        if k >= 0
-            kk = k + 1
-            inv_fact /= kk
-            inv_fact == 0.0 && break
-        end
+        kk = k + 1
+        inv_fact /= T(kk)
+        inv_fact == zero(T) && break
     end
 
     JobLoggerTools.error_benji("Could not collect nterms=$nterms Gauss residual terms up to kmax=$kmax (Nsub=$Nsub).")

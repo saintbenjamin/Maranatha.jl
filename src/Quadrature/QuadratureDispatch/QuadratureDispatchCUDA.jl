@@ -282,7 +282,8 @@ end
         boundary;
         dim::Int,
         threads::Int = 256,
-        λ::Float64 = 0.0,
+        λ = nothing,
+        real_type = nothing,
     )
 
 Evaluate a CUDA-based tensor-product quadrature approximation of `f` over a
@@ -315,13 +316,17 @@ grid, and then sums the per-thread partial contributions on the host.
   Number of dimensions.
 * `threads::Int = 256`:
   Number of CUDA threads per block.
-* `λ::Float64 = 0.0`:
+* `λ = nothing`:
   Optional extra rule parameter forwarded to the node/weight generator.
+  If `nothing`, zero is used in the active scalar type.
+* `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and CUDA
+  execution. CUDA mode currently supports only `Float32` and `Float64`.
 
 # Returns
 
-* `Float64`:
-  Final quadrature approximation obtained from the CUDA backend.
+* `Real`:
+  Final quadrature approximation obtained from the CUDA backend, in the active scalar type.
 
 # Errors
 
@@ -346,12 +351,23 @@ function quadrature_cuda(
     boundary;
     dim::Int,
     threads::Int = 256,
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
     threads >= 1 || throw(ArgumentError("threads must be ≥ 1"))
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    (T === Float32 || T === Float64) || throw(ArgumentError(
+        "CUDA mode currently supports only Float32 or Float64 real_type (got $(T))."
+    ))
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary;
+        λ = λT,
+        real_type = T,
+    )
     n = length(xs)
 
     xs_d = CUDA.CuArray(xs)
@@ -360,7 +376,7 @@ function quadrature_cuda(
     total_points = n^dim
     blocks = cld(total_points, threads)
 
-    out = CUDA.zeros(Float64, threads * blocks)
+    out = CUDA.zeros(T, threads * blocks)
 
     JobLoggerTools.println_benji(
         "CUDA backend: dim=$(dim), n=$(n) → total points=$(total_points) | blocks=$(blocks), threads/block=$(threads)"

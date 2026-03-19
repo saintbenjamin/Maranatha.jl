@@ -27,9 +27,10 @@ import ..ErrorBSplineRefinement
         dim,
         rule,
         boundary;
-        λ::Float64 = 0.0,
+        λ = nothing,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
-
 Dispatch a refinement-based error-estimation request to the matching quadrature
 family backend.
 
@@ -63,8 +64,13 @@ raised.
   Boundary-condition symbol.
 
 # Keyword arguments
-- `λ::Float64 = 0.0`:
-  Smoothing parameter forwarded only to the B-spline refinement backend.
+- `λ = nothing`:
+  Optional smoothing parameter forwarded only to the B-spline refinement backend.
+  If `nothing`, zero is used in the active scalar type.
+- `threaded_subgrid::Bool = false`:
+  Whether to allow CPU threaded subgrid execution in the selected refinement backend.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and backend dispatch.
 
 # Returns
 - The named tuple returned by the selected rule-family refinement estimator.
@@ -86,44 +92,51 @@ raised.
     dim,
     rule,
     boundary;
-    λ::Float64 = 0.0,
-    threaded_subgrid::Bool = false
+    λ = nothing,
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     if Gauss._is_gauss_rule(rule)
         return ErrorGaussRefinement.error_estimate_refinement_gauss(
-            f, 
-            a, 
-            b, 
-            N, 
-            dim, 
-            rule, 
+            f,
+            a,
+            b,
+            N,
+            dim,
+            rule,
             boundary;
-            threaded_subgrid=threaded_subgrid
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
         )
 
     elseif NewtonCotes._is_newton_cotes_rule(rule)
         return ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes(
-            f, 
-            a, 
-            b, 
-            N, 
-            dim, 
-            rule, 
+            f,
+            a,
+            b,
+            N,
+            dim,
+            rule,
             boundary;
-            threaded_subgrid=threaded_subgrid
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
         )
 
     elseif BSpline._is_bspline_rule(rule)
         return ErrorBSplineRefinement.error_estimate_refinement_bspline(
-            f, 
-            a, 
-            b, 
-            N, 
-            dim, 
-            rule, 
-            boundary; 
-            λ=λ,
-            threaded_subgrid=threaded_subgrid
+            f,
+            a,
+            b,
+            N,
+            dim,
+            rule,
+            boundary;
+            λ = λT,
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
         )
 
     else
@@ -142,8 +155,9 @@ end
         dim,
         rule,
         boundary;
-        λ::Float64 = 0.0,
-        threaded_subgrid::Bool = false
+        λ = nothing,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
 
 Unified public dispatcher for refinement-based error estimation across all
@@ -178,8 +192,13 @@ comparison and returns its rule-specific refinement estimate object.
   Boundary-condition symbol.
 
 # Keyword arguments
-- `λ::Float64 = 0.0`:
-  Smoothing parameter forwarded only when `rule` belongs to the B-spline family.
+- `λ = nothing`:
+  Optional smoothing parameter forwarded only when `rule` belongs to the B-spline family.
+  If `nothing`, zero is used in the active scalar type.
+- `threaded_subgrid::Bool = false`:
+  Whether to allow CPU threaded subgrid execution in the selected refinement backend.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and refinement dispatch.
 
 # Returns
 - The named tuple produced by the selected refinement backend.
@@ -193,6 +212,7 @@ comparison and returns its rule-specific refinement estimate object.
   derivative jets, or residual-moment models.
 - For non-B-spline rules, the `λ` keyword is accepted for interface uniformity
   but is not used.
+- The active scalar type can be overridden through `real_type`.
 """
 function error_estimate_refinement(
     f,
@@ -202,19 +222,21 @@ function error_estimate_refinement(
     dim,
     rule,
     boundary;
-    λ::Float64 = 0.0,
-    threaded_subgrid::Bool = false
+    λ = nothing,
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
     return _dispatch_refinement(
-        f, 
-        a, 
-        b, 
-        N, 
-        dim, 
-        rule, 
-        boundary; 
-        λ=λ,
-        threaded_subgrid
+        f,
+        a,
+        b,
+        N,
+        dim,
+        rule,
+        boundary;
+        λ = λ,
+        threaded_subgrid = threaded_subgrid,
+        real_type = real_type,
     )
 end
 

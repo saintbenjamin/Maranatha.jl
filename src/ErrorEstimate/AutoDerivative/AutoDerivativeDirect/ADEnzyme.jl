@@ -40,7 +40,9 @@ automatic differentiation. The final nested callable is then evaluated at `x`.
   propagated if the differentiation chain fails.
 
 # Notes
-- Inputs are converted to `Float64`.
+- Inputs are converted to the same scalar type as `x` (not necessarily `Float64`).
+- The closure chain uses repeated reverse-mode differentiation via
+  [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/).
 - This backend is mainly useful as an experimental or benchmarking path for
   scalar higher-order differentiation.
 """
@@ -49,13 +51,13 @@ function nth_derivative_enzyme(
     x::Real,
     n::Int
 )
+    T = typeof(x)
     g = f
     for _ in 1:n
         prev = g
-        g = t -> only(Enzyme.gradient(Enzyme.Reverse, prev, float(t)))
-        # or: g = t -> first(Enzyme.gradient(Enzyme.Reverse, prev, float(t)))
+        g = t -> only(Enzyme.gradient(Enzyme.Reverse, prev, convert(T, t)))
     end
-    return g(float(x))
+    return convert(T, g(convert(T, x)))
 end
 
 end  # module ADEnzyme

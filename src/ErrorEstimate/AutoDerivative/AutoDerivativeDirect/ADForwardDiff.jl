@@ -39,23 +39,24 @@ It is intentionally written to accept any Julia callable, not only subtypes of
 
 # Errors
 - No explicit validation is performed here; any differentiation failure from
-  [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/ is propagated.
+  [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) is propagated.
 
 # Notes
 - This is the default practical backend in the current error-estimation stack.
 - The callable restriction `f::Function` is intentionally avoided.
 """
 function nth_derivative_forwarddiff(
-    f, 
-    x::Real, 
+    f,
+    x::Real,
     n::Int
 )
+    T = typeof(x)
     g = f
     for _ in 1:n
         prev = g
         g = t -> ForwardDiff.derivative(prev, t)
     end
-    return g(x)
+    return convert(T, g(convert(T, x)))
 end
 
 end  # module ADForwardDiff

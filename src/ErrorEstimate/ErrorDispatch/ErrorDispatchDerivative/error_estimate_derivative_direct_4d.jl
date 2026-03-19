@@ -18,7 +18,8 @@
         boundary::Symbol;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate a ``4``-dimensional axis-separable midpoint-residual truncation-error model.
@@ -50,6 +51,9 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, quadrature nodes
+  and weights, residual-coefficient conversion, and derivative evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -81,36 +85,42 @@ function error_estimate_derivative_direct_4d(
     boundary::Symbol;
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
 
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
 
-    x̄ = (aa + bb) / 2
-    ȳ = (aa + bb) / 2
-    z̄ = (aa + bb) / 2
-    t̄ = (aa + bb) / 2
+    x̄ = (aa + bb) / T(2)
+    ȳ = (aa + bb) / T(2)
+    z̄ = (aa + bb) / T(2)
+    t̄ = (aa + bb) / T(2)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        aa, bb, N, rule, boundary;
+        real_type = T,
+    )
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     n = length(ks)
 
-    derivatives = Vector{Float64}(undef, n)
-    terms       = Vector{Float64}(undef, n)
+    derivatives = Vector{T}(undef, n)
+    terms       = Vector{T}(undef, n)
 
     deriv_fun, backend_tag = AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
 
@@ -118,14 +128,14 @@ function error_estimate_derivative_direct_4d(
         kk = ks[it]
 
         if kk == 0
-            derivatives[it] = 0.0
-            terms[it] = 0.0
+            derivatives[it] = zero(T)
+            terms[it] = zero(T)
             continue
         end
 
         coeff = coeffs[it]
 
-        I1 = 0.0
+        I1 = zero(T)
         for j in eachindex(ys)
             y = ys[j]
             wyj = wy[j]
@@ -135,18 +145,18 @@ function error_estimate_derivative_direct_4d(
                 for l in eachindex(ts)
                     t = ts[l]
                     gx(x) = f(x, y, z, t)
-                    I1 += wyj_wzk * wt[l] * AutoDerivativeDirect.nth_derivative(
+                    I1 += wyj_wzk * wt[l] * convert(T, AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
-                        gx, x̄, kk;
-                        h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:x, stage=:midpoint,
-                    )
+                        gx, 
+                        x̄, 
+                        kk;
+                    ))
                 end
             end
         end
 
-        I2 = 0.0
+        I2 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
             wxi = wx[i]
@@ -156,18 +166,18 @@ function error_estimate_derivative_direct_4d(
                 for l in eachindex(ts)
                     t = ts[l]
                     gy(y) = f(x, y, z, t)
-                    I2 += wxi_wzk * wt[l] * AutoDerivativeDirect.nth_derivative(
+                    I2 += wxi_wzk * wt[l] * convert(T, AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
-                        gy, ȳ, kk;
-                        h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:y, stage=:midpoint,
-                    )
+                        gy, 
+                        ȳ, 
+                        kk;
+                    ))
                 end
             end
         end
 
-        I3 = 0.0
+        I3 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
             wxi = wx[i]
@@ -177,18 +187,18 @@ function error_estimate_derivative_direct_4d(
                 for l in eachindex(ts)
                     t = ts[l]
                     gz(z) = f(x, y, z, t)
-                    I3 += wxi_wyj * wt[l] * AutoDerivativeDirect.nth_derivative(
+                    I3 += wxi_wyj * wt[l] * convert(T, AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
-                        gz, z̄, kk;
-                        h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:z, stage=:midpoint,
-                    )
+                        gz, 
+                        z̄, 
+                        kk;
+                    ))
                 end
             end
         end
 
-        I4 = 0.0
+        I4 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
             wxi = wx[i]
@@ -198,13 +208,13 @@ function error_estimate_derivative_direct_4d(
                 for k2 in eachindex(zs)
                     z = zs[k2]
                     gt(t) = f(x, y, z, t)
-                    I4 += wxi_wyj * wz[k2] * AutoDerivativeDirect.nth_derivative(
+                    I4 += wxi_wyj * wz[k2] * convert(T, AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
-                        gt, t̄, kk;
-                        h=h, rule=rule, N=N, dim=4,
-                        side=:mid, axis=:t, stage=:midpoint,
-                    )
+                        gt, 
+                        t̄, 
+                        kk;
+                    ))
                 end
             end
         end

@@ -25,7 +25,45 @@ using .ADEnzyme
 using .ADForwardDiff
 using .ADFastDifferentiation
 
-@inline function resolve_nth_derivative_backend(err_method::Symbol)
+"""
+    resolve_nth_derivative_backend(
+        err_method::Symbol
+    ) -> Tuple{Function, Symbol}
+
+Resolve a scalar automatic-differentiation backend selector into the concrete
+derivative routine and its canonical backend tag.
+
+# Arguments
+- `err_method::Symbol`:
+  Backend selector symbol.
+
+  Supported values are:
+
+  - `:forwarddiff`
+  - `:taylorseries`
+  - `:fastdifferentiation`
+  - `:enzyme`
+
+# Returns
+- `Tuple{Function, Symbol}`:
+  A pair `(deriv_fun, backend_tag)` where:
+
+  - `deriv_fun` is the backend-specific scalar `n`-th derivative routine, and
+  - `backend_tag` is the normalized backend symbol used for downstream cache keys.
+
+# Errors
+- Throws through [`JobLoggerTools.error_benji`](@ref) if `err_method` is not one
+  of the supported backend selectors.
+
+# Notes
+- This is a lightweight internal dispatcher used by the derivative-based
+  error-estimation pipeline.
+- The returned `backend_tag` is intended to stay consistent with the cache layout
+  used by [`nth_derivative`](@ref).
+"""
+@inline function resolve_nth_derivative_backend(
+    err_method::Symbol
+)
     return err_method === :forwarddiff         ? (ADForwardDiff.nth_derivative_forwarddiff, :forwarddiff) :
            err_method === :taylorseries        ? (ADTaylorSeries.nth_derivative_taylor, :taylorseries) :
            err_method === :fastdifferentiation ? (ADFastDifferentiation.nth_derivative_fastdifferentiation, :fastdifferentiation) :
@@ -35,87 +73,79 @@ end
 
 """
     nth_derivative(
+        deriv_fun,
+        backend_tag::Symbol,
         g,
         x,
         n;
-        h,
-        rule,
-        N,
-        dim::Int,
-        err_method::Symbol = :forwarddiff,
-        side::Symbol = :mid,
-        axis = 0,
-        stage::Symbol = :midpoint
+        real_type = nothing,
     ) -> Real
 
 Compute the `n`-th derivative of a scalar callable `g` at point `x`
-using a selected differentiation backend.
+using a pre-resolved differentiation backend.
 
 # Function description
 This function is a lightweight backend dispatcher used by the error-estimation
 pipeline. It first checks the global scalar-derivative cache and, if a cached
 value is available for the same callable, evaluation point, derivative order,
-and backend, returns that cached result immediately.
+backend tag, and numeric type, returns that cached result immediately.
 
-If no cached value is found, the function dispatches according to `err_method`
-and stores the computed result in [`_NTH_DERIV_CACHE`](@ref):
-
-- `:forwarddiff`         → [`nth_derivative_forwarddiff`](@ref)
-- `:taylorseries`        → [`nth_derivative_taylor`](@ref)
-- `:fastdifferentiation` → [`nth_derivative_fastdifferentiation`](@ref)
-- `:enzyme`              → [`nth_derivative_enzyme`](@ref)
-
-If an unknown `err_method` is provided, the function aborts via
-[`JobLoggerTools.error_benji`](@ref) with a context-rich message.
+If no cached value is found, the function calls the already resolved backend
+function `deriv_fun`, converts the result to the active scalar type, and stores
+the computed value in [`_NTH_DERIV_CACHE`](@ref).
 
 This interface is shared across ``1``/``2``/``3``/``4``-dimensional and general
 ``n``-dimensional error estimators.
 
+# Arguments
+- `deriv_fun`:
+  Backend-specific scalar derivative routine, typically returned by
+  [`resolve_nth_derivative_backend`](@ref).
+- `backend_tag::Symbol`:
+  Canonical backend tag used in the derivative cache key.
+- `g`:
+  Scalar callable whose derivative is evaluated.
+- `x`:
+  Evaluation point.
+- `n`:
+  Derivative order.
+
 # Keyword arguments
-- `h`          : Grid spacing.
-- `rule`       : Quadrature rule symbol.
-- `N`          : Number of subdivisions.
-- `dim::Int`   : Problem dimensionality.
-- `err_method` : Backend selector
-  (`:forwarddiff | :taylorseries | :fastdifferentiation | :enzyme`).
-- `side`       : Boundary-location indicator (`:L`, `:R`, or `:mid`).
-- `axis`       : Axis index or symbolic name.
-- `stage`      : Stage tag for logging (e.g. `:midpoint` or `:boundary`).
+- `real_type = nothing`:
+  Optional scalar type used for cache normalization and output conversion.
+  If `nothing`, the function uses `typeof(float(x))`.
 
 # Returns
-- The `n`-th derivative value ``g^{(n)}(x)`` as returned by the selected
-  backend or from cache.
+- `Real`:
+  The `n`-th derivative value ``g^{(n)}(x)`` converted to the active scalar type.
 
 # Notes
 - This function is marked `@inline` so it can be inlined into tight quadrature
   loops with minimal dispatch overhead.
-- The cache key uses `objectid(g)`, the floating-point evaluation point, the
-  derivative order, and the backend symbol.
+- The cache key uses `objectid(g)`, the converted evaluation point, the
+  derivative order, the backend tag, and the active scalar type.
+- Backend resolution is intentionally performed outside this function, so this
+  routine does not inspect `err_method` directly.
 - Any finiteness checks or higher-level fallback policies must be implemented
   outside this dispatcher.
 """
 @inline function nth_derivative(
     deriv_fun,
-    backend_tag::Symbol,  
+    backend_tag::Symbol,
     g,
     x,
     n;
-    h,
-    rule,
-    N,
-    dim::Int,
-    side::Symbol = :mid,
-    axis = 0,
-    stage::Symbol = :midpoint
+    real_type = nothing,
 )
-    x0 = float(x)
-    key = (objectid(g), x0, n, backend_tag)
+    T = isnothing(real_type) ? typeof(float(x)) : real_type
+    x0 = convert(T, x)
+    key = (objectid(g), x0, n, backend_tag, T)
 
     if haskey(_NTH_DERIV_CACHE, key)
         return _NTH_DERIV_CACHE[key]
     end
 
-    val = deriv_fun(g, x0, n)
+    val = convert(T, deriv_fun(g, x0, n))
     _NTH_DERIV_CACHE[key] = val
     return val
 end

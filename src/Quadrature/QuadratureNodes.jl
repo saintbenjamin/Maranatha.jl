@@ -21,7 +21,7 @@ entry point for all tensor-product quadrature drivers, which build higher-
 dimensional integrators by combining these 1D components.
 
 The module dispatches to the appropriate rule family backend, including
-composite Newton–Cotes, composite Gauss rules, and spline-based quadrature.
+composite Newton-Cotes, composite Gauss rules, and spline-based quadrature.
 
 # Responsibility in the quadrature layer
 
@@ -40,7 +40,7 @@ quadrature rule, but does not perform the tensor-product accumulation itself.
 
 The generator currently supports:
 
-- Newton–Cotes composite rules (`:newton_p*`)
+- Newton-Cotes composite rules (`:newton_p*`)
 - Gauss-family composite rules (`:gauss_p*`)
 - B-spline-based quadrature rules (`:bspline_*`)
 
@@ -61,8 +61,8 @@ The primary public interface is:
   tensor-product quadrature.
 - Boundary-condition semantics are interpreted via
   [`QuadratureUtils._decode_boundary`](@ref).
-- The module returns floating-point nodes and weights suitable for numerical
-  integration backends.
+- The module returns floating-point nodes and weights in the active scalar type,
+  suitable for numerical integration backends.
 """
 module QuadratureNodes
 
@@ -78,7 +78,9 @@ import ..Quadrature.BSpline
         b::Real,
         N::Int,
         rule::Symbol,
-        boundary::Symbol
+        boundary::Symbol;
+        λ = nothing,
+        real_type = nothing,
     ) -> (xs, ws)
 
 Construct ``1``-dimensional quadrature nodes and weights on ``[a,b]`` for a
@@ -103,7 +105,8 @@ For Gauss-family rules, the routine delegates to the composite Gauss backend,
 which applies the requested family blockwise.
 
 For B-spline rules, the routine delegates to the spline backend. At present,
-these rules are restricted to `boundary = :LU_ININ`.
+these rules are restricted to `boundary = :LU_ININ`. The optional smoothing
+parameter `λ` is used only for smoothing B-spline rules.
 
 # Arguments
 - `a`, `b`: Lower and upper bounds of the interval.
@@ -111,9 +114,16 @@ these rules are restricted to `boundary = :LU_ININ`.
 - `rule`: Quadrature rule symbol.
 - `boundary`: Boundary pattern selector.
 
+# Keyword arguments
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node and weight construction.
+
 # Returns
-- `xs::Vector{Float64}`: Quadrature nodes on ``[a,b]``.
-- `ws::Vector{Float64}`: Corresponding quadrature weights.
+- `xs`: Quadrature nodes on ``[a,b]`` in the active scalar type.
+- `ws`: Corresponding quadrature weights in the active scalar type.
 
 # Errors
 - Throws `ArgumentError` if ``N < 1``.
@@ -126,40 +136,45 @@ function get_quadrature_1d_nodes_weights(
     N::Int,
     rule::Symbol,
     boundary::Symbol;
-    λ::Float64 = 0.0
-)::Tuple{Vector{Float64}, Vector{Float64}}
+    λ = nothing,
+    real_type = nothing,
+)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     N >= 1 || throw(ArgumentError("N must be ≥ 1"))
 
-    # boundary validation early
     QuadratureUtils._decode_boundary(boundary)
 
     # --- composite Newton-Cotes branch ---
     if NewtonCotes._is_newton_cotes_rule(rule)
         p = NewtonCotes._parse_newton_p(rule)
-        β = NewtonCotes._get_beta_float(p, boundary, N)
+        β = NewtonCotes._get_beta(T, p, boundary, N)
 
-        aa = Float64(a)
-        bb = Float64(b)
-        h = (bb - aa) / Float64(N)
+        aa = convert(T, a)
+        bb = convert(T, b)
+        h = (bb - aa) / T(N)
 
-        xs = collect(range(aa, bb; length=N+1))
-        ws = Vector{Float64}(undef, N+1)
+        xs = collect(range(aa, bb; length = N + 1))
+        ws = Vector{T}(undef, N + 1)
         @inbounds for j in 0:N
-            ws[j+1] = β[j+1] * h
+            ws[j + 1] = β[j + 1] * h
         end
         return xs, ws
     end
 
     # --- composite Gauss branch ---
     if Gauss._is_gauss_rule(rule)
-        npts = Gauss._parse_gauss_p(rule)  # points per block
-        return Gauss._composite_gauss_nodes_weights(a, b, N, npts, boundary)
+        npts = Gauss._parse_gauss_p(rule)
+        return Gauss._composite_gauss_nodes_weights(
+            a, b, N, npts, boundary;
+            real_type = T,
+            λ = λT,
+        )
     end
 
     # --- composite B-SPLINE branch ---
     if BSpline._is_bspline_rule(rule)
-        # Policy: B-spline rules support only clamped boundary for now
         if boundary !== :LU_ININ
             JobLoggerTools.error_benji(
                 "B-spline rules currently support only boundary=:LU_ININ (clamped). " *
@@ -168,20 +183,24 @@ function get_quadrature_1d_nodes_weights(
         end
 
         p = BSpline._parse_bspline_p(rule)
-        kind = BSpline._bspline_kind(rule)  # :interp or :smooth
+        kind = BSpline._bspline_kind(rule)
 
-        # NOTE: smoothing λ is fixed to 0.0 for now (pure interpolation-like),
-        #       will be wired as a user option later.
         if kind === :interp
-            return BSpline.bspline_nodes_weights(a, b, N, p, boundary; kind=:interp)
+            return BSpline.bspline_nodes_weights(
+                a, b, N, p, boundary;
+                kind = :interp,
+                real_type = T,
+            )
         else
-            return BSpline.bspline_nodes_weights(a, b, N, p, boundary; kind=:smooth, λ=λ)
+            return BSpline.bspline_nodes_weights(
+                a, b, N, p, boundary;
+                kind = :smooth,
+                λ = λT,
+                real_type = T,
+            )
         end
     end
 
-    # ------------------------------------------------------------
-    # FALLBACK: other legacy rules (if any)
-    # ------------------------------------------------------------
     JobLoggerTools.error_benji("Unsupported rule=$rule.")
 end
 

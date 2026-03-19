@@ -17,7 +17,7 @@ import ForwardDiff
         f,
         x::Real,
         nmax::Int
-    ) -> Vector{Float64}
+    ) -> AbstractVector{<:Real}
 
 Compute the derivative jet of `f` at `x` using repeated `ForwardDiff`
 applications.
@@ -40,7 +40,8 @@ compatible with `ForwardDiff`.
 - `nmax::Int`: Maximum derivative order to compute.
 
 # Returns
-- `Vector{Float64}`: Derivative jet of length `nmax + 1`.
+- `AbstractVector{<:Real}`:
+  Derivative jet of length `nmax + 1`, stored in the same scalar type as `x`.
 
 # Errors
 - Throws `ArgumentError` if `nmax < 0`.
@@ -56,17 +57,18 @@ function derivative_jet_forwarddiff(
     x::Real,
     nmax::Int
 )
+    T = typeof(x)
     nmax >= 0 || throw(ArgumentError("nmax must be ≥ 0 (got nmax=$nmax)"))
 
-    x0 = float(x)
-    ders = Vector{Float64}(undef, nmax + 1)
-    ders[1] = float(f(x0))
+    x0 = convert(T, x)
+    ders = Vector{T}(undef, nmax + 1)
+    ders[1] = convert(T, f(x0))
 
     g = f
     for n in 1:nmax
         prev = g
         g = t -> ForwardDiff.derivative(prev, t)
-        ders[n + 1] = float(g(x0))
+        ders[n + 1] = convert(T, g(x0))
     end
 
     return ders

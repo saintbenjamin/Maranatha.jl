@@ -18,7 +18,7 @@ import FastDifferentiation: @variables
         f,
         x::Real,
         nmax::Int
-    ) -> Vector{Float64}
+    ) -> AbstractVector{<:Real}
 
 Compute the derivative jet of `f` at `x` using `FastDifferentiation.jl`.
 
@@ -26,7 +26,7 @@ Compute the derivative jet of `f` at `x` using `FastDifferentiation.jl`.
 This helper constructs a symbolic differentiation graph for `f(t)` and then
 builds all derivatives from order `0` through `nmax` with respect to the same
 symbolic variable. The compiled FastDifferentiation function is then evaluated
-at `x`, and the result is returned as a `Float64` vector.
+at `x`, and the result is returned in the same scalar type as `x`.
 
 The output vector is
 
@@ -40,7 +40,8 @@ The output vector is
 - `nmax::Int`: Maximum derivative order to compute.
 
 # Returns
-- `Vector{Float64}`: Derivative jet of length `nmax + 1`.
+- `AbstractVector{<:Real}`:
+  Derivative jet of length `nmax + 1`, stored in the same scalar type as `x`.
 
 # Errors
 - Throws `ArgumentError` if `nmax < 0`.
@@ -59,12 +60,13 @@ function derivative_jet_fastdifferentiation(
     x::Real,
     nmax::Int
 )
+    T = typeof(x)
     nmax >= 0 || throw(ArgumentError("nmax must be ≥ 0 (got nmax=$nmax)"))
 
-    x0 = float(x)
+    x0 = convert(T, x)
 
     if nmax == 0
-        return [float(f(x0))]
+        return T[convert(T, f(x0))]
     end
 
     FastDifferentiation.clear_cache()
@@ -86,9 +88,7 @@ function derivative_jet_fastdifferentiation(
     exe = FastDifferentiation.make_function(exprs, [t])
     vals = exe(x0)
 
-    return Float64.(vec(vals))
+    return T.(vec(vals))
 end
 
 end  # module ADFastDifferentiation
-
-

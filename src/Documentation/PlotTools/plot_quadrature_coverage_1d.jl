@@ -84,8 +84,10 @@ function plot_quadrature_coverage_1d(
     (N isa Int) || JobLoggerTools.error_benji("N must be Int (got $(typeof(N)))")
     N >= 1 || JobLoggerTools.error_benji("N must be ≥ 1 (got N=$N)")
 
-    aa = Float64(a)
-    bb = Float64(b)
+    T = promote_type(typeof(a), typeof(b))
+
+    aa = convert(T, a)
+    bb = convert(T, b)
     (isfinite(aa) && isfinite(bb)) || JobLoggerTools.error_benji("a,b must be finite (got a=$a, b=$b)")
     (bb > aa) || JobLoggerTools.error_benji("Require b > a (got a=$a, b=$b)")
 
@@ -102,9 +104,9 @@ function plot_quadrature_coverage_1d(
     # -------------------------------
     # Helpers: safe f eval
     # -------------------------------
-    @inline function _f_float(x::Float64)::Float64
+    @inline function _f_val(x)
         y = f(x)
-        return (y isa Real && isfinite(y)) ? Float64(y) : NaN
+        return (y isa Real && isfinite(y)) ? convert(typeof(x), y) : convert(typeof(x), NaN)
     end
 
     # -------------------------------
@@ -167,16 +169,16 @@ function plot_quadrature_coverage_1d(
 
     # Dense integrand curve (true f)
     xg = collect(range(aa, bb; length=ngrid_f))
-    yg = Vector{Float64}(undef, length(xg))
+    yg = Vector{T}(undef, length(xg))
     @inbounds for i in eachindex(xg)
-        yg[i] = _f_float(xg[i])
+        yg[i] = _f_val(xg[i])
     end
     ax.plot(xg, yg; linewidth=2.2)
 
     # Node samples (for scatter + for quadrature sum)
-    y_nodes = Vector{Float64}(undef, length(xs))
+    y_nodes = Vector{T}(undef, length(xs))
     @inbounds for j in eachindex(xs)
-        y_nodes[j] = _f_float(Float64(xs[j]))
+        y_nodes[j] = _f_val(convert(T, xs[j]))
     end
 
     # Scatter only finite nodes
@@ -193,12 +195,12 @@ function plot_quadrature_coverage_1d(
     # ax.scatter(xs_plot, ys_plot; s=ms_plot, alpha=0.9)
 
     # Quadrature sum text (same meaning as before, but no contrib vector)
-    I_hat = 0.0
+    I_hat = zero(T)
     @inbounds for j in eachindex(xs)
         yj = y_nodes[j]
-        wj = ws[j]
+        wj = convert(T, ws[j])
         if isfinite(yj) && isfinite(wj)
-            I_hat += Float64(wj) * Float64(yj)
+            I_hat += wj * yj
         end
     end
 

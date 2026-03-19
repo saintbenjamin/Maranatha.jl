@@ -27,8 +27,10 @@ using .QuadratureDispatchCUDA
         b, 
         N, 
         rule,
-        boundary
-    ) -> Float64
+        boundary;
+        λ = nothing,
+        real_type = nothing,
+    ) -> Real
 
 Evaluate a ``1``-dimensional quadrature over ``[a,b]``.
 
@@ -48,8 +50,17 @@ Rule-specific validation is centralized in the node/weight generator.
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol.
 
+# Keyword arguments
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
+
 # Returns
-- `Float64`: Estimated integral value.
+- `Real`:
+  Estimated integral value in the active scalar type.
 
 # Errors
 - Propagates any error thrown by
@@ -57,17 +68,23 @@ Rule-specific validation is centralized in the node/weight generator.
 - Propagates any error thrown by `f`.
 """
 function quadrature_1d(
-    f, 
-    a, 
-    b, 
-    N, 
+    f,
+    a,
+    b,
+    N,
     rule,
     boundary;
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    total = 0.0
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary; λ = λT, real_type = T
+    )
+
+    total = zero(T)
     @inbounds for j in eachindex(xs)
         iszero(ws[j]) && continue
         val = f(xs[j])
@@ -83,8 +100,10 @@ end
         b, 
         N, 
         rule,
-        boundary
-    ) -> Float64
+        boundary;
+        λ = nothing,
+        real_type = nothing,
+    ) -> Real
 
 Evaluate a ``2``-dimensional tensor-product quadrature over ``[a,b] \\times [a,b]``.
 
@@ -104,8 +123,17 @@ the tensor-product sum:
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol.
 
+# Keyword arguments
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
+
 # Returns
-- `Float64`: Estimated integral value.
+- `Real`:
+  Estimated integral value in the active scalar type.
 
 # Errors
 - Propagates any error thrown by
@@ -113,19 +141,24 @@ the tensor-product sum:
 - Propagates any error thrown by `f`.
 """
 function quadrature_2d(
-    f, 
-    a, 
-    b, 
-    N, 
+    f,
+    a,
+    b,
+    N,
     rule,
     boundary;
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
-    ys, wy = xs, wx   # same bounds
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary; λ = λT, real_type = T
+    )
+    ys, wy = xs, wx
 
-    total = 0.0
+    total = zero(T)
 
     @inbounds for i in eachindex(xs)
         xi = xs[i]
@@ -148,8 +181,10 @@ end
         b, 
         N, 
         rule,
-        boundary
-    ) -> Float64
+        boundary;
+        λ = nothing,
+        real_type = nothing,
+    ) -> Real
 
 Evaluate a ``3``-dimensional tensor-product quadrature over ``[a,b]^3``.
 
@@ -168,8 +203,17 @@ the tensor-product sum:
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol.
 
+# Keyword arguments
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
+
 # Returns
-- `Float64`: Estimated integral value.
+- `Real`:
+  Estimated integral value in the active scalar type.
 
 # Errors
 - Propagates any error thrown by
@@ -177,20 +221,25 @@ the tensor-product sum:
 - Propagates any error thrown by `f`.
 """
 function quadrature_3d(
-    f, 
-    a, 
-    b, 
-    N, 
+    f,
+    a,
+    b,
+    N,
     rule,
     boundary;
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary; λ = λT, real_type = T
+    )
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    total = 0.0
+    total = zero(T)
 
     @inbounds for i in eachindex(xs)
         xi = xs[i]
@@ -217,8 +266,10 @@ end
         b, 
         N, 
         rule,
-        boundary
-    ) -> Float64
+        boundary;
+        λ = nothing,
+        real_type = nothing,
+    ) -> Real
 
 Evaluate a ``4``-dimensional tensor-product quadrature over ``[a,b]^4``.
 
@@ -237,8 +288,17 @@ the tensor-product sum:
 - `rule`: Integration rule symbol.
 - `boundary`: Boundary pattern symbol.
 
+# Keyword arguments
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
+
 # Returns
-- `Float64`: Estimated integral value.
+- `Real`:
+  Estimated integral value in the active scalar type.
 
 # Errors
 - Propagates any error thrown by
@@ -246,21 +306,27 @@ the tensor-product sum:
 - Propagates any error thrown by `f`.
 """
 function quadrature_4d(
-    f, 
-    a, 
-    b, 
-    N, 
+    f,
+    a,
+    b,
+    N,
     rule,
     boundary;
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary; λ = λT, real_type = T
+    )
     ys, wy = xs, wx
     zs, wz = xs, wx
     ts, wt = xs, wx
 
-    total = 0.0
+    total = zero(T)
+
     @inbounds for i in eachindex(xs)
         xi = xs[i]
         wi = wx[i]
@@ -279,6 +345,7 @@ function quadrature_4d(
             end
         end
     end
+
     return total
 end
 
@@ -290,8 +357,10 @@ end
         N,
         rule,
         boundary;
-        dim::Int
-    ) -> Float64
+        dim::Int,
+        λ = nothing,
+        real_type = nothing,
+    ) -> Real
 
 Perform a general tensor-product quadrature over ``[a,b]^{\\texttt{dim}}``.
 
@@ -311,8 +380,19 @@ product and evaluates the integrand as ``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})
 - `boundary`: Boundary pattern symbol.
 - `dim`: Number of dimensions.
 
+# Keyword arguments
+- `dim::Int`:
+  Number of dimensions.
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `real_type = nothing`:
+  Optional scalar type used internally for node/weight construction and
+  accumulation.
+
 # Returns
-- `Float64`: Estimated integral value.
+- `Real`:
+  Estimated integral value in the active scalar type.
 
 # Errors
 - Throws `ArgumentError` if ``\\texttt{dim} < 1``.
@@ -321,37 +401,40 @@ product and evaluates the integrand as ``f(x_1, x_2, \\ldots, x_{\\texttt{dim}})
 - Propagates any error thrown by `f`.
 """
 function quadrature_nd(
-    f, 
-    a, 
-    b, 
-    N, 
+    f,
+    a,
+    b,
+    N,
     rule,
     boundary;
     dim::Int,
-    λ::Float64 = 0.0
+    λ = nothing,
+    real_type = nothing,
 )
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ=λ)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    # Multi-index over axes (1-based)
+    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        a, b, N, rule, boundary; λ = λT, real_type = T
+    )
+
     idx = ones(Int, dim)
 
-    total = 0.0
-    args = Vector{Float64}(undef, dim)
+    total = zero(T)
+    args = Vector{T}(undef, dim)
 
     @inbounds while true
-        wprod = 1.0
+        wprod = one(T)
         for d in 1:dim
             i = idx[d]
             args[d] = xs[i]
             wprod *= ws[i]
         end
 
-        # Call f(x1, x2, ..., x_dim)
         iszero(wprod) || (total += wprod * f(args...))
 
-        # Increment odometer-style index
         d = dim
         while d >= 1
             idx[d] += 1
@@ -376,43 +459,73 @@ end
         N,
         dim,
         rule,
-        boundary
-    ) -> Float64
+        boundary;
+        λ = nothing,
+        use_cuda::Bool = false,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
+    ) -> Real
 
-Evaluate a tensor-product quadrature on the hypercube ``[a,b]^{\\texttt{dim}}``.
+Unified public dispatcher for tensor-product quadrature evaluation.
 
 # Function description
-This is the unified integration dispatcher for the quadrature layer.
+This function provides the main quadrature entry point for `Maranatha`.
+It selects one of three execution paths:
 
-It obtains the underlying ``1``-dimensional nodes and weights via
-[`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref), then chooses a dimension-specific
-tensor-product evaluator:
+- CUDA-based quadrature when `use_cuda == true`,
+- CPU threaded-subgrid quadrature when `threaded_subgrid == true`,
+- otherwise the dimension-specialized local quadrature path
+  ([`quadrature_1d`](@ref), [`quadrature_2d`](@ref),
+  [`quadrature_3d`](@ref), [`quadrature_4d`](@ref), or
+  [`quadrature_nd`](@ref)).
 
-- [`quadrature_1d`](@ref) for `dim == 1`
-- [`quadrature_2d`](@ref) for `dim == 2`
-- [`quadrature_3d`](@ref) for `dim == 3`
-- [`quadrature_4d`](@ref) for `dim == 4`
-- [`quadrature_nd`](@ref) otherwise
-
-All axes use the same interval ``[a,b]``, so the integration domain is the
-hypercube ``[a,b]^{\\texttt{dim}}``.
+The optional parameter `λ` is forwarded mainly for smoothing B-spline rules,
+and `real_type` controls the internal scalar type used for conversion and
+accumulation.
 
 # Arguments
-- `integrand`: Callable accepting exactly `dim` positional arguments.
-- `a`, `b`: Lower and upper bounds applied to every axis.
-- `N`: Number of subintervals / blocks per axis.
-- `dim`: Number of dimensions.
-- `rule`: Quadrature rule symbol.
-- `boundary`: Boundary pattern selector.
+- `integrand`:
+  Callable integrand accepting `dim` scalar positional arguments.
+- `a`:
+  Lower integration bound on each axis.
+- `b`:
+  Upper integration bound on each axis.
+- `N`:
+  Number of subdivisions or composite blocks per axis.
+- `dim`:
+  Number of dimensions.
+- `rule`:
+  Quadrature rule symbol.
+- `boundary`:
+  Boundary-condition symbol.
+
+# Keyword arguments
+- `λ = nothing`:
+  Optional smoothing parameter used only for smoothing B-spline rules.
+  If `nothing`, zero is used in the active scalar type.
+- `use_cuda::Bool = false`:
+  If `true`, dispatch to the CUDA quadrature backend.
+- `threaded_subgrid::Bool = false`:
+  If `true`, dispatch to the CPU threaded-subgrid backend.
+  This option is ignored when `use_cuda == true`.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and backend
+  evaluation.
 
 # Returns
-- `Float64`: Estimated integral value.
+- `Real`:
+  Estimated integral value in the active scalar type.
 
 # Errors
-- Throws an error if ``\\texttt{dim} < 1``.
-- Throws any rule-validation or backend error propagated from the selected
-  quadrature generator.
-- Propagates any error thrown by `integrand`.
+- Propagates validation and backend errors from the selected execution path.
+- Throws `ArgumentError` indirectly if the selected backend rejects the supplied
+  dimensionality or rule configuration.
+
+# Notes
+- Backend priority is `use_cuda` first, then `threaded_subgrid`, then the local
+  dimension-dispatched CPU implementation.
+- This dispatcher performs strategy selection only; it does not implement a
+  separate quadrature rule of its own.
 """
 function quadrature(
     integrand,
@@ -422,10 +535,14 @@ function quadrature(
     dim,
     rule,
     boundary;
-    λ::Float64 = 0.0,
+    λ = nothing,
     use_cuda::Bool = false,
     threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     if use_cuda
         return QuadratureDispatchCUDA.quadrature_cuda(
             integrand,
@@ -435,7 +552,8 @@ function quadrature(
             rule,
             boundary;
             dim = dim,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     end
 
@@ -448,20 +566,26 @@ function quadrature(
             rule,
             boundary;
             dim = dim,
-            λ=λ
+            λ = λT,
+            real_type = T,
         )
     end
 
     if dim == 1
-        return quadrature_1d(integrand, a, b, N, rule, boundary; λ=λ)
+        return quadrature_1d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
     elseif dim == 2
-        return quadrature_2d(integrand, a, b, N, rule, boundary; λ=λ)
+        return quadrature_2d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
     elseif dim == 3
-        return quadrature_3d(integrand, a, b, N, rule, boundary; λ=λ)
+        return quadrature_3d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
     elseif dim == 4
-        return quadrature_4d(integrand, a, b, N, rule, boundary; λ=λ)
+        return quadrature_4d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
     else
-        return quadrature_nd(integrand, a, b, N, rule, boundary; λ=λ, dim = dim)
+        return quadrature_nd(
+            integrand, a, b, N, rule, boundary;
+            λ = λT,
+            dim = dim,
+            real_type = T,
+        )
     end
 end
 

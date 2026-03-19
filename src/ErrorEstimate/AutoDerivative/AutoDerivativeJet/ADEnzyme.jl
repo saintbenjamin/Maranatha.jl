@@ -12,13 +12,12 @@ module ADEnzyme
 
 import Enzyme
 
-
 """
     derivative_jet_enzyme(
         f,
         x::Real,
         nmax::Int
-    ) -> Vector{Float64}
+    ) -> AbstractVector{<:Real}
 
 Compute the derivative jet of `f` at `x` using repeated `Enzyme` gradients.
 
@@ -40,7 +39,8 @@ the error-estimation subsystem.
 - `nmax::Int`: Maximum derivative order to compute.
 
 # Returns
-- `Vector{Float64}`: Derivative jet of length `nmax + 1`.
+- `AbstractVector{<:Real}`:
+  Derivative jet of length `nmax + 1`, stored in the same scalar type as `x`.
 
 # Errors
 - Throws `ArgumentError` if `nmax < 0`.
@@ -56,17 +56,18 @@ function derivative_jet_enzyme(
     x::Real,
     nmax::Int
 )
+    T = typeof(x)
     nmax >= 0 || throw(ArgumentError("nmax must be ≥ 0 (got nmax=$nmax)"))
 
-    x0 = float(x)
-    ders = Vector{Float64}(undef, nmax + 1)
-    ders[1] = float(f(x0))
+    x0 = convert(T, x)
+    ders = Vector{T}(undef, nmax + 1)
+    ders[1] = convert(T, f(x0))
 
     g = f
     for n in 1:nmax
         prev = g
-        g = t -> only(Enzyme.gradient(Enzyme.Reverse, prev, float(t)))
-        ders[n + 1] = float(g(x0))
+        g = t -> only(Enzyme.gradient(Enzyme.Reverse, prev, convert(T, t)))
+        ders[n + 1] = convert(T, g(x0))
     end
 
     return ders

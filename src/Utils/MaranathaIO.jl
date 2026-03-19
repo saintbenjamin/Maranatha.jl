@@ -53,21 +53,18 @@ It currently supports two error-entry layouts:
 # Notes
 - Residual-based entries are currently tagged with `"err_format" => "derivative"`.
 - Refinement-based entries are currently tagged with `"err_format" => "refinement"`.
-- The `"bspline_refinement"` tag is used as the generic refinement-style storage
-  format in the current implementation, even when the originating rule family is
-  not B-spline.
 """
 function _err_entry_to_dict(e)
     if hasproperty(e, :ks)
         return Dict(
             "err_format"   => "derivative",
             "ks"           => collect(Int.(e.ks)),
-            "coeffs"       => collect(float.(e.coeffs)),
-            "derivatives"  => collect(float.(e.derivatives)),
-            "terms"        => collect(float.(e.terms)),
-            "total"        => float(e.total),
-            "center"       => e.center isa Tuple ? collect(float.(e.center)) : float(e.center),
-            "h"            => float(e.h),
+            "coeffs"       => collect(e.coeffs),
+            "derivatives"  => collect(e.derivatives),
+            "terms"        => collect(e.terms),
+            "total"        => e.total,
+            "center"       => e.center isa Tuple ? collect(e.center) : e.center,
+            "h"            => e.h,
         )
     elseif hasproperty(e, :estimate)
         return Dict(
@@ -78,13 +75,13 @@ function _err_entry_to_dict(e)
             "N_coarse"     => Int(e.N_coarse),
             "N_fine"       => Int(e.N_fine),
             "dim"          => Int(e.dim),
-            "h_coarse"     => float(e.h_coarse),
-            "h_fine"       => float(e.h_fine),
-            "q_coarse"     => float(e.q_coarse),
-            "q_fine"       => float(e.q_fine),
-            "estimate"     => float(e.estimate),
-            "signed_diff"  => float(e.signed_diff),
-            "reference"    => float(e.reference),
+            "h_coarse"     => e.h_coarse,
+            "h_fine"       => e.h_fine,
+            "q_coarse"     => e.q_coarse,
+            "q_fine"       => e.q_fine,
+            "estimate"     => e.estimate,
+            "signed_diff"  => e.signed_diff,
+            "reference"    => e.reference,
         )
     else
         JobLoggerTools.error_benji(
@@ -126,23 +123,31 @@ Currently supported serialized formats are:
 # Notes
 - The reconstructed structure is intended to match the field layout expected by
   downstream Maranatha workflows.
-- The `"bspline_refinement"` tag is currently used as the generic refinement-style
-  serialization label in the implementation.
 """
 function _dict_to_err_entry(e)
     fmt = get(e, "err_format", "refinement")
 
     if fmt == "derivative"
+        coeffs = collect(e["coeffs"])
+        T = isempty(coeffs) ? Float64 : eltype(coeffs)
+
+        center_val = if e["center"] isa AbstractVector
+            Tuple(convert.(T, e["center"]))
+        else
+            convert(T, e["center"])
+        end
+
         return (
             ks          = Vector{Int}(e["ks"]),
-            coeffs      = Vector{Float64}(e["coeffs"]),
-            derivatives = Vector{Float64}(e["derivatives"]),
-            terms       = Vector{Float64}(e["terms"]),
-            total       = Float64(e["total"]),
-            center      = e["center"] isa AbstractVector ? Tuple(Float64.(e["center"])) : Float64(e["center"]),
-            h           = Float64(e["h"]),
+            coeffs      = Vector{T}(coeffs),
+            derivatives = Vector{T}(e["derivatives"]),
+            terms       = Vector{T}(e["terms"]),
+            total       = convert(T, e["total"]),
+            center      = center_val,
+            h           = convert(T, e["h"]),
         )
     elseif fmt == "refinement"
+        T = typeof(e["estimate"])
         return (
             method      = Symbol(e["method"]),
             rule        = Symbol(e["rule"]),
@@ -150,13 +155,13 @@ function _dict_to_err_entry(e)
             N_coarse    = Int(e["N_coarse"]),
             N_fine      = Int(e["N_fine"]),
             dim         = Int(e["dim"]),
-            h_coarse    = Float64(e["h_coarse"]),
-            h_fine      = Float64(e["h_fine"]),
-            q_coarse    = Float64(e["q_coarse"]),
-            q_fine      = Float64(e["q_fine"]),
-            estimate    = Float64(e["estimate"]),
-            signed_diff = Float64(e["signed_diff"]),
-            reference   = Float64(e["reference"]),
+            h_coarse    = convert(T, e["h_coarse"]),
+            h_fine      = convert(T, e["h_fine"]),
+            q_coarse    = convert(T, e["q_coarse"]),
+            q_fine      = convert(T, e["q_fine"]),
+            estimate    = convert(T, e["estimate"]),
+            signed_diff = convert(T, e["signed_diff"]),
+            reference   = convert(T, e["reference"]),
         )
     else
         JobLoggerTools.error_benji(
@@ -168,7 +173,7 @@ end
 """
     _err_entry_total(
         e
-    ) -> Float64
+    ) -> Real
 
 Extract a total-like scalar error magnitude from an internal error-entry object.
 
@@ -189,7 +194,7 @@ reporting code can treat both formats uniformly.
   One internal error-entry object.
 
 # Returns
-- `Float64`:
+- `Real`:
   Scalar error magnitude associated with the entry.
 
 # Errors
@@ -199,13 +204,13 @@ reporting code can treat both formats uniformly.
 # Notes
 - This helper is mainly used for summary export and human-readable diagnostics.
 - Unlike some plotting / fitting helpers, this function does not apply `abs(...)`
-  explicitly; it returns the stored scalar converted to `Float64`.
+  explicitly; it returns the stored scalar as-is.
 """
 function _err_entry_total(e)
     if hasproperty(e, :total)
-        return float(e.total)
+        return e.total
     elseif hasproperty(e, :estimate)
-        return float(e.estimate)
+        return e.estimate
     else
         JobLoggerTools.error_benji(
             "Unsupported error entry format while extracting total-like quantity."
@@ -259,19 +264,21 @@ function namedtuple_to_dict(
     res
 )
     return Dict(
-        "a"           => res.a,
-        "b"           => res.b,
-        "h"           => collect(float.(res.h)),
-        "avg"         => collect(float.(res.avg)),
-        "rule"        => String(res.rule),
-        "boundary"    => String(res.boundary),
-        "dim"         => Int(res.dim),
-        "err_method"  => String(res.err_method),
-        "nerr_terms"  => Int(res.nerr_terms),
-        "fit_terms"   => Int(res.fit_terms),
-        "ff_shift"    => Int(res.ff_shift),
+        "a"             => res.a,
+        "b"             => res.b,
+        "h"             => collect(res.h),
+        "avg"           => collect(res.avg),
+        "rule"          => String(res.rule),
+        "boundary"      => String(res.boundary),
+        "dim"           => Int(res.dim),
+        "err_method"    => String(res.err_method),
+        "nerr_terms"    => Int(res.nerr_terms),
+        "fit_terms"     => Int(res.fit_terms),
+        "ff_shift"      => Int(res.ff_shift),
         "use_error_jet" => Bool(res.use_error_jet),
-        "err" => [_err_entry_to_dict(e) for e in res.err]
+        "use_cuda"      => getproperty(res, :use_cuda),
+        "real_type"     => getproperty(res, :real_type),
+        "err"           => [_err_entry_to_dict(e) for e in res.err],
     )
 end
 
@@ -307,8 +314,9 @@ refinement-based error-entry objects, depending on the serialized content.
   the expected serialized layout.
 
 # Notes
-- The stored `center` field is reconstructed as either a scalar `Float64` or a
-  tuple of `Float64`, depending on the serialized representation.
+- The stored `center` field is reconstructed as either a scalar in the active
+  `real_type` or a tuple in that same scalar type, depending on the serialized
+  representation.
 - Refinement-based error entries are reconstructed from their serialized
   `"err_format"` tag in the same unified `err` vector as residual-based entries.
 """
@@ -317,20 +325,34 @@ function dict_to_namedtuple(
 )
     err = [_dict_to_err_entry(e) for e in d["err"]]
 
+    T = if haskey(d, "real_type")
+        if d["real_type"] isa DataType
+            d["real_type"]
+        else
+            getfield(Main, Symbol(d["real_type"]))
+        end
+    elseif !isempty(d["avg"])
+        eltype(d["avg"])
+    else
+        Float64
+    end
+
     return (
-        a           = Float64(d["a"]),
-        b           = Float64(d["b"]),
-        h           = Vector{Float64}(d["h"]),
-        avg         = Vector{Float64}(d["avg"]),
-        err         = err,
-        rule        = Symbol(d["rule"]),
-        boundary    = Symbol(d["boundary"]),
-        dim         = Int(d["dim"]),
-        err_method  = Symbol(d["err_method"]),
-        nerr_terms  = Int(d["nerr_terms"]),
-        fit_terms   = Int(d["fit_terms"]),
-        ff_shift    = Int(d["ff_shift"]),
+        a             = convert(T, d["a"]),
+        b             = convert(T, d["b"]),
+        h             = Vector{T}(d["h"]),
+        avg           = Vector{T}(d["avg"]),
+        err           = err,
+        rule          = Symbol(d["rule"]),
+        boundary      = Symbol(d["boundary"]),
+        dim           = Int(d["dim"]),
+        err_method    = Symbol(d["err_method"]),
+        nerr_terms    = Int(d["nerr_terms"]),
+        fit_terms     = Int(d["fit_terms"]),
+        ff_shift      = Int(d["ff_shift"]),
         use_error_jet = Bool(d["use_error_jet"]),
+        use_cuda      = get(d, "use_cuda", false),
+        real_type     = get(d, "real_type", string(T)),
     )
 end
 
@@ -382,20 +404,22 @@ function generate_summary_dict(
     res
 )
     return Dict(
-        "a"           => float(res.a),
-        "b"           => float(res.b),
-        "dim"         => Int(res.dim),
-        "rule"        => String(res.rule),
-        "boundary"    => String(res.boundary),
-        "err_method"  => String(res.err_method),
-        "nerr_terms"  => Int(res.nerr_terms),
-        "fit_terms"   => Int(res.fit_terms),
-        "ff_shift"    => Int(res.ff_shift),
+        "a"             => res.a,
+        "b"             => res.b,
+        "dim"           => Int(res.dim),
+        "rule"          => String(res.rule),
+        "boundary"      => String(res.boundary),
+        "err_method"    => String(res.err_method),
+        "nerr_terms"    => Int(res.nerr_terms),
+        "fit_terms"     => Int(res.fit_terms),
+        "ff_shift"      => Int(res.ff_shift),
         "use_error_jet" => Bool(res.use_error_jet),
-        "h"           => collect(float.(res.h)),
-        "avg"         => collect(float.(res.avg)),
-        "err_total"   => [_err_entry_total(e) for e in res.err],
-        "err"         => [_err_entry_to_dict(e) for e in res.err]
+        "use_cuda"      => getproperty(res, :use_cuda),
+        "real_type"     => getproperty(res, :real_type),
+        "h"             => collect(res.h),
+        "avg"           => collect(res.avg),
+        "err_total"     => [_err_entry_total(e) for e in res.err],
+        "err"           => [_err_entry_to_dict(e) for e in res.err]
     )
 end
 
@@ -438,6 +462,7 @@ Optionally, it also writes a human-readable [`TOML`](https://toml.io/en/) summar
 
 # Notes
 - The `JLD2` dataset key is `"datapoint_results"`.
+- The optional companion summary is written as a `.toml` file.
 """
 function save_datapoint_results(
     path::AbstractString,
@@ -538,16 +563,18 @@ construction.
 """
 function infer_nsamples(
     res;
-    atol::Float64 = 1e-10,
+    atol = 1e-10,
 )
-    L = float(res.b - res.a)
+    T = eltype(res.h)
+    L = res.b - res.a
+    atolT = convert(T, atol)
     Ns = Int[]
 
     for hi in res.h
-        x = L / float(hi)
+        x = L / hi
         Ni = round(Int, x)
 
-        isapprox(x, Ni; atol=atol, rtol=0.0) || JobLoggerTools.error_benji(
+        isapprox(x, T(Ni); atol = atolT, rtol = zero(T)) || JobLoggerTools.error_benji(
             "Failed to infer integer N from h=$hi on interval [$(res.a), $(res.b)]"
         )
 
@@ -750,13 +777,16 @@ It is used as a merge-safety check when combining datapoint result blocks.
 """
 function _assert_no_duplicate_h(
     hs;
-    atol::Float64 = 1e-12,
+    atol = 1e-12,
 )
+    T = eltype(hs)
+    atolT = convert(T, atol)
+
     p = sortperm(hs)
     hs_sorted = hs[p]
 
     for (h_prev, h_cur) in zip(hs_sorted, Iterators.drop(hs_sorted, 1))
-        isapprox(h_cur, h_prev; atol=atol, rtol=0.0) &&
+        isapprox(h_cur, h_prev; atol = atolT, rtol = zero(T)) &&
             JobLoggerTools.error_benji(
                 "Duplicate h detected during merge: h=$(h_cur)"
             )
@@ -821,8 +851,10 @@ function merge_datapoint_results(
 
     _assert_same_result_shape(result_list)
 
-    h_all = Float64[]
-    avg_all = Float64[]
+    T = eltype(result_list[1].h)
+
+    h_all = T[]
+    avg_all = T[]
     err_all = eltype(result_list[1].err)[]
 
     for (i, res) in enumerate(result_list)
@@ -833,8 +865,8 @@ function merge_datapoint_results(
             "Length mismatch in result $i: length(h) != length(err)"
         )
 
-        append!(h_all, Float64.(res.h))
-        append!(avg_all, Float64.(res.avg))
+        append!(h_all, T.(res.h))
+        append!(avg_all, T.(res.avg))
         append!(err_all, res.err)
     end
 
@@ -843,7 +875,7 @@ function merge_datapoint_results(
     end
 
     if sort_by_h
-        p = sortperm(h_all; rev=true)
+        p = sortperm(h_all; rev = true)
         h_all = h_all[p]
         avg_all = avg_all[p]
         err_all = err_all[p]
@@ -852,19 +884,21 @@ function merge_datapoint_results(
     ref = result_list[1]
 
     return (
-        a           = ref.a,
-        b           = ref.b,
-        h           = h_all,
-        avg         = avg_all,
-        err         = err_all,
-        rule        = ref.rule,
-        boundary    = ref.boundary,
-        dim         = ref.dim,
-        err_method  = ref.err_method,
-        nerr_terms  = ref.nerr_terms,
-        fit_terms   = ref.fit_terms,
-        ff_shift    = ref.ff_shift,
+        a             = ref.a,
+        b             = ref.b,
+        h             = h_all,
+        avg           = avg_all,
+        err           = err_all,
+        rule          = ref.rule,
+        boundary      = ref.boundary,
+        dim           = ref.dim,
+        err_method    = ref.err_method,
+        nerr_terms    = ref.nerr_terms,
+        fit_terms     = ref.fit_terms,
+        ff_shift      = ref.ff_shift,
         use_error_jet = ref.use_error_jet,
+        use_cuda      = getproperty(ref, :use_cuda),
+        real_type     = getproperty(ref, :real_type),
     )
 end
 
@@ -992,7 +1026,8 @@ consistently.
 - Propagates reconstruction errors from [`infer_nsamples`](@ref).
 
 # Notes
-- Global metadata fields are copied unchanged from the original result.
+- Global metadata fields are copied from the original result, including
+  `use_cuda` and `real_type` when present.
 """
 function drop_nsamples_from_result(
     res,
@@ -1074,7 +1109,7 @@ filtered result back to disk.
 - Propagates loading, filtering, path-construction, and saving errors.
 
 # Notes
-- The filtered result preserves all global metadata from the original file.
+- The filtered result preserves the stored global metadata from the original file.
 - If `output_path` is not provided, the output filename is generated from the
   filtered subdivision-count list.
 """

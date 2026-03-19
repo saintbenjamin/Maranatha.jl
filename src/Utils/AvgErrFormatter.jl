@@ -21,9 +21,9 @@ import ..Printf: @sprintf, Printf
 
 """
     round_sig(
-        x::Float64, 
+        x::Real, 
         sig::Int = 2
-    ) -> Float64
+    ) -> Real
 
 Round a floating-point number to a specified number of significant digits.
 
@@ -34,11 +34,11 @@ It is mainly used as an internal formatting utility when compact uncertainty
 strings need magnitude-aware rounding.
 
 # Arguments
-- `x::Float64`: Number to round.
+- `x::Real`: Number to round.
 - `sig::Int`: Number of significant digits.
 
 # Returns
-- `Float64`: Rounded value.
+- `Real`: Rounded value.
 
 # Errors
 - No explicit validation is performed.
@@ -49,9 +49,9 @@ strings need magnitude-aware rounding.
   numerical rounding.
 """
 function round_sig(
-    x::Float64, 
-    sig::Int=2
-)::Float64
+    x::Real,
+    sig::Int = 2
+)
     return round(x, digits = sig - Int(floor(log10(abs(x)))) - 1)
 end
 
@@ -92,7 +92,11 @@ preserved even if compact formatting cannot be completed safely.
     cen::Real,
     err::Real
 )::String
-    return Printf.format(Printf.Format("%.14e(%.14e)"), Float64(cen), Float64(err))
+    return Printf.format(
+        Printf.Format("%.14e(%.14e)"),
+        Float64(cen),
+        Float64(err)
+    )
 end
 
 """
@@ -547,8 +551,8 @@ end
 
 """
     avgerr_e2d_from_float(
-        cen::Float64,
-        err::Float64;
+        cen::Real,
+        err::Real;
         latex_grouping::Bool = false
     ) -> String
 
@@ -563,8 +567,9 @@ Optionally, the result can be post-processed by
 [`latex_group_fraction_digits`](@ref) for [``\\LaTeX``](https://www.latex-project.org/)-style digit grouping.
 
 # Arguments
-- `cen::Float64`: Central value.
-- `err::Float64`: Error value.
+# Arguments
+- `cen::Real`: Central value.
+- `err::Real`: Error value.
 
 # Keyword arguments
 - `latex_grouping::Bool`: Whether to apply digit grouping to the central-value
@@ -581,15 +586,15 @@ Optionally, the result can be post-processed by
 - The uncertainty digits inside parentheses are left unchanged.
 """
 function avgerr_e2d_from_float(
-    cen::Float64, 
-    err::Float64;
+    cen::Real,
+    err::Real;
     latex_grouping::Bool = false
 )::String
-    cen_str = @sprintf("%.14e", cen)
-    err_str = @sprintf("%.14e", err)
+    cen_str = @sprintf("%.14e", Float64(cen))
+    err_str = @sprintf("%.14e", Float64(err))
 
     base = avgerr_e2d(cen_str, err_str)
-    return latex_grouping ? latex_group_fraction_digits(base) : base    
+    return latex_grouping ? latex_group_fraction_digits(base) : base
 end
 
 end  # module AvgErrFormatter

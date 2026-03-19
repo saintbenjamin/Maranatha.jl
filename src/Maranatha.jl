@@ -42,8 +42,8 @@ The package is internally divided into independent submodules:
   and CUDA-based GPU acceleration.
 
 - [`Maranatha.ErrorEstimate`](@ref)  
-  Derivative-based error-scale models derived from rule-family residual
-  expansions.
+  Unified error-scale modeling layer supporting both derivative-based
+  residual models and refinement-based coarse-vs-refined estimators.
 
 - [`Maranatha.LeastChiSquareFit`](@ref)  
   Weighted least-``χ²`` extrapolation routines for estimating the
@@ -74,6 +74,24 @@ The top-level namespace re-exports a minimal set of entry points:
 - [`plot_convergence_result`](@ref)  
   Generate convergence plots with fitted uncertainty bands.
 
+- [`plot_datapoints_result`](@ref)  
+  Plot raw convergence datapoints before fitting.
+
+- [`plot_quadrature_coverage_1d`](@ref)  
+  Visualize one-dimensional quadrature structure for a selected rule.
+
+- [`load_datapoint_results`](@ref)  
+  Load a saved convergence dataset from disk.
+
+- [`merge_datapoint_result_files`](@ref)  
+  Merge multiple saved datapoint-result files into one.
+
+- [`drop_nsamples_from_file`](@ref)  
+  Remove selected subdivision counts from a saved result file.
+
+- [`run_wizard`](@ref)  
+  Launch the interactive TOML-configuration wizard.
+
 ## Typical workflow
 
 ```julia
@@ -94,6 +112,7 @@ Jupyter notebooks located in the `ipynb/` directory of this repository.
 """
 module Maranatha
 
+using DoubleFloats
 import Printf
 import Statistics
 import LinearAlgebra

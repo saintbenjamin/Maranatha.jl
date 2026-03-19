@@ -10,7 +10,7 @@ parenthetical strings such as:
 
 - `1.23(45)`
 - `2.00000000000000(39)`
-- `1.2(3) *`
+- `1.72(34) *`
 
 which are convenient for logs, tables, and publication-style reporting.
 

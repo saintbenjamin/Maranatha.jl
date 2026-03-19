@@ -18,7 +18,8 @@
         boundary::Symbol;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
-        kmax::Int = 128
+        kmax::Int = 128,
+        real_type = nothing,
     )
 
 Estimate a ``3``-dimensional axis-separable midpoint-residual truncation-error
@@ -54,6 +55,10 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 - `err_method::Symbol`: Derivative backend selector.
 - `nerr_terms::Int`: Number of nonzero residual terms to include.
 - `kmax::Int`: Maximum residual order scanned.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, quadrature nodes
+  and weights, residual-coefficient conversion, and jet-based derivative
+  evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -86,33 +91,40 @@ function error_estimate_derivative_jet_3d(
     boundary::Symbol;
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
-    kmax::Int = 128
+    kmax::Int = 128,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = float(a)
-    bb = float(b)
-    h  = (bb - aa) / N
+    aa = convert(T, a)
+    bb = convert(T, b)
+    h  = (bb - aa) / T(N)
 
-    x̄ = (aa + bb) / 2
-    ȳ = (aa + bb) / 2
-    z̄ = (aa + bb) / 2
+    x̄ = (aa + bb) / T(2)
+    ȳ = (aa + bb) / T(2)
+    z̄ = (aa + bb) / T(2)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(aa, bb, N, rule, boundary)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        aa, bb, N, rule, boundary;
+        real_type = T,
+    )
     ys, wy = xs, wx
     zs, wz = xs, wx
 
-    ks, coeffs, _center = _get_residual_model_fixed(
+    ks, coeffs0, _center = _get_residual_model_fixed(
         rule, boundary, N;
         nterms = nerr_terms,
         kmax   = kmax
     )
+    coeffs = T.(coeffs0)
 
     n = length(ks)
 
-    derivatives = zeros(Float64, n)
-    terms       = zeros(Float64, n)
+    derivatives = zeros(T, n)
+    terms       = zeros(T, n)
 
     jet_fun, backend_tag =
         AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
@@ -124,20 +136,14 @@ function error_estimate_derivative_jet_3d(
             z = zs[k2]
             gx(x) = f(x, y, z)
 
-            vals = AutoDerivativeJet._derivative_values_for_ks(
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
                 jet_fun,
                 backend_tag,
                 gx,
                 x̄,
                 ks;
-                h = h,
-                rule = rule,
-                N = N,
-                dim = 3,
-                side = :mid,
-                axis = :x,
-                stage = :midpoint,
             )
+            vals = T.(vals0)
 
             w = wyj * wz[k2]
             for it in eachindex(ks)
@@ -155,20 +161,15 @@ function error_estimate_derivative_jet_3d(
             z = zs[k2]
             gy(y) = f(x, y, z)
 
-            vals = AutoDerivativeJet._derivative_values_for_ks(
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
                 jet_fun,
                 backend_tag,
                 gy,
                 ȳ,
                 ks;
-                h = h,
-                rule = rule,
-                N = N,
-                dim = 3,
-                side = :mid,
-                axis = :y,
-                stage = :midpoint,
+
             )
+            vals = T.(vals0)
 
             w = wxi * wz[k2]
             for it in eachindex(ks)
@@ -186,20 +187,15 @@ function error_estimate_derivative_jet_3d(
             y = ys[j]
             gz(z) = f(x, y, z)
 
-            vals = AutoDerivativeJet._derivative_values_for_ks(
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
                 jet_fun,
                 backend_tag,
                 gz,
                 z̄,
                 ks;
-                h = h,
-                rule = rule,
-                N = N,
-                dim = 3,
-                side = :mid,
-                axis = :z,
-                stage = :midpoint,
+
             )
+            vals = T.(vals0)
 
             w = wxi * wy[j]
             for it in eachindex(ks)
@@ -213,8 +209,8 @@ function error_estimate_derivative_jet_3d(
     @inbounds for it in eachindex(ks)
         kk = ks[it]
         if kk == 0
-            derivatives[it] = 0.0
-            terms[it] = 0.0
+            derivatives[it] = zero(T)
+            terms[it] = zero(T)
         else
             terms[it] = coeffs[it] * h^(kk + 1) * derivatives[it]
         end

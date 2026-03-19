@@ -14,7 +14,7 @@ refinement-based practical error estimation.
 B-spline rules differ from classical polynomial rules in that they are built
 from compactly supported basis functions with strong locality properties.
 This structure affects both the residual spectrum and the behavior under
-grid refinement, requiring dedicated error models.
+grid refinement, motivating dedicated error models.
 
 ---
 
@@ -33,7 +33,7 @@ Key steps:
 3. Combine those coefficients with midpoint derivative probes.
 4. Produce an asymptotic truncation-error scale model.
 
-This approach captures theoretical convergence behavior and can be useful for
+This approach captures asymptotic convergence behavior and can be useful for
 stabilizing extrapolation fits.
 
 ---
@@ -82,7 +82,7 @@ Unified dispatch across rule families is handled by
 ## Role in the package
 
 This module is used internally by the error-estimation layer and is typically
-accessed through high-level interfaces such as:
+accessed indirectly through high-level interfaces such as:
 
 - `error_estimate_derivative_direct`
 - `error_estimate_derivative_jet`

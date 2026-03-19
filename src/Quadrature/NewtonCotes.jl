@@ -13,16 +13,6 @@ module NewtonCotes
 import ..JobLoggerTools
 import ..Quadrature.QuadratureUtils
 
-# ============================================================
-# Composite Newton–Cotes via exact rational assembly
-# rule  : :newton_p3, :newton_p4, :newton_p5, ...
-# boundary : :LU_ININ | :LU_EXIN | :LU_INEX | :LU_EXEX
-#
-# Produces Float64 nodes/weights:
-#   xs[j] = a + j*(b-a)/N,  j=0..N
-#   ws[j] = β[j] * h,       h=(b-a)/N
-# ============================================================
-
 """
     RBig = Rational{BigInt}
 
@@ -40,21 +30,21 @@ remain exact before final conversion to `Float64`.
 const RBig = Rational{BigInt}
 
 """
-    _NS_BETA_CACHE :: Dict{Tuple{Int,Symbol,Int}, Vector{Float64}}
+    _NS_BETA_CACHE :: Dict{Tuple{Int,Symbol,Int,DataType}, Vector}
 
-Cache for `Float64` composite Newton-Cotes coefficient vectors.
+Cache for composite Newton-Cotes coefficient vectors in the requested scalar type.
 
 # Description
 This dictionary stores previously constructed global coefficient vectors ``\\beta``
-(after conversion to `Float64`) so that repeated calls with the same
+(after conversion to the active scalar type) so that repeated calls with the same
 configuration do not repeat the expensive exact-rational assembly.
 
 # Notes
-- Cache key: `(p, boundary, Nsub)`.
-- Stored value: `Vector{Float64}` of length `Nsub + 1`.
+- Cache key: `(p, boundary, Nsub, real_type)`.
+- Stored value: vector of length `Nsub + 1` in the requested scalar type.
 - The cache is process-local and not persistent across sessions.
 """
-const _NS_BETA_CACHE = Dict{Tuple{Int,Symbol,Int}, Vector{Float64}}()
+const _NS_BETA_CACHE = Dict{Tuple{Int,Symbol,Int,DataType}, Vector}()
 
 """
     _local_width(
@@ -458,48 +448,52 @@ function _parse_newton_p(
 end
 
 """
-    _get_beta_float(
+    _get_beta(
+        T,
         p::Int,
         boundary::Symbol,
         Nsub::Int
-    ) -> Vector{Float64}
+    )
 
-Get the global composite coefficient vector ``\\beta`` in `Float64`, with caching.
+Get the global composite coefficient vector ``\\beta`` in the requested scalar type, with caching.
 
 # Function description
-This routine wraps the exact rational assembly in a `Float64`-facing interface.
+This routine wraps the exact rational assembly in a typed interface.
 It first checks [`_NS_BETA_CACHE`](@ref), assembles the exact rational coefficient
-vector if necessary, converts it to `Float64`, stores it in the cache, and returns it.
+vector if necessary, converts it to the requested scalar type `T`, stores it in
+the cache, and returns it.
 
 # Arguments
+- `T`: Target scalar type for the returned coefficient vector.
 - `p`: Local node count.
 - `boundary`: Boundary pattern symbol.
 - `Nsub`: Number of global subintervals.
 
 # Returns
-- `Vector{Float64}`: Global coefficient vector ``\\beta`` in `Float64` form.
+- Coefficient vector ``\\beta`` in scalar type `T`.
 
 # Errors
 - Propagates validation and assembly errors from [`_assemble_composite_beta_rational`](@ref).
 - May emit warnings inherited from the exact assembly path.
 """
-function _get_beta_float(
-    p::Int, 
-    boundary::Symbol, 
+function _get_beta(
+    T,
+    p::Int,
+    boundary::Symbol,
     Nsub::Int
-)::Vector{Float64}
-    key = (p, boundary, Nsub)
+)
+    key = (p, boundary, Nsub, T)
     cached = get(_NS_BETA_CACHE, key, nothing)
     cached !== nothing && return cached
 
     βR = _assemble_composite_beta_rational(p, boundary, Nsub)
-    βF = Vector{Float64}(undef, length(βR))
+    βT = Vector{T}(undef, length(βR))
     @inbounds for i in eachindex(βR)
-        βF[i] = Float64(βR[i])
+        βT[i] = convert(T, βR[i])
     end
 
-    _NS_BETA_CACHE[key] = βF
-    return βF
+    _NS_BETA_CACHE[key] = βT
+    return βT
 end
 
 """

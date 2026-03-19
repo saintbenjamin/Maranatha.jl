@@ -87,7 +87,7 @@ and delegates boundary validation to `QuadratureUtils._decode_boundary`.
 
 # Notes
 - This helper centralizes the shared validation logic for the public and
-  internal Gauss refinement routines.
+  internal B-spline refinement routines.
 """
 @inline function _require_bspline_inputs(
     N::Int,
@@ -111,8 +111,10 @@ end
         dim::Int,
         rule::Symbol,
         boundary::Symbol;
-        λ::Float64 = 0.0
-    ) -> Float64
+        λ = nothing,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
+    ) -> Real
 
 Dispatch to the appropriate dimension-specific B-spline quadrature evaluator.
 
@@ -137,12 +139,18 @@ This helper selects the specialized B-spline quadrature evaluator matching
   Boundary-condition symbol.
 
 # Keyword arguments
-- `λ::Float64 = 0.0`:
-  Smoothing parameter for smoothing B-spline rules.
+- `λ = nothing`:
+  Optional smoothing parameter for smoothing B-spline rules. If `nothing`,
+  zero is used in the active scalar type.
+- `threaded_subgrid::Bool = false`:
+  Whether to allow threaded subgrid evaluation in the quadrature backend.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and quadrature
+  evaluation.
 
 # Returns
-- `Float64`:
-  The quadrature value produced by the selected evaluator.
+- `Real`:
+  The quadrature value produced by the selected evaluator, in the active scalar type.
 
 # Errors
 - Propagates errors from the selected dimension-specific routine.
@@ -159,24 +167,29 @@ This helper selects the specialized B-spline quadrature evaluator matching
     dim::Int,
     rule::Symbol,
     boundary::Symbol;
-    λ::Float64 = 0.0,
-    threaded_subgrid::Bool = false
-)::Float64
+    λ = nothing,
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
+)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     _require_bspline_inputs(N, dim, rule, boundary)
 
     q = QuadratureDispatch.quadrature(
         f,
-        a,
-        b,
+        convert(T, a),
+        convert(T, b),
         N,
         dim,
         rule,
         boundary;
-        λ=λ,
-        threaded_subgrid = threaded_subgrid
+        λ = λT,
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
 
-    return float(q)
+    return q
 end
 
 """
@@ -188,7 +201,9 @@ end
         dim::Int,
         rule::Symbol,
         boundary::Symbol;
-        λ::Float64 = 0.0
+        λ = nothing,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
 
 Estimate the B-spline quadrature error by comparing coarse and refined
@@ -228,8 +243,15 @@ estimate.
   Boundary-condition symbol.
 
 # Keyword arguments
-- `λ::Float64 = 0.0`:
-  Smoothing parameter for smoothing B-spline rules.
+- `λ = nothing`:
+  Optional smoothing parameter for smoothing B-spline rules. If `nothing`,
+  zero is used in the active scalar type.
+- `threaded_subgrid::Bool = false`:
+  Whether to allow threaded subgrid evaluation in the coarse and refined
+  quadrature calls.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion, mesh sizes,
+  and quadrature evaluation.
 
 # Returns
 - `NamedTuple` with fields:
@@ -266,38 +288,44 @@ function _estimate_by_refinement_bspline(
     dim::Int,
     rule::Symbol,
     boundary::Symbol;
-    λ::Float64 = 0.0,
-    threaded_subgrid::Bool = false
+    λ = nothing,
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
-    _require_bspline_inputs(rule, dim, rule,boundary)
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    aa = float(a)
-    bb = float(b)
+    _require_bspline_inputs(N, dim, rule, boundary)
 
-    h_coarse = (bb - aa) / N
-    h_fine   = (bb - aa) / (2N)
+    aa = convert(T, a)
+    bb = convert(T, b)
+
+    h_coarse = (bb - aa) / T(N)
+    h_fine   = (bb - aa) / T(2N)
 
     q_coarse = _quadrature_value_bspline(
-        f, 
-        aa, 
-        bb, 
-        N,  
-        dim, 
-        rule, 
-        boundary; 
-        λ=λ,
-        threaded_subgrid=threaded_subgrid
+        f,
+        aa,
+        bb,
+        N,
+        dim,
+        rule,
+        boundary;
+        λ = λT,
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
-    q_fine   = _quadrature_value_bspline(
-        f, 
-        aa, 
-        bb, 
-        2N, 
-        dim, 
-        rule, 
-        boundary; 
-        λ=λ,
-        threaded_subgrid=threaded_subgrid
+    q_fine = _quadrature_value_bspline(
+        f,
+        aa,
+        bb,
+        2N,
+        dim,
+        rule,
+        boundary;
+        λ = λT,
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
 
     diff = q_fine - q_coarse
@@ -328,7 +356,9 @@ end
         dim,
         rule,
         boundary;
-        λ::Float64 = 0.0
+        λ = nothing,
+        threaded_subgrid::Bool = false,
+        real_type = nothing,
     )
 
 Unified public dispatcher for B-spline refinement-based error estimation.
@@ -355,8 +385,14 @@ specializations:
   Boundary-condition symbol.
 
 # Keyword arguments
-- `λ::Float64 = 0.0`:
-  Smoothing parameter for smoothing B-spline rules.
+- `λ = nothing`:
+  Optional smoothing parameter for smoothing B-spline rules. If `nothing`,
+  zero is used in the active scalar type.
+- `threaded_subgrid::Bool = false`:
+  Whether to allow threaded subgrid evaluation in the underlying refinement calls.
+- `real_type = nothing`:
+  Optional scalar type used internally for bound conversion and refinement
+  evaluation.
 
 # Returns
 - The named tuple produced by the selected dimension-specific refinement
@@ -379,22 +415,27 @@ function error_estimate_refinement_bspline(
     dim,
     rule,
     boundary;
-    λ::Float64 = 0.0,
-    threaded_subgrid::Bool = false
+    λ = nothing,
+    threaded_subgrid::Bool = false,
+    real_type = nothing,
 )
+    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
+    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+
     _require_bspline_rule(rule)
     QuadratureUtils._decode_boundary(boundary)
 
     return _estimate_by_refinement_bspline(
-        f, 
-        a, 
-        b, 
-        N, 
-        dim, 
-        rule, 
-        boundary; 
-        λ=λ,
-        threaded_subgrid=threaded_subgrid
+        f,
+        a,
+        b,
+        N,
+        dim,
+        rule,
+        boundary;
+        λ = λT,
+        threaded_subgrid = threaded_subgrid,
+        real_type = T,
     )
 end
 
