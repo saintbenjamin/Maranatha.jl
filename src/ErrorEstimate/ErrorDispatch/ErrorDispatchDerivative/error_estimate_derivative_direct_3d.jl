@@ -101,8 +101,8 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 """
 function error_estimate_derivative_direct_3d(
     f,
-    a::Real,
-    b::Real,
+    a,
+    b,
     N::Int,
     rule::Symbol,
     boundary::Symbol;
@@ -116,23 +116,57 @@ function error_estimate_derivative_direct_3d(
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = convert(T, a)
-    bb = convert(T, b)
-    h  = (bb - aa) / T(N)
+    # ------------------------------------------------------------
+    # Domain handling — identical logic to quadrature_3d
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        ax = ay = az = convert(T, a)
+        bx = by = bz = convert(T, b)
+    else
+        length(a) == 3 || throw(ArgumentError("length(a) must be 3"))
+        length(b) == 3 || throw(ArgumentError("length(b) must be 3"))
 
-    x̄ = (aa + bb) / T(2)
-    ȳ = (aa + bb) / T(2)
-    z̄ = (aa + bb) / T(2)
+        ax, ay, az = convert(T, a[1]), convert(T, a[2]), convert(T, a[3])
+        bx, by, bz = convert(T, b[1]), convert(T, b[2]), convert(T, b[3])
+    end
+
+    hx = (bx - ax) / T(N)
+    hy = (by - ay) / T(N)
+    hz = (bz - az) / T(N)
+
+    x̄ = (ax + bx) / T(2)
+    ȳ = (ay + by) / T(2)
+    z̄ = (az + bz) / T(2)
 
     xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        aa, bb, N, rule, boundary;
+        ax, 
+        bx, 
+        N, 
+        rule, 
+        boundary;
         real_type = T,
     )
-    ys, wy = xs, wx
-    zs, wz = xs, wx
+    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        ay, 
+        by, 
+        N, 
+        rule, 
+        boundary;
+        real_type = T,
+    )
+    zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        az, 
+        bz, 
+        N, 
+        rule, 
+        boundary;
+        real_type = T,
+    )
 
     ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, boundary, N;
+        rule, 
+        boundary, 
+        N;
         nterms = nerr_terms,
         kmax   = kmax
     )
@@ -157,6 +191,9 @@ function error_estimate_derivative_direct_3d(
 
         coeff = coeffs[it]
 
+        # ------------------------------------------------------------
+        # X-direction derivatives integrated over Y,Z
+        # ------------------------------------------------------------
         I1 = zero(T)
         for j in eachindex(ys)
             y = ys[j]
@@ -165,7 +202,8 @@ function error_estimate_derivative_direct_3d(
                 z = zs[k2]
                 gx(x) = f(x, y, z)
 
-                I1 += wyj * wz[k2] * convert(T,
+                I1 += wyj * wz[k2] * convert(
+                    T,
                     AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
@@ -177,6 +215,9 @@ function error_estimate_derivative_direct_3d(
             end
         end
 
+        # ------------------------------------------------------------
+        # Y-direction derivatives integrated over X,Z
+        # ------------------------------------------------------------
         I2 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
@@ -185,7 +226,8 @@ function error_estimate_derivative_direct_3d(
                 z = zs[k2]
                 gy(y) = f(x, y, z)
 
-                I2 += wxi * wz[k2] * convert(T,
+                I2 += wxi * wz[k2] * convert(
+                    T,
                     AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
@@ -197,6 +239,9 @@ function error_estimate_derivative_direct_3d(
             end
         end
 
+        # ------------------------------------------------------------
+        # Z-direction derivatives integrated over X,Y
+        # ------------------------------------------------------------
         I3 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
@@ -205,7 +250,8 @@ function error_estimate_derivative_direct_3d(
                 y = ys[j]
                 gz(z) = f(x, y, z)
 
-                I3 += wxi * wy[j] * convert(T,
+                I3 += wxi * wy[j] * convert(
+                    T,
                     AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
@@ -218,7 +264,7 @@ function error_estimate_derivative_direct_3d(
         end
 
         derivatives[it] = I1 + I2 + I3
-        terms[it] = coeff * h^(kk + 1) * derivatives[it]
+        terms[it] = coeff * (hx + hy + hz)^(kk + 1) * derivatives[it]
     end
 
     return (;
@@ -228,6 +274,6 @@ function error_estimate_derivative_direct_3d(
         terms       = terms,
         total       = sum(terms),
         center      = (x̄, ȳ, z̄),
-        h           = h
+        h           = (hx, hy, hz)
     )
 end

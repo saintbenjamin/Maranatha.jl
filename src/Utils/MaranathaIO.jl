@@ -120,30 +120,34 @@ end
 """
     _to_axis_vector(x, dim::Int) -> Vector
 
-Convert a domain specification into an explicit per-axis vector.
+Convert a domain specification into a concrete vector form.
 
 # Function description
 
-This helper produces a length-`dim` vector of axis values from a domain
-specification that may be scalar or multi-component.
+This helper converts scalar and collection-valued domain data into the vector
+representation used by internal geometry and `nsamples` reconstruction code.
 
-Supported behaviors:
+The current behavior is:
 
-- Tuple input: elements are copied into a new vector.
-- Vector input: collected into a new vector.
-- Scalar input: replicated across all dimensions.
-
-This is useful when constructing tensor-product grids or performing
-dimension-wise operations.
+- `Tuple` input: returns `[x[i] for i in 1:dim]`, so the first `dim` entries
+  are copied and a bounds error is raised if the tuple is shorter than `dim`.
+- `AbstractVector` input: returns `collect(x)` without enforcing that the
+  resulting length matches `dim`.
+- Scalar input: returns `fill(x, dim)`.
 
 # Arguments
 
 - `x`: Domain value (scalar, tuple, or vector-like).
-- `dim`: Target dimensionality.
+- `dim`: Target dimensionality used for scalar expansion and tuple indexing.
 
 # Returns
 
-- `Vector`: A length-`dim` vector of axis values.
+- `Vector`: Collected axis values. Scalar input yields a length-`dim` vector;
+  tuple and vector input follow the rules above.
+
+# Errors
+
+- May throw a bounds error if `x isa Tuple` and `length(x) < dim`.
 """
 @inline function _to_axis_vector(x, dim::Int)
     if x isa Tuple
@@ -223,9 +227,7 @@ Supported conversions include:
 end
 
 """
-    _err_entry_to_dict(
-        e
-    ) -> Dict{String,Any}
+    _err_entry_to_dict(e) -> Dict{String,Any}
 
 Convert a single internal error-entry object into a serialization-friendly dictionary.
 
@@ -300,9 +302,7 @@ function _err_entry_to_dict(e)
 end
 
 """
-    _dict_to_err_entry(
-        e
-    )
+    _dict_to_err_entry(e)
 
 Reconstruct a single internal error-entry object from a serialized dictionary.
 
@@ -376,23 +376,21 @@ function _dict_to_err_entry(e)
 end
 
 """
-    _err_entry_total(
-        e
-    ) -> Real
+    _err_entry_total(e) -> Real
 
-Extract a total-like scalar error magnitude from an internal error-entry object.
+Extract the stored scalar error quantity from an internal error-entry object.
 
 # Function description
-This helper provides a unified scalar error accessor across currently supported
+This helper provides a unified scalar accessor across the currently supported
 error-entry layouts.
 
 It supports:
 
-- residual-based error entries exposing a `:total` field, and
-- refinement-based error entries exposing an `:estimate` field.
+- derivative-style error entries exposing a `:total` field, and
+- refinement-style error entries exposing an `:estimate` field.
 
-The returned value is converted to `Float64` so that downstream summary and
-reporting code can treat both formats uniformly.
+The stored scalar value is returned as-is; this helper does not convert the
+result to `Float64` and does not apply `abs(...)`.
 
 # Arguments
 - `e`:
@@ -400,7 +398,7 @@ reporting code can treat both formats uniformly.
 
 # Returns
 - `Real`:
-  Scalar error magnitude associated with the entry.
+  Stored scalar error quantity associated with the entry.
 
 # Errors
 - Throws (via `JobLoggerTools.error_benji`) if `e` does not expose either
@@ -408,8 +406,6 @@ reporting code can treat both formats uniformly.
 
 # Notes
 - This helper is mainly used for summary export and human-readable diagnostics.
-- Unlike some plotting / fitting helpers, this function does not apply `abs(...)`
-  explicitly; it returns the stored scalar as-is.
 """
 function _err_entry_total(e)
     if hasproperty(e, :total)
@@ -424,9 +420,7 @@ function _err_entry_total(e)
 end
 
 """
-    namedtuple_to_dict(
-        res
-    ) -> Dict{String,Any}
+    namedtuple_to_dict(res) -> Dict{String,Any}
 
 Convert a Maranatha result `NamedTuple` into a serialization-friendly dictionary.
 
@@ -469,12 +463,11 @@ later through [`dict_to_namedtuple`](@ref).
 - For rectangular-domain results, `tuple_h` preserves the original per-axis
   step tuples while `h` preserves the scalar fitting step sequence.
 """
-function namedtuple_to_dict(
-    res
-)
+function namedtuple_to_dict(res)
     return Dict(
         "a"             => _storable_domain_value(res.a),
         "b"             => _storable_domain_value(res.b),
+        "nsamples"      => hasproperty(res, :nsamples) ? collect(Int.(res.nsamples)) : Int[],
         "h"             => collect(res.h),
         "tuple_h"       => hasproperty(res, :tuple_h) ?
                            [_storable_domain_value(hi) for hi in res.tuple_h] :
@@ -495,9 +488,7 @@ function namedtuple_to_dict(
 end
 
 """
-    dict_to_namedtuple(
-        d
-    ) -> NamedTuple
+    dict_to_namedtuple(d) -> NamedTuple
 
 Reconstruct a Maranatha result `NamedTuple` from a serialized dictionary.
 
@@ -510,35 +501,43 @@ including:
 - numeric vectors,
 - symbolic rule / boundary metadata,
 - scalarized step sizes in `h`,
-- original per-axis step information in `tuple_h`, and
-- the vector of per-datapoint error descriptors.
+- original per-axis step information in `tuple_h`,
+- stored per-datapoint error descriptors, and
+- subdivision counts in `nsamples`.
 
-The reconstructed `err` field may therefore contain either residual-based or
+The reconstructed `err` field may therefore contain either derivative-based or
 refinement-based error-entry objects, depending on the serialized content.
+
+If the serialized payload omits `nsamples` or stores them as an empty
+collection, they are reconstructed via [`infer_nsamples`](@ref).
 
 # Arguments
 - `d`: Dictionary representation of a result object.
 
 # Returns
-- `NamedTuple`: Reconstructed Maranatha result object.
+- `NamedTuple`: Reconstructed Maranatha result object with an `nsamples` field.
 
 # Errors
 - No explicit schema validation is performed.
 - Missing-key or incompatible-type errors will propagate if `d` does not match
   the expected serialized layout.
+- Propagates reconstruction errors from [`infer_nsamples`](@ref) when
+  `nsamples` must be rebuilt from step-size information.
 
 # Notes
-- Stored geometric fields are reconstructed as either scalars in the active
-  `real_type` or tuples in that same scalar type, depending on the serialized
-  representation.
+- The numeric restoration type `T` is derived from `d["real_type"]` when
+  available, otherwise from `eltype(d["avg"])`, and otherwise defaults to
+  `Float64`.
+- Stored geometric fields are reconstructed as either scalars in `T` or tuples
+  with elements in `T`, depending on the serialized representation.
 - Refinement-based error entries are reconstructed from their serialized
-  `"err_format"` tag in the same unified `err` vector as residual-based entries.
+  `"err_format"` tag in the same unified `err` vector as derivative-based entries.
 - If the serialized payload includes `tuple_h`, it is restored explicitly;
   otherwise, `h` is reused as a fallback for backward compatibility.
+- `use_cuda` defaults to `false` and `real_type` defaults to `string(T)` when
+  those keys are absent.
 """
-function dict_to_namedtuple(
-    d
-)
+function dict_to_namedtuple(d)
     err = [_dict_to_err_entry(e) for e in d["err"]]
 
     T = if haskey(d, "real_type")
@@ -559,7 +558,7 @@ function dict_to_namedtuple(
         [_restore_domain_value(hi, T) for hi in d["h"]]
     end
 
-    return (
+    base_res = (
         a             = _restore_domain_value(d["a"], T),
         b             = _restore_domain_value(d["b"], T),
         h             = Vector{T}(d["h"]),
@@ -577,6 +576,32 @@ function dict_to_namedtuple(
         use_cuda      = get(d, "use_cuda", false),
         real_type     = get(d, "real_type", string(T)),
     )
+
+    nsamples_restored = if haskey(d, "nsamples") && !isempty(d["nsamples"])
+        Int.(collect(d["nsamples"]))
+    else
+        infer_nsamples(base_res)
+    end
+
+    return (
+        a             = base_res.a,
+        b             = base_res.b,
+        nsamples      = nsamples_restored,
+        h             = base_res.h,
+        tuple_h       = base_res.tuple_h,
+        avg           = base_res.avg,
+        err           = base_res.err,
+        rule          = base_res.rule,
+        boundary      = base_res.boundary,
+        dim           = base_res.dim,
+        err_method    = base_res.err_method,
+        nerr_terms    = base_res.nerr_terms,
+        fit_terms     = base_res.fit_terms,
+        ff_shift      = base_res.ff_shift,
+        use_error_jet = base_res.use_error_jet,
+        use_cuda      = base_res.use_cuda,
+        real_type     = base_res.real_type,
+    )
 end
 
 
@@ -585,9 +610,7 @@ end
 # ============================================================
 
 """
-    generate_summary_dict(
-        res
-    ) -> Dict{String,Any}
+    generate_summary_dict(res) -> Dict{String,Any}
 
 Generate a human-readable summary dictionary for [`TOML`](https://toml.io/en/) export.
 
@@ -627,9 +650,7 @@ human-readable summary export rather than structured round-trip recovery.
   human-readable summary retains the scalar fitting proxy and the original
   per-axis step structure.
 """
-function generate_summary_dict(
-    res
-)
+function generate_summary_dict(res)
     return Dict(
         "a"             => _toml_safe(res.a),
         "b"             => _toml_safe(res.b),
@@ -643,6 +664,7 @@ function generate_summary_dict(
         "use_error_jet" => Bool(res.use_error_jet),
         "use_cuda"      => getproperty(res, :use_cuda),
         "real_type"     => string(getproperty(res, :real_type)),
+        "nsamples"      => hasproperty(res, :nsamples) ? _toml_safe(collect(Int.(res.nsamples))) : _toml_safe(infer_nsamples(res)),
         "h"             => _toml_safe(collect(res.h)),
         "tuple_h"       => hasproperty(res, :tuple_h) ? _toml_safe(res.tuple_h) : _toml_safe(res.h),
         "avg"           => _toml_safe(collect(res.avg)),
@@ -758,11 +780,14 @@ end
         atol=1e-10
     ) -> Vector{Int}
 
-Infer subdivision counts `N` from the stored step-size information.
+Return stored subdivision counts when available, otherwise infer them from
+step-size information.
 
 # Function description
-This helper reconstructs the effective subdivision counts from the standard
-relation
+If `res` already has an `nsamples` field, this helper returns it directly as
+`Vector{Int}`.
+
+Otherwise, it reconstructs effective subdivision counts from the relation
 
 ```math
 N = \\frac{b-a}{h}.
@@ -770,18 +795,15 @@ N = \\frac{b-a}{h}.
 
 It supports both isotropic and rectangular-domain result layouts.
 
-* If `res.tuple_h` is available and contains axis-wise step tuples/vectors,
-  the subdivision count is reconstructed independently on each axis and then
-  checked for consistency across axes.
-* Otherwise, the helper falls back to the scalar `res.h` values.
-
-It is useful when a result object stores step-size information but the
-corresponding integer sample counts are needed for inspection, diagnostics, or
-filename construction.
+* If `tuple_h` is available, each entry is inspected first.
+* Tuple- or vector-valued step data are reconstructed axis by axis and checked
+  for consistency across axes.
+* Scalar step data are checked against the first axis length, and in multi-axis
+  cases the same scalar step must also be compatible with every remaining axis.
 
 # Arguments
 
-* `res`: Result object containing `a`, `b`, and stored step-size information.
+* `res`: Result object containing domain endpoints and step-size information.
 
 # Keyword arguments
 
@@ -790,7 +812,7 @@ filename construction.
 
 # Returns
 
-* `Vector{Int}`: Inferred subdivision counts.
+* `Vector{Int}`: Stored or reconstructed subdivision counts.
 
 # Errors
 
@@ -798,18 +820,23 @@ filename construction.
   numerically consistent with an integer `N`.
 * Throws if axis-wise step reconstruction yields inconsistent inferred `N`
   values across axes.
+* Throws if a scalar step size is incompatible with a rectangular multi-axis
+  domain.
 
 # Notes
 
-* This helper prefers `tuple_h` when available because it preserves the
-  original per-axis step information for rectangular domains.
-* When only scalar `h` is available in a multi-axis rectangular domain, the
-  helper requires that the scalar value be compatible with all axis lengths.
+* This helper prefers stored `nsamples` when available.
+* When reconstruction is needed, it prefers `tuple_h` over `h` because
+  `tuple_h` preserves original per-axis step information.
 """
 function infer_nsamples(
     res;
     atol = 1e-10,
 )
+    if hasproperty(res, :nsamples)
+        return Int.(collect(res.nsamples))
+    end
+
     T = eltype(res.h)
     atolT = convert(T, atol)
     Ns = Int[]
@@ -1098,13 +1125,17 @@ Merge multiple compatible datapoint result blocks into one result object.
 # Function description
 This routine concatenates the aligned datapoint arrays
 
+- `nsamples`
 - `h`
 - `tuple_h`
 - `avg`
 - `err`
 
 from several compatible result objects, optionally checks for duplicate scalar
-step sizes, and optionally sorts the merged datapoints by descending `h`.
+step sizes in `h`, and optionally sorts the merged datapoints by descending `h`.
+
+For each input result, `nsamples` are taken from the stored field when present
+and otherwise reconstructed via [`infer_nsamples`](@ref).
 
 Global metadata fields are copied from the first input result after shape
 compatibility has been verified.
@@ -1117,7 +1148,7 @@ compatibility has been verified.
 - `allow_duplicate_h`: Whether duplicate `h` values are allowed.
 
 # Returns
-- `NamedTuple`: Merged result object.
+- `NamedTuple`: Merged result object with an explicit `nsamples` field.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if fewer than two results
@@ -1125,12 +1156,16 @@ compatibility has been verified.
 - Throws if result metadata is incompatible or if aligned datapoint arrays have
   inconsistent lengths.
 - Throws if duplicate `h` values are found and `allow_duplicate_h == false`.
+- Propagates reconstruction errors from [`infer_nsamples`](@ref) when an input
+  result does not store `nsamples`.
 
 # Notes
 - This helper performs metadata-based safety checks, not full semantic identity
   checks on the originating problem.
 - For rectangular-domain results, `tuple_h` is merged alongside `h` so the
   original per-axis step information is preserved after concatenation.
+- When `sort_by_h == true`, the same permutation is applied to `nsamples`,
+  `h`, `tuple_h`, `avg`, and `err`.
 """
 function merge_datapoint_results(
     results...;
@@ -1151,6 +1186,7 @@ function merge_datapoint_results(
     avg_all = T[]
     err_all = eltype(result_list[1].err)[]
     tuple_h_all = Any[]
+    nsamples_all = Int[]
 
     for (i, res) in enumerate(result_list)
         length(res.h) == length(res.avg) || JobLoggerTools.error_benji(
@@ -1165,10 +1201,16 @@ function merge_datapoint_results(
             "Length mismatch in result $i: length(h) != length(tuple_h)"
         )
 
+        local_nsamples = hasproperty(res, :nsamples) ? Int.(collect(res.nsamples)) : infer_nsamples(res)
+        length(res.h) == length(local_nsamples) || JobLoggerTools.error_benji(
+            "Length mismatch in result $i: length(h) != length(nsamples)"
+        )
+
         append!(h_all, T.(res.h))
         append!(avg_all, T.(res.avg))
         append!(err_all, res.err)
         append!(tuple_h_all, local_tuple_h)
+        append!(nsamples_all, local_nsamples)
     end
 
     if !allow_duplicate_h
@@ -1181,6 +1223,7 @@ function merge_datapoint_results(
         avg_all = avg_all[p]
         err_all = err_all[p]
         tuple_h_all = tuple_h_all[p]
+        nsamples_all = nsamples_all[p]
     end
 
     ref = result_list[1]
@@ -1188,6 +1231,7 @@ function merge_datapoint_results(
     return (
         a             = ref.a,
         b             = ref.b,
+        nsamples      = nsamples_all,
         h             = h_all,
         tuple_h       = tuple_h_all,
         avg           = avg_all,
@@ -1276,7 +1320,7 @@ function merge_datapoint_result_files(
     )
 
     final_output_path = if output_path === nothing
-        Ns = infer_nsamples(merged)
+        Ns = hasproperty(merged, :nsamples) ? Int.(collect(merged.nsamples)) : infer_nsamples(merged)
         _default_result_path(
             output_dir,
             name_prefix,
@@ -1308,10 +1352,12 @@ end
 Remove selected subdivision counts from a result object.
 
 # Function description
-It reconstructs the stored subdivision counts from the step-size information via
-[`infer_nsamples`](@ref), builds a keep-mask, and returns a filtered copy of
-the input result with all datapoint-aligned arrays reduced consistently,
-including `tuple_h` when present.
+This helper builds a keep-mask from the result's subdivision-count sequence and
+returns a filtered copy of the input result with all datapoint-aligned arrays
+reduced consistently, including `tuple_h` when present.
+
+If `res` already stores `nsamples`, those values are used directly. Otherwise,
+the sequence is reconstructed via [`infer_nsamples`](@ref).
 
 # Arguments
 - `res`: Result object to filter.
@@ -1321,25 +1367,27 @@ including `tuple_h` when present.
 - `atol`: Absolute tolerance used when reconstructing subdivision counts.
 
 # Returns
-- `NamedTuple`: Filtered result object.
+- `NamedTuple`: Filtered result object with an explicit `nsamples` field.
 
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if filtering would remove
   all datapoints.
-- Propagates reconstruction errors from [`infer_nsamples`](@ref).
+- Propagates reconstruction errors from [`infer_nsamples`](@ref) when
+  `nsamples` must be rebuilt from step-size information.
 
 # Notes
 - Global metadata fields are copied from the original result, including
   `use_cuda` and `real_type` when present.
 - If the result stores `tuple_h`, that per-axis step information is filtered in
-  sync with `h`, `avg`, and `err`.
+  sync with `h`, `avg`, and `err`; otherwise `h` is reused as the fallback
+  source for `tuple_h`.
 """
 function drop_nsamples_from_result(
     res,
     Ns_to_drop;
     atol::Float64 = 1e-10,
 )
-    Ns_all = infer_nsamples(res; atol=atol)
+    Ns_all = hasproperty(res, :nsamples) ? Int.(collect(res.nsamples)) : infer_nsamples(res; atol=atol)
 
     drop_set = Set(Int.(Ns_to_drop))
 
@@ -1349,6 +1397,7 @@ function drop_nsamples_from_result(
         "drop_nsamples_from_result would remove all datapoints."
     )
 
+    nsamples_new = Ns_all[keep_mask]
     h_new       = res.h[keep_mask]
     tuple_h_new = hasproperty(res, :tuple_h) ? res.tuple_h[keep_mask] : res.h[keep_mask]
     avg_new     = res.avg[keep_mask]
@@ -1357,6 +1406,7 @@ function drop_nsamples_from_result(
     return (
         a             = res.a,
         b             = res.b,
+        nsamples      = nsamples_new,
         h             = h_new,
         tuple_h       = tuple_h_new,
         avg           = avg_new,
@@ -1441,7 +1491,7 @@ function drop_nsamples_from_file(
     )
 
     final_output_path = if output_path === nothing
-        Ns = infer_nsamples(filtered; atol=atol)
+        Ns = hasproperty(filtered, :nsamples) ? Int.(collect(filtered.nsamples)) : infer_nsamples(filtered; atol=atol)
         _default_result_path(
             output_dir,
             name_prefix,

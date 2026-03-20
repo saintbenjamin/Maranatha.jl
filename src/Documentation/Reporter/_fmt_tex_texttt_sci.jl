@@ -9,7 +9,9 @@
 # ============================================================================
 
 """
-    _fmt_tex_texttt_sci(x::Real) -> String
+    _fmt_tex_texttt_sci(
+        x::Real
+    ) -> String
 
 Format a number in [``\\LaTeX``](https://www.latex-project.org/) monospace scientific notation.
 
@@ -40,6 +42,8 @@ monospaced numeric appearance improves readability.
 - The returned string is safe for use in [``\\LaTeX``](https://www.latex-project.org/) document bodies.
 - No math-mode delimiters (`\$`) are added automatically.
 """
-function _fmt_tex_texttt_sci(x::Real)
+function _fmt_tex_texttt_sci(
+    x::Real
+)
     return "\\texttt{$(_fmt_sci_texttt(x))}"
 end

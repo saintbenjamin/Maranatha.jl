@@ -12,17 +12,25 @@
     set_pyplot_latex_style(
         scale::Real = 0.5
     ) -> Nothing
-Configure global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams) rendering parameters for publication-style figures.
 
-This helper enables [``\\LaTeX``](https://www.latex-project.org/)-based text rendering and adjusts global plotting
-settings such as font sizes, line widths, and marker sizes. It is typically used
-internally by higher-level plotting routines in [`Maranatha.Documentation.PlotTools`](@ref).
+Configure global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib.rcParams`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParams) rendering parameters for Maranatha's LaTeX-oriented figure style.
+
+# Function description
+
+This helper first restores [`matplotlib.rcParamsDefault`](https://matplotlib.org/stable/api/matplotlib_configuration_api.html#matplotlib.rcParamsDefault), then applies the PlotTools preset used by the package's plotting routines.
+
+The current preset:
+
+- enables [``\\LaTeX``](https://www.latex-project.org/)-based text rendering,
+- selects the `lmodern` font family,
+- scales figure size, font sizes, line widths, and marker sizes by `scale`,
+- enables a light grid style.
 
 # Arguments
 
 `scale::Real = 0.5`
-: Global scaling factor used when setting font sizes and related figure-style
-  parameters.
+: Global scaling factor used when setting figure size, font sizes, line widths,
+  marker sizes, and related style parameters.
 
 # Returns
 
@@ -38,6 +46,9 @@ available or if the local [``\\LaTeX``](https://www.latex-project.org/) environm
 
 This function modifies global `matplotlib` state through `rcParams`, so its effect
 persists for subsequently created figures in the current Julia session.
+
+Because it resets `rcParams` to the matplotlib defaults before applying the
+package preset, earlier session-local `rcParams` customizations are overwritten.
 """
 function set_pyplot_latex_style(
     scale::Real = 0.5

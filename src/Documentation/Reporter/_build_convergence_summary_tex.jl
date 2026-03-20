@@ -10,9 +10,22 @@
 
 """
     _build_convergence_summary_tex(
-        a, b, name, hsp, hxp, estp, errp,
-        pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-        rule, boundary
+        a, 
+        b, 
+        name, 
+        hsp, 
+        hxp, 
+        estp, 
+        errp,
+        pvec, 
+        λerr, 
+        fit_powers, 
+        I0, 
+        I0_err, 
+        red, 
+        nerr_terms;
+        rule, 
+        boundary
     ) -> String
 
 Construct a [``\\LaTeX``](https://www.latex-project.org/) convergence-summary document fragment.
@@ -64,9 +77,22 @@ The output is intended for inclusion in larger [``\\LaTeX``](https://www.latex-p
   sequence supplied to the fitter/reporting pipeline.
 """
 function _build_convergence_summary_tex(
-    a, b, name, hsp, hxp, estp, errp,
-    pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-    rule, boundary
+    a, 
+    b, 
+    name, 
+    hsp, 
+    hxp, 
+    estp, 
+    errp,
+    pvec, 
+    λerr, 
+    fit_powers, 
+    I0, 
+    I0_err, 
+    red, 
+    nerr_terms;
+    rule, 
+    boundary
 )
 
     safe_name = _latex_escape_underscore(name)

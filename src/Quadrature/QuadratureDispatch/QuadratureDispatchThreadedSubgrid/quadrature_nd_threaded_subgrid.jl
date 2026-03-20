@@ -118,7 +118,11 @@ function quadrature_nd_threaded_subgrid(
 
     if !(a isa AbstractVector || a isa Tuple)
         xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, b, N, rule, boundary;
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             λ = λT,
             real_type = T,
         )
@@ -129,7 +133,11 @@ function quadrature_nd_threaded_subgrid(
         ws_list = Vector{Vector{T}}(undef, dim)
         for d in 1:dim
             xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a[d], b[d], N, rule, boundary;
+                a[d], 
+                b[d], 
+                N, 
+                rule, 
+                boundary;
                 λ = λT,
                 real_type = T,
             )
@@ -173,7 +181,9 @@ function quadrature_nd_threaded_subgrid(
     splits = _choose_axis_splits(nthreads_eff, dim, ngrid)
     blocks = _block_ranges_from_splits(ngrid, splits)
 
-    JobLoggerTools.println_benji("Global grid: $(join(lens, '×')) points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
+    JobLoggerTools.println_benji(
+        "Global grid: $(join(lens, '×')) points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))"
+    )
 
     partial = zeros(T, Threads.maxthreadid())
 

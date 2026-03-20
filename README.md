@@ -54,8 +54,8 @@ file = "sample_1d.jl"
 name = "integrand"
 
 [domain]
-a = 0.0
-b = 3.14159265358979323846264338327950588
+a = "0.0"
+b = "3.14159265358979323846264338327950588"
 dim = 1
 
 [sampling]
@@ -82,6 +82,10 @@ write_summary = true
 save_file = true
 ```
 
+For precision-sensitive real types such as `Double64` or `BigFloat`, writing
+domain bounds as TOML strings preserves the numeric literal until it is parsed
+using `real_type`.
+
 Assume that `sample_1d.jl` and `sample_1d.toml` are located
 in the current working directory.
 
@@ -89,7 +93,8 @@ Execution backend selection depends on runtime settings:
 
 - serial execution is used by default,
 - threaded subgrid execution is used when Julia is started with multiple CPU threads,
-- CUDA execution is used only when `use_cuda = true` is explicitly requested.
+- CUDA execution is used only when `use_cuda = true` is explicitly requested,
+  and currently requires `real_type = Float32` or `Float64`.
 
 For example, CPU threading can be enabled before starting Julia with:
 
@@ -123,7 +128,7 @@ run_result = run_Maranatha(
     fit_terms = 4,
     save_path = joinpath(".", "jld2")
     write_summary = true,
-    use_cuda = true,
+    use_cuda = false,
     real_type = Double64
 )
 ```
@@ -152,6 +157,23 @@ plot_convergence_result(
     name="Maranatha_test1",
     figs_dir=".",
     save_file=true
+)
+```
+
+If you also want a buildable $\LaTeX$ internal-note project summarizing the same
+run and fit result, you can generate it directly from run_result and
+fit_result. Because the plot files were saved in the current directory above,
+the note generator can collect and organize them automatically.
+
+```julia
+note_info = write_convergence_internal_note(
+    run_result,
+    fit_result;
+    name = "sample_1d",
+    out_dir = ".",
+    save_file = true,
+    try_build_pdf = true,
+    move_existing_plots = true,
 )
 ```
 
@@ -366,11 +388,14 @@ The runner returns a `NamedTuple` containing the raw convergence-study data, inc
 
 * `result.a`, `result.b` — integration bounds  
   (scalars for hypercubes or axis-wise arrays/tuples for rectangular domains)
-* `result.h` — step sizes
+* `result.nsamples` — subdivision counts actually used in the run
+* `result.tuple_h` — original step object stored at each resolution
+* `result.h` — downstream step-size proxy used for fitting and plotting
 * `result.avg` — quadrature estimates
 * `result.err` — error-information objects
-* `result.rule`, `result.boundary` — quadrature configuration
+* `result.rule`, `result.boundary`, `result.dim`, `result.err_method` — execution metadata
 * `result.fit_terms`, `result.ff_shift`, `result.nerr_terms` — downstream fitting metadata
+* `result.real_type` — string form of the computation type used for the run
 
 ### `fit = least_chi_square_fit(...)`
 

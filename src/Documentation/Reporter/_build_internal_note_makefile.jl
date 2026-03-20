@@ -9,7 +9,9 @@
 # ============================================================================
 
 """
-    _build_internal_note_makefile(target_basename) -> String
+    _build_internal_note_makefile(
+        target_basename
+    ) -> String
 
 Generate a Makefile for building the internal-note PDF.
 

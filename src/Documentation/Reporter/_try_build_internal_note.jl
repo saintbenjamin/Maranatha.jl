@@ -9,7 +9,10 @@
 # ============================================================================
 
 """
-    _try_build_internal_note(note_dir, target_basename) -> NamedTuple
+    _try_build_internal_note(
+        note_dir, 
+        target_basename
+    ) -> NamedTuple
 
 Attempt to compile the internal note into a PDF.
 

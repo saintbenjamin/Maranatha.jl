@@ -9,7 +9,10 @@
 # ============================================================================
 
 """
-    _format_interval_for_note(a, b) -> String
+    _format_interval_for_note(
+        a, 
+        b
+    ) -> String
 
 Format an integration interval (possibly multi-dimensional) as a compact text string.
 
@@ -55,7 +58,10 @@ The function performs strict consistency checks to prevent ambiguous formatting.
   ordering or interpret domain semantics.
 - The output is intended for textual presentation, not for programmatic parsing.
 """
-@inline function _format_interval_for_note(a, b)
+@inline function _format_interval_for_note(
+    a, 
+    b
+)
     a_is_multi = a isa Tuple || a isa AbstractVector
     b_is_multi = b isa Tuple || b isa AbstractVector
 

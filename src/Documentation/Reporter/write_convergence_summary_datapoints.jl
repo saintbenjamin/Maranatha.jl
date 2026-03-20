@@ -10,17 +10,27 @@
 
 """
     write_convergence_summary_datapoints(
-        a, b, name, hs, estimates, errors;
-        h_power, xscale, yscale,
-        rule, boundary, out_dir, format, save_file
+        result;
+        name::String = "Maranatha",
+        h_power::Real = 1,
+        xscale::Symbol = :linear,
+        yscale::Symbol = :linear,
+        out_dir::String = ".",
+        format::Symbol = :tex,
+        save_file::Bool = true,
     ) -> String
 
-Generate a datapoints-only convergence summary report in [``\\LaTeX``](https://www.latex-project.org/) or Markdown format.
+Generate a datapoints-only convergence summary report in
+[``\\LaTeX``](https://www.latex-project.org/) or Markdown format directly from
+a structured quadrature result object.
 
 # Function description
 
 This routine builds a formatted summary of raw quadrature datapoints without
 requiring a fitted extrapolation model.
+
+It allows users to generate a datapoints-only summary directly from a stored
+or freshly computed Maranatha result without manually unpacking arrays.
 
 It is intended for pre-fit inspection or archival reporting when the user wants
 to document:
@@ -35,23 +45,23 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
 
 # Arguments
 
-- `a`, `b`: Integration domain endpoints.
+- `result`:
+  Result object exposing fields such as `a`, `b`, `h`, `avg`, `err`, `rule`,
+  and `boundary`.
 
-  These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form in the generated summary.
+  The summary is generated from:
 
-- `name`: Identifier for the experiment, integrand, or source file.
-- `hs`: Scalar step sizes used in the quadrature study.
+  - `result.a`, `result.b` as the integration-domain description,
+  - `result.h` as the scalar step-size sequence,
+  - `result.avg` as the corresponding quadrature estimates,
+  - `result.err` as the error objects containing pointwise uncertainties,
+  - `result.rule` and `result.boundary` as reporting labels.
 
-  In rectangular-domain workflows, this is expected to be the scalarized
-  step-size sequence used for plotting / reporting, not the original
-  per-axis step tuples.
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for plotting and reporting, while any original
+  per-axis step data remain outside this helper.
 
-- `estimates`: Corresponding quadrature estimates.
-- `errors`: Error objects containing pointwise uncertainties.
-
-  Each entry is expected to provide either:
+  Each entry of `result.err` is expected to provide either:
 
   - a `.total` field, as in the residual-based error-estimation workflow, or
   - an `.estimate` field, as in the refinement-based error-estimation workflow.
@@ -61,18 +71,25 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
 
 # Keyword arguments
 
-- `h_power`: Power used to define the horizontal coordinate ``x = h^{p}``.
-- `xscale`: Horizontal axis scale (`:linear` or `:log`).
-- `yscale`: Vertical axis scale (`:linear` or `:log`).
-- `rule`: Quadrature rule label (default `:gauss_p3`).
-- `boundary`: Boundary-handling label (default `:LU_ININ`).
-- `out_dir`: Output directory used when writing the summary file.
-- `format`: Output format (`:tex` or `:md`).
-- `save_file`: If `true`, write the generated text to disk.
+- `name::String = "Maranatha"`:
+  Identifier used in the generated report and output filename.
+- `h_power::Real = 1`:
+  Power used to define the horizontal coordinate ``x = h^{p}``.
+- `xscale::Symbol = :linear`:
+  Horizontal axis scale (`:linear` or `:log`).
+- `yscale::Symbol = :linear`:
+  Vertical axis scale (`:linear` or `:log`).
+- `out_dir::String = "."`:
+  Output directory used when writing the summary file.
+- `format::Symbol = :tex`:
+  Output format (`:tex` or `:md`).
+- `save_file::Bool = true`:
+  If `true`, write the generated text to disk.
 
 # Returns
 
-- `String`: The generated summary text.
+- `String`:
+  The generated summary text.
 
 # Errors
 
@@ -85,30 +102,32 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
 - Non-finite datapoints are removed automatically before reporting.
 - Additional positivity filters are applied when `xscale == :log` or `yscale == :log`.
 - The `name` argument may be a simple identifier or a file path; file-output
-  basenames are sanitized internally via [`_split_report_name`](@ref).
+  basenames are sanitized internally via [`DocUtils._split_report_name`](@ref).
 - Datapoints are ordered from coarse to fine resolution (largest `h` first) in
   the final report.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
 - For rectangular-domain workflows, the generated summary is based on the
-  scalarized `hs` sequence supplied to this function.
+  scalarized step-size sequence `result.h`.
 """
 function write_convergence_summary_datapoints(
-    a,
-    b,
-    name::String,
-    hs::Vector{Float64},
-    estimates::Vector{Float64},
-    errors::Vector;
+    result;
+    name::String = "Maranatha",
     h_power::Real = 1,
     xscale::Symbol = :linear,
     yscale::Symbol = :linear,
-    rule::Symbol = :gauss_p3,
-    boundary::Symbol = :LU_ININ,
     out_dir::String = ".",
     format::Symbol = :tex,
     save_file::Bool = true,
 )
+    a = result.a
+    b = result.b
+    hs = Vector{Float64}(result.h)
+    estimates = Vector{Float64}(result.avg)
+    errors = result.err
+    rule = result.rule
+    boundary = result.boundary
+
     n = length(hs)
     if length(estimates) != n || length(errors) != n
         JobLoggerTools.error_benji("Input length mismatch.")
@@ -121,7 +140,6 @@ function write_convergence_summary_datapoints(
         "Unsupported yscale=$yscale (expected :linear or :log)"
     )
 
-    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
     @inline function _extract_error_total(e)
         if hasproperty(e, :total)
             return float(e.total)
@@ -134,7 +152,7 @@ function write_convergence_summary_datapoints(
         end
     end
 
-    display_name, file_name = _split_report_name(name)
+    display_name, file_name = DocUtils._split_report_name(name)
 
     hxp = Float64.(hs) .^ float(h_power)
     errp = [_extract_error_total(e) for e in errors]
@@ -203,85 +221,4 @@ function write_convergence_summary_datapoints(
     else
         JobLoggerTools.error_benji("Unsupported format=$(format). Use :tex or :md.")
     end
-end
-
-"""
-    write_convergence_summary_datapoints(
-        result;
-        name, h_power, xscale, yscale,
-        rule, boundary, out_dir, format, save_file
-    ) -> String
-
-Convenience wrapper for [`write_convergence_summary_datapoints`](@ref) using a result object.
-
-# Function description
-
-This overload extracts the required datapoint fields from a structured
-quadrature result object and forwards them to the primary
-[`write_convergence_summary_datapoints`](@ref) method.
-
-It allows users to generate a datapoints-only summary directly from a stored
-or freshly computed Maranatha result without manually unpacking arrays.
-
-# Arguments
-
-- `result`: Result object exposing fields such as `a`, `b`, `h`, `avg`,
-  `err`, `rule`, and `boundary`.
-
-  In rectangular-domain workflows, `result.h` is expected to be the scalarized
-  step-size sequence used for plotting / reporting, while any original
-  per-axis step data remain in `result.tuple_h`.
-
-# Keyword arguments
-
-- `name`: Identifier used in the generated report and output filename.
-- `h_power`: Power used to define the horizontal coordinate ``x = h^{p}``.
-- `xscale`: Horizontal axis scale (`:linear` or `:log`).
-- `yscale`: Vertical axis scale (`:linear` or `:log`).
-- `rule`: Quadrature rule label forwarded to the primary method.
-- `boundary`: Boundary-handling label forwarded to the primary method.
-- `out_dir`: Output directory used when writing the summary file.
-- `format`: Output format (`:tex` or `:md`).
-- `save_file`: If `true`, write the generated text to disk.
-
-# Returns
-
-- `String`: The generated summary text.
-
-# Notes
-
-- This method is intended for the common workflow in which a user already has a
-  Maranatha result object and wants to inspect or archive the raw quadrature
-  datapoints before fitting.
-- This wrapper forwards `result.h`, i.e. the scalarized step-size sequence,
-  to the primary method.
-"""
-function write_convergence_summary_datapoints(
-    result;
-    name::String = "Maranatha",
-    h_power::Real = 1,
-    xscale::Symbol = :linear,
-    yscale::Symbol = :linear,
-    rule::Symbol = result.rule,
-    boundary::Symbol = result.boundary,
-    out_dir::String = ".",
-    format::Symbol = :tex,
-    save_file::Bool = true,
-)
-    return write_convergence_summary_datapoints(
-        result.a,
-        result.b,
-        name,
-        Vector{Float64}(result.h),
-        Vector{Float64}(result.avg),
-        result.err;
-        h_power = h_power,
-        xscale = xscale,
-        yscale = yscale,
-        rule = rule,
-        boundary = boundary,
-        out_dir = out_dir,
-        format = format,
-        save_file = save_file,
-    )
 end

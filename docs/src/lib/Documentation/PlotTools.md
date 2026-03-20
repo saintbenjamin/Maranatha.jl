@@ -35,15 +35,20 @@ The plotting layer currently provides the following main roles:
 This helper configures global [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl) / [`matplotlib`](https://matplotlib.org/stable/) rendering parameters so that
 plots are visually consistent across the package.
 
-It enables [$\LaTeX$](https://www.latex-project.org/)-style text rendering and adjusts items such as:
+It first restores `matplotlib.rcParamsDefault`, then applies the package's
+[$\LaTeX$](https://www.latex-project.org/)-oriented plotting preset, including:
 
 - font sizes
 - line widths
 - marker sizes
 - figure-scale-dependent layout settings
+- the `lmodern` font family
+- a light grid style
 
 Because it modifies global plotting state, it is typically called internally by
-the higher-level plotting routines before generating a figure.
+the higher-level plotting routines before generating a figure. Earlier
+session-local `rcParams` customizations are overwritten when this preset is
+applied.
 
 ### [`Maranatha.Documentation.PlotTools._smart_text_placement!`](@ref)
 
@@ -188,21 +193,30 @@ under `figs_dir`.
 
 If `pdfcrop` is available, the saved PDFs are cropped automatically.
 
-#### Convenience wrapper
+#### Current calling convention
 
-A second method accepts the `result` object returned by [`Maranatha.Runner.run_Maranatha`](@ref) and
-extracts:
+The current public API accepts the standard `result` object returned by
+[`Maranatha.Runner.run_Maranatha`](@ref) together with an already computed
+`fit_result`.
 
-- `result.a`
-- `result.b`
+The plotting routine reads from `result`:
+
 - `result.h`
 - `result.avg`
 - `result.err`
+- `result.rule`
+- `result.boundary`
 
-before forwarding them to the primary plotting method.
+and from `fit_result`:
 
-This wrapper is useful when the user wants to plot directly from a stored or
-freshly generated Maranatha result object without manual unpacking.
+- `fit_result.params`
+- `fit_result.estimate`
+- `fit_result.error_estimate`
+- `fit_result.cov`
+- `fit_result.powers`
+
+No separate wrapper method currently unpacks scalar fields such as `a` and `b`
+for this plotter.
 
 ### [`Maranatha.Documentation.PlotTools.plot_datapoints_result`](@ref)
 
@@ -260,10 +274,23 @@ result_$(name)_$(rule)_$(boundary)_datapoints_hpow_$(h_power)_$(xscale)_$(yscale
 
 under `figs_dir`, with optional `pdfcrop` post-processing if available.
 
-#### Convenience wrapper
+#### Current calling convention
 
-As with [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref), a wrapper method accepts the standard
-Maranatha `result` object and forwards its stored fields to the primary method.
+The current public API already accepts the standard Maranatha `result` object
+directly.
+
+It reads:
+
+- `result.h`
+- `result.avg`
+- `result.err`
+- `result.rule`
+- `result.boundary`
+
+filters datapoints incompatible with the chosen axis scales, and plots the
+remaining datapoints in descending `h^p` order.
+
+No additional wrapper method is currently provided for this plotter.
 
 ### [`Maranatha.Documentation.PlotTools.plot_quadrature_coverage_1d`](@ref)
 
@@ -279,7 +306,8 @@ rule** samples or reconstructs the integrand on $[a,b]$.
 The routine always draws:
 
 1. a dense reference curve of the true integrand $f(x)$
-2. the quadrature nodes and weights returned by the 1D dispatcher
+2. a rule-family-specific visual representation built from the quadrature
+   nodes, weights, and sampled values
 3. a quadrature-sum annotation
 
 The quadrature-sum label is automatically positioned by
@@ -346,11 +374,13 @@ That wrapper:
 
 1. parses the [`TOML`](https://toml.io/en/) configuration
 2. validates it
-3. loads the integrand from the referenced Julia file
-4. dispatches to the primary plotting method
+3. checks that `dim == 1`
+4. loads the integrand from the referenced Julia file
+5. dispatches to the primary plotting method
 
-If `N` is provided, only that subdivision count is plotted. If `N === nothing`,
-the wrapper plots every `N` listed in `cfg.nsamples`.
+If `N` is provided, it must already be present in `cfg.nsamples`, and only that
+subdivision count is plotted. If `N === nothing`, the wrapper plots every
+configured subdivision count in `cfg.nsamples`.
 
 Because the integrand is loaded dynamically, the wrapper uses
 `Base.invokelatest` when forwarding to the primary plotting routine.

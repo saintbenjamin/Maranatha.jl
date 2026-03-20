@@ -398,7 +398,11 @@ function quadrature_cuda(
 
     if !(a isa AbstractVector || a isa Tuple)
         xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, b, N, rule, boundary;
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             λ = λT,
             real_type = T,
         )
@@ -409,7 +413,11 @@ function quadrature_cuda(
     else
         for d in 1:dim
             xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a[d], b[d], N, rule, boundary;
+                a[d], 
+                b[d], 
+                N, 
+                rule, 
+                boundary;
                 λ = λT,
                 real_type = T,
             )

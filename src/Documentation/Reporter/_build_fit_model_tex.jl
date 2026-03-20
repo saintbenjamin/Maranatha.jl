@@ -9,7 +9,9 @@
 # ============================================================================
 
 """
-    _build_fit_model_tex(fit_powers) -> String
+    _build_fit_model_tex(
+        fit_powers
+    ) -> String
 
 Construct a [``\\LaTeX``](https://www.latex-project.org/)-ready polynomial model expression for the convergence fit.
 
@@ -65,7 +67,9 @@ Typical output:
 
 when `fit_powers = [0, 2, 4]`.
 """
-function _build_fit_model_tex(fit_powers)
+function _build_fit_model_tex(
+    fit_powers
+)
     terms = String[]
 
     for (i, p) in enumerate(fit_powers)

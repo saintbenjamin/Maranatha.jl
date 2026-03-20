@@ -77,7 +77,11 @@ function quadrature_1d_threaded_subgrid(
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
     xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, b, N, rule, boundary;
+        a, 
+        b, 
+        N, 
+        rule, 
+        boundary;
         λ = λT,
         real_type = T,
     )
@@ -96,7 +100,9 @@ function quadrature_1d_threaded_subgrid(
     splits = _choose_axis_splits(nthreads_eff, 1, nx)
     blocks = _block_ranges_from_splits(nx, splits)
 
-    JobLoggerTools.println_benji("Global grid: $(nx)^1 points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
+    JobLoggerTools.println_benji(
+        "Global grid: $(nx)^1 points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))"
+    )
 
     partial = zeros(T, Threads.maxthreadid())
 

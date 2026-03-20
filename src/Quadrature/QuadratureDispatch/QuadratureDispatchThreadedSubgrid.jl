@@ -361,35 +361,60 @@ function quadrature_threaded_subgrid(
 
     if dim == 1
         return quadrature_1d_threaded_subgrid(
-            f, a, b, N, rule, boundary;
+            f, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             nthreads_req = nthreads_req,
             λ = λT,
             real_type = T,
         )
     elseif dim == 2
         return quadrature_2d_threaded_subgrid(
-            f, a, b, N, rule, boundary;
+            f, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             nthreads_req = nthreads_req,
             λ = λT,
             real_type = T,
         )
     elseif dim == 3
         return quadrature_3d_threaded_subgrid(
-            f, a, b, N, rule, boundary;
+            f, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             nthreads_req = nthreads_req,
             λ = λT,
             real_type = T,
         )
     elseif dim == 4
         return quadrature_4d_threaded_subgrid(
-            f, a, b, N, rule, boundary;
+            f, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             nthreads_req = nthreads_req,
             λ = λT,
             real_type = T,
         )
     else
         return quadrature_nd_threaded_subgrid(
-            f, a, b, N, rule, boundary;
+            f, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary;
             dim = dim,
             nthreads_req = nthreads_req,
             λ = λT,

@@ -106,13 +106,45 @@ function quadrature_3d_threaded_subgrid(
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
     if !(a isa AbstractVector || a isa Tuple)
-        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a, b, N, rule, boundary; λ = λT, real_type = T)
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
         ys, wy = xs, wx
         zs, wz = xs, wx
     else
-        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(a[1], b[1], N, rule, boundary; λ = λT, real_type = T)
-        ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(a[2], b[2], N, rule, boundary; λ = λT, real_type = T)
-        zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(a[3], b[3], N, rule, boundary; λ = λT, real_type = T)
+        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[1], 
+            b[1], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
+        ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[2], 
+            b[2], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
+        zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            a[3], 
+            b[3], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
     end
 
     nx = length(xs)
@@ -141,7 +173,9 @@ function quadrature_3d_threaded_subgrid(
     splits = _choose_axis_splits(nthreads_eff, 3, ngrid)
     blocks = _block_ranges_from_splits(ngrid, splits)
 
-    JobLoggerTools.println_benji("Global grid: $(nx)×$(ny)×$(nz) points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))")
+    JobLoggerTools.println_benji(
+        "Global grid: $(nx)×$(ny)×$(nz) points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))"
+    )
 
     partial = zeros(T, Threads.maxthreadid())
 

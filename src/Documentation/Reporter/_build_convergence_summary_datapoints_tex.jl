@@ -10,8 +10,18 @@
 
 """
     _build_convergence_summary_datapoints_tex(
-        a, b, name, hsp, hxp, estp, errp;
-        h_power, xscale, yscale, rule, boundary
+        a, 
+        b, 
+        name, 
+        hsp, 
+        hxp, 
+        estp, 
+        errp;
+        h_power, 
+        xscale, 
+        yscale, 
+        rule, 
+        boundary
     ) -> String
 
 Construct a [``\\LaTeX``](https://www.latex-project.org/) datapoints-only convergence-summary fragment.
@@ -67,7 +77,13 @@ fitting stage.
   per-axis bounds rather than reproducing full tuple structure verbatim.
 """
 function _build_convergence_summary_datapoints_tex(
-    a, b, name, hsp, hxp, estp, errp;
+    a, 
+    b, 
+    name, 
+    hsp, 
+    hxp, 
+    estp, 
+    errp;
     h_power,
     xscale,
     yscale,

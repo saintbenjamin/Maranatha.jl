@@ -10,9 +10,22 @@
 
 """
     _build_convergence_summary_md(
-        a, b, name, hsp, hxp, estp, errp,
-        pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-        rule, boundary
+        a, 
+        b, 
+        name, 
+        hsp, 
+        hxp, 
+        estp, 
+        errp,
+        pvec, 
+        λerr, 
+        fit_powers, 
+        I0, 
+        I0_err, 
+        red, 
+        nerr_terms;
+        rule, 
+        boundary
     ) -> String
 
 Construct a Markdown convergence-summary report.
@@ -64,10 +77,23 @@ The structure mirrors the [``\\LaTeX``](https://www.latex-project.org/) version 
   sequence supplied to the fitter/reporting pipeline.
 """
 function _build_convergence_summary_md(
-    a, b, name, hsp, hxp, estp, errp,
-    pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-    rule, boundary, err_method=:refinement
-
+    a, 
+    b, 
+    name, 
+    hsp, 
+    hxp, 
+    estp, 
+    errp,
+    pvec, 
+    λerr, 
+    fit_powers,
+    I0, 
+    I0_err, 
+    red, 
+    nerr_terms;
+    rule, 
+    boundary, 
+    err_method=:refinement
 )
     io = IOBuffer()
     interval_txt = _format_interval_for_note(a, b)

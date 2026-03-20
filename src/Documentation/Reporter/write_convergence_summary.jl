@@ -10,26 +10,35 @@
 
 """
     write_convergence_summary(
-        a, b, name, hs, estimates, errors,
-        fit_terms, nerr_terms, fit_result;
-        rule, boundary, out_dir, format, save_file
+        result,
+        fit_result;
+        name::String = "Maranatha",
+        out_dir::String = ".",
+        format::Symbol = :tex,
+        save_file::Bool = true,
+        nerr_terms::Union{Nothing,Int} = nothing,
     ) -> String
 
-Generate a convergence summary report in [``\\LaTeX``](https://www.latex-project.org/) or Markdown format.
+Generate a convergence summary report in
+[``\\LaTeX``](https://www.latex-project.org/) or Markdown format directly from a
+structured quadrature result object and a fitted extrapolation result.
 
 # Function description
 
-This routine processes quadrature results at multiple resolutions,
-combines them with a fitted extrapolation model, and produces a formatted
-report summarizing:
+This routine processes quadrature results at multiple resolutions, combines
+them with a fitted extrapolation model, and produces a formatted report
+summarizing:
 
 - run configuration,
 - raw estimates and uncertainties,
 - extrapolated value,
 - fit parameters and diagnostics.
 
-Invalid or non-finite datapoints are automatically filtered before
-report generation.
+Invalid or non-finite datapoints are automatically filtered before report
+generation.
+
+It allows direct reporting from a stored or freshly computed Maranatha result
+object without manually unpacking arrays.
 
 The uncertainty inputs may come from either residual-based error estimators or
 refinement-based error estimators, as long as each error entry provides a
@@ -37,49 +46,53 @@ usable scalar uncertainty field.
 
 # Arguments
 
-- `a`, `b`: Integration domain endpoints.
+- `result`:
+  Object containing quadrature outputs and metadata, expected to expose fields
+  such as `a`, `b`, `h`, `avg`, `err`, `fit_terms`, `nerr_terms`, `rule`, and
+  `boundary`.
 
-  These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form in the generated summary.
+  The summary is generated from:
 
-- `name`: Identifier for the experiment or integrand.
-- `hs`: Scalar step sizes used in the quadrature study.
+  - `result.a`, `result.b` as the integration-domain description,
+  - `result.h` as the scalar step-size sequence,
+  - `result.avg` as the corresponding integral estimates,
+  - `result.err` as the error objects containing pointwise uncertainties,
+  - `result.rule` and `result.boundary` as reporting labels.
 
-  In rectangular-domain workflows, this is expected to be the scalarized
-  step-size sequence used for fitting / plotting / reporting, not the
-  original per-axis step tuples.
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for fitting, plotting, and reporting, while any
+  original per-axis step data remain outside this helper.
 
-- `estimates`: Corresponding integral estimates.
-- `errors`: Error objects containing pointwise uncertainties.
-
-  Each entry is expected to provide either:
-
-  - a `.total` field, as in the residual-based error-estimation workflow, or
-  - an `.estimate` field, as in the refinement-based error-estimation workflow.
-
-  The reporting routine converts each entry into a nonnegative scalar
-  uncertainty through an internal extractor.
-- `fit_terms`: Number of fit parameters used.
-- `nerr_terms`: Number of error terms in the model.
-- `fit_result`: Object containing fit outputs.
+- `fit_result`:
+  Object containing fit outputs.
 
 # Keyword arguments
 
-- `rule`: Quadrature rule (default `:gauss_p3`).
-- `boundary`: Boundary scheme (default `:LU_ININ`).
-- `out_dir`: Output directory.
-- `format`: Output format (`:tex` or `:md`).
-- `save_file`: Whether to write the file to disk.
+- `name::String = "Maranatha"`:
+  Title or identifier used in the generated summary.
+- `out_dir::String = "."`:
+  Output directory for generated files when `save_file = true`.
+- `format::Symbol = :tex`:
+  Output format (`:tex` or `:md`).
+- `save_file::Bool = true`:
+  If `true`, write the generated summary to disk.
+- `nerr_terms::Union{Nothing,Int} = nothing`:
+  Optional override for the number of error-model terms used in the summary.
+  If omitted, `result.nerr_terms` is used.
+
+  When the error estimation method is `:refinement`, this value is ignored
+  and automatically forced to `0`, since refinement-based estimates do not
+  use an explicit error-model expansion.
 
 # Returns
 
-- `String`: The generated report text.
+- `String`:
+  The generated report text.
 
 # Errors
 
-- Throws an error via [`JobLoggerTools.error_benji`](@ref) if inputs are inconsistent
-  or required fit information is missing.
+- Throws an error via [`JobLoggerTools.error_benji`](@ref) if inputs are
+  inconsistent or required fit information is missing.
 
 # Notes
 
@@ -87,43 +100,59 @@ usable scalar uncertainty field.
 - Non-finite values are excluded automatically.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
+- This wrapper is intended for convenience when working directly with the
+  result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
 - For rectangular-domain workflows, the generated summary is based on the
-  scalarized `hs` sequence supplied to this function.
+  scalarized step-size sequence `result.h` rather than the original per-axis
+  step tuples.
 """
 function write_convergence_summary(
-    a,
-    b,
-    name::String,
-    hs::Vector{Float64},
-    estimates::Vector{Float64},
-    errors::Vector,
-    fit_terms::Int,
-    nerr_terms::Int,
+    result,
     fit_result;
-    rule::Symbol = :gauss_p3,
-    boundary::Symbol = :LU_ININ,
-    err_method::Symbol = :refinement,
+    name::String = "Maranatha",
     out_dir::String = ".",
     format::Symbol = :tex,
     save_file::Bool = true,
+    nerr_terms::Union{Nothing,Int} = nothing,
 )
+    a = result.a
+    b = result.b
+    hs = Vector{Float64}(result.h)
+    estimates = Vector{Float64}(result.avg)
+    errors = result.err
+    rule = result.rule
+    boundary = result.boundary
+    err_method = result.err_method
+    fit_terms = result.fit_terms
+    nerr_terms_eff_input = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
+    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms_eff_input
+
     n = length(hs)
     if length(estimates) != n || length(errors) != n
         JobLoggerTools.error_benji("Input length mismatch.")
     end
 
-    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
-
-    hasproperty(fit_result, :powers)  || JobLoggerTools.error_benji("fit_result missing :powers")
-    hasproperty(fit_result, :params)  || JobLoggerTools.error_benji("fit_result missing :params")
-    hasproperty(fit_result, :cov)     || JobLoggerTools.error_benji("fit_result missing :cov")
-    hasproperty(fit_result, :estimate) || JobLoggerTools.error_benji("fit_result missing :estimate")
-    hasproperty(fit_result, :error_estimate) || JobLoggerTools.error_benji("fit_result missing :error_estimate")
+    hasproperty(fit_result, :powers) || JobLoggerTools.error_benji(
+        "fit_result missing :powers"
+    )
+    hasproperty(fit_result, :params) || JobLoggerTools.error_benji(
+        "fit_result missing :params"
+    )
+    hasproperty(fit_result, :cov) || JobLoggerTools.error_benji(
+        "fit_result missing :cov"
+    )
+    hasproperty(fit_result, :estimate) || JobLoggerTools.error_benji(
+        "fit_result missing :estimate"
+    )
+    hasproperty(fit_result, :error_estimate) || JobLoggerTools.error_benji(
+        "fit_result missing :error_estimate"
+    )
 
     fit_powers = fit_result.powers
-    length(fit_powers) >= 2 || JobLoggerTools.error_benji("fit_result.powers must contain at least constant and leading power")
+    length(fit_powers) >= 2 || JobLoggerTools.error_benji(
+        "fit_result.powers must contain at least constant and leading power"
+    )
 
-    # Support both residual-based (.total) and refinement-based (.estimate) error objects.
     @inline function _extract_error_total(e)
         if hasproperty(e, :total)
             return float(e.total)
@@ -147,10 +176,10 @@ function write_convergence_summary(
     estp  = estimates[mask]
     errp  = errvals[mask]
 
-    isempty(hxp) && JobLoggerTools.error_benji("No valid datapoints remain after filtering.")
+    isempty(hxp) && JobLoggerTools.error_benji(
+        "No valid datapoints remain after filtering."
+    )
 
-    # coarse -> fine ordering:
-    # larger h first, smaller h last
     perm = sortperm(hsp; rev=true)
     hsp  = hsp[perm]
     hxp  = hxp[perm]
@@ -184,9 +213,22 @@ function write_convergence_summary(
 
     if format == :tex
         text = _build_convergence_summary_tex(
-            a, b, name, hsp, hxp, estp, errp,
-            pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-            rule=rule, boundary=boundary
+            a, 
+            b, 
+            name, 
+            hsp, 
+            hxp, 
+            estp, 
+            errp,
+            pvec, 
+            λerr, 
+            fit_powers, 
+            I0, 
+            I0_err, 
+            red, 
+            nerr_terms_eff_input;
+            rule=rule, 
+            boundary=boundary
         )
         ext = "tex"
         if save_file
@@ -200,9 +242,22 @@ function write_convergence_summary(
 
     elseif format == :md
         text = _build_convergence_summary_md(
-            a, b, name, hsp, hxp, estp, errp,
-            pvec, λerr, fit_powers, I0, I0_err, red, nerr_terms;
-            rule=rule, boundary=boundary
+            a, 
+            b, 
+            name, 
+            hsp, 
+            hxp, 
+            estp, 
+            errp,
+            pvec, 
+            λerr, 
+            fit_powers, 
+            I0, 
+            I0_err, 
+            red, 
+            nerr_terms_eff_input;
+            rule=rule, 
+            boundary=boundary
         )
         ext = "md"
         if save_file
@@ -217,112 +272,4 @@ function write_convergence_summary(
     else
         JobLoggerTools.error_benji("Unsupported format=$(format). Use :tex or :md.")
     end
-end
-
-"""
-    write_convergence_summary(
-        result,
-        fit_result;
-        name, rule, boundary, out_dir, format, save_file,
-        nterms, nerr_terms
-    ) -> String
-
-Convenience wrapper for [`write_convergence_summary`](@ref) using a result object.
-
-# Function description
-
-This overload extracts required fields from a structured quadrature result
-object and forwards them to the main reporting routine.
-
-It allows direct reporting without manually unpacking the result structure.
-
-In addition to forwarding the fit metadata stored in `result`, this wrapper
-also allows the caller to override the fit-model settings used for summary
-generation via the `nterms` and `nerr_terms` keyword arguments.
-
-# Arguments
-
-- `result`: Object containing quadrature outputs and metadata.
-
-  In rectangular-domain workflows, `result.h` is expected to be the scalarized
-  step-size sequence used for fitting / plotting / reporting, while any
-  original per-axis step data remain in `result.tuple_h`.
-
-- `fit_result`: Extrapolation fit result.
-
-# Keyword arguments
-
-- `name::String = "Maranatha"`
-  : Title or identifier used in the generated summary.
-
-- `rule::Symbol = result.rule`
-  : Quadrature rule label to display in the summary.
-
-- `boundary::Symbol = result.boundary`
-  : Boundary-condition label to display in the summary.
-
-- `out_dir::String = "."`
-  : Output directory for generated files when `save_file = true`.
-
-- `format::Symbol = :tex`
-  : Output format for the generated summary.
-
-- `save_file::Bool = true`
-  : If `true`, write the generated summary to disk.
-
-- `nterms::Union{Nothing,Int} = nothing`
-  : Optional override for the number of fit terms used in the summary.
-    If `nothing`, `result.fit_terms` is used.
-
-- `nerr_terms::Union{Nothing,Int} = nothing`
-  : Optional override for the number of error-model terms used in the summary.
-    If `nothing`, `result.nerr_terms` is used.
-
-# Returns
-
-- `String`: Generated report text.
-
-# Notes
-
-- The function assumes that `result` exposes fields compatible with the main
-  reporting interface, including `a`, `b`, `h`, `avg`, `err`,
-  `fit_terms`, `nerr_terms`, `rule`, and `boundary`.
-- This wrapper is intended for convenience when working directly with the
-  result object returned by [`Maranatha.Runner.run_Maranatha`](@ref), while
-  still allowing limited report-level customization without manually
-  reconstructing the full argument list.
-- For rectangular-domain workflows, this wrapper forwards `result.h`, i.e. the
-  scalarized step-size sequence, rather than the original per-axis step tuples.
-"""
-function write_convergence_summary(
-    result,
-    fit_result;
-    name::String = "Maranatha",
-    rule::Symbol = result.rule,
-    boundary::Symbol = result.boundary,
-    out_dir::String = ".",
-    format::Symbol = :tex,
-    save_file::Bool = true,
-    nterms::Union{Nothing,Int} = nothing,
-    nerr_terms::Union{Nothing,Int} = nothing,    
-)
-    fit_nterms = isnothing(nterms) ? result.fit_terms : nterms
-    fit_nerr_terms = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
-
-    return write_convergence_summary(
-        result.a,
-        result.b,
-        name,
-        Vector{Float64}(result.h),
-        Vector{Float64}(result.avg),
-        result.err,
-        fit_nterms,
-        fit_nerr_terms,
-        fit_result;
-        rule = rule,
-        boundary = boundary,
-        out_dir = out_dir,
-        format = format,
-        save_file = save_file,
-    )
 end

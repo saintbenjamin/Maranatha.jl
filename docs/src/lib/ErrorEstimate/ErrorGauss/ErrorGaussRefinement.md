@@ -95,7 +95,8 @@ because it:
 The backend:
 
 1. validates inputs for Gauss-family rules,
-2. evaluates the quadrature at subdivision count `N`,
+2. obtains the coarse quadrature value at subdivision count `N`, either by
+   computing it internally or by reusing a caller-supplied `I_coarse`,
 3. evaluates the quadrature at subdivision count `2N`,
 4. returns a structured result containing both values and the refinement
    difference.
@@ -112,11 +113,17 @@ performed.
 Internal helper implementing the coarse-versus-refined comparison and producing
 a detailed result record, including both quadrature values and mesh sizes.
 
+When an `I_coarse` value is supplied, this helper reuses that coarse quadrature
+value instead of recomputing it.
+
 ### [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussRefinement.error_estimate_refinement_gauss`](@ref)
 
 Public entry point used by the higher-level dispatch layer. This function
-selects the appropriate dimensional specialization and forwards the request to
-the internal refinement estimator.
+validates the Gauss-family rule and boundary selector, then forwards the
+request to the internal refinement estimator.
+
+An optional `I_coarse` value may also be forwarded so an already computed
+coarse quadrature value can be reused.
 
 ---
 
@@ -151,6 +158,9 @@ Compared with residual-based estimators, the refinement approach:
 * computational cost grows as `2^d`,
 * does not provide asymptotic error coefficients,
 * produces an empirical error scale rather than a bound.
+
+When an already computed coarse quadrature value is available, the backend can
+reuse it through `I_coarse` to avoid redundant coarse-grid work.
 
 ---
 

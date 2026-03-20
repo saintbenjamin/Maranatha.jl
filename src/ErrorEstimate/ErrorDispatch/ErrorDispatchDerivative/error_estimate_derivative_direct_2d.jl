@@ -101,8 +101,8 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
 """
 function error_estimate_derivative_direct_2d(
     f,
-    a::Real,
-    b::Real,
+    a,
+    b,
     N::Int,
     rule::Symbol,
     boundary::Symbol;
@@ -116,20 +116,47 @@ function error_estimate_derivative_direct_2d(
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = convert(T, a)
-    bb = convert(T, b)
-    h  = (bb - aa) / T(N)
+    # ------------------------------------------------------------
+    # Domain handling — identical logic to quadrature_2d
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        ax = ay = convert(T, a)
+        bx = by = convert(T, b)
+    else
+        length(a) == 2 || throw(ArgumentError("length(a) must be 2"))
+        length(b) == 2 || throw(ArgumentError("length(b) must be 2"))
 
-    x̄ = (aa + bb) / T(2)
-    ȳ = (aa + bb) / T(2)
+        ax, ay = convert(T, a[1]), convert(T, a[2])
+        bx, by = convert(T, b[1]), convert(T, b[2])
+    end
+
+    hx = (bx - ax) / T(N)
+    hy = (by - ay) / T(N)
+
+    x̄ = (ax + bx) / T(2)
+    ȳ = (ay + by) / T(2)
 
     xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        aa, bb, N, rule, boundary;
+        ax, 
+        bx, 
+        N, 
+        rule, 
+        boundary;
+        real_type = T,
+    )
+    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        ay, 
+        by, 
+        N, 
+        rule, 
+        boundary;
         real_type = T,
     )
 
     ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, boundary, N;
+        rule, 
+        boundary, 
+        N;
         nterms = nerr_terms,
         kmax   = kmax
     )
@@ -154,12 +181,16 @@ function error_estimate_derivative_direct_2d(
 
         coeff = coeffs[it]
 
+        # ------------------------------------------------------------
+        # X-direction derivatives integrated over Y
+        # ------------------------------------------------------------
         I1 = zero(T)
-        for j in eachindex(xs)
-            y = xs[j]
+        for j in eachindex(ys)
+            y = ys[j]
             gx(x) = f(x, y)
 
-            I1 += wx[j] * convert(T,
+            I1 += wy[j] * convert(
+                T,
                 AutoDerivativeDirect.nth_derivative(
                     deriv_fun,
                     backend_tag,
@@ -170,12 +201,16 @@ function error_estimate_derivative_direct_2d(
             )
         end
 
+        # ------------------------------------------------------------
+        # Y-direction derivatives integrated over X
+        # ------------------------------------------------------------
         I2 = zero(T)
         for i in eachindex(xs)
             x = xs[i]
             gy(y) = f(x, y)
 
-            I2 += wx[i] * convert(T,
+            I2 += wx[i] * convert(
+                T,
                 AutoDerivativeDirect.nth_derivative(
                     deriv_fun,
                     backend_tag,
@@ -187,7 +222,7 @@ function error_estimate_derivative_direct_2d(
         end
 
         derivatives[it] = I1 + I2
-        terms[it] = coeff * h^(k + 1) * derivatives[it]
+        terms[it] = coeff * (hx + hy)^(k + 1) * derivatives[it]
     end
 
     return (;
@@ -197,6 +232,6 @@ function error_estimate_derivative_direct_2d(
         terms       = terms,
         total       = sum(terms),
         center      = (x̄, ȳ),
-        h           = h
+        h           = (hx, hy)
     )
 end

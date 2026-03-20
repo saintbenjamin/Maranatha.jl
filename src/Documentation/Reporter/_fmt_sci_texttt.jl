@@ -9,7 +9,9 @@
 # ============================================================================
 
 """
-    _fmt_sci_texttt(x::Real) -> String
+    _fmt_sci_texttt(
+        x::Real
+    ) -> String
 
 Format a real number in fixed scientific notation.
 
@@ -41,6 +43,8 @@ where a consistent machine-readable numeric format is required.
 - The output does **not** include any [``\\LaTeX``](https://www.latex-project.org/) or Markdown markup.
 - Intended for internal use by higher-level formatting helpers.
 """
-function _fmt_sci_texttt(x::Real)
+function _fmt_sci_texttt(
+    x::Real
+)
     return @sprintf("%.6e", float(x))
 end

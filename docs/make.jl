@@ -117,6 +117,7 @@ makedocs(
             "Documentation"                         => "lib/Documentation/Documentation.md",
             "PlotTools"                             => "lib/Documentation/PlotTools.md",
             "Reporter"                              => "lib/Documentation/Reporter.md",
+            "DocUtils"                              => "lib/Documentation/DocUtils.md",
         ],
         "Utils"                                     => Any[
             "Utils"                                 => "lib/Utils/Utils.md",

@@ -129,8 +129,11 @@ This is the primary backend entry point.
 
 It:
 
-1. computes the composite Newton-Cotes estimate at resolution `N`,
-2. computes the estimate at resolution `2N`,
+1. obtains the coarse composite Newton-Cotes estimate at resolution `N`,
+   either by computing it internally or by reusing a caller-supplied
+   `I_coarse`,
+2. computes the refined estimate at a boundary-compatible refined subdivision
+   count,
 3. forms the difference between the two,
 4. packages the result into an error-estimate object compatible with the
    higher-level dispatch layer.
@@ -168,6 +171,9 @@ Compared with the exact residual backend, the refinement approach:
 * computational cost grows exponentially with dimension,
 * does not expose the formal error order,
 * may underestimate error when convergence is irregular.
+
+When an already computed coarse quadrature value is available, the backend can
+reuse it through `I_coarse` to avoid redundant coarse-grid work.
 
 ---
 

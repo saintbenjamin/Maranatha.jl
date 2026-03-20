@@ -96,7 +96,11 @@ For scalar domains, the step size is the usual scalar quantity
 ``\\displaystyle{h = \\frac{b-a}{N}}``.
 
 For axis-wise domains, the per-axis step size is constructed componentwise,
-and both the axis-wise step tuple/vector and its scalar L2 norm are recorded.
+and the original step object is always recorded in `tuple_h`.
+
+If the axis-wise step is tuple-valued, the companion `h` entry stores its
+scalar L2 norm. If the axis-wise step is vector-valued, the current
+implementation preserves that vector in `h` as well.
 
 The collected results are returned as a single `NamedTuple` and can also be
 written to disk for later reuse.
@@ -213,16 +217,19 @@ The `err` field may therefore contain either derivative-based error objects
 or refinement-based error objects, depending on `err_method`.
 Important fields include:
 
-* `a`, `b`: integration bounds (stored in the selected `real_type`),
-* `h`: scalar step-size proxy used downstream; for axis-wise domains this is the
-  L2 norm of the per-axis step tuple/vector,
-* `tuple_h`: original step size at each resolution; this is scalar for hypercube
-  domains and axis-wise for rectangular domains,
+* `a`, `b`: integration bounds converted to the selected computation type `T`,
+* `nsamples`: subdivision counts actually used to build the dataset,
+* `tuple_h`: original step object stored at each resolution,
+* `h`: downstream step proxy; for scalar domains this is the scalar step size,
+  for tuple-based axis-wise domains this is the L2 norm of the per-axis step
+  tuple, and for vector-based axis-wise domains the current implementation
+  preserves the step vector itself,
 * `avg`: quadrature estimates,
 * `err`: error-estimator outputs,
 * `rule`, `boundary`, `dim`, `err_method`: execution metadata,
 * `nerr_terms`, `fit_terms`, `ff_shift`, `use_error_jet`,
-  `use_cuda`, `real_type`: downstream configuration hints.
+  `use_cuda`: downstream configuration hints,
+* `real_type`: string form of the computation type used for the run.
 
 # Saving behavior
 
@@ -252,10 +259,11 @@ If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is writt
   and are selected through `err_method`.
   All backend selection is handled internally by
   [`ErrorDispatch.error_estimate`](@ref).
-* For rectangular axis-wise domains, this routine stores both the original per-axis
-  step information (`tuple_h`) and the scalarized L2 step measure (`h`), so that
-  downstream fitting and plotting code can continue to operate on a single scalar
-  resolution parameter.
+* For axis-wise domains, this routine always stores the original per-axis step
+  information in `tuple_h`.
+  When the step object is tuple-valued, `h` stores its scalarized L2 measure;
+  when the step object is vector-valued, the current implementation preserves
+  that vector in `h`.
 
 # Examples
 
@@ -263,19 +271,20 @@ Direct function call:
 
 ```julia
 using Maranatha
+using DoubleFloats
 
 f(x) = sin(x)
 
 run_result = run_Maranatha(
     f,
-    0.0,
-    pi;
+    Double64(0.0),
+    Double64(pi);
     dim = 1,
     nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
     rule = :gauss_p4,
     boundary = :LU_EXEX,
     err_method = :refinement,
-    real_type = Float64,
+    real_type = Double64,
 )
 ```
 
@@ -314,6 +323,7 @@ Configuration-file workflow:
 
 ```julia
 using Maranatha
+using Double64
 
 run_result = run_Maranatha("./sample_1d.toml")
 ```
@@ -428,6 +438,7 @@ function run_Maranatha(
             use_error_jet = use_error_jet,
             threaded_subgrid = threaded_subgrid,
             real_type = T,
+            I_coarse = I,
         )
 
         push!(estimates, I)
@@ -437,6 +448,7 @@ function run_Maranatha(
     result = (;
         a             = aT,
         b             = bT,
+        nsamples      = nsamples,
         h             = hs_l2,
         tuple_h       = hs,
         avg           = estimates,
@@ -549,20 +561,20 @@ function run_Maranatha(
         integrand,
         cfg.a, # aT,
         cfg.b; # bT;
-        dim             = cfg.dim,
-        nsamples        = cfg.nsamples,
-        rule            = cfg.rule,
-        boundary        = cfg.boundary,
-        err_method      = cfg.err_method,
-        fit_terms       = cfg.fit_terms,
-        nerr_terms      = cfg.nerr_terms,
-        ff_shift        = cfg.ff_shift,
-        use_error_jet   = cfg.use_error_jet,
-        name_prefix     = cfg.name_prefix,
-        save_path       = cfg.save_path,
-        write_summary   = cfg.write_summary,
-        use_cuda        = cfg.use_cuda,
-        real_type       = T,
+        dim           = cfg.dim,
+        nsamples      = cfg.nsamples,
+        rule          = cfg.rule,
+        boundary      = cfg.boundary,
+        err_method    = cfg.err_method,
+        fit_terms     = cfg.fit_terms,
+        nerr_terms    = cfg.nerr_terms,
+        ff_shift      = cfg.ff_shift,
+        use_error_jet = cfg.use_error_jet,
+        name_prefix   = cfg.name_prefix,
+        save_path     = cfg.save_path,
+        write_summary = cfg.write_summary,
+        use_cuda      = cfg.use_cuda,
+        real_type     = T,
     )
 end
 

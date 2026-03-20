@@ -22,143 +22,46 @@ import ..Quadrature.BSpline
 import ..ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative
 
 """
-    _extract_sigma_from_error_info(
-        e;
-        nerr_terms::Int = 1,
-    ) -> Real
-
-Extract an effective scalar uncertainty `σ` from an error-estimator result
-object.
-
-# Function description
-This helper converts a backend-specific error-estimation result into the single
-effective uncertainty value used by the weighted least-``\\chi^2`` fitter.
-
-It supports two currently used error-info layouts:
-
-- residual-based estimators exposing a `:terms` field, where the effective
-  uncertainty is formed from the sum of the first `nerr_terms` entries, and
-- refinement-based estimators exposing an `:estimate` field, where that value
-  is used directly.
-
-In both cases, the returned value is wrapped in `abs(...)` so that the fitter
-always receives a nonnegative uncertainty scale.
-
-# Arguments
-- `e`:
-  Error-estimator result object, typically one entry of `result.err` returned by
-  [`Maranatha.Runner.run_Maranatha`](@ref).
-
-# Keyword arguments
-- `nerr_terms::Int = 1`:
-  Number of leading residual terms to combine when `e` exposes a `:terms` field.
-
-# Returns
-- `Real`:
-  Effective scalar uncertainty used in weighted least squares.
-
-# Errors
-- Throws (via `JobLoggerTools.error_benji`) if `e` has neither a `:terms` field
-  nor an `:estimate` field.
-
-# Notes
-- For residual-based estimators, this helper uses
-  `abs(sum(terms[1:m]))` with `m = min(nerr_terms, length(terms))`.
-- For refinement-based estimators, this helper uses `abs(e.estimate)`.
-- This function does not itself check whether the returned value is finite or
-  strictly positive; that validation is performed later by
-  [`least_chi_square_fit`](@ref).
-"""
-@inline function _extract_sigma_from_error_info(
-    e;
-    nerr_terms::Int = 1,
-)
-    if hasproperty(e, :terms)
-        terms = e.terms
-        m = min(nerr_terms, length(terms))
-        return abs(sum(@view terms[1:m]))
-    elseif hasproperty(e, :estimate)
-        return abs(e.estimate)
-    else
-        JobLoggerTools.error_benji(
-            "Unsupported error-info structure in least_chi_square_fit. " *
-            "Expected either :terms or :estimate field."
-        )
-    end
-end
-
-"""
     least_chi_square_fit(
-        a,
-        b,
-        hs,
-        estimates,
-        error_infos,
-        rule::Symbol,
-        boundary::Symbol;
-        nterms::Int = 2,
-        ff_shift::Int = 0,
-        nerr_terms::Int = 1,
+        result;
+        nterms::Int = result.fit_terms,
+        ff_shift::Int = result.ff_shift,
+        nerr_terms::Int = result.nerr_terms,
     )
 
-Perform a weighted least-``\\chi^2`` fit for ``h \\to 0`` extrapolation from a raw
-convergence dataset.
+Perform a weighted least-``\\chi^2`` fit for ``h \\to 0`` extrapolation directly
+from a [`Maranatha.Runner.run_Maranatha`](@ref) result object.
 
 This is typically the second stage of a standard `Maranatha.jl` workflow:
 generate a dataset with [`Maranatha.Runner.run_Maranatha`](@ref), fit the convergence
 model with `least_chi_square_fit`, and optionally visualize the result with
 [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref).
 
-The uncertainty model used in the weighted fit is extracted from `error_infos`,
+The uncertainty model used in the weighted fit is extracted from `result.err`,
 which may come either from residual-based estimators (typically exposing
 multiple `:terms`) or from refinement-based estimators (typically exposing a
 single `:estimate` field).
 
 # Arguments
 
-* `a`, `b`:
-  Integration bounds used to infer a representative subdivision count from the
-  largest step size in `hs`.
+* `result`:
+  Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
 
-  Two domain conventions are supported:
+  The fitter operates on the scalar step-size sequence `result.h`, the
+  corresponding estimates `result.avg`, and the error objects `result.err`.
+  The rule configuration is taken from `result.rule` and `result.boundary`.
 
-  - **Scalar bounds**:
-    if `a` and `b` are real scalars, the fitter interprets the domain as an
-    isotropic interval product and uses `abs(b - a)` as the representative span.
-
-  - **Axis-wise bounds**:
-    if `a` and `b` are tuples, the fitter uses `maximum(abs.(b .- a))` as a
-    scalar representative span when reconstructing `Nref` for residual-power
-    inference.
-* `hs`:
-  Step-size collection.
-
-  This is expected to be the scalar step-size proxy used by downstream fitting.
-  In rectangular-domain workflows, this is typically the L2 norm of the
-  per-axis step tuple produced by [`Maranatha.Runner.run_Maranatha`](@ref).
-* `estimates`:
-  Quadrature estimates corresponding to `hs`.
-* `error_infos`:
-  Error-estimator outputs, typically `result.err` from
-  [`Maranatha.Runner.run_Maranatha`](@ref).
-
-  These may come from either:
-
-  - residual-based estimators, which usually provide a `:terms` field, or
-  - refinement-based estimators, which usually provide an `:estimate` field.
-
-  The fitter converts each entry into an effective scalar uncertainty through
-  [`_extract_sigma_from_error_info`](@ref).
-* `rule`, `boundary`:
-  Rule configuration used to infer the fit powers.
+  A representative subdivision count `Nref` is obtained directly from
+  `result.nsamples` (using its minimum value), rather than being inferred
+  geometrically from the integration bounds.
 
 # Keyword arguments
 
-* `nterms::Int = 2`:
+* `nterms::Int = result.fit_terms`:
   Number of fit terms, including the constant extrapolated term.
-* `ff_shift::Int = 0`:
+* `ff_shift::Int = result.ff_shift`:
   Forward shift applied when selecting fit powers from the residual-power list.
-* `nerr_terms::Int = 1`:
+* `nerr_terms::Int = result.nerr_terms`:
   Number of residual contributions summed to construct the effective uncertainty vector.
 
 # Returns
@@ -175,31 +78,35 @@ selected powers, and ``\\chi^2`` diagnostics.
 * The effective uncertainty vector `σ` is constructed from backend-specific
   error-info objects through [`_extract_sigma_from_error_info`](@ref), allowing
   both residual-based and refinement-based estimators to feed the same fitter.
-* For rectangular axis-wise domains, the fit itself still operates on the scalar
-  `hs` sequence supplied by the caller; it does not directly fit vector-valued
-  step sizes.
-
-For a fuller explanation of exponent selection, covariance construction, and workflow
-examples, see the `Maranatha.LeastChiSquareFit` documentation page.
+* The fit operates on the scalar step-size sequence stored in `result.h`.
+* For a fuller explanation of exponent selection, covariance construction, and workflow
+  examples, see the `Maranatha.LeastChiSquareFit` documentation page.
 """
 function least_chi_square_fit(
-    a,
-    b,
-    hs,
-    estimates,
-    error_infos,
-    rule::Symbol,
-    boundary::Symbol;
-    nterms::Int = 2,
-    ff_shift::Int = 0,
-    nerr_terms::Int = 1
+    result;
+    nterms::Int = result.fit_terms,
+    ff_shift::Int = result.ff_shift,
+    nerr_terms::Int = result.nerr_terms
 )
-    Δ = b isa Tuple ? maximum(abs.(b .- a)) : abs(b - a)
-    hmax = maximum(float.(hs))
-    Nref = round(Int, Δ / hmax)
+    hs = result.h
+    estimates = result.avg
+    error_infos = result.err
+    rule = result.rule
+    boundary = result.boundary
+
+    Nref = minimum(result.nsamples)
+
+    if NewtonCotes._is_newton_cotes_rule(rule)
+        p = NewtonCotes._parse_newton_p(rule)
+        Nref = NewtonCotes._nearest_valid_Nsub(p, boundary, Nref)
+    end
 
     ks, _center = ErrorDispatchDerivative._leading_residual_ks_with_center_any(
-        rule, boundary, Nref; nterms = nterms, kmax = 256
+        rule,
+        boundary,
+        Nref;
+        nterms = nterms,
+        kmax = 256
     )
 
     powers_all = if NewtonCotes._is_newton_cotes_rule(rule)
@@ -209,14 +116,20 @@ function least_chi_square_fit(
     elseif BSpline._is_bspline_rule(rule)
         ks
     else
-        JobLoggerTools.error_benji("Unsupported rule family for fit-power mapping: rule=$rule")
+        JobLoggerTools.error_benji(
+            "Unsupported rule family for fit-power mapping: rule=$rule"
+        )
     end
 
     powers_all = unique(sort(powers_all))
     powers_all = [p for p in powers_all if p > 0]
 
-    (nterms >= 2)   || JobLoggerTools.error_benji("nterms must be >= 2 (got $nterms)")
-    (ff_shift >= 0) || JobLoggerTools.error_benji("ff_shift must be ≥ 0 (got $ff_shift)")
+    (nterms >= 2)   || JobLoggerTools.error_benji(
+        "nterms must be >= 2 (got $nterms)"
+    )
+    (ff_shift >= 0) || JobLoggerTools.error_benji(
+        "ff_shift must be ≥ 0 (got $ff_shift)"
+    )
 
     need  = nterms - 1
     start = 1 + ff_shift
@@ -310,66 +223,71 @@ function least_chi_square_fit(
     )
 end
 
+
 """
-    least_chi_square_fit(
-        result;
-        nterms::Union{Nothing,Int} = nothing,
-        ff_shift::Union{Nothing,Int} = nothing,
-        nerr_terms::Union{Nothing,Int} = nothing,
-    )
+    _extract_sigma_from_error_info(
+        e;
+        nerr_terms::Int = 1,
+    ) -> Real
 
-Run [`least_chi_square_fit`](@ref) directly from a [`Maranatha.Runner.run_Maranatha`](@ref) result object.
+Extract an effective scalar uncertainty `σ` from an error-estimator result
+object.
 
-If a keyword argument is omitted, the corresponding value stored in `result`
-is reused.
+# Function description
+This helper converts a backend-specific error-estimation result into the single
+effective uncertainty value used by the weighted least-``\\chi^2`` fitter.
 
-This wrapper supports both isotropic and rectangular-domain `run_Maranatha`
-results. In rectangular-domain workflows, it uses `result.h`, which is the
-scalarized step-size sequence stored for downstream fitting, rather than the
-per-axis step tuples in `result.tuple_h`.
+It supports two currently used error-info layouts:
+
+- residual-based estimators exposing a `:terms` field, where the effective
+  uncertainty is formed from the sum of the first `nerr_terms` entries, and
+- refinement-based estimators exposing an `:estimate` field, where that value
+  is used directly.
+
+In both cases, the returned value is wrapped in `abs(...)` so that the fitter
+always receives a nonnegative uncertainty scale.
 
 # Arguments
-
-* `result`:
-  Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
+- `e`:
+  Error-estimator result object, typically one entry of `result.err` returned by
+  [`Maranatha.Runner.run_Maranatha`](@ref).
 
 # Keyword arguments
-
-* `nterms`:
-  Number of fit terms. Defaults to `result.fit_terms`.
-* `ff_shift`:
-  Forward shift used for fit-power selection. Defaults to `result.ff_shift`.
-* `nerr_terms`:
-  Number of residual terms used to build the effective uncertainty vector.
-  Defaults to `result.nerr_terms`.
+- `nerr_terms::Int = 1`:
+  Number of leading residual terms to combine when `e` exposes a `:terms` field.
 
 # Returns
+- `Real`:
+  Effective scalar uncertainty used in weighted least squares.
 
-The same fit-result `NamedTuple` returned by the main
-[`least_chi_square_fit`](@ref) method.
+# Errors
+- Throws (via `JobLoggerTools.error_benji`) if `e` has neither a `:terms` field
+  nor an `:estimate` field.
+
+# Notes
+- For residual-based estimators, this helper uses
+  `abs(sum(terms[1:m]))` with `m = min(nerr_terms, length(terms))`.
+- For refinement-based estimators, this helper uses `abs(e.estimate)`.
+- This function does not itself check whether the returned value is finite or
+  strictly positive; that validation is performed later by
+  [`least_chi_square_fit`](@ref).
 """
-function least_chi_square_fit(
-    result;
-    nterms::Union{Nothing,Int} = nothing,
-    ff_shift::Union{Nothing,Int} = nothing,
-    nerr_terms::Union{Nothing,Int} = nothing,
+@inline function _extract_sigma_from_error_info(
+    e;
+    nerr_terms::Int = 1,
 )
-    fit_nterms     = isnothing(nterms)     ? result.fit_terms  : nterms
-    fit_ff_shift   = isnothing(ff_shift)   ? result.ff_shift   : ff_shift
-    fit_nerr_terms = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
-
-    return least_chi_square_fit(
-        result.a,
-        result.b,
-        result.h,
-        result.avg,
-        result.err,
-        result.rule,
-        result.boundary;
-        nterms     = fit_nterms,
-        ff_shift   = fit_ff_shift,
-        nerr_terms = fit_nerr_terms,
-    )
+    if hasproperty(e, :terms)
+        terms = e.terms
+        m = min(nerr_terms, length(terms))
+        return abs(sum(@view terms[1:m]))
+    elseif hasproperty(e, :estimate)
+        return abs(e.estimate)
+    else
+        JobLoggerTools.error_benji(
+            "Unsupported error-info structure in least_chi_square_fit. " *
+            "Expected either :terms or :estimate field."
+        )
+    end
 end
 
 """

@@ -9,90 +9,42 @@
 # ============================================================================
 
 """
-    _split_report_name(
-        name::AbstractString
-    ) -> Tuple{String, String}
-
-Split a user-facing report name into a display name and a filesystem-safe base
-name.
-
-# Function description
-This helper normalizes a report identifier for two separate uses:
-
-- `display_name`: the original input converted to `String`, preserved for
-  human-facing display contexts, and
-- `file_name`: the basename of the input path with any trailing `.jld2`
-  suffix removed, intended for output filename construction.
-
-This is useful when plotting or reporting functions accept either a plain name
-or a path-like string and need a clean filename stem for saved artifacts.
-
-# Arguments
-- `name::AbstractString`:
-  Report name or path-like string.
-
-# Returns
-- `Tuple{String, String}`:
-  A pair `(display_name, file_name)`.
-
-# Notes
-- `display_name` preserves the full input string content.
-- `file_name` is derived from `basename(String(name))`.
-- Only a trailing `.jld2` suffix is stripped.
-"""
-function _split_report_name(name::AbstractString)
-    display_name = String(name)
-    file_name = replace(basename(String(name)), r"\.jld2$" => "")
-    return display_name, file_name
-end
-
-"""
     plot_datapoints_result(
-        name::String,
-        hs::AbstractVector{<:Real},
-        estimates::AbstractVector{<:Real},
-        errors::Vector;
+        result;
+        name::String = "Maranatha",
         h_power::Real = 1,
         xscale::Symbol = :linear,
         yscale::Symbol = :linear,
-        rule::Symbol = :gauss_p3,
-        boundary::Symbol = :LU_ININ,
         figs_dir::String = ".",
         save_file::Bool = false,
     ) -> Nothing
 
-Plot raw convergence datapoints without a fitted model, for pre-fit inspection of
-alignment, scaling, and possible oscillatory behavior.
+Plot raw convergence datapoints directly from a
+[`Maranatha.Runner.run_Maranatha`](@ref) result object, without a fitted model,
+for pre-fit inspection of alignment, scaling, and possible oscillatory behavior.
 
 # Arguments
-- `name::String`:
-  Basename used for output filenames.
-- `hs::AbstractVector{<:Real}`:
-  Scalar step-size sequence used to define the horizontal coordinate.
+- `result`:
+  Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
 
-  In rectangular-domain workflows, this is expected to be the scalarized
+  The plotting routine uses:
+
+  - `result.h` as the scalar step-size sequence,
+  - `result.avg` as the raw quadrature estimates,
+  - `result.err` as the error-information objects used for plotting error bars,
+  - `result.rule` and `result.boundary` as labels for output naming.
+
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
   step-size proxy stored for downstream plotting, rather than the original
   per-axis step tuples.
-- `estimates::AbstractVector{<:Real}`:
-  Raw quadrature estimates.
-- `errors::Vector`:
-  Collection of error-information objects used for plotting error bars.
-
-  Each entry is expected to provide either:
-
-  - a `.total` field, as in the residual-based error-estimation workflow, or
-  - an `.estimate` field, as in the refinement-based error-estimation workflow.
-
-  The plotting routine converts each entry into a nonnegative scalar plotting
-  uncertainty through an internal extractor.
 
 # Keyword arguments
+- `name::String = "Maranatha"`:
+  Basename used for output filenames.
 - `h_power::Real = 1`:
   Power `p` used to construct the horizontal coordinate `x = h^p`.
 - `xscale::Symbol = :linear`, `yscale::Symbol = :linear`:
   Axis scaling options. Supported values are `:linear` and `:log`.
-- `rule::Symbol = :gauss_p3`, `boundary::Symbol = :LU_ININ`:
-  Labels used in output filenames.
 - `figs_dir::String = "."`:
   Output directory for saved figures.
 - `save_file::Bool = false`:
@@ -110,25 +62,25 @@ alignment, scaling, and possible oscillatory behavior.
 
 # Notes
 - This routine is intended as a diagnostic plotter before fitting.
-- A convenience wrapper `plot_datapoints_result(result; ...)` is also provided.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
-- For rectangular-domain runs, the plotting logic still operates on the scalar
-  `hs` sequence supplied by the caller.
+- The plotting logic operates on the scalar step-size sequence `result.h`.
 """
 function plot_datapoints_result(
-    name::String,
-    hs::AbstractVector{<:Real},
-    estimates::AbstractVector{<:Real},
-    errors::Vector;
+    result;
+    name::String = "Maranatha",
     h_power::Real = 1,
     xscale::Symbol = :linear,
     yscale::Symbol = :linear,
-    rule::Symbol = :gauss_p3,
-    boundary::Symbol = :LU_ININ,
     figs_dir::String = ".",
     save_file::Bool = false,
 )
+    hs = result.h
+    estimates = result.avg
+    errors = result.err
+    rule = result.rule
+    boundary = result.boundary
+
     n = length(hs)
     length(estimates) == n || JobLoggerTools.error_benji(
         "Input length mismatch: length(estimates) != length(hs)"
@@ -225,7 +177,7 @@ function plot_datapoints_result(
 
     display(fig)
 
-    display_name, file_name = _split_report_name(name)
+    display_name, file_name = DocUtils._split_report_name(name)
 
     basename = "$(file_name)_$(String(rule))_$(String(boundary))_datapoints_hpow_$(h_power)_$(xscale)_$(yscale)"
     resfile  = joinpath(figs_dir, "$basename.pdf")
@@ -244,76 +196,4 @@ function plot_datapoints_result(
     PyPlot.close(fig)
 
     return nothing
-end
-
-"""
-    plot_datapoints_result(
-        result;
-        name::String = "Maranatha",
-        h_power::Real = 1,
-        xscale::Symbol = :linear,
-        yscale::Symbol = :linear,
-        rule::Symbol = result.rule,
-        boundary::Symbol = result.boundary,
-        figs_dir::String = ".",
-        save_file::Bool = false,
-    ) -> Nothing
-
-Convenience wrapper that extracts raw datapoints from a Maranatha run result and
-forwards them to the primary `plot_datapoints_result` method.
-
-# Arguments
-- `result`:
-  Result object returned by `run_Maranatha`.
-
-# Keyword arguments
-- `name::String = "Maranatha"`:
-  Basename used for output filenames.
-- `h_power::Real = 1`:
-  Power used to construct the horizontal coordinate.
-- `xscale::Symbol = :linear`, `yscale::Symbol = :linear`:
-  Axis scaling options forwarded to the primary method.
-- `rule::Symbol = result.rule`, `boundary::Symbol = result.boundary`:
-  Labels forwarded to the primary method.
-- `figs_dir::String = "."`:
-  Output directory for saved figures.
-- `save_file::Bool = false`:
-  If `true`, save the generated figure.
-
-# Returns
-- `Nothing`.
-
-# Errors
-- Propagates all validation and plotting errors from the primary method.
-
-# Notes
-- This wrapper uses `result.h` as the plotting x-axis sequence.
-- In rectangular-domain workflows, `result.h` is the scalarized step-size
-  sequence stored for downstream plotting, while `result.tuple_h` retains the
-  original per-axis step information.
-"""
-function plot_datapoints_result(
-    result;
-    name::String = "Maranatha",
-    h_power::Real = 1,
-    xscale::Symbol = :linear,
-    yscale::Symbol = :linear,
-    rule::Symbol = result.rule,
-    boundary::Symbol = result.boundary,
-    figs_dir::String = ".",
-    save_file::Bool = false,
-)
-    return plot_datapoints_result(
-        name,
-        result.h,
-        result.avg,
-        result.err;
-        h_power = h_power,
-        xscale = xscale,
-        yscale = yscale,
-        rule = rule,
-        boundary = boundary,
-        figs_dir = figs_dir,
-        save_file = save_file,
-    )
 end

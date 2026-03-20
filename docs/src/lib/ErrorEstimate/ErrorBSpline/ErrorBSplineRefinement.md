@@ -13,6 +13,10 @@ resolutions.
 Like the main B-spline residual backend, computations are performed in
 floating-point arithmetic.
 
+When an already computed coarse quadrature value is available, the refinement
+backend can also reuse it through `I_coarse` instead of recomputing the coarse
+grid evaluation.
+
 ---
 
 ## Refinement model
@@ -101,7 +105,9 @@ rules in practical workloads.
 
 ### Refined quadrature construction
 
-The backend rebuilds the spline quadrature on a refined grid while preserving:
+The backend obtains the coarse quadrature value at subdivision count `N`,
+either by computing it internally or by reusing a caller-supplied `I_coarse`,
+and rebuilds the spline quadrature on a refined grid while preserving:
 
 * rule type,
 * spline degree,
@@ -112,6 +118,9 @@ The backend rebuilds the spline quadrature on a refined grid while preserving:
 
 The main output is a scalar error indicator derived from the difference between
 coarse and refined quadrature values.
+
+When `I_coarse` is supplied, only the refined-grid quadrature value needs to be
+newly evaluated inside this backend.
 
 ---
 

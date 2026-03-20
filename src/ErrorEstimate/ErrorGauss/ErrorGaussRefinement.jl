@@ -226,6 +226,7 @@ end
         boundary::Symbol;
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Estimate the Gauss-family quadrature error by comparing coarse and refined
@@ -235,7 +236,8 @@ quadrature evaluations.
 This internal helper implements the refinement-difference error estimator for
 Gauss-family quadrature rules. It computes
 
-- a coarse quadrature value using `N` subdivisions, and
+- a coarse quadrature value at subdivision count `N`, either by evaluating it
+  internally or by reusing the externally supplied `I_coarse`, and
 - a refined quadrature value using `2N` subdivisions,
 
 then forms the refinement difference
@@ -286,6 +288,9 @@ and both quadrature evaluations.
 * `real_type = nothing`:
   Optional scalar type used internally for bound conversion, mesh sizes,
   and quadrature evaluation.
+* `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value. If provided, the helper reuses
+  it instead of recomputing the coarse Gauss quadrature value.
 
 # Returns
 
@@ -299,7 +304,7 @@ and both quadrature evaluations.
   * `dim`         : dimensionality
   * `h_coarse`    : coarse mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
   * `h_fine`      : refined mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
-  * `q_coarse`    : coarse quadrature value
+  * `q_coarse`    : coarse quadrature value, either reused from `I_coarse` or computed internally
   * `q_fine`      : refined quadrature value
   * `estimate`    : absolute refinement difference
   * `signed_diff` : signed refinement difference
@@ -317,6 +322,8 @@ and both quadrature evaluations.
 * This estimator does not use derivatives, jets, or residual moments.
 * The returned `estimate` is currently `abs(q_fine - q_coarse)` without an
   additional Richardson-style normalization factor.
+* The optional `I_coarse` keyword is intended to avoid redundant coarse
+  quadrature work when the caller has already computed that value.
 """
 function _estimate_by_refinement_gauss(
     f,
@@ -328,6 +335,7 @@ function _estimate_by_refinement_gauss(
     boundary::Symbol;
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = if !isnothing(real_type)
         real_type
@@ -355,17 +363,19 @@ function _estimate_by_refinement_gauss(
         h_fine   = (bb - aa) / T(2N)
     end
 
-    q_coarse = _quadrature_value_gauss(
-        f,
-        aa,
-        bb,
-        N,
-        dim,
-        rule,
-        boundary;
-        threaded_subgrid = threaded_subgrid,
-        real_type = T,
-    )
+    q_coarse = isnothing(I_coarse) ?
+        _quadrature_value_gauss(
+            f,
+            aa,
+            bb,
+            N,
+            dim,
+            rule,
+            boundary;
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
+        ) :
+        I_coarse
 
     q_fine = _quadrature_value_gauss(
         f,
@@ -409,6 +419,7 @@ end
         boundary;
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Unified public dispatcher for Gauss-family refinement-based error estimation.
@@ -456,6 +467,9 @@ The routine validates the rule family and boundary selector, then dispatches to
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and refinement
   evaluation.
+- `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value forwarded to
+  [`_estimate_by_refinement_gauss`](@ref).
 
 # Returns
 - The named tuple produced by the selected refinement estimator.
@@ -471,6 +485,8 @@ The routine validates the rule family and boundary selector, then dispatches to
 - This dispatcher is intended for refinement-based error estimation only.
 - Unlike the derivative-based error estimators, this interface does not depend
   on derivative backends or jet construction.
+- The optional `I_coarse` keyword exists to let callers reuse an already
+  computed coarse quadrature value.
 """
 function error_estimate_refinement_gauss(
     f,
@@ -482,6 +498,7 @@ function error_estimate_refinement_gauss(
     boundary;
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     _require_gauss_rule(rule)
     QuadratureUtils._decode_boundary(boundary)
@@ -496,6 +513,7 @@ function error_estimate_refinement_gauss(
         boundary;
         threaded_subgrid = threaded_subgrid,
         real_type = real_type,
+        I_coarse = I_coarse,
     )
 end
 

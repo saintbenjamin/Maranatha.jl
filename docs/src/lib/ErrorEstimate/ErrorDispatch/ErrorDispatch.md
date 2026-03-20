@@ -17,7 +17,8 @@ stable interface that automatically selects the correct backend based on:
 - boundary configuration,
 - requested estimation method,
 - derivative backend policy,
-- problem dimension.
+- problem dimension,
+- shared refinement keywords such as `real_type` and optional `I_coarse`.
 
 This design isolates user-facing workflows from low-level implementation
 details.
@@ -50,7 +51,8 @@ Uses direct comparison between coarse and refined quadrature evaluations.
 
 Typical workflow:
 
-1. Evaluate the rule at subdivision count `N`.
+1. Obtain the coarse quadrature value at subdivision count `N`, either by
+   computing it internally or by reusing a caller-supplied `I_coarse`.
 2. Re-evaluate at a refined count (e.g., `2N`).
 3. Use the difference as a practical error estimate.
 
@@ -66,6 +68,8 @@ expensive or non-smooth integrands.
 - selecting the correct rule-family backend  
   (Newton–Cotes, Gauss, B-spline, etc.),
 - coordinating derivative evaluation policies,
+- forwarding shared refinement keywords such as `λ`, `real_type`, and optional
+  `I_coarse`,
 - handling dimension-specific versus generic implementations,
 - managing shared caches used by derivative-based estimators,
 - providing a consistent return format across methods.
@@ -99,6 +103,9 @@ is required.
 
 The refinement-based path generally does not rely on derivative caches.
 
+When available, it may instead reuse a caller-supplied coarse quadrature value
+through `I_coarse`.
+
 ---
 
 ## Role in the package
@@ -122,6 +129,8 @@ tools.
   integrand behavior.
 - Different backends may produce different asymptotic interpretations of the
   truncation error.
+- `I_coarse` is meaningful only for refinement-based estimation and is ignored
+  by derivative-based backends.
 
 ---
 

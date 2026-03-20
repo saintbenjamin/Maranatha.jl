@@ -9,7 +9,10 @@
 # ============================================================================
 
 """
-    _fmt_avgerr_tex(x::Real, err::Real) -> String
+    _fmt_avgerr_tex(
+        x::Real, 
+        err::Real
+    ) -> String
 
 Format a central value and uncertainty for [``\\LaTeX``](https://www.latex-project.org/) output.
 
@@ -48,7 +51,10 @@ simple `x ± err` representation using [``\\LaTeX``](https://www.latex-project.o
 - Digit grouping may be applied to long mantissas.
 - The fallback representation prioritizes robustness over compactness.
 """
-function _fmt_avgerr_tex(x::Real, err::Real)
+function _fmt_avgerr_tex(
+    x::Real, 
+    err::Real
+)
     return try
         AvgErrFormatter.avgerr_e2d_from_float(float(x), float(err); latex_grouping=true)
     catch

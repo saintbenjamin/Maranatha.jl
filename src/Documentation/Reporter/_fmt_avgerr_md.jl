@@ -9,7 +9,10 @@
 # ============================================================================
 
 """
-    _fmt_avgerr_md(x::Real, err::Real) -> String
+    _fmt_avgerr_md(
+        x::Real, 
+        err::Real
+    ) -> String
 
 Format a central value and uncertainty for Markdown output.
 
@@ -44,7 +47,10 @@ If that fails, it falls back to a Unicode plus–minus representation:
 - Digit grouping is disabled to avoid introducing [``\\LaTeX``](https://www.latex-project.org/)-specific markup.
 - Intended for reports, README files, or console-rendered Markdown.
 """
-function _fmt_avgerr_md(x::Real, err::Real)
+function _fmt_avgerr_md(
+    x::Real, 
+    err::Real
+)
     return try
         AvgErrFormatter.avgerr_e2d_from_float(float(x), float(err); latex_grouping=false)
     catch

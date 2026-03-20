@@ -142,12 +142,46 @@ function error_estimate_derivative_jet_4d(
     z̄ = (az + bz) / T(2)
     t̄ = (at + bt) / T(2)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(ax, bx, N, rule, boundary; real_type = T)
-    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(ay, by, N, rule, boundary; real_type = T)
-    zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(az, bz, N, rule, boundary; real_type = T)
-    ts, wt = QuadratureNodes.get_quadrature_1d_nodes_weights(at, bt, N, rule, boundary; real_type = T)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        ax, 
+        bx, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
+    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        ay, 
+        by, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
+    zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        az, 
+        bz, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
+    ts, wt = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        at, 
+        bt, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
 
-    ks, coeffs0, _ = _get_residual_model_fixed(rule, boundary, N; nterms = nerr_terms, kmax = kmax)
+    ks, coeffs0, _ = _get_residual_model_fixed(
+        rule, 
+        boundary, 
+        N; 
+        nterms = nerr_terms, 
+        kmax = kmax
+    )
     coeffs = T.(coeffs0)
 
     derivatives = zeros(T, length(ks))
@@ -164,7 +198,13 @@ function error_estimate_derivative_jet_4d(
                 t = ts[l]; w = wyj_wzk * wt[l]
                 gx(x) = f(x, y, z, t)
 
-                vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gx, x̄, ks;)
+                vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun, 
+                    backend_tag, 
+                    gx, 
+                    x̄, 
+                    ks;
+                )
                 vals = T.(vals0)
 
                 for it in eachindex(ks)
@@ -184,7 +224,13 @@ function error_estimate_derivative_jet_4d(
                 t = ts[l]; w = wxi_wzk * wt[l]
                 gy(y) = f(x, y, z, t)
 
-                vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gy, ȳ, ks;)
+                vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun, 
+                    backend_tag, 
+                    gy, 
+                    ȳ, 
+                    ks;
+                )
                 vals = T.(vals0)
 
                 for it in eachindex(ks)
@@ -204,7 +250,13 @@ function error_estimate_derivative_jet_4d(
                 t = ts[l]; w = wxi_wyj * wt[l]
                 gz(z) = f(x, y, z, t)
 
-                vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gz, z̄, ks;)
+                vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun, 
+                    backend_tag, 
+                    gz, 
+                    z̄, 
+                    ks;
+                )
                 vals = T.(vals0)
 
                 for it in eachindex(ks)
@@ -224,7 +276,13 @@ function error_estimate_derivative_jet_4d(
                 z = zs[k2]; w = wxi_wyj * wz[k2]
                 gt(t) = f(x, y, z, t)
 
-                vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gt, t̄, ks;)
+                vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                    jet_fun, 
+                    backend_tag, 
+                    gt, 
+                    t̄, 
+                    ks;
+                )
                 vals = T.(vals0)
 
                 for it in eachindex(ks)

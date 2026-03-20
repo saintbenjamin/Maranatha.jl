@@ -9,7 +9,16 @@
 # ============================================================================
 
 """
-    _build_internal_note_master_tex(summary_tex_name, fig_tex_name; title, rule, boundary, author, affiliation, abstract_text) -> String
+    _build_internal_note_master_tex(
+        summary_tex_name, 
+        fig_tex_name; 
+        title, 
+        rule, 
+        boundary, 
+        author, 
+        affiliation, 
+        abstract_text
+    ) -> String
 
 Construct the master REVTeX document for the internal note.
 
@@ -19,8 +28,9 @@ Creates a complete [``\\LaTeX``](https://www.latex-project.org/) document includ
 
 - REVTeX class configuration,
 - required packages,
-- title and author blocks,
-- optional abstract,
+- a title block derived from `rule` and `boundary`,
+- optional author and affiliation blocks,
+- an optional abstract,
 - figure and summary inclusions.
 
 The resulting document compiles independently.
@@ -32,7 +42,8 @@ The resulting document compiles independently.
 
 # Keyword arguments
 
-- `title`: Experiment identifier.
+- `title`: Experiment identifier accepted by the helper interface. The current
+  implementation does not embed it in the generated `\\title{...}` string.
 - `rule`: Quadrature rule.
 - `boundary`: Boundary scheme.
 - `author`: Author name (optional).
@@ -47,6 +58,7 @@ The resulting document compiles independently.
 
 - Uses `revtex4-2` with preprint-style options.
 - Figure directory is assumed to be `./figs/`.
+- Rule and boundary strings are LaTeX-escaped before being placed in the title.
 """
 function _build_internal_note_master_tex(
     summary_tex_name::AbstractString,

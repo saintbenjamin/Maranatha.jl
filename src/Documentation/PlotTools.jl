@@ -39,6 +39,7 @@ import ..NewtonCotes
 import ..Gauss
 import ..BSpline
 import ..QuadratureNodes
+import ..Documentation.DocUtils
 
 include("PlotTools/set_pyplot_latex_style.jl")
 include("PlotTools/_smart_text_placement.jl")

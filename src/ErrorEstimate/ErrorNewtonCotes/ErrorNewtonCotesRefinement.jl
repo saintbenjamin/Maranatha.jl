@@ -226,6 +226,7 @@ end
         boundary::Symbol;
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Estimate the Newton-Cotes quadrature error by comparing coarse and refined
@@ -235,7 +236,8 @@ quadrature evaluations.
 This internal helper implements the refinement-difference error estimator for
 Newton-Cotes quadrature rules. It computes
 
-- a coarse quadrature value using `N` subdivisions, and
+- a coarse quadrature value at subdivision count `N`, either by evaluating it
+  internally or by reusing the externally supplied `I_coarse`, and
 - a refined quadrature value using a boundary-compatible refined subdivision
   count obtained from `NewtonCotes._nearest_valid_Nsub(p, boundary, 2N)`,
 
@@ -290,6 +292,9 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
 * `real_type = nothing`:
   Optional scalar type used internally for bound conversion, mesh sizes,
   and quadrature evaluation.
+* `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value. If provided, the helper reuses
+  it instead of recomputing the coarse Newton-Cotes quadrature value.
 
 # Returns
 
@@ -303,7 +308,7 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
   * `dim`         : dimensionality
   * `h_coarse`    : coarse mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
   * `h_fine`      : refined mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
-  * `q_coarse`    : coarse quadrature value
+  * `q_coarse`    : coarse quadrature value, either reused from `I_coarse` or computed internally
   * `q_fine`      : refined quadrature value
   * `estimate`    : absolute refinement difference
   * `signed_diff` : signed refinement difference
@@ -324,6 +329,8 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
   additional Richardson-style normalization factor.
 * The `N_fine` field stores the actual valid refined subdivision count used in
   the refined quadrature evaluation.
+* The optional `I_coarse` keyword is intended to avoid redundant coarse
+  quadrature work when the caller has already computed that value.
 """
 function _estimate_by_refinement_newton_cotes(
     f,
@@ -335,6 +342,7 @@ function _estimate_by_refinement_newton_cotes(
     boundary::Symbol;
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = if !isnothing(real_type)
         real_type
@@ -365,14 +373,28 @@ function _estimate_by_refinement_newton_cotes(
         h_fine   = (bb - aa) / T(N_fine_actual)
     end
 
-    q_coarse = _quadrature_value_newton_cotes(
-        f, aa, bb, N, dim, rule, boundary;
-        threaded_subgrid = threaded_subgrid,
-        real_type = T,
-    )
+    q_coarse = isnothing(I_coarse) ?
+        _quadrature_value_newton_cotes(
+            f, 
+            aa, 
+            bb, 
+            N, 
+            dim, 
+            rule, 
+            boundary;
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
+        ) :
+        I_coarse
 
     q_fine = _quadrature_value_newton_cotes(
-        f, aa, bb, N_fine_actual, dim, rule, boundary;
+        f, 
+        aa, 
+        bb, 
+        N_fine_actual, 
+        dim, 
+        rule, 
+        boundary;
         threaded_subgrid = threaded_subgrid,
         real_type = T,
     )
@@ -407,6 +429,7 @@ end
         boundary;
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Unified public dispatcher for Newton-Cotes refinement-based error estimation.
@@ -454,6 +477,9 @@ The routine validates the rule family and boundary selector, then dispatches to
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and quadrature/error
   evaluation.
+- `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value forwarded to
+  [`_estimate_by_refinement_newton_cotes`](@ref).
 
 # Returns
 - The named tuple produced by the selected refinement estimator.
@@ -469,6 +495,8 @@ The routine validates the rule family and boundary selector, then dispatches to
 - This dispatcher is intended for refinement-based error estimation only.
 - Unlike the derivative-based error estimators, this interface does not depend
   on derivative backends or jet construction.
+- The optional `I_coarse` keyword exists to let callers reuse an already
+  computed coarse quadrature value.
 """
 function error_estimate_refinement_newton_cotes(
     f,
@@ -480,6 +508,7 @@ function error_estimate_refinement_newton_cotes(
     boundary;
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = if !isnothing(real_type)
         real_type
@@ -504,6 +533,7 @@ function error_estimate_refinement_newton_cotes(
         boundary;
         threaded_subgrid = threaded_subgrid,
         real_type = T,
+        I_coarse = I_coarse,
     )
 end
 

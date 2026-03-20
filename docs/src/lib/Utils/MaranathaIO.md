@@ -10,9 +10,11 @@ Its responsibilities are broader than simple file saving. It also supports:
 - structured round-trip conversion between internal result objects and
   serialization-friendly dictionaries,
 - human-readable [`TOML`](https://toml.io/en/) summaries,
-- inferred subdivision-count recovery from stored step sizes,
-- merging partial result blocks,
+- subdivision-count handling, including direct use of stored `nsamples` and
+  reconstruction from step-size information when needed,
+- merging partial result blocks while preserving aligned datapoint arrays,
 - dropping selected datapoints from existing result files.
+
 
 ---
 
@@ -27,10 +29,12 @@ forms the structured serialization boundary of this module.
 
 The first converts internal result objects into dictionaries that are easier to
 store safely. The second reconstructs the expected internal result layout after
-loading.
+loading, restoring `nsamples` directly when available and inferring them from
+step-size data when needed.
 
 This keeps the external storage representation separate from the in-memory
-analysis representation.
+analysis representation while preserving the result shape expected by later
+analysis utilities.
 
 ---
 
@@ -43,7 +47,8 @@ This summary is not primarily meant for exact round-trip reconstruction. Its
 purpose is quick inspection of:
 
 - metadata,
-- sampled step sizes,
+- stored or reconstructed subdivision counts,
+- sampled step sizes, including `tuple_h` when available,
 - averages,
 - error totals,
 - detailed error decomposition.
@@ -68,15 +73,15 @@ optional `.toml` summary beside it.
 
 ## Inferred sample-count utilities
 
-Because result objects store step sizes `h` rather than the original sample
-counts directly, this module includes helpers such as:
+Because result objects may already store `nsamples` or may require those counts
+to be reconstructed from `h` / `tuple_h`, this module includes helpers such as:
 
 - [`Maranatha.Utils.MaranathaIO.infer_nsamples`](@ref)
 - [`Maranatha.Utils.MaranathaIO._build_nsamples_suffix`](@ref)
 - [`Maranatha.Utils.MaranathaIO._default_result_path`](@ref)
 
-These are mostly convenience utilities, but they also support filename
-construction and later dataset editing workflows.
+These utilities support direct reuse of stored counts, reconstruction when
+needed, filename construction, and later dataset editing workflows.
 
 ---
 
@@ -95,10 +100,11 @@ several partial batches and later needs to be combined into one dataset.
 The merge policy is intentionally conservative:
 
 - global metadata must match,
-- datapoint arrays must remain aligned,
+- datapoint arrays, including `nsamples`, must remain aligned,
 - duplicate `h` values are rejected by default.
 
-This keeps merging predictable and reduces ambiguity.
+This keeps merging predictable and reduces ambiguity while preserving a merged
+result object with explicit subdivision counts.
 
 ---
 
@@ -111,6 +117,9 @@ The filtering helpers
 
 allow selected subdivision counts to be removed from an already-generated
 dataset.
+
+These helpers use stored `nsamples` when available and otherwise rebuild them
+from step-size information before filtering.
 
 This is particularly useful when preparing custom fitting subsets or when a
 small number of datapoints should be excluded without recomputing the entire

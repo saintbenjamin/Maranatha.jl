@@ -59,6 +59,7 @@ Key properties:
 * derivative-free
 * robust for non-smooth integrands
 * based on coarse vs refined quadrature comparison
+* can reuse a caller-supplied coarse quadrature value through `I_coarse`
 * supports Gauss, Newton–Cotes, and B-spline rules
 
 ---
@@ -162,8 +163,10 @@ err = error_estimate(
   rule-specific error models itself.
 * The returned object is the backend-specific named tuple describing the
   estimated error scale and associated metadata.
-* For refinement-based estimation, derivative settings are ignored.
-* For derivative-based estimation, the smoothing parameter `λ` is ignored.
+* For refinement-based estimation, derivative settings are ignored, while
+  `I_coarse` may be supplied to avoid redundant coarse-grid quadrature work.
+* For derivative-based estimation, the smoothing parameter `λ` and `I_coarse`
+  are ignored.
 """
 module ErrorDispatch
 
@@ -172,6 +175,7 @@ import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
 import ..Quadrature.QuadratureUtils
+import ..Quadrature.QuadratureNodes
 import ..Quadrature.QuadratureDispatch
 import ..ErrorEstimate.AutoDerivative.AutoDerivativeDirect
 import ..ErrorEstimate.AutoDerivative.AutoDerivativeJet
@@ -206,6 +210,7 @@ using .ErrorDispatchRefinement
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Unified public dispatcher for all supported error-estimation backends.
@@ -227,6 +232,10 @@ The dispatch rule is:
 
 - if `err_method == :refinement`, use the refinement backend
 - otherwise, use the derivative backend selected by `use_error_jet`
+
+When the refinement backend is selected, an optional precomputed coarse
+quadrature value may be forwarded through `I_coarse` so the backend can reuse
+it instead of recomputing the coarse-grid value.
 
 # Arguments
 - `f`:
@@ -269,6 +278,10 @@ The dispatch rule is:
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and backend
   evaluation.
+- `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value used only by the refinement
+  backend. When supplied, it is forwarded to the refinement dispatcher so the
+  coarse-grid quadrature value can be reused.
 
 # Returns
 - The named tuple returned by the selected backend.
@@ -283,6 +296,7 @@ The dispatch rule is:
   runner layer.
 - Derivative-cache clearing is intentionally not handled here; that remains the
   responsibility of higher-level orchestration code such as `run_Maranatha`.
+- `I_coarse` is ignored when a derivative-based backend is selected.
 """
 function error_estimate(
     f,
@@ -298,6 +312,7 @@ function error_estimate(
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
@@ -314,6 +329,7 @@ function error_estimate(
             λ = λT,
             threaded_subgrid = threaded_subgrid,
             real_type = T,
+            I_coarse = I_coarse,
         )
     end
 

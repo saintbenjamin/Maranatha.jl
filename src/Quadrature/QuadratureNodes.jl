@@ -167,7 +167,11 @@ function get_quadrature_1d_nodes_weights(
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)
         return Gauss._composite_gauss_nodes_weights(
-            a, b, N, npts, boundary;
+            a, 
+            b, 
+            N, 
+            npts, 
+            boundary;
             real_type = T,
             λ = λT,
         )
@@ -187,13 +191,21 @@ function get_quadrature_1d_nodes_weights(
 
         if kind === :interp
             return BSpline.bspline_nodes_weights(
-                a, b, N, p, boundary;
+                a, 
+                b, 
+                N, 
+                p, 
+                boundary;
                 kind = :interp,
                 real_type = T,
             )
         else
             return BSpline.bspline_nodes_weights(
-                a, b, N, p, boundary;
+                a, 
+                b, 
+                N, 
+                p, 
+                boundary;
                 kind = :smooth,
                 λ = λT,
                 real_type = T,

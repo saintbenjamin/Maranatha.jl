@@ -10,50 +10,56 @@
 
 """
     plot_convergence_result(
-        name::String,
-        hs::AbstractVector{<:Real},
-        estimates::AbstractVector{<:Real},
-        errors::Vector,
+        result,
         fit_result;
-        rule::Symbol = :gauss_p3,
-        boundary::Symbol = :LU_ININ,
+        name::String = "Maranatha",
         figs_dir::String = ".",
         save_file::Bool = false,
     ) -> Nothing
 
-Plot a fitted convergence study using previously computed datapoints and an
-existing least-``\\chi^2`` fit result.
+Plot a fitted convergence study directly from a
+[`Maranatha.Runner.run_Maranatha`](@ref) result object and an existing
+least-``\\chi^2`` fit result.
+
+# Function description
+This routine generates two figures from the supplied run result and fit result:
+
+- an extrapolation panel showing the fitted `I(h)` curve, its uncertainty band,
+  the raw datapoints with error bars, and the extrapolated `h = 0` estimate;
+- a log-log relative-error panel showing `|I(h)-I_0|/|I_0|`, propagated
+  uncertainties, and a unit-slope reference line on the `h^p` axis.
 
 # Arguments
-- `name::String`:
-  Basename used for figure titles / output filenames.
-- `hs::AbstractVector{<:Real}`:
-  Scalar step-size sequence used in the convergence study.
+- `result`:
+  Result object returned by [`Maranatha.Runner.run_Maranatha`](@ref).
 
-  In rectangular-domain workflows, this is expected to be the scalarized
+  The plotting routine uses:
+
+  - `result.h` as the scalar step-size sequence,
+  - `result.avg` as the measured quadrature estimates,
+  - `result.err` as the pointwise error-information objects,
+  - `result.rule` and `result.boundary` as labels for output naming.
+
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
   step-size proxy used for fitting and plotting, rather than the original
   per-axis step tuples.
-- `estimates::AbstractVector{<:Real}`:
-  Measured quadrature estimates corresponding to `hs`.
-- `errors::Vector`:
-  Collection of error-information objects used for pointwise error bars.
-
-  Each entry is expected to provide either:
-
-  - a `.total` field, as in the residual-based error-estimation workflow, or
-  - an `.estimate` field, as in the refinement-based error-estimation workflow.
-
-  The plotting routine converts each entry into a nonnegative scalar plotting
-  uncertainty through an internal extractor.
 - `fit_result`:
-  Fit result object returned by `least_chi_square_fit`, used to reconstruct the
-  fitted model and its uncertainty band.
+  Fit result object returned by `least_chi_square_fit`.
+
+  The current implementation expects `fit_result` to provide at least:
+
+  - `params`,
+  - `estimate`,
+  - `error_estimate`,
+  - `cov`,
+  - `powers`.
+
+  Optional `chisq` and `dof` fields are also used for plot annotations when
+  available.
 
 # Keyword arguments
-- `rule::Symbol = :gauss_p3`:
-  Rule label used in output filenames.
-- `boundary::Symbol = :LU_ININ`:
-  Boundary label used in output filenames.
+- `name::String = "Maranatha"`:
+  Basename used for figure titles / output filenames.
 - `figs_dir::String = "."`:
   Output directory for saved figures.
 - `save_file::Bool = false`:
@@ -65,31 +71,37 @@ existing least-``\\chi^2`` fit result.
 
 # Errors
 - Throws an error if input lengths are inconsistent.
-- Throws an error if no valid datapoints remain after filtering.
-- Throws an error if `fit_result` does not provide a usable fitted basis.
+- Throws an error if `fit_result` is missing `:powers`.
+- Throws an error if `length(fit_result.powers) != length(fit_result.params)`.
+- Throws an error if no valid datapoints remain after filtering for either panel.
 - Throws an error for the relative-error panel when the extrapolated value is zero.
 - Propagates plotting and file-I/O errors.
 
 # Notes
 - This function visualizes an existing fit; it does not perform refitting.
-- A convenience wrapper `plot_convergence_result(result, fit_result; ...)` is also provided.
-- This plotting routine accepts both residual-based and refinement-based
+- The plotting routine accepts both residual-based and refinement-based
   error-info objects, provided that each entry exposes either `.total` or
   `.estimate`.
-- For rectangular-domain runs, the plotting logic still operates on the scalar
-  `hs` sequence supplied by the caller.
+- The plotting logic operates on the scalar step-size sequence `result.h`.
+- The current horizontal power is inferred from `fit_result.powers[2]`, i.e.
+  the first non-constant basis term after the leading constant term.
 """
 function plot_convergence_result(
-    name::String,
-    hs::AbstractVector{<:Real},
-    estimates::AbstractVector{<:Real},
-    errors::Vector,
+    result,
     fit_result;
-    rule::Symbol = :gauss_p3,
-    boundary::Symbol = :LU_ININ,
-    figs_dir::String=".",
-    save_file::Bool=false
+    name::String = "Maranatha",
+    figs_dir::String = ".",
+    save_file::Bool = false,
 )
+
+    # ------------------------------------------------------------
+    # Direct extraction from run_Maranatha result object
+    # ------------------------------------------------------------
+    hs = result.h
+    estimates = result.avg
+    errors = result.err
+    rule = result.rule
+    boundary = result.boundary
 
     # ------------------------------------------------------------
     # Determine leading convergence power automatically
@@ -121,7 +133,9 @@ function plot_convergence_result(
     fit_powers = if hasproperty(fit_result, :powers)
         fit_result.powers
     else
-        JobLoggerTools.error_benji("fit_result missing :powers (cannot infer convergence power)")
+        JobLoggerTools.error_benji(
+            "fit_result missing :powers (cannot infer convergence power)"
+        )
     end
 
     # first nonzero power
@@ -136,12 +150,13 @@ function plot_convergence_result(
 
     mask = (hx .> 0) .& isfinite.(hx) .& isfinite.(estimates) .& isfinite.(errors_pos)
 
-    # h2p = h2[mask]
     hxp = hx[mask]
     estp = estimates[mask]
     errp = errors_pos[mask]
 
-    isempty(hxp) && JobLoggerTools.error_benji("No valid points to plot.")
+    isempty(hxp) && JobLoggerTools.error_benji(
+        "No valid points to plot."
+    )
 
     # --- New fit result structure ---
     pvec = fit_result.params
@@ -149,7 +164,6 @@ function plot_convergence_result(
     I0_err  = fit_result.error_estimate
 
     # --- Build model automatically from params ---
-    # Model: I(h) = I0 + C1*h^p + C2*h^(p+2) + ...
     Cov = fit_result.cov
 
     # enforce symmetry for numerical stability
@@ -181,9 +195,7 @@ function plot_convergence_result(
         φ = basis_vec(h)
         y = LinearAlgebra.dot(pvec, φ)
 
-        # prediction variance = φ' Cov φ, clipped at 0
         var = LinearAlgebra.dot(φ, CovS * φ)
-        # σ = sqrt(max(var, 0.0))
         σ = sqrt(abs(var))
         return y, σ
     end
@@ -213,7 +225,12 @@ function plot_convergence_result(
     fig, ax = PyPlot.subplots(figsize=(5.6,5.0), dpi=500)
 
     # Fit curve
-    ax.plot(x_range, y_fit; color="black", linewidth=2.5)
+    ax.plot(
+        x_range, 
+        y_fit; 
+        color="black", 
+        linewidth=2.5
+    )
 
     # --- Fit error band ---
     ax.fill_between(
@@ -227,8 +244,8 @@ function plot_convergence_result(
 
     # Data points
     ax.errorbar(
-        # h2p, estp;
-        hxp, estp;
+        hxp, 
+        estp;
         yerr=errp,
         fmt="o",
         color="blue",
@@ -250,8 +267,7 @@ function plot_convergence_result(
         markeredgecolor="red"
     )
 
-    # ax.set_xlabel(raw"$h^2$")
-    ax.set_xlabel("\$h^{$(lead_pow)}\$")
+    ax.set_xlabel("\$h^{ $(round(Int, lead_pow)) }\$")
     ax.set_ylabel("\$I(h)\$")
 
     # ---- annotate plot 1 (I0 +/- err, chi2/dof) ----
@@ -259,7 +275,6 @@ function plot_convergence_result(
     dof   = hasproperty(fit_result, :dof)   ? fit_result.dof   : NaN
     red   = (isfinite(chisq) && isfinite(dof) && dof != 0) ? chisq / dof : NaN
 
-    # try pretty formatter
     txt_I0 = try
         I0_e2d = AvgErrFormatter.avgerr_e2d_from_float(I0, I0_err; latex_grouping=true)
         "\$I_0 = $I0_e2d\$"
@@ -269,7 +284,9 @@ function plot_convergence_result(
 
     txt1 = txt_I0 * "\n" * @sprintf("\$\\chi^2/\\mathrm{d.o.f.} = \\texttt{%.7g}\$", red)
 
-    _smart_text_placement!(fig, ax;
+    _smart_text_placement!(
+        fig, 
+        ax;
         text=txt1,
         x_points=collect(hxp),
         y_points=collect(estp),
@@ -303,16 +320,16 @@ function plot_convergence_result(
     # ============================================================
 
     absI0 = abs(I0)
-    (absI0 > 0) || JobLoggerTools.error_benji("Relative-error plot requires nonzero I0 (got I0=$I0).")
+    (absI0 > 0) || JobLoggerTools.error_benji(
+        "Relative-error plot requires nonzero I0 (got I0=$I0)."
+    )
 
     # --- Data for relative-error plot ---
     Δp   = estp .- I0
     relp = abs.(Δp) ./ absI0
 
-    # 1σ error bar for relative error (independent σ_I and σ_I0)
     rel_errp = sqrt.( (errp ./ absI0).^2 .+ ((abs.(Δp) .* I0_err) ./ (absI0^2)).^2 )
 
-    # log-log requires strictly positive y (and yerr positive/finite)
     mask2 = (relp .> 0) .& isfinite.(relp) .& isfinite.(rel_errp) .& (rel_errp .> 0) .&
             (hxp .> 0) .& isfinite.(hxp)
 
@@ -320,10 +337,11 @@ function plot_convergence_result(
     rel2 = relp[mask2]
     rerr2 = rel_errp[mask2]
 
-    isempty(hxp2) && JobLoggerTools.error_benji("No valid positive relative-error points for log-log plot.")
+    isempty(hxp2) && JobLoggerTools.error_benji(
+        "No valid positive relative-error points for log-log plot."
+    )
 
     # --- Fit curve + curve uncertainty band for relative error ---
-    # Use same x_range_log as before (no zero for log-log)
     x_range2 = x_range_log
     h_range2 = x_range2 .^ (one(eltype(x_range2)) / convert(eltype(x_range2), lead_pow))
 
@@ -335,8 +353,6 @@ function plot_convergence_result(
         Δ = yh - I0
 
         rel_fit[i] = abs(Δ) / absI0
-
-        # 1σ for relative error curve (propagate σy and σ_I0)
         rel_sig[i] = sqrt( (σy / absI0)^2 + ((abs(Δ) * I0_err) / (absI0^2))^2 )
     end
 
@@ -346,7 +362,6 @@ function plot_convergence_result(
     ax2.plot(x_range2, rel_fit; color="red", linewidth=2.5)
 
     # --- Reference slope line (slope = 1 in h^p axis) ---
-    # anchor point near middle of curve
     idx_ref = length(x_range2) ÷ 2
     x_ref = x_range2[idx_ref]
     y_ref = rel_fit[idx_ref]
@@ -373,7 +388,8 @@ function plot_convergence_result(
 
     # Data points with error bars
     ax2.errorbar(
-        hxp2, rel2;
+        hxp2, 
+        rel2;
         yerr=rerr2,
         fmt="o",
         color="blue",
@@ -385,12 +401,15 @@ function plot_convergence_result(
     ax2.set_xscale("log")
     ax2.set_yscale("log")
 
-    ax2.set_xlabel("\$h^{$(lead_pow)}\$")
+    ax2.set_xlabel("\$h^{ $(round(Int, lead_pow)) }\$")
     ax2.set_ylabel(raw"$|I(h)-I_0|/|I_0|$")
 
-    # ---- annotate plot 2 (chi2/dof only) ----
     txt_I0 = try
-        I0_e2d = AvgErrFormatter.avgerr_e2d_from_float(I0, I0_err; latex_grouping=true)
+        I0_e2d = AvgErrFormatter.avgerr_e2d_from_float(
+            I0, 
+            I0_err; 
+            latex_grouping=true
+        )
         "\$I_0 = $I0_e2d\$"
     catch
         @sprintf("\$I_0 = %.7g \\pm %.7g\$", I0, I0_err)
@@ -425,68 +444,4 @@ function plot_convergence_result(
     PyPlot.close(fig2)
 
     return nothing
-end
-
-"""
-    plot_convergence_result(
-        result,
-        fit_result;
-        name::String = "Maranatha",
-        rule::Symbol = result.rule,
-        boundary::Symbol = result.boundary,
-        figs_dir::String = ".",
-        save_file::Bool = false,
-    ) -> Nothing
-
-Convenience wrapper that extracts plotting inputs from a Maranatha run result
-object and forwards them to the primary `plot_convergence_result` method.
-
-# Arguments
-- `result`:
-  Result object returned by `run_Maranatha`.
-- `fit_result`:
-  Fit result returned by `least_chi_square_fit`.
-
-# Keyword arguments
-- `name::String = "Maranatha"`:
-  Basename used for output filenames.
-- `rule::Symbol = result.rule`, `boundary::Symbol = result.boundary`:
-  Labels forwarded to the primary plotting method.
-- `figs_dir::String = "."`:
-  Output directory for saved figures.
-- `save_file::Bool = false`:
-  If `true`, save the generated figures.
-
-# Returns
-- `Nothing`.
-
-# Errors
-- Propagates all validation and plotting errors from the primary method.
-
-# Notes
-- This wrapper uses `result.h` as the plotting x-axis sequence.
-- In rectangular-domain workflows, `result.h` is the scalarized step-size
-  sequence stored for downstream fitting and plotting, while `result.tuple_h`
-  retains the original per-axis step information.
-"""
-function plot_convergence_result(
-    result,
-    fit_result;
-    name::String = "Maranatha",
-    rule::Symbol = result.rule,
-    boundary::Symbol = result.boundary,
-    figs_dir::String = ".",
-    save_file::Bool = false,
-)
-    return plot_convergence_result(
-        name,
-        result.h,
-        result.avg,
-        result.err,
-        fit_result;
-        rule = rule,
-        boundary = boundary,
-        figs_dir = figs_dir,
-        save_file = save_file,
-    )
 end

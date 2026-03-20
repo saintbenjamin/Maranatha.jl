@@ -10,21 +10,33 @@
 
 """
     write_convergence_internal_note_datapoints(
-        a, b, name, hs, estimates, errors;
-        h_power, xscale, yscale,
-        rule, boundary, out_dir, save_file,
-        try_build_pdf, move_existing_plots,
-        author, affiliation, abstract_text
+        result;
+        name::String = "Maranatha",
+        h_power::Real = 1,
+        xscale::Symbol = :linear,
+        yscale::Symbol = :linear,
+        out_dir::String = ".",
+        save_file::Bool = true,
+        try_build_pdf::Bool = true,
+        move_existing_plots::Bool = true,
+        author::Union{Nothing,AbstractString} = nothing,
+        affiliation::Union{Nothing,AbstractString} = nothing,
+        abstract_text::Union{Nothing,AbstractString} = nothing,
     ) -> NamedTuple
 
-Generate a complete datapoints-only [``\\LaTeX``](https://www.latex-project.org/) internal-note project for a raw convergence study.
+Generate a complete datapoints-only [``\\LaTeX``](https://www.latex-project.org/)
+internal-note project directly from a structured quadrature result object.
 
 # Function description
 
 This high-level routine assembles a self-contained internal-note directory for
 raw quadrature datapoints without requiring any fitted extrapolation result.
 
-The generated note is intended for pre-fit inspection, documentation, or
+It is intended for the common workflow in which the user already has a stored
+or freshly computed Maranatha result object and wants to generate a complete
+datapoints-only internal note without manually unpacking arrays.
+
+The generated note is suitable for pre-fit inspection, documentation, or
 archival use when the user wants to preserve:
 
 - the filtered quadrature datapoints,
@@ -47,42 +59,54 @@ inote_<summary_basename>/
 │   └── <file_name>_<rule>_<boundary>_datapoints_*.pdf
 └── Makefile
 ```
+
 # Arguments
 
-- `a`, `b`: Integration domain endpoints.
+- `result`:
+  Object exposing fields such as `a`, `b`, `h`, `avg`, `err`, `rule`, and
+  `boundary`.
 
-  These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form inside the generated note.
+  The note is generated from:
 
-- `name`: Identifier for the experiment, dataset, or source file.
-- `hs`: Scalar step sizes used in the convergence study.
+  - `result.a`, `result.b` as the integration-domain description,
+  - `result.h` as the scalar step-size sequence,
+  - `result.avg` as the quadrature estimates,
+  - `result.err` as the error objects or uncertainty containers,
+  - `result.rule` and `result.boundary` as reporting labels.
 
-  In rectangular-domain workflows, this is expected to be the scalarized
-  step-size sequence used for plotting/reporting, not the original per-axis
-  step tuples.
+  In rectangular-domain workflows, `result.h` is expected to be the scalarized
+  step-size sequence used for plotting and reporting, while any original
+  per-axis step data remain outside this helper.
 
-- `estimates`: Quadrature estimates corresponding to `hs`.
-- `errors`: Error objects or uncertainty containers.
-  Each entry is expected to provide either:
+  Each entry of `result.err` is expected to provide either:
 
   - a `.total` field, as in residual-based workflows, or
   - an `.estimate` field, as in refinement-based workflows.
 
 # Keyword arguments
 
-- `h_power`: Power used to define the horizontal coordinate ``x = h^{p}``.
-- `xscale`: Horizontal axis scale (`:linear` or `:log`).
-- `yscale`: Vertical axis scale (`:linear` or `:log`).
-- `rule`: Quadrature rule label (default `:gauss_p3`).
-- `boundary`: Boundary-handling label (default `:LU_ININ`).
-- `out_dir`: Output directory in which the internal-note directory is created.
-- `save_file`: If `false`, generate content without writing files to disk.
-- `try_build_pdf`: Attempt to build the PDF automatically after file generation.
-- `move_existing_plots`: Move the existing datapoints plot PDF into the note directory.
-- `author`: Optional author name for the title block.
-- `affiliation`: Optional author affiliation.
-- `abstract_text`: Optional abstract text for the note.
+- `name::String = "Maranatha"`:
+  Identifier used in the note title, captions, and output filenames.
+- `h_power::Real = 1`:
+  Power used to define the horizontal coordinate ``x = h^{p}``.
+- `xscale::Symbol = :linear`:
+  Horizontal axis scale (`:linear` or `:log`).
+- `yscale::Symbol = :linear`:
+  Vertical axis scale (`:linear` or `:log`).
+- `out_dir::String = "."`:
+  Output directory in which the internal-note directory is created.
+- `save_file::Bool = true`:
+  If `false`, generate content without writing files to disk.
+- `try_build_pdf::Bool = true`:
+  Attempt to build the PDF automatically after file generation.
+- `move_existing_plots::Bool = true`:
+  Move the existing datapoints plot PDF into the note directory.
+- `author::Union{Nothing,AbstractString} = nothing`:
+  Optional author name for the title block.
+- `affiliation::Union{Nothing,AbstractString} = nothing`:
+  Optional author affiliation.
+- `abstract_text::Union{Nothing,AbstractString} = nothing`:
+  Optional abstract text for the note.
 
 # Returns
 
@@ -107,24 +131,22 @@ including:
 - The datapoints plot file is expected to already exist in `out_dir` unless
   `move_existing_plots == false`.
 - The `name` argument may be a plain identifier or a path-like string; it is
-  split internally into display and file-safe forms via [`_split_report_name`](@ref).
-- PDF compilation depends on external [``\\LaTeX``](https://www.latex-project.org/) tools such as `pdflatex`.
-- For rectangular-domain workflows, the note still reports the scalarized `hs`
-  sequence supplied to this function; original per-axis step tuples are not
-  embedded by this helper.
+  split internally into display and file-safe forms via
+  [`DocUtils._split_report_name`](@ref).
+- PDF compilation depends on external [``\\LaTeX``](https://www.latex-project.org/)
+  tools such as `pdflatex`.
+- This method is especially useful in notebook or pipeline workflows where the
+  raw result object is already available in memory.
+- For rectangular-domain workflows, the generated note is based on the
+  scalarized step-size sequence `result.h` rather than the original per-axis
+  step tuples.
 """
 function write_convergence_internal_note_datapoints(
-    a,
-    b,
-    name::String,
-    hs::Vector{Float64},
-    estimates::Vector{Float64},
-    errors::Vector;
+    result;
+    name::String = "Maranatha",
     h_power::Real = 1,
     xscale::Symbol = :linear,
     yscale::Symbol = :linear,
-    rule::Symbol = :gauss_p3,
-    boundary::Symbol = :LU_ININ,
     out_dir::String = ".",
     save_file::Bool = true,
     try_build_pdf::Bool = true,
@@ -133,6 +155,12 @@ function write_convergence_internal_note_datapoints(
     affiliation::Union{Nothing,AbstractString} = nothing,
     abstract_text::Union{Nothing,AbstractString} = nothing,
 )
+    hs = Vector{Float64}(result.h)
+    estimates = Vector{Float64}(result.avg)
+    errors = result.err
+    rule = result.rule
+    boundary = result.boundary
+
     n = length(hs)
     if length(estimates) != n || length(errors) != n
         JobLoggerTools.error_benji("Input length mismatch.")
@@ -145,7 +173,7 @@ function write_convergence_internal_note_datapoints(
         "Unsupported yscale=$yscale (expected :linear or :log)"
     )
 
-    display_name, file_name = _split_report_name(name)
+    display_name, file_name = DocUtils._split_report_name(name)
 
     summary_basename = _build_convergence_summary_datapoints_basename(
         file_name, rule, boundary, h_power, xscale, yscale
@@ -173,20 +201,14 @@ function write_convergence_internal_note_datapoints(
     summary_tex_path = joinpath(note_dir, summary_tex_name)
 
     summary_tex = write_convergence_summary_datapoints(
-        a,
-        b,
-        display_name,
-        hs,
-        estimates,
-        errors;
+        result;
+        name = name,
         h_power = h_power,
         xscale = xscale,
         yscale = yscale,
-        rule = rule,
-        boundary = boundary,
         out_dir = note_dir,
         format = :tex,
-        save_file = false,
+        save_file = save_file,
     )
 
     if save_file
@@ -313,102 +335,5 @@ function write_convergence_internal_note_datapoints(
         build_succeeded = build_succeeded,
         build_message = build_message,
         pdf_path = joinpath(note_dir, master_pdf_name),
-    )
-end
-
-"""
-    write_convergence_internal_note_datapoints(
-        result;
-        name, h_power, xscale, yscale,
-        rule, boundary, out_dir, save_file,
-        try_build_pdf, move_existing_plots,
-        author, affiliation, abstract_text
-    ) -> NamedTuple
-
-Convenience wrapper for [`write_convergence_internal_note_datapoints`](@ref).
-
-# Function description
-
-This overload extracts the required datapoint fields from a structured
-quadrature result object and forwards them to the primary
-[`write_convergence_internal_note_datapoints`](@ref) method.
-
-It is intended for the common workflow in which the user already has a stored
-or freshly computed Maranatha result object and wants to generate a complete
-datapoints-only internal note without manually unpacking arrays.
-
-# Arguments
-
-- `result`: Object exposing fields such as `a`, `b`, `h`, `avg`, `err`,
-  `rule`, and `boundary`.
-
-  In rectangular-domain workflows, `result.h` is expected to be the scalarized
-  step-size sequence used for plotting/reporting, while any original per-axis
-  step data remain in `result.tuple_h`.
-
-# Keyword arguments
-
-- `name`: Identifier used in the note title, captions, and output filenames.
-- `h_power`: Power used to define the horizontal coordinate ``x = h^{p}``.
-- `xscale`: Horizontal axis scale (`:linear` or `:log`).
-- `yscale`: Vertical axis scale (`:linear` or `:log`).
-- `rule`: Quadrature rule label forwarded to the primary method.
-- `boundary`: Boundary-handling label forwarded to the primary method.
-- `out_dir`: Output directory in which the internal-note directory is created.
-- `save_file`: If `false`, generate content without writing files to disk.
-- `try_build_pdf`: Attempt to build the PDF automatically after file generation.
-- `move_existing_plots`: Move the existing datapoints plot PDF into the note directory.
-- `author`: Optional author name for the title block.
-- `affiliation`: Optional author affiliation.
-- `abstract_text`: Optional abstract text for the note.
-
-# Returns
-
-A `NamedTuple` identical in structure to the return value of the primary
-[`write_convergence_internal_note_datapoints`](@ref) method.
-
-# Notes
-
-- This method is especially useful in notebook or pipeline workflows where the
-  raw result object is already available in memory.
-- This wrapper forwards `result.h` to the primary method.
-- For rectangular-domain workflows, that means the generated note is based on
-  the scalarized step-size sequence rather than the original per-axis step tuples.
-"""
-function write_convergence_internal_note_datapoints(
-    result;
-    name::String = "Maranatha",
-    h_power::Real = 1,
-    xscale::Symbol = :linear,
-    yscale::Symbol = :linear,
-    rule::Symbol = result.rule,
-    boundary::Symbol = result.boundary,
-    out_dir::String = ".",
-    save_file::Bool = true,
-    try_build_pdf::Bool = true,
-    move_existing_plots::Bool = true,
-    author::Union{Nothing,AbstractString} = nothing,
-    affiliation::Union{Nothing,AbstractString} = nothing,
-    abstract_text::Union{Nothing,AbstractString} = nothing,
-)
-    return write_convergence_internal_note_datapoints(
-        result.a,
-        result.b,
-        name,
-        Vector{Float64}(result.h),
-        Vector{Float64}(result.avg),
-        result.err;
-        h_power = h_power,
-        xscale = xscale,
-        yscale = yscale,
-        rule = rule,
-        boundary = boundary,
-        out_dir = out_dir,
-        save_file = save_file,
-        try_build_pdf = try_build_pdf,
-        move_existing_plots = move_existing_plots,
-        author = author,
-        affiliation = affiliation,
-        abstract_text = abstract_text,
     )
 end

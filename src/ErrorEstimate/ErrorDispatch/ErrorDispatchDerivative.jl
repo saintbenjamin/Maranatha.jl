@@ -15,6 +15,7 @@ import ..NewtonCotes
 import ..Gauss
 import ..BSpline
 import ..QuadratureUtils
+import ..QuadratureNodes
 import ..AutoDerivativeDirect
 import ..AutoDerivativeJet
 import ..ErrorNewtonCotesDerivative
@@ -193,12 +194,19 @@ function _leading_residual_terms_any(
     if NewtonCotes._is_newton_cotes_rule(rule)
         if nterms == 1
             k, coeffR = ErrorNewtonCotesDerivative._leading_midpoint_residual_term(
-                rule, boundary, Nsub; kmax = min(kmax, 64)
+                rule, 
+                boundary, 
+                Nsub; 
+                kmax = min(kmax, 64)
             )
             return [k], T[convert(T, coeffR)], :mid
         else
             ks, coeffsR = ErrorNewtonCotesDerivative._leading_midpoint_residual_terms(
-                rule, boundary, Nsub; nterms = nterms, kmax = kmax
+                rule, 
+                boundary, 
+                Nsub; 
+                nterms = nterms, 
+                kmax = kmax
             )
             return ks, T.(coeffsR), :mid
         end
@@ -206,14 +214,23 @@ function _leading_residual_terms_any(
 
     if Gauss._is_gauss_rule(rule)
         ks, coeffs = ErrorGaussDerivative._leading_midpoint_residual_terms_gauss_float(
-            rule, boundary, Nsub; nterms = nterms, kmax = kmax
+            rule, 
+            boundary, 
+            Nsub; 
+            nterms = nterms, 
+            kmax = kmax
         )
         return ks, T.(coeffs), :mid
     end
 
     if BSpline._is_bspline_rule(rule)
         ks, coeffs = ErrorBSplineDerivative._leading_midpoint_residual_terms_bspline_float(
-            rule, boundary, Nsub; nterms = nterms, kmax = kmax, λ = 0.0
+            rule, 
+            boundary, 
+            Nsub; 
+            nterms = nterms, 
+            kmax = kmax, 
+            λ = 0.0
         )
         return ks, T.(coeffs), :mid
     end
@@ -287,8 +304,12 @@ function _leading_residual_ks_with_center_any(
     tol_abs_T = isnothing(tol_abs) ? T(5e4) * eps(T) : convert(T, tol_abs)
     tol_rel_T = isnothing(tol_rel) ? T(5e4) * eps(T) : convert(T, tol_rel)
 
-    (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1 (got $nterms)")
-    (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0 (got $kmax)")
+    (nterms >= 1) || JobLoggerTools.error_benji(
+        "nterms must be ≥ 1 (got $nterms)"
+    )
+    (kmax >= 0)   || JobLoggerTools.error_benji(
+        "kmax must be ≥ 0 (got $kmax)"
+    )
 
     QuadratureUtils._decode_boundary(boundary)
     center = :mid
@@ -371,7 +392,9 @@ function _leading_residual_ks_with_center_any(
 
     if BSpline._is_bspline_rule(rule)
         ks, center = ErrorBSplineDerivative._leading_residual_ks_with_center_bspline_float(
-            rule, boundary, Nsub;
+            rule, 
+            boundary, 
+            Nsub;
             nterms = nterms,
             kmax = kmax,
             λ = 0.0,
@@ -381,7 +404,9 @@ function _leading_residual_ks_with_center_any(
         return ks, center
     end
 
-    JobLoggerTools.error_benji("Unsupported rule=$rule for residual ks extraction.")
+    JobLoggerTools.error_benji(
+        "Unsupported rule=$rule for residual ks extraction."
+    )
 end
 
 # ============================================================

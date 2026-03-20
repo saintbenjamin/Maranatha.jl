@@ -24,8 +24,8 @@
     ) -> Nothing
 
 Visualize one-dimensional quadrature behavior on `[a,b]` using a pedagogical plot
-that shows the sampled integrand together with a rule-specific representation of the
-quadrature construction.
+that overlays the sampled integrand with a rule-family-specific area interpretation
+of the quadrature construction.
 
 # Arguments
 - `f`:
@@ -60,8 +60,12 @@ quadrature construction.
 
 # Notes
 - This routine is intended for intuition-building, inspection, and debugging of 1D rules.
-- Non-B-spline rules use a signed contribution view, while B-spline rules visualize the
-  reconstructed effective spline curve.
+- In the B-spline branch, the routine reconstructs the effective spline curve from the
+  sampled node values and fills its contribution span by span.
+- In the non-B-spline branch, the routine uses an educational width=`w_i`,
+  height=`f(x_i)` area view arranged sequentially from `a`; if a weight is
+  negative, the local bar orientation is flipped so the signed area remains
+  `w_i f(x_i)`.
 - A [`TOML`](https://toml.io/en/)-driven convenience wrapper is also provided.
 """
 function plot_quadrature_coverage_1d(
@@ -127,7 +131,9 @@ function plot_quadrature_coverage_1d(
 
         t  = BSpline._build_knots_uniform(a, b, N, p, boundary)
         nb = length(t) - p - 1
-        (length(xs) == nb) || JobLoggerTools.error_benji("BSpline internal mismatch: length(xs)=$(length(xs)) nb=$nb")
+        (length(xs) == nb) || JobLoggerTools.error_benji(
+            "BSpline internal mismatch: length(xs)=$(length(xs)) nb=$nb"
+        )
 
         # Build A[j,i] = B_i(xs[j])
         A = Matrix{Float64}(undef, nb, nb)
@@ -142,7 +148,6 @@ function plot_quadrature_coverage_1d(
             c = A \ y
             return t, p, c
         else
-            # Keep consistent with your dispatch (λ fixed to 0.0 for now)
             λ = 0.0
             R = BSpline._roughness_R_second_diff(nb)
             M = transpose(A) * A + λ * R
@@ -181,20 +186,7 @@ function plot_quadrature_coverage_1d(
         y_nodes[j] = _f_val(convert(T, xs[j]))
     end
 
-    # Scatter only finite nodes
-    # mask_nodes = isfinite.(y_nodes)
-    # xs_plot = xs[mask_nodes]
-    # ys_plot = y_nodes[mask_nodes]
-
-    # # Marker size ~ |w|
-    # wabs = abs.(ws)
-    # wmax = maximum(wabs)
-    # ms_all = (wmax > 0) ? (6.0 .+ 18.0 .* (wabs ./ wmax)) : fill(6.0, length(ws))
-    # ms_plot = ms_all[mask_nodes]
-
-    # ax.scatter(xs_plot, ys_plot; s=ms_plot, alpha=0.9)
-
-    # Quadrature sum text (same meaning as before, but no contrib vector)
+    # Quadrature sum text
     I_hat = zero(T)
     @inbounds for j in eachindex(xs)
         yj = y_nodes[j]
@@ -220,7 +212,6 @@ function plot_quadrature_coverage_1d(
         @inbounds for i in eachindex(xg)
             ys_spl[i] = _bspline_eval(xg[i], t, p, c)
         end
-        # ax.plot(xg, ys_spl; linewidth=1.6, alpha=0.9)
 
         # Fill per knot span (only spans with positive length inside [a,b])
         nt = length(t)
@@ -246,7 +237,7 @@ function plot_quadrature_coverage_1d(
         # ------------------------------------------------------------
         # Width = weight interpretation (Δx_i = w_i), height = f(x_i)
         # - Educational "mass bar" view.
-        # - Applies to non-BSpline rules here (same as your current behavior).
+        # - Applies to non-BSpline rules here.
         # ------------------------------------------------------------
 
         # Keep only finite (x, w, y)
@@ -413,6 +404,10 @@ function plot_quadrature_coverage_1d(
 )::Nothing
     cfg = MaranathaTOML.parse_run_config_from_toml(toml_path)
     MaranathaTOML.validate_run_config(cfg)
+
+    (cfg.dim == 1) || JobLoggerTools.error_benji(
+        "plot_quadrature_coverage_1d supports only dim = 1 (got dim=$(cfg.dim))"
+    )
 
     integrand = MaranathaTOML.load_integrand_from_file(
         cfg.integrand_file;

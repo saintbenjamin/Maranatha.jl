@@ -99,8 +99,8 @@ odometer-style tensor-product traversal.
 """
 function error_estimate_derivative_direct_nd(
     f,
-    a::Real,
-    b::Real,
+    a,
+    b,
     N::Int,
     rule::Symbol,
     boundary::Symbol;
@@ -114,24 +114,59 @@ function error_estimate_derivative_direct_nd(
 
     dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
+    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    aa = convert(T, a)
-    bb = convert(T, b)
-    h  = (bb - aa) / T(N)
+    # ------------------------------------------------------------
+    # Domain handling — rectangular domain support
+    # ------------------------------------------------------------
+    if !(a isa AbstractVector || a isa Tuple)
+        aa = ntuple(_ -> convert(T, a), dim)
+        bb = ntuple(_ -> convert(T, b), dim)
+    else
+        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
+        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
 
-    x̄ = (aa + bb) / T(2)
+        aa = ntuple(i -> convert(T, a[i]), dim)
+        bb = ntuple(i -> convert(T, b[i]), dim)
+    end
 
-    xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        aa, bb, N, rule, boundary;
-        real_type = T,
+    hs = ntuple(i -> (bb[i] - aa[i]) / T(N), dim)
+    center = ntuple(i -> (aa[i] + bb[i]) / T(2), dim)
+    hsum = zero(T)
+    @inbounds for i in 1:dim
+        hsum += hs[i]
+    end
+
+    nodes = Vector{Vector{T}}(undef, dim)
+    weights = Vector{Vector{T}}(undef, dim)
+
+    @inbounds for d in 1:dim
+        xd, wd = QuadratureNodes.get_quadrature_1d_nodes_weights(
+            aa[d], 
+            bb[d], 
+            N, 
+            rule, 
+            boundary;
+            real_type = T,
+        )
+        nodes[d] = collect(T, xd)
+        weights[d] = collect(T, wd)
+    end
+
+    @inline function _call_with_axis(
+        f, 
+        fixed, 
+        axis::Int, 
+        x, 
+        dim::Int
     )
-
-    @inline function _call_with_axis(f, fixed, axis::Int, x, dim::Int)
         return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
     end
 
     ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, boundary, N;
+        rule, 
+        boundary, 
+        N;
         nterms = nerr_terms,
         kmax   = kmax
     )
@@ -143,15 +178,15 @@ function error_estimate_derivative_direct_nd(
         derivatives = T[],
         terms = T[],
         total = zero(T),
-        center = ntuple(_ -> x̄, dim),
-        h = h
+        center = center,
+        h = hs
     )
 
     derivatives = Vector{T}(undef, length(ks))
     terms       = Vector{T}(undef, length(ks))
 
     fixed = Vector{T}(undef, dim)
-    idx   = ones(Int, dim - 1)
+    idx   = ones(Int, max(dim - 1, 1))
 
     deriv_fun, backend_tag =
         AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
@@ -172,12 +207,13 @@ function error_estimate_derivative_direct_nd(
             Iaxis = zero(T)
 
             if dim == 1
-                Iaxis = convert(T,
+                Iaxis = convert(
+                    T,
                     AutoDerivativeDirect.nth_derivative(
                         deriv_fun,
                         backend_tag,
                         x -> f(x),
-                        x̄,
+                        center[1],
                         k;
                     )
                 )
@@ -193,17 +229,18 @@ function error_estimate_derivative_direct_nd(
                             continue
                         end
                         i = idx[t]
-                        fixed[d] = xs[i]
-                        wprod *= ws[i]
+                        fixed[d] = nodes[d][i]
+                        wprod *= weights[d][i]
                         t += 1
                     end
 
-                    Iaxis += wprod * convert(T,
+                    Iaxis += wprod * convert(
+                        T,
                         AutoDerivativeDirect.nth_derivative(
                             deriv_fun,
                             backend_tag,
                             x -> _call_with_axis(f, fixed, axis, x, dim),
-                            x̄,
+                            center[axis],
                             k;
                         )
                     )
@@ -211,13 +248,16 @@ function error_estimate_derivative_direct_nd(
                     q = dim - 1
                     while q >= 1
                         idx[q] += 1
-                        if idx[q] <= length(xs)
+
+                        other_axis = q >= axis ? q + 1 : q
+                        if idx[q] <= length(nodes[other_axis])
                             break
                         else
                             idx[q] = 1
                             q -= 1
                         end
                     end
+
                     q == 0 && break
                 end
             end
@@ -226,7 +266,7 @@ function error_estimate_derivative_direct_nd(
         end
 
         derivatives[it] = total_axes
-        terms[it] = coeff * h^(k + 1) * total_axes
+        terms[it] = coeff * hsum^(k + 1) * total_axes
     end
 
     return (;
@@ -235,7 +275,7 @@ function error_estimate_derivative_direct_nd(
         derivatives = derivatives,
         terms       = terms,
         total       = sum(terms),
-        center      = ntuple(_ -> x̄, dim),
-        h           = h
+        center      = center,
+        h           = hs
     )
 end

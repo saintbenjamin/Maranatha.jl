@@ -14,7 +14,7 @@ module Wizard
     _prompt(
         msg::String,
         default::AbstractString
-    ) -> String
+    ) -> AbstractString
 
 Prompt the user for a string value with a default fallback.
 
@@ -24,20 +24,22 @@ This helper prints an interactive prompt of the form
     msg [default]:
 
 reads one line from standard input, and returns either the stripped user input
-or the stripped default value if the input is empty.
+or `default` as passed when the input is empty or whitespace-only.
 
 # Arguments
 - `msg::String`: Prompt message shown to the user.
 - `default::AbstractString`: Default value used when the user presses Enter.
 
 # Returns
-- `String`: Stripped user input or stripped default value.
+- `AbstractString`: Stripped user input, or the original `default` value.
 
 # Errors
 - Propagates I/O errors from `readline()`.
 
 # Notes
 - This is a low-level helper used by the wizard input routines.
+- Only user-supplied input is normalized with `strip(...)`; `default` is not
+  stripped inside this helper.
 """
 function _prompt(
     msg::String, 
@@ -72,7 +74,9 @@ This helper calls [`_prompt`](@ref), then parses the resulting string as
 - Propagates any I/O errors from [`_prompt`](@ref).
 
 # Notes
-- Intended for numeric [`TOML`](https://toml.io/en/) fields such as `a` and `b`.
+- This helper is intended for wizard fields that are genuinely `Float64`-based.
+- Precision-preserving domain input should use raw string prompting instead of
+  this helper.
 """
 function _prompt_float(
     msg::String, 
@@ -189,17 +193,128 @@ function _prompt_int_vector(
     default::Vector{Int}
 )
     s = _prompt(msg, join(default, ","))
-    parse.(Int, split(s, ","))
+    parse.(Int, strip.(split(s, ",")))
+end
+
+"""
+    _prompt_float_vector(
+        msg::String,
+        default::Vector{Float64}
+    ) -> Vector{Float64}
+
+Prompt the user for a comma-separated list of floating-point values.
+
+# Function description
+This helper calls [`_prompt`](@ref), splits the resulting string on commas,
+and parses each field as `Float64`.
+
+# Arguments
+- `msg::String`: Prompt message shown to the user.
+- `default::Vector{Float64}`: Default floating-point vector.
+
+# Returns
+- `Vector{Float64}`: Parsed floating-point vector.
+
+# Errors
+- Throws if any element cannot be parsed as `Float64`.
+- Propagates any I/O errors from [`_prompt`](@ref).
+
+# Notes
+- This helper performs eager `Float64` parsing.
+- It is therefore not suitable for precision-preserving domain input when the
+  generated TOML should defer parsing until `real_type` is known.
+"""
+function _prompt_float_vector(
+    msg::String,
+    default::Vector{Float64}
+)
+    s = _prompt(msg, join(default, ","))
+    parse.(Float64, strip.(split(s, ",")))
+end
+
+"""
+    _prompt_literal_vector(
+        msg::String,
+        default::Vector{<:AbstractString}
+    ) -> Vector{String}
+
+Prompt the user for a comma-separated list of numeric literal strings.
+
+# Function description
+This helper calls [`_prompt`](@ref), splits the resulting string on commas,
+strips each field, and returns the resulting strings without numeric parsing.
+
+# Arguments
+- `msg::String`: Prompt message shown to the user.
+- `default::Vector{<:AbstractString}`: Default literal vector.
+
+# Returns
+- `Vector{String}`: Parsed literal strings.
+
+# Errors
+- Propagates any I/O errors from [`_prompt`](@ref).
+
+# Notes
+- Intended for `[domain].a` and `[domain].b` when the wizard should preserve
+  user-entered numeric text until the TOML parser later interprets it using
+  `real_type`.
+"""
+function _prompt_literal_vector(
+    msg::String,
+    default::Vector{<:AbstractString}
+)
+    s = _prompt(msg, join(default, ","))
+    String.(strip.(split(s, ",")))
+end
+
+"""
+    _toml_literal(x) -> String
+
+Format a scalar or array-like wizard value as a TOML literal.
+
+# Function description
+This helper converts wizard values into the textual form embedded in the
+generated TOML template.
+
+Behavior depends on `x`:
+
+- `AbstractString` values are emitted with `repr(x)`, so they become quoted TOML
+  strings;
+- tuple- and vector-like values are emitted recursively as bracketed arrays;
+- non-string scalar values are emitted via `string(x)`.
+
+# Arguments
+- `x`: Scalar or array-like value to embed in the TOML output.
+
+# Returns
+- `String`: TOML literal representation of `x`.
+
+# Errors
+- No explicit validation is performed.
+
+# Notes
+- This helper is used so the wizard can preserve precision-sensitive domain
+  input by writing it as TOML strings instead of eagerly parsing it as
+  `Float64`.
+"""
+@inline function _toml_literal(x)
+    if x isa AbstractString
+        return repr(x)
+    elseif x isa Tuple || x isa AbstractVector
+        return "[" * join(_toml_literal.(collect(x)), ", ") * "]"
+    else
+        return string(x)
+    end
 end
 
 """
     _build_toml(cfg) -> String
 
-Construct a [`TOML`](https://toml.io/en/) configuration string from a wizard configuration bundle.
+Construct a wizard-generated [`TOML`](https://toml.io/en/) configuration string.
 
 # Function description
-This helper converts a configuration container into a [`TOML`](https://toml.io/en/)-formatted string
-with a fixed section order.
+This helper interpolates the fields of `cfg` into a fixed [`TOML`](https://toml.io/en/) template
+with a predictable section order.
 
 The generated sections are:
 
@@ -210,6 +325,12 @@ The generated sections are:
 - `[error]`
 - `[execution]`
 - `[output]`
+
+The current template supports scalar or array-valued domain endpoints.
+When domain bounds are supplied as strings, they are emitted as quoted TOML
+strings so precision-sensitive numeric text can be preserved until
+[`Maranatha.Utils.MaranathaTOML.parse_run_config_from_toml`](@ref) interprets them using
+`real_type`.
 
 # Arguments
 - `cfg`: Configuration bundle providing the fields required by the wizard TOML
@@ -224,10 +345,15 @@ The generated sections are:
 # Notes
 - The [`TOML`](https://toml.io/en/) string is assembled manually to preserve predictable ordering and
   readability.
+- This helper does not validate or normalize the supplied values.
+- String-valued domain bounds are intentionally preserved rather than eagerly
+  parsed in the wizard.
 """
 function _build_toml(cfg)
 
-    ns = "[" * join(cfg.nsamples, ", ") * "]"
+    a_toml = _toml_literal(cfg.a)
+    b_toml = _toml_literal(cfg.b)
+    ns_toml = _toml_literal(cfg.nsamples)
 
     return """
 [integrand]
@@ -235,12 +361,12 @@ file = \"$(cfg.file)\"
 name = \"$(cfg.func)\"
 
 [domain]
-a = $(cfg.a)
-b = $(cfg.b)
+a = $a_toml
+b = $b_toml
 dim = $(cfg.dim)
 
 [sampling]
-nsamples = $ns
+nsamples = $ns_toml
 
 [quadrature]
 rule = \"$(cfg.rule)\"
@@ -254,6 +380,8 @@ ff_shift = $(cfg.ff_shift)
 
 [execution]
 use_error_jet = $(cfg.use_error_jet)
+use_cuda = $(cfg.use_cuda)
+real_type = \"$(cfg.real_type)\"
 
 [output]
 name_prefix = \"$(cfg.name_prefix)\"
@@ -374,18 +502,29 @@ Launch the interactive Maranatha [`TOML`](https://toml.io/en/) configuration wiz
 
 # Function description
 This routine interactively collects configuration values from the user,
-constructs a [`TOML`](https://toml.io/en/) configuration string, writes it to disk, and optionally
-writes a sample integrand source file.
+constructs a [`TOML`](https://toml.io/en/) configuration string with the wizard's fixed
+template, writes it to `output_path`, and optionally writes a sample integrand
+source file.
 
-The wizard gathers information about:
+The wizard currently prompts for:
 
+- dimensionality `dim`,
 - integrand file and function name,
-- integration domain and dimensionality,
+- either scalar domain bounds or per-axis domain-bound arrays, depending on the
+  domain-mode branch,
 - sampling schedule,
 - quadrature settings,
 - error-estimation settings,
 - execution flags,
 - output configuration.
+
+String-valued options such as `rule`, `boundary`, `err_method`, and
+`real_type` are collected as raw user input and written directly into the TOML
+file without local validation.
+
+Domain bounds are collected as strings so precision-sensitive numeric text can
+be preserved in the generated [`TOML`](https://toml.io/en/) file and later parsed using the
+selected `real_type`.
 
 # Keyword arguments
 - `output_path::AbstractString`: Destination path of the generated [`TOML`](https://toml.io/en/) file.
@@ -395,11 +534,14 @@ The wizard gathers information about:
 
 # Errors
 - Propagates input-parsing errors from the `_prompt_*` helpers.
+- Propagates I/O errors from interactive input.
 - Propagates file-writing errors when writing the [`TOML`](https://toml.io/en/) or sample integrand file.
 
 # Notes
 - If the selected sample integrand file already exists, the wizard asks whether
   it should be overwritten.
+- In the per-axis domain branch, the wizard requires exactly `dim` lower-bound
+  values and `dim` upper-bound values.
 - The `use_error_jet` option only affects derivative-based error methods and is
   ignored when `err_method = "refinement"`.
 """
@@ -411,12 +553,28 @@ function run_wizard(;
     println("Maranatha TOML configuration wizard")
     println("-----------------------------------")
 
-    file = _prompt("Integrand file", "sample_1d.jl")
+    dim = _prompt_int("Dimension", 1)
+    dim >= 1 || error("Dimension must be >= 1 (got dim=$dim).")
+
+    file = _prompt("Integrand file", "sample_$(dim)d.jl")
     func = _prompt("Integrand function name", "integrand")
 
-    a = _prompt_float("Lower bound (a)", 0.0)
-    b = _prompt_float("Upper bound (b)", 3.141592653589793)
-    dim = _prompt_int("Dimension", 1)
+    if use_axiswise_domain
+        println("Rectangular domain mode: enter comma-separated bounds with exactly $dim values.")
+
+        a = _prompt_literal_vector("Lower bounds (a)", fill("0.0", dim))
+        b = _prompt_literal_vector("Upper bounds (b)", fill("3.1415926535897932384626433832795028841971", dim))
+
+        length(a) == dim || error(
+            "Expected $dim lower-bound values for domain.a, got $(length(a))."
+        )
+        length(b) == dim || error(
+            "Expected $dim upper-bound values for domain.b, got $(length(b))."
+        )
+    else
+        a = _prompt("Lower bound (a)", "0.0")
+        b = _prompt("Upper bound (b)", "3.1415926535897932384626433832795028841971")
+    end
 
     nsamples = _prompt_int_vector("Number of samples", [2, 3, 4, 5, 6, 7, 8, 9])
 
@@ -429,13 +587,20 @@ function run_wizard(;
     println("Error methods: refinement, forwarddiff, taylorseries, enzyme, fastdifferentiation")
     err_method = _prompt("Error method", "refinement")
 
+    if lowercase(err_method) == "refinement"
+        println("Note: for err_method=refinement, nerr_terms is effectively treated as 0 internally.")
+    end
+
     fit_terms = _prompt_int("fit_terms", 4)
     nerr_terms = _prompt_int("nerr_terms", 3)
     ff_shift = _prompt_int("ff_shift", 0)
 
     use_error_jet = _prompt_bool("Use error jet", false)
 
-    name_prefix = _prompt("Output name prefix", "1D")
+    use_cuda = _prompt_bool("Use CUDA", false)
+    real_type = _prompt("Real type (Float32, Float64, Double64, BigFloat)", "Float64")
+
+    name_prefix = _prompt("Output name prefix", "Maranatha")
     save_path = _prompt("Save path", ".")
 
     write_summary = _prompt_bool("Write summary", true)
@@ -457,6 +622,8 @@ function run_wizard(;
         nerr_terms = nerr_terms,
         ff_shift = ff_shift,
         use_error_jet = use_error_jet,
+        use_cuda = use_cuda,
+        real_type = real_type,
         name_prefix = name_prefix,
         save_path = save_path,
         write_summary = write_summary,

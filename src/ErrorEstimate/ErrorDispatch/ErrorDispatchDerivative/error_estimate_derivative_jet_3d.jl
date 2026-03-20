@@ -141,11 +141,38 @@ function error_estimate_derivative_jet_3d(
     ȳ = (ay + by) / T(2)
     z̄ = (az + bz) / T(2)
 
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(ax, bx, N, rule, boundary; real_type = T)
-    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(ay, by, N, rule, boundary; real_type = T)
-    zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(az, bz, N, rule, boundary; real_type = T)
+    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        ax, 
+        bx, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
+    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        ay, 
+        by, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
+    zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
+        az, 
+        bz, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
+    )
 
-    ks, coeffs0, _ = _get_residual_model_fixed(rule, boundary, N; nterms = nerr_terms, kmax = kmax)
+    ks, coeffs0, _ = _get_residual_model_fixed(
+        rule, 
+        boundary, 
+        N; 
+        nterms = nerr_terms, 
+        kmax = kmax
+    )
     coeffs = T.(coeffs0)
 
     derivatives = zeros(T, length(ks))
@@ -160,7 +187,13 @@ function error_estimate_derivative_jet_3d(
             z = zs[k2]; w = wyj * wz[k2]
             gx(x) = f(x, y, z)
 
-            vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gx, x̄, ks;)
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                jet_fun, 
+                backend_tag, 
+                gx, 
+                x̄, 
+                ks;
+            )
             vals = T.(vals0)
 
             for it in eachindex(ks)
@@ -177,7 +210,13 @@ function error_estimate_derivative_jet_3d(
             z = zs[k2]; w = wxi * wz[k2]
             gy(y) = f(x, y, z)
 
-            vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gy, ȳ, ks;)
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                jet_fun, 
+                backend_tag, 
+                gy, 
+                ȳ, 
+                ks;
+            )
             vals = T.(vals0)
 
             for it in eachindex(ks)
@@ -194,7 +233,13 @@ function error_estimate_derivative_jet_3d(
             y = ys[j]; w = wxi * wy[j]
             gz(z) = f(x, y, z)
 
-            vals0 = AutoDerivativeJet._derivative_values_for_ks(jet_fun, backend_tag, gz, z̄, ks;)
+            vals0 = AutoDerivativeJet._derivative_values_for_ks(
+                jet_fun, 
+                backend_tag, 
+                gz, 
+                z̄, 
+                ks;
+            )
             vals = T.(vals0)
 
             for it in eachindex(ks)

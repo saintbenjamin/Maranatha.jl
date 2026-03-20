@@ -81,7 +81,13 @@ function quadrature_1d(
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, b, N, rule, boundary; λ = λT, real_type = T
+        a, 
+        b, 
+        N, 
+        rule, 
+        boundary; 
+        λ = λT, 
+        real_type = T
     )
 
     total = zero(T)
@@ -175,7 +181,13 @@ function quadrature_2d(
     # ------------------------------------------------------------
     if !(a isa AbstractVector || a isa Tuple)
         xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, b, N, rule, boundary; λ = λT, real_type = T
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ys, wy = xs, wx
     else
@@ -187,10 +199,22 @@ function quadrature_2d(
         length(b) == 2 || throw(ArgumentError("length(b) must be 2 for 2D"))
 
         xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[1], b[1], N, rule, boundary; λ = λT, real_type = T
+            a[1], 
+            b[1], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[2], b[2], N, rule, boundary; λ = λT, real_type = T
+            a[2], 
+            b[2], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
     end
 
@@ -291,7 +315,13 @@ function quadrature_3d(
     # ------------------------------------------------------------
     if !(a isa AbstractVector || a isa Tuple)
         xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, b, N, rule, boundary; λ = λT, real_type = T
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ys, wy = xs, wx
         zs, wz = xs, wx
@@ -304,13 +334,31 @@ function quadrature_3d(
         length(b) == 3 || throw(ArgumentError("length(b) must be 3 for 3D"))
 
         xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[1], b[1], N, rule, boundary; λ = λT, real_type = T
+            a[1], 
+            b[1], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[2], b[2], N, rule, boundary; λ = λT, real_type = T
+            a[2], 
+            b[2], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[3], b[3], N, rule, boundary; λ = λT, real_type = T
+            a[3], 
+            b[3], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
     end
 
@@ -415,7 +463,13 @@ function quadrature_4d(
     # ------------------------------------------------------------
     if !(a isa AbstractVector || a isa Tuple)
         xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, b, N, rule, boundary; λ = λT, real_type = T
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ys, wy = xs, wx
         zs, wz = xs, wx
@@ -429,16 +483,40 @@ function quadrature_4d(
         length(b) == 4 || throw(ArgumentError("length(b) must be 4 for 4D"))
 
         xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[1], b[1], N, rule, boundary; λ = λT, real_type = T
+            a[1], 
+            b[1], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[2], b[2], N, rule, boundary; λ = λT, real_type = T
+            a[2], 
+            b[2], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[3], b[3], N, rule, boundary; λ = λT, real_type = T
+            a[3], 
+            b[3], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
         ts, wt = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[4], b[4], N, rule, boundary; λ = λT, real_type = T
+            a[4], 
+            b[4], 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
     end
 
@@ -553,7 +631,13 @@ function quadrature_nd(
     # ------------------------------------------------------------
     if !(a isa AbstractVector || a isa Tuple)
         xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, b, N, rule, boundary; λ = λT, real_type = T
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
         )
 
         idx = ones(Int, dim)
@@ -602,7 +686,13 @@ function quadrature_nd(
     for d in 1:dim
         xs_list[d], ws_list[d] =
             QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a[d], b[d], N, rule, boundary; λ = λT, real_type = T
+                a[d], 
+                b[d], 
+                N, 
+                rule, 
+                boundary; 
+                λ = λT, 
+                real_type = T
             )
     end
 
@@ -778,13 +868,49 @@ function quadrature(
     # Dimension-specialized local paths
     # ------------------------------------------------------------
     if dim == 1
-        return quadrature_1d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
+        return quadrature_1d(
+            integrand, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
     elseif dim == 2
-        return quadrature_2d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
+        return quadrature_2d(
+            integrand, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
     elseif dim == 3
-        return quadrature_3d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
+        return quadrature_3d(
+            integrand, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
     elseif dim == 4
-        return quadrature_4d(integrand, a, b, N, rule, boundary; λ = λT, real_type = T)
+        return quadrature_4d(
+            integrand, 
+            a, 
+            b, 
+            N, 
+            rule, 
+            boundary; 
+            λ = λT, 
+            real_type = T
+        )
     else
         return quadrature_nd(
             integrand,

@@ -30,6 +30,7 @@ import ..ErrorBSplineRefinement
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 Dispatch a refinement-based error-estimation request to the matching quadrature
 family backend.
@@ -71,6 +72,9 @@ raised.
   Whether to allow CPU threaded subgrid execution in the selected refinement backend.
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and backend dispatch.
+- `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value forwarded to the selected
+  refinement backend so the coarse-grid quadrature value can be reused.
 
 # Returns
 - The named tuple returned by the selected rule-family refinement estimator.
@@ -83,6 +87,8 @@ raised.
 # Notes
 - This helper is internal and performs family-level routing only.
 - The `λ` keyword is ignored for non-B-spline rules.
+- The `I_coarse` keyword is forwarded unchanged to whichever refinement backend
+  is selected.
 """
 @inline function _dispatch_refinement(
     f,
@@ -95,6 +101,7 @@ raised.
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
@@ -110,6 +117,7 @@ raised.
             boundary;
             threaded_subgrid = threaded_subgrid,
             real_type = T,
+            I_coarse = I_coarse,
         )
 
     elseif NewtonCotes._is_newton_cotes_rule(rule)
@@ -123,6 +131,7 @@ raised.
             boundary;
             threaded_subgrid = threaded_subgrid,
             real_type = T,
+            I_coarse = I_coarse,
         )
 
     elseif BSpline._is_bspline_rule(rule)
@@ -137,6 +146,7 @@ raised.
             λ = λT,
             threaded_subgrid = threaded_subgrid,
             real_type = T,
+            I_coarse = I_coarse,
         )
 
     else
@@ -158,6 +168,7 @@ end
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Unified public dispatcher for refinement-based error estimation across all
@@ -199,6 +210,9 @@ comparison and returns its rule-specific refinement estimate object.
   Whether to allow CPU threaded subgrid execution in the selected refinement backend.
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and refinement dispatch.
+- `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value forwarded to the selected
+  backend so the coarse-grid quadrature value can be reused.
 
 # Returns
 - The named tuple produced by the selected refinement backend.
@@ -213,6 +227,8 @@ comparison and returns its rule-specific refinement estimate object.
 - For non-B-spline rules, the `λ` keyword is accepted for interface uniformity
   but is not used.
 - The active scalar type can be overridden through `real_type`.
+- The `I_coarse` keyword exists to avoid redundant coarse quadrature work when
+  the caller already has that value.
 """
 function error_estimate_refinement(
     f,
@@ -225,6 +241,7 @@ function error_estimate_refinement(
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     return _dispatch_refinement(
         f,
@@ -237,6 +254,7 @@ function error_estimate_refinement(
         λ = λ,
         threaded_subgrid = threaded_subgrid,
         real_type = real_type,
+        I_coarse = I_coarse,
     )
 end
 

@@ -13,7 +13,9 @@ Its responsibilities are intentionally narrow:
 
 1. identify the quadrature family associated with a given `rule`,
 2. dispatch the request to the matching refinement backend,
-3. expose a single public entry point for refinement-based error estimation.
+3. forward shared refinement keywords such as `real_type`, `threaded_subgrid`,
+   and optional `I_coarse`,
+4. expose a single public entry point for refinement-based error estimation.
 
 This module does **not** construct residual models, does **not** evaluate
 high-order derivatives, and does **not** use derivative jets.
@@ -70,6 +72,10 @@ Its role is simply to provide a uniform public API so that caller-side code does
 not need to manually distinguish among Gauss, Newton-Cotes, and B-spline rule
 families.
 
+It also centralizes forwarding of an optional precomputed coarse quadrature
+value through `I_coarse` when the caller wants to avoid redundant coarse-grid
+evaluation inside the selected backend.
+
 ---
 
 ## Internal rule-family dispatch
@@ -84,7 +90,8 @@ It checks the input `rule` in the following order:
 2. Newton-Cotes rule,
 3. B-spline rule.
 
-The request is then forwarded to the corresponding backend:
+The request is then forwarded to the corresponding backend, together with shared
+keywords such as `real_type`, `threaded_subgrid`, and optional `I_coarse`:
 
 * Gauss-family rules →
   [`Maranatha.ErrorEstimate.ErrorGauss.ErrorGaussRefinement.error_estimate_refinement_gauss`](@ref)
@@ -191,6 +198,9 @@ in the residual / derivative branch.
 The public function is deliberately thin: it forwards the request to the
 internal rule-family dispatcher and returns the backend-produced refinement
 result object.
+
+If an already computed coarse quadrature value is available, that value can be
+passed once through `I_coarse` and will be relayed to the selected backend.
 
 ---
 

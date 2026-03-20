@@ -233,6 +233,7 @@ end
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Estimate the B-spline quadrature error by comparing coarse and refined
@@ -242,7 +243,8 @@ composite quadrature evaluations.
 This internal helper implements the refinement-difference error estimator for
 B-spline quadrature rules. It computes
 
-- a coarse estimate using `N` composite blocks, and
+- a coarse estimate at subdivision count `N`, either by evaluating it
+  internally or by reusing the externally supplied `I_coarse`, and
 - a refined estimate using `2N` composite blocks,
 
 then forms their difference
@@ -296,6 +298,9 @@ estimate.
 * `real_type = nothing`:
   Optional scalar type used internally for bound conversion, mesh sizes,
   and quadrature evaluation.
+* `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value. If provided, the helper reuses
+  it instead of recomputing the coarse B-spline quadrature value.
 
 # Returns
 
@@ -309,7 +314,7 @@ estimate.
   * `dim`         : dimensionality
   * `h_coarse`    : coarse mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
   * `h_fine`      : refined mesh size (scalar for hypercubes, per-axis tuple for rectangular domains)
-  * `q_coarse`    : coarse quadrature value
+  * `q_coarse`    : coarse quadrature value, either reused from `I_coarse` or computed internally
   * `q_fine`      : refined quadrature value
   * `estimate`    : absolute refinement difference
   * `signed_diff` : signed refinement difference
@@ -329,6 +334,8 @@ estimate.
 * This estimator does not use derivatives or residual moments.
 * The returned `estimate` is currently `abs(q_fine - q_coarse)` without an
   additional Richardson-style normalization factor.
+* The optional `I_coarse` keyword is intended to avoid redundant coarse
+  quadrature work when the caller has already computed that value.
 """
 function _estimate_by_refinement_bspline(
     f,
@@ -341,6 +348,7 @@ function _estimate_by_refinement_bspline(
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = if !isnothing(real_type)
         real_type
@@ -370,18 +378,20 @@ function _estimate_by_refinement_bspline(
         h_fine   = (bb - aa) / T(2N)
     end
 
-    q_coarse = _quadrature_value_bspline(
-        f,
-        aa,
-        bb,
-        N,
-        dim,
-        rule,
-        boundary;
-        λ = λT,
-        threaded_subgrid = threaded_subgrid,
-        real_type = T,
-    )
+    q_coarse = isnothing(I_coarse) ?
+        _quadrature_value_bspline(
+            f,
+            aa,
+            bb,
+            N,
+            dim,
+            rule,
+            boundary;
+            λ = λT,
+            threaded_subgrid = threaded_subgrid,
+            real_type = T,
+        ) :
+        I_coarse
 
     q_fine = _quadrature_value_bspline(
         f,
@@ -427,6 +437,7 @@ end
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
+        I_coarse = nothing,
     )
 
 Unified public dispatcher for B-spline refinement-based error estimation.
@@ -477,6 +488,9 @@ The routine validates the rule family and boundary selector, then dispatches to
 - `real_type = nothing`:
   Optional scalar type used internally for bound conversion and refinement
   evaluation.
+- `I_coarse = nothing`:
+  Optional precomputed coarse quadrature value forwarded to
+  [`_estimate_by_refinement_bspline`](@ref).
 
 # Returns
 - The named tuple produced by the selected refinement estimator.
@@ -491,6 +505,8 @@ The routine validates the rule family and boundary selector, then dispatches to
 - This dispatcher is intended for refinement-based error estimation only.
 - Unlike the derivative-based error estimators, this interface does not depend
   on a derivative backend or jet construction.
+- The optional `I_coarse` keyword exists to let callers reuse an already
+  computed coarse quadrature value.
 """
 function error_estimate_refinement_bspline(
     f,
@@ -503,6 +519,7 @@ function error_estimate_refinement_bspline(
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
+    I_coarse = nothing,
 )
     T = if !isnothing(real_type)
         real_type
@@ -530,6 +547,7 @@ function error_estimate_refinement_bspline(
         λ = λT,
         threaded_subgrid = threaded_subgrid,
         real_type = T,
+        I_coarse = I_coarse,
     )
 end
 

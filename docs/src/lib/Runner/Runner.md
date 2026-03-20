@@ -20,8 +20,8 @@ multi-resolution convergence data that the fitter and plotter consume later.
 In other words, the runner is the front door of a typical computational
 workflow in `Maranatha.jl`.
 You define an integrand and a sequence of resolutions, and the runner returns a
-uniform dataset containing step sizes, quadrature estimates, and modeled error
-scales.
+uniform dataset containing the subdivision counts actually used, stored step
+data, quadrature estimates, and modeled error scales.
 
 The integration domain may be specified either as a common scalar interval
 (applied to all axes) or as axis-specific endpoints supplied as tuples or vectors,
@@ -67,9 +67,10 @@ The runner itself does not fit the continuum-limit model.
 It only prepares the data needed for later stages of analysis,
 visualization, and reporting.
 
-At the start of each run, the runner clears internal error-estimation caches
-to avoid cross-run contamination when multiple datasets are generated in a
-single Julia session.
+At the start of each derivative-based run, the runner clears internal
+error-estimation caches to avoid cross-run contamination when multiple datasets
+are generated in a single Julia session. The refinement-based path does not use
+these caches.
 
 Depending on the selected configuration, the error model may be computed
 either through a refinement-based estimator or through a derivative-based
@@ -144,14 +145,18 @@ integrand(x) = sin(x)
 The domain section accepts either scalar endpoints (for ``[a,b]^n``)
 or axis-wise endpoints for rectangular regions.
 
+When precision-sensitive bounds should be preserved until parsing, the domain
+values may also be written as TOML strings and later interpreted using
+`real_type`.
+
 ```toml
 [integrand]
 file = "sample_1d.jl"
 name = "integrand"
 
 [domain]
-a = 0.0
-b = 3.14159265358979323846264338327950588
+a = "0.0"
+b = "3.14159265358979323846264338327950588"
 dim = 1
 
 [sampling]
@@ -186,9 +191,9 @@ using Maranatha
 run_result = run_Maranatha("./sample_1d.toml")
 ```
 
-The execution backend is determined by runtime settings.
-CUDA execution requires explicit enabling in the API, while CPU
-parallelism depends on the number of Julia threads.
+The execution backend is determined by runtime settings and configuration.
+CUDA execution requires `use_cuda = true`, while CPU parallelism depends on the
+number of Julia threads.
 
 ---
 
@@ -198,7 +203,9 @@ The returned object is a `NamedTuple` designed to be passed downstream.
 The most commonly used fields are:
 
 - `result.a`, `result.b`
+- `result.nsamples`
 - `result.h`
+- `result.tuple_h`
 - `result.avg`
 - `result.err`
 - `result.rule`, `result.boundary`
@@ -207,7 +214,10 @@ The most commonly used fields are:
 These fields are usually enough to continue directly into the fitting stage.
 
 When axis-specific bounds are used, `result.a` and `result.b` retain the
-per-axis endpoint information.
+per-axis endpoint information. `result.tuple_h` preserves the original step
+object at each resolution. For tuple-based axis-wise steps, `result.h` stores
+the scalarized L2 norm; for vector-based axis-wise steps, the current
+implementation preserves the vector in `result.h`.
 
 ---
 

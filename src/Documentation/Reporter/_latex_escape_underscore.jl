@@ -9,7 +9,9 @@
 # ============================================================================
 
 """
-    _latex_escape_underscore(s::AbstractString) -> String
+    _latex_escape_underscore(
+        s::AbstractString
+    ) -> String
 
 Escape underscores for safe use in [``\\LaTeX``](https://www.latex-project.org/) text mode.
 
@@ -36,6 +38,8 @@ captions, labels, or section titles.
 - Only underscores are handled; other special characters are not escaped.
 - Intended for simple identifiers (file names, labels, rule names).
 """
-function _latex_escape_underscore(s::AbstractString)
+function _latex_escape_underscore(
+    s::AbstractString
+)
     return replace(s, "_" => "\\_")
 end

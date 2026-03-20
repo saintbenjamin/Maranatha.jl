@@ -99,7 +99,9 @@ function error_estimate_derivative_direct_1d(
     x̄ = (aa + bb) / T(2)
 
     ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, boundary, N;
+        rule, 
+        boundary, 
+        N;
         nterms = nerr_terms,
         kmax   = kmax
     )

@@ -9,7 +9,13 @@
 # ============================================================================
 
 """
-    _build_internal_note_figures_tex(extrap_plot_name, reldiff_plot_name; title, rule, boundary) -> String
+    _build_internal_note_figures_tex(
+        extrap_plot_name, 
+        reldiff_plot_name; 
+        title, 
+        rule, 
+        boundary
+    ) -> String
 
 Construct a [``\\LaTeX``](https://www.latex-project.org/) figure block for inclusion in the internal note.
 

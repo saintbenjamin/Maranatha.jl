@@ -34,6 +34,7 @@ import ..Printf: @sprintf
 
 import ..JobLoggerTools
 import ..AvgErrFormatter
+import ..Documentation.DocUtils
 
 include("Reporter/_fmt_sci_texttt.jl")
 include("Reporter/_fmt_tex_texttt_sci.jl")
@@ -60,7 +61,6 @@ include("Reporter/write_convergence_summary_datapoints.jl")
 include("Reporter/_build_convergence_summary_datapoints_tex.jl")
 include("Reporter/_build_convergence_summary_datapoints_md.jl")
 include("Reporter/_build_convergence_summary_datapoints_basename.jl")
-include("Reporter/_split_report_name.jl")
 
 include("Reporter/write_convergence_internal_note_datapoints.jl")
 include("Reporter/_build_internal_note_figures_tex_datapoints.jl")

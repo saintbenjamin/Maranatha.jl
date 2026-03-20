@@ -9,7 +9,9 @@
 # ============================================================================
 
 """
-    _fmt_md_code_sci(x::Real) -> String
+    _fmt_md_code_sci(
+        x::Real
+    ) -> String
 
 Format a number as Markdown inline code in scientific notation.
 
@@ -39,6 +41,8 @@ Markdown engines.
 
 - Intended for human-readable documentation rather than machine parsing.
 """
-function _fmt_md_code_sci(x::Real)
+function _fmt_md_code_sci(
+    x::Real
+)
     return "`$(_fmt_sci_texttt(x))`"
 end

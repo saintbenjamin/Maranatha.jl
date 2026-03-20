@@ -143,14 +143,26 @@ function error_estimate_derivative_jet_2d(
     ȳ = (ay + by) / T(2)
 
     xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        ax, bx, N, rule, boundary; real_type = T
+        ax, 
+        bx, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
     )
     ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        ay, by, N, rule, boundary; real_type = T
+        ay, 
+        by, 
+        N, 
+        rule, 
+        boundary; 
+        real_type = T
     )
 
     ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, boundary, N;
+        rule, 
+        boundary, 
+        N;
         nterms = nerr_terms,
         kmax   = kmax
     )

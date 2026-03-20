@@ -10,8 +10,18 @@
 
 """
     _build_convergence_summary_datapoints_md(
-        a, b, name, hsp, hxp, estp, errp;
-        h_power, xscale, yscale, rule, boundary
+        a, 
+        b, 
+        name, 
+        hsp, 
+        hxp, 
+        estp, 
+        errp;
+        h_power, 
+        xscale, 
+        yscale, 
+        rule, 
+        boundary
     ) -> String
 
 Construct a Markdown datapoints-only convergence-summary report.
@@ -68,7 +78,13 @@ value or fit diagnostics.
   per-axis bounds rather than reproducing full tuple structure verbatim.
 """
 function _build_convergence_summary_datapoints_md(
-    a, b, name, hsp, hxp, estp, errp;
+    a, 
+    b, 
+    name, 
+    hsp,
+    hxp, 
+    estp, 
+    errp;
     h_power,
     xscale,
     yscale,
