@@ -1,156 +1,144 @@
 # Maranatha.LeastChiSquareFit
 
-`Maranatha.LeastChiSquareFit` performs weighted ``h \to 0`` extrapolation from raw
-convergence datasets produced by [`Maranatha.Runner.run_Maranatha`](@ref).
+`Maranatha.LeastChiSquareFit` performs weighted `h \to 0` extrapolation from
+the convergence datasets produced by [`Maranatha.Runner.run_Maranatha`](@ref).
 
 In a standard workflow:
 
-1. build a dataset with [`Maranatha.Runner.run_Maranatha`](@ref)
-2. fit the convergence model with [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref)
-3. inspect the fitted parameters with [`Maranatha.LeastChiSquareFit.print_fit_result`](@ref)
-4. optionally visualize the result with
-   [`Maranatha.Documentation.PlotTools.plot_convergence_result`](@ref)
+1. build a dataset with [`Maranatha.Runner.run_Maranatha`](@ref),
+2. fit the extrapolation model with
+   [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref),
+3. inspect the fitted parameters with
+   [`Maranatha.LeastChiSquareFit.print_fit_result`](@ref),
+4. optionally visualize or report the result.
 
 ---
 
 ## Overview
 
-The fitter assumes a convergence model that is linear in its coefficients:
+The fitter assumes a linear-in-parameters convergence model
 
 ```math
-I(h) = I_0 + C_1 h^{p_1} + C_2 h^{p_2} + \cdots
+I(h) = I_0 + C_1 h^{p_1} + C_2 h^{p_2} + \cdots ,
 ```
 
-Here, ``I_0`` is the extrapolated continuum-limit estimate, and the exponents
-``p_1, p_2, \\ldots`` are inferred automatically from the midpoint-residual structure
-associated with the chosen quadrature rule and boundary pattern.
+where:
+
+- `I_0` is the extrapolated continuum-limit estimate,
+- the nonconstant powers are inferred automatically from the rule-dependent
+  residual structure,
+- the fit is performed on the scalar step proxy stored in `result.h`.
 
 The module provides:
 
-- a main fitting entry point that accepts raw arrays
-- a convenience overload that accepts a Maranatha runner result object
-- a compact printer for fit summaries
+- one main fitting entry point operating on a runner result object,
+- a compact printer for fit summaries and diagnostics.
 
 ---
 
 ## Main fitting routine
 
-The primary method is:
+The primary public method is:
 
 ```julia
-least_chi_square_fit(a, b, hs, estimates, error_infos, rule, boundary; ...)
+least_chi_square_fit(
+    result;
+    fit_func_terms = result.fit_terms,
+    ff_shift = result.ff_shift,
+    nerr_terms = result.nerr_terms,
+)
 ```
 
-It performs the following steps.
+It works directly on the `NamedTuple` returned by
+[`Maranatha.Runner.run_Maranatha`](@ref).
 
-### 1. Infer candidate residual powers
+---
 
-A representative subdivision count is inferred from the smallest supplied step size:
+## How power selection works
 
-```math
-N_{\mathrm{ref}} = \mathrm{round}\!\left(\frac{b-a}{\min(h)}\right).
+### 1. Choose a representative subdivision count
+
+The fitter starts from
+
+```julia
+Nref = minimum(result.nsamples)
 ```
 
-The midpoint-residual backend is then queried through
-[`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative._leading_residual_ks_with_center_any`](@ref), producing a list of
-candidate residual indices `ks`.
+rather than inferring a subdivision count geometrically from `a`, `b`, and `h`.
 
-### 2. Map residual indices to fit powers
+If any active axis uses a Newton-Cotes rule, this `Nref` is increased to the
+smallest subdivision count that is simultaneously admissible for all active
+Newton-Cotes axes.
 
-The raw residual indices are converted into fit exponents depending on the rule family.
+### 2. Resolve per-axis rule and boundary data
 
-- **Newton-Cotes rules**: `powers_all = ks`
-- **Gauss-family rules**: `powers_all = ks`
-- **B-spline rules**: `powers_all = ks .+ 1`
+The fitter accepts both scalar and axis-wise `rule` / `boundary`
+specifications.
 
-After that, the implementation normalizes the list defensively:
+Internally, it resolves the scalar rule and boundary used on each axis before
+querying the residual-power model.
 
-- remove duplicates,
-- sort the powers,
-- discard nonpositive entries so that the constant intercept column is not duplicated.
+### 3. Collect residual powers axis by axis
 
-### 3. Apply forward shift
+For each active axis, the fitter queries
+[`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchDerivative._leading_residual_ks_with_center_any`](@ref)
+to obtain the leading residual indices compatible with that axis-local rule and
+boundary.
 
-If `nterms` includes the constant term, then the fitter needs exactly
-`need = nterms - 1` nonconstant powers.
+If the problem is axis-wise, the per-axis candidate lists are merged by taking
+their sorted union.
 
-With forward shift `ff_shift`, the selected powers are:
+### 4. Apply the forward shift
+
+After duplicate removal and sorting, the fitter selects the nonconstant powers
+by applying the user-controlled forward shift `ff_shift`.
+
+This makes it possible to skip nominal leading powers when:
+
+- the leading coefficient vanishes for the chosen integrand,
+- pre-asymptotic contamination is strong,
+- a cleaner fit is obtained by starting one or more powers later.
+
+---
+
+## Weighted least-squares system
+
+Once the powers are chosen, the fitter constructs the design matrix
 
 ```math
-\texttt{powers} = \texttt{powers\_all[(1+ff\_shift):(1+ff\_shift+need-1)]}.
+X = [1,\ h^{p_1},\ h^{p_2},\ \ldots ] .
 ```
 
-This is useful when the nominal leading-order coefficient vanishes for the chosen
-integrand, so a more stable fit may be obtained by skipping the first candidate power.
+The response vector is taken from `result.avg`, and the uncertainty vector `σ`
+is reconstructed from `result.err`.
 
-### 4. Build the design matrix
+### Uncertainty extraction
 
-The fitted model is linear in the parameters:
+The helper
+[`Maranatha.LeastChiSquareFit._extract_sigma_from_error_info`](@ref)
+supports two stored error-info layouts:
 
-```math
-I(h) = I_0 + C_1 h^{p_1} + C_2 h^{p_2} + \cdots + C_{m} h^{p_m}.
-```
+- derivative-based residual objects:
+  use the first `nerr_terms` entries of `e.terms`,
+- refinement-based error objects:
+  use `abs(e.estimate)` directly.
 
-The design matrix therefore has:
-
-- column ``\\texttt{1}``: the constant term ``\\texttt{1}``
-- column ``\texttt{t+1}``: ``h^\texttt{powers[t]}``
-
-### 5. Construct the uncertainty vector
-
-The fitter does not use the error-info objects directly as a scalar uncertainty.
-Instead, it reconstructs an effective uncertainty vector `σ` from the stored residual terms.
-
-For each entry in `error_infos`, it takes the first `nerr_terms` residual contributions and uses
+The weighted least-squares problem is then solved in the usual form
 
 ```math
-\sigma_i = \left| \sum_{m=1}^{n_{\mathrm{err}}} \texttt{terms}_m \right|.
-```
-
-This matches the runner-side interpretation of the stored residual model.
-
-### 6. Solve the weighted least-squares problem
-
-Let ``X`` be the design matrix, ``y`` the estimate vector, and
-
-```math
-W = \mathrm{diag}(\frac{1}{\sigma}).
-```
-
-The implementation solves the weighted least-squares system
-
-```math
-(WX)\,\lambda = Wy,
-```
-
-using Julia's backslash solver.
-
-### 7. Estimate the covariance
-
-The implementation builds
-
-```math
-A = X^{\mathsf T} W^2 X,
+(WX)\lambda = Wy,
 \qquad
-H = 2A,
+W = \operatorname{diag}(1/\sigma).
 ```
 
-then computes a Cholesky factorization of the Hessian:
+The module also estimates the parameter covariance and returns parameter
+uncertainties together with `χ²` diagnostics.
 
-```math
-H = LL^{\mathsf T}.
-```
+---
 
-The covariance is then assembled through linear solves rather than explicit matrix inversion.
-The returned parameter uncertainties are
+## Result object
 
-```math
-\sqrt{\operatorname{diag}(\mathrm{Cov})}.
-```
-
-### 8. Return fit diagnostics
-
-The returned `NamedTuple` stores:
+The returned `NamedTuple` contains:
 
 - `estimate`
 - `error_estimate`
@@ -161,89 +149,53 @@ The returned `NamedTuple` stores:
 - `chisq`
 - `redchisq`
 - `dof`
+- `fit_func_terms`
+- `nerr_terms`
 
-The stored `powers` field includes the constant term as `vcat(0, powers)` so that
-plotting and reporting utilities can reconstruct the fitted model without repeating
-power inference.
+The stored `powers` field includes the constant term as the leading `0`, so
+plotting and reporting layers can reconstruct the fitted model without
+repeating exponent selection.
 
 ---
 
-## Convenience overload
+## Practical notes
 
-The second method accepts a Maranatha result object directly:
+- The fitter works on the scalarized step proxy `result.h`.
+  Exact per-axis step objects remain available in `result.tuple_h`, but they
+  are not fitted directly.
+- Axis-wise `rule` / `boundary` specifications are supported naturally through
+  the merged residual-power workflow.
+- `ff_shift` is a practical tuning knob for cases where the nominal leading
+  power is not the most stable basis choice on the sampled refinement ladder.
 
-```julia
-least_chi_square_fit(result; nterms=nothing, ff_shift=nothing, nerr_terms=nothing)
-```
+---
 
-If a keyword is omitted, the corresponding value already stored in `result` is reused.
-This makes it convenient to write:
+## Errors and edge cases
 
-```julia
-fit_result = least_chi_square_fit(run_result)
-```
+The main fitting routine can fail when:
 
-or to override only one downstream fit setting:
+- `fit_func_terms < 2`,
+- `ff_shift < 0`,
+- not enough candidate powers remain after applying `ff_shift`,
+- the effective uncertainty vector contains invalid entries,
+- the weighted Hessian is not positive definite.
 
-```julia
-fit_result = least_chi_square_fit(run_result; ff_shift=1)
-```
+Also note that when `dof == 0`, the reduced `χ²` follows IEEE division rules
+and may become `Inf` or `NaN`.
 
 ---
 
 ## Printed summary
 
-[`print_fit_result`](@ref) prints:
+[`Maranatha.LeastChiSquareFit.print_fit_result`](@ref) prints a compact summary
+of:
 
-- each fitted parameter ``\lambda_k`` with its uncertainty,
-- the total ``\chi^2`` and reduced ``\chi^2``,
-- the extrapolated continuum value ``I(h \to 0)``.
+- the extrapolated continuum value,
+- the fitted parameters and uncertainties,
+- `χ²` and reduced `χ²`.
 
-The output is intentionally compact and log-friendly.
-
-## Errors and edge cases
-
-The main fitting routine can throw if:
-
-- `nterms < 2`
-- `ff_shift < 0`
-- not enough candidate powers remain after applying `ff_shift`
-- the effective uncertainty vector contains nonpositive entries
-- the Hessian is not positive definite, so the Cholesky factorization fails
-
-Also note that if `dof == 0`, then `redchisq = chisq / dof` follows IEEE rules and may
-become `Inf` or `NaN`. In that case the fit may still produce parameters, but reduced
-``\chi^2`` is no longer a meaningful diagnostic.
-
----
-
-## Typical workflow example
-
-```julia
-using Maranatha
-
-run_result = run_Maranatha("./sample_1d.toml")
-
-fit_result = least_chi_square_fit(
-    run_result;
-    nterms = 3,
-    ff_shift = 0,
-    nerr_terms = 2,
-)
-
-print_fit_result(fit_result)
-
-plot_convergence_result(
-    run_result,
-    fit_result;
-    name = "Maranatha_test1",
-    figs_dir = ".",
-    save_file = true,
-)
-```
-
-For fuller tutorials and interactive demonstrations, see the project documentation
-site and the example Jupyter notebooks in the `ipynb/` directory of this repository.
+This is intended for logs, notebooks, and quick inspection rather than for
+full report generation.
 
 ---
 
@@ -251,7 +203,7 @@ site and the example Jupyter notebooks in the `ipynb/` directory of this reposit
 
 ```@autodocs
 Modules = [
-    Maranatha.LeastChiSquareFit,
+    Main.Maranatha.LeastChiSquareFit,
 ]
 Private = true
 ```

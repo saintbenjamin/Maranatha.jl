@@ -9,13 +9,17 @@ is a research-oriented numerical quadrature framework
 with a modular, rule-dispatched architecture for
 
 * structured **multi-dimensional tensor-product integration**
-* derivative-aware **residual-based error scale modeling**
+* **derivative-based** and **refinement-based** error-scale modeling
 * covariance-aware **least $\chi^2$ fitting for $h \to 0$ extrapolation**
 * optional **threaded-subgrid CPU execution** and **CUDA-based GPU execution**
+* structured **plotting and report generation**
 
 It is designed for methodological research, with emphasis on
 analytical transparency, reproducibility, modular structure,
-and explicit control over execution backends.
+and explicit control over domains, rules, boundaries, and execution backends.
+
+Domains, quadrature `rule`, and endpoint `boundary` may each be specified
+either as shared scalar values or as axis-wise tuples / vectors.
 
 ---
 
@@ -46,6 +50,10 @@ integrand(x) = sin(x)
 Next prepare a configuration file describing the integration
 domain, sampling sequence, quadrature rule, and output options.
 
+The domain may be specified either with shared scalar bounds or with
+axis-wise bounds. The same scalar-versus-axis-wise convention also applies
+to `rule` and `boundary`.
+
 Configuration file (`sample_1d.toml`)
 
 ```toml
@@ -72,7 +80,7 @@ nerr_terms = 3
 ff_shift = 0
 
 [execution]
-use_error_jet = true
+use_error_jet = false
 real_type = "Double64"
 
 [output]
@@ -113,36 +121,34 @@ run_result = run_Maranatha("./sample_1d.toml")
 ```
 
 To explicitly request GPU execution, use the direct-call interface and set
-`use_cuda = true`:
+`use_cuda = true`. CUDA execution currently requires `real_type = Float32`
+or `Float64`, and the supplied integrand must be callable inside a CUDA kernel.
 
 ```julia
 run_result = run_Maranatha(
     integrand,
-    Double64(0.0),
-    Double64(pi);
+    0.0,
+    pi;
     dim = 1,
     nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
     rule = :gauss_p4,
     boundary = :LU_EXEX,
     err_method = :refinement,
     fit_terms = 4,
-    save_path = joinpath(".", "jld2")
+    save_path = joinpath(".", "jld2"),
     write_summary = true,
-    use_cuda = false,
-    real_type = Double64
+    use_cuda = true,
+    real_type = Float64,
 )
 ```
+
+If you instead want `Double64`, keep `use_cuda = false`.
 
 Once the dataset has been generated, the continuum limit
 $h \to 0$ can be estimated by performing a least $\chi^2$ fit.
 
 ```julia
-fit_result = least_chi_square_fit(
-    run_result; 
-    nterms=3, 
-    ff_shift=0, 
-    nerr_terms=2
-)
+fit_result = least_chi_square_fit(run_result)
 
 print_fit_result(fit_result)
 ```
@@ -186,25 +192,6 @@ runs, filtering datapoints, and convergence visualization.
 
 ---
 
-### ⚡ Why runs can be fast
-
-When the refinement-based error model is used, Maranatha avoids computing
-high-order derivatives of the integrand entirely. Instead, it infers
-error scaling directly from resolution refinement.
-
-This makes the framework practical even for computationally expensive
-integrands, where derivative-based error estimation would dominate the
-runtime.
-
-In many cases, refinement-based estimates provide error scales close to
-those obtained from theoretical derivative models while remaining much
-faster to compute.
-
-When combined with threaded subgrid execution on multi-core CPUs, this can
-substantially reduce wall-clock time for large tensor-product workloads.
-
----
-
 ## 🔗 Documentation
 
 📘 Documentation:
@@ -219,9 +206,10 @@ substantially reduce wall-clock time for large tensor-product workloads.
 is built around a **pipeline-oriented workflow**:
 
 1. Structured tensor-product quadrature
-2. Residual-based derivative error scale modeling
+2. Derivative-based or refinement-based error-scale modeling
 3. Weighted least $\chi^2$ fitting for $h \to 0$ extrapolation
 4. Covariance-propagated uncertainty visualization
+5. Structured reporting and archival output
 
 Unlike traditional quadrature libraries that focus on static rule tables,
 Maranatha derives rule structure through **moment / Taylor-expansion construction**
@@ -262,65 +250,64 @@ non-smooth or singular problems.
 
 * General **multi-dimensional tensor-product quadrature** on rectangular domains  
   $[a_1,b_1] \times \cdots \times [a_d,b_d]$ (hypercube $[a,b]^d$ is a special case)
+* Shared-scalar or axis-wise configuration for:
+  * domain bounds
+  * quadrature `rule`
+  * endpoint `boundary`
 * Unified quadrature dispatcher supporting:
   * Newton–Cotes (`:newton_p2`, `:newton_p3`, ...)
   * Gauss-family rules (`:gauss_p2`, `:gauss_p3`, ...)
-  * B-spline-based rules (`:bspline_interp_p2`, .../`:bspline_smooth_p2`, ...)
-* Configurable boundary patterns (for composite rules):
+  * B-spline-based rules (`:bspline_interp_p2`, ... / `:bspline_smooth_p2`, ...)
+* Shared boundary selectors:
   * `:LU_ININ`, `:LU_EXIN`, `:LU_INEX`, `:LU_EXEX`
-* Rational composite weight assembly (for Newton–Cotes rules),
-  converted to `Float64` only at the final stage
+
+  These selectors are interpreted by each rule family according to its own
+  numerical construction.
+* Rational composite weight assembly for Newton–Cotes rules,
+  converted to floating-point only at the final stage
 * Multiple execution backends:
   * serial tensor-product evaluation
   * threaded subgrid CPU backend
   * CUDA-based GPU backend
 
+For the current public quadrature path, B-spline node construction uses
+`boundary = :LU_ININ`.
+
 ---
 
 ### 📐 Error Modeling
 
-Residual-based derivative error *scale* models:
+Maranatha supports two complementary error-scale strategies.
 
-* Rule-family residual-term detection (midpoint-based for composite rules)
+**Derivative-based residual models**
+
+* rule-family residual-term detection (midpoint-based for composite rules)
 * LO / LO + NLO / multi-term support via `nerr_terms`
-* Tensor-product scaling philosophy
-* Automatic differentiation via:
+* direct or jet-based derivative evaluation
+* backend support via:
   * [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
   * [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/)
   * [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/)
   * [`Enzyme.jl`](https://enzyme.mit.edu/julia/stable/)
 
-⚠️ These models provide **error scaling estimates**, not strict
-truncation bounds. Their purpose is to stabilize weighted
-$\chi^2$ extrapolation rather than provide conservative error bounds.
+**Refinement-based models**
 
----
+* derivative-free coarse-versus-refined quadrature comparison
+* typically much cheaper for expensive integrands
+* supports axis-wise `rule` specifications when all active axes remain within
+  the same quadrature family
 
-### 🚀 Refinement-based error estimation
+When the refinement-based error model is used, Maranatha avoids computing
+high-order derivatives of the integrand entirely. Instead, it estimates the
+error scale directly from coarse-versus-refined quadrature differences.
 
-In addition to derivative-based backends, Maranatha supports a
-**refinement-based error scale model** that estimates truncation behavior
-directly from differences between successive quadrature resolutions.
+When a derivative-based estimator is selected, Maranatha can choose between
+a **direct** derivative path and a **jet-based** derivative path controlled by
+`use_error_jet`. When `err_method = :refinement`, `use_error_jet` is ignored.
 
-This approach has several practical advantages:
-
-- **No high-order derivatives are required**
-- Avoids expensive automatic differentiation passes
-- Scales efficiently to complex integrands and higher dimensions
-- Typically much faster than derivative-based estimators
-
-Extensive testing indicates that the resulting error scales are often
-comparable in quality to fully derivative-based models for smooth
-integrands, while being significantly cheaper to evaluate.
-
-Because it relies only on observable convergence behavior,
-the refinement method is particularly robust for complicated
-integrands where high-order derivatives are costly or unstable
-to compute.
-
-This also makes the refinement path especially compatible with accelerated
-execution backends such as threaded subgrid CPU evaluation and CUDA-based
-quadrature.
+⚠️ These models provide **error scaling estimates**, not strict truncation
+bounds. Their purpose is to stabilize weighted $\chi^2$ extrapolation rather
+than provide conservative certified error bounds.
 
 ---
 
@@ -328,20 +315,22 @@ quadrature.
 
 Weighted least $\chi^2$ fitting with:
 
-* Residual-informed exponent basis
-* Automatic power detection from rule-dispatched residual expansion
-* Optional **fitting-function-shift (`ff_shift`)** to skip vanishing leading orders
-* Full parameter covariance matrix
-* Covariance-propagated uncertainty bands
+* automatically inferred exponent basis
+* axis-wise residual-power merging when `rule` / `boundary` are given per axis
+* optional **fitting-function-shift (`ff_shift`)** to skip unstable or vanishing
+  leading orders
+* full parameter covariance matrix
+* covariance-propagated uncertainty bands
 
-Model form:
+The fitted model is linear in its coefficients:
 
 $$
-I(h) = \sum_\texttt{i} \lambda_\texttt{i} \,  h^{\texttt{powers[i]}}
+I(h) = I_0 + C_1 h^{p_1} + C_2 h^{p_2} + \cdots
 $$
 
-where `powers` is determined automatically from the rule-dispatched
-residual expansion and stored in `fit_result.powers`.
+The selected basis powers are stored in `fit_result.powers`, including the
+leading constant term `0`, so downstream plotting and reporting can reconstruct
+the fit without repeating the exponent-selection logic.
 
 ---
 
@@ -384,18 +373,20 @@ end
 
 ### `result = run_Maranatha(...)`
 
-The runner returns a `NamedTuple` containing the raw convergence-study data, including:
+The runner returns a `NamedTuple` containing the raw convergence-study data,
+including:
 
 * `result.a`, `result.b` — integration bounds  
-  (scalars for hypercubes or axis-wise arrays/tuples for rectangular domains)
+  (scalars for hypercubes or axis-wise arrays / tuples for rectangular domains)
 * `result.nsamples` — subdivision counts actually used in the run
 * `result.tuple_h` — original step object stored at each resolution
-* `result.h` — downstream step-size proxy used for fitting and plotting
+* `result.h` — scalarized step-size proxy used by the fitter and plotting layer
 * `result.avg` — quadrature estimates
 * `result.err` — error-information objects
-* `result.rule`, `result.boundary`, `result.dim`, `result.err_method` — execution metadata
+* `result.rule`, `result.boundary` — scalar or axis-wise execution specifications
+* `result.dim`, `result.err_method` — execution metadata
 * `result.fit_terms`, `result.ff_shift`, `result.nerr_terms` — downstream fitting metadata
-* `result.real_type` — string form of the computation type used for the run
+* `result.use_error_jet`, `result.real_type` — execution-mode metadata
 
 ### `fit = least_chi_square_fit(...)`
 
@@ -406,7 +397,7 @@ The fitter returns a `NamedTuple` containing extrapolation results, including:
 * `fit.params` — fitted parameter vector
 * `fit.param_errors` — parameter uncertainties
 * `fit.cov` — covariance matrix
-* `fit.powers` — exponent basis used by the fit
+* `fit.powers` — exponent basis used by the fit, including the leading constant power `0`
 * `fit.chisq`, `fit.redchisq`, `fit.dof` — fit diagnostics
 
 ---

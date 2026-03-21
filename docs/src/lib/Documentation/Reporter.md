@@ -124,7 +124,7 @@ run_result = run_Maranatha("../samples/sample_1d.toml")
 
 fit_result = least_chi_square_fit(
     run_result; 
-    nterms=4, 
+    fit_func_terms=4, 
     ff_shift=0, 
     nerr_terms=3
 )

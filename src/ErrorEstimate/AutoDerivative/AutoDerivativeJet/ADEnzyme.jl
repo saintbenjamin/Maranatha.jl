@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADEnzyme
+
+Enzyme-based backend for derivative-jet construction.
+
+# Module description
+This module implements the derivative-jet backend based on `Enzyme.jl` for the
+automatic-differentiation layer used by `Maranatha.ErrorEstimate`.
+
+It produces the sequence
+`[f(x), f'(x), ..., f^(nmax)(x)]`
+by recursively applying first-order reverse-mode differentiation.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeJet`.
+"""
 module ADEnzyme
 
 import Enzyme

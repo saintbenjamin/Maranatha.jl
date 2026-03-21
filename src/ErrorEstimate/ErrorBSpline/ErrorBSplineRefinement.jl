@@ -8,28 +8,52 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorBSplineRefinement
+
+Refinement-based error-estimation backend for B-spline quadrature rules.
+
+# Module description
+`ErrorBSplineRefinement` implements the B-spline-family branch of the
+refinement-based error estimator.
+
+It validates B-spline rule specifications, evaluates coarse and refined
+quadrature values, and packages the resulting quadrature-difference estimate in
+a uniform result structure understood by the higher-level error-dispatch layer.
+
+# Notes
+- This is an internal module.
+- Axis-wise `rule` specifications are supported here when all axes remain in
+  the B-spline family.
+"""
 module ErrorBSplineRefinement
 
 import ..JobLoggerTools
 import ..BSpline
-import ..QuadratureUtils
 import ..QuadratureDispatch
+import ..QuadratureRuleSpec
+import ..QuadratureBoundarySpec
 
 """
     _require_bspline_rule(
-        rule::Symbol
+        rule,
+        dim::Int = 1,
     ) -> Nothing
 
 Validate that `rule` belongs to the supported B-spline quadrature family.
 
 # Function description
-This internal helper checks whether the supplied quadrature-rule symbol is a
-B-spline rule recognized by the quadrature layer. It is used as a guard before
-calling B-spline-specific parsing or node/weight construction routines.
+This internal helper checks whether the supplied quadrature-rule specification
+belongs to the B-spline family recognized by the quadrature layer. It is used
+as a guard before calling B-spline-specific parsing or node/weight
+construction routines.
 
 # Arguments
-- `rule::Symbol`:
-  Quadrature rule symbol to validate.
+- `rule`:
+  Quadrature rule specification to validate. This may be either a scalar rule
+  symbol or an axis-wise tuple/vector of rule symbols.
+- `dim::Int = 1`:
+  Problem dimensionality used when validating axis-wise rule specifications.
 
 # Returns
 - `nothing`
@@ -41,12 +65,16 @@ calling B-spline-specific parsing or node/weight construction routines.
 # Notes
 - This helper performs only rule-family validation.
 - It does not validate `boundary`, `N`, `dim`, or the smoothing parameter `λ`.
+- Axis-wise rule specifications must use B-spline rules on every axis.
 """
 @inline function _require_bspline_rule(
-    rule::Symbol
+    rule,
+    dim::Int = 1,
 )::Nothing
-    BSpline._is_bspline_rule(rule) ||
-        JobLoggerTools.error_benji("ErrorBSplineDerivative only supports B-spline rules (got rule=$rule)")
+    fam = QuadratureRuleSpec._common_rule_family(rule, dim)
+    fam === :bspline || JobLoggerTools.error_benji(
+        "ErrorBSplineRefinement only supports B-spline rules (got rule=$rule)"
+    )
     return nothing
 end
 
@@ -54,8 +82,8 @@ end
     _require_bspline_inputs(
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol,
+        rule,
+        boundary,
     ) -> Nothing
 
 Validate the basic inputs required by the B-spline refinement estimator.
@@ -64,17 +92,19 @@ Validate the basic inputs required by the B-spline refinement estimator.
 This helper performs the common input checks used by the B-spline
 refinement-based error-estimation layer. It verifies that the subdivision count
 and dimensionality are valid, confirms that `rule` belongs to the B-spline,
-and delegates boundary validation to `QuadratureUtils._decode_boundary`.
+and delegates boundary validation to `QuadratureBoundarySpec._decode_boundary`.
 
 # Arguments
 - `N::Int`:
   Number of subdivisions or composite blocks per axis.
 - `dim::Int`:
   Problem dimensionality.
-- `rule::Symbol`:
-  B-spline quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
+- `rule`:
+  B-spline quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Returns
 - `nothing`
@@ -92,13 +122,13 @@ and delegates boundary validation to `QuadratureUtils._decode_boundary`.
 @inline function _require_bspline_inputs(
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol,
+    rule,
+    boundary,
 )::Nothing
     (N >= 1) || JobLoggerTools.error_benji("Need N ≥ 1 (got N=$N)")
     (dim >= 1) || JobLoggerTools.error_benji("dim must be ≥ 1 (got dim=$dim)")
-    _require_bspline_rule(rule)
-    QuadratureUtils._decode_boundary(boundary)
+    _require_bspline_rule(rule, dim)
+    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
     return nothing
 end
 
@@ -109,8 +139,8 @@ end
         b,
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
@@ -150,10 +180,12 @@ Two domain conventions are supported:
   Number of composite blocks per axis.
 - `dim::Int`:
   Number of dimensions.
-- `rule::Symbol`:
-  B-spline quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
+- `rule`:
+  B-spline quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `λ = nothing`:
@@ -173,6 +205,8 @@ Two domain conventions are supported:
 - Propagates validation errors from [`_require_bspline_inputs`](@ref).
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from `QuadratureDispatch.quadrature`.
 
 # Notes
@@ -185,8 +219,8 @@ Two domain conventions are supported:
     b,
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
@@ -228,8 +262,8 @@ end
         b,
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         λ = nothing,
         threaded_subgrid::Bool = false,
         real_type = nothing,
@@ -282,10 +316,12 @@ estimate.
   Coarse subdivision count.
 * `dim::Int`:
   Number of dimensions.
-* `rule::Symbol`:
-  B-spline quadrature rule symbol.
-* `boundary::Symbol`:
-  Boundary-condition symbol.
+* `rule`:
+  B-spline quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+* `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 
@@ -307,8 +343,8 @@ estimate.
 * `NamedTuple` with fields:
 
   * `method`      : method tag `:bspline_refinement_difference`
-  * `rule`        : quadrature rule symbol
-  * `boundary`    : boundary-condition symbol
+  * `rule`        : quadrature rule specification
+  * `boundary`    : boundary-condition specification
   * `N_coarse`    : coarse subdivision count
   * `N_fine`      : refined subdivision count (`2N`)
   * `dim`         : dimensionality
@@ -327,6 +363,8 @@ estimate.
 * Throws if `dim < 1`.
 * Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+* Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 * Propagates errors from the quadrature-evaluation layer.
 
 # Notes
@@ -336,6 +374,8 @@ estimate.
   additional Richardson-style normalization factor.
 * The optional `I_coarse` keyword is intended to avoid redundant coarse
   quadrature work when the caller has already computed that value.
+* Axis-wise `rule` specifications must remain within the B-spline family on
+  every axis.
 """
 function _estimate_by_refinement_bspline(
     f,
@@ -343,8 +383,8 @@ function _estimate_by_refinement_bspline(
     b,
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     λ = nothing,
     threaded_subgrid::Bool = false,
     real_type = nothing,
@@ -475,9 +515,13 @@ The routine validates the rule family and boundary selector, then dispatches to
 - `dim`:
   Number of dimensions.
 - `rule`:
-  B-spline quadrature rule symbol.
+  B-spline quadrature rule specification.
+  This may be either a scalar rule symbol or a tuple/vector of per-axis rule
+  symbols of length `dim`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol or a tuple/vector of per-axis
+  boundary symbols of length `dim`.
 
 # Keyword arguments
 - `λ = nothing`:
@@ -499,6 +543,8 @@ The routine validates the rule family and boundary selector, then dispatches to
 - Throws if `rule` is not a supported B-spline rule.
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from the selected refinement routine.
 
 # Notes
@@ -533,8 +579,7 @@ function error_estimate_refinement_bspline(
 
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    _require_bspline_rule(rule)
-    QuadratureUtils._decode_boundary(boundary)
+    _require_bspline_rule(rule, dim)
 
     return _estimate_by_refinement_bspline(
         f,

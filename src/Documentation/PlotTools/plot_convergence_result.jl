@@ -85,6 +85,9 @@ This routine generates two figures from the supplied run result and fit result:
 - The plotting logic operates on the scalar step-size sequence `result.h`.
 - The current horizontal power is inferred from `fit_result.powers[2]`, i.e.
   the first non-constant basis term after the leading constant term.
+- Saved filenames encode rule/boundary metadata through
+  [`DocUtils._rule_boundary_filename_token`](@ref), so axis-wise specifications
+  produce axis-tagged filename tokens.
 """
 function plot_convergence_result(
     result,
@@ -298,7 +301,9 @@ function plot_convergence_result(
 
     display(fig)
 
-    basename = "result_$(name)_$(String(rule))_$(String(boundary))_extrap"
+    spec_str = DocUtils._rule_boundary_filename_token(result.a, result.b, rule, boundary)
+
+    basename = "result_$(name)_$(spec_str)_extrap"
     resfile  = joinpath(figs_dir, "$basename.pdf")
     cropped  = joinpath(figs_dir, "$basename-crop.pdf")
     if save_file
@@ -429,7 +434,7 @@ function plot_convergence_result(
 
     display(fig2)
 
-    basename = "result_$(name)_$(String(rule))_$(String(boundary))_reldiff"
+    basename = "result_$(name)_$(spec_str)_reldiff"
     resfile  = joinpath(figs_dir, "$basename.pdf")
     cropped  = joinpath(figs_dir, "$basename-crop.pdf")
     if save_file

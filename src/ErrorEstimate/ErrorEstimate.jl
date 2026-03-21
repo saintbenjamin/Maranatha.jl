@@ -143,6 +143,11 @@ Primary entry points include:
 These interfaces support dimension-specific and generic multidimensional
 dispatch, depending on the selected backend.
 
+Shared scalar `rule` / `boundary` symbols and axis-wise tuple or vector
+specifications are both supported throughout the quadrature-facing public
+dispatchers. For refinement-based estimation, axis-wise `rule` specifications
+must belong to a single quadrature family on all axes.
+
 ------------------------------------------------------------------------
 
 # Notes
@@ -158,6 +163,7 @@ module ErrorEstimate
 import ..LinearAlgebra
 
 import ..Utils.JobLoggerTools
+import ..Utils.QuadratureBoundarySpec
 import ..Quadrature
 
 """

@@ -8,6 +8,26 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module Integrands
+
+Registry-based integrand factory utilities for `Maranatha.jl`.
+
+# Module description
+`Maranatha.Integrands` provides a small symbolic registry that maps integrand
+names to factory functions. This lets higher-level workflows reconstruct
+callable test or sample integrands from symbolic names plus keyword arguments.
+
+# Main entry points
+- [`register_integrand!`](@ref)
+- [`integrand`](@ref)
+- [`available_integrands`](@ref)
+
+# Notes
+- The registry is lightweight and intentionally does not impose a particular
+  callable type beyond the factory convention.
+- Re-registering an existing name overwrites the stored factory.
+"""
 module Integrands
 
 import ..Utils.JobLoggerTools

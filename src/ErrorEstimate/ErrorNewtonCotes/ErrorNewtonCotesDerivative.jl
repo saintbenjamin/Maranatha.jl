@@ -8,11 +8,32 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorNewtonCotesDerivative
+
+Residual-model backend for derivative-based error estimation with
+Newton-Cotes quadrature rules.
+
+# Module description
+`ErrorNewtonCotesDerivative` implements the rule-family-specific residual
+analysis used by derivative-based error estimators for composite
+Newton-Cotes rules.
+
+It provides helpers for:
+
+- identifying leading midpoint residual terms from exact composite weights,
+- converting those residuals into factorial-scaled coefficients,
+- exposing Newton-Cotes residual models to the generic derivative dispatch
+  layer.
+
+# Notes
+- This is an internal module.
+- Higher-level orchestration is performed by `ErrorDispatchDerivative`.
+"""
 module ErrorNewtonCotesDerivative
 
 import ..JobLoggerTools
 import ..NewtonCotes
-import ..QuadratureUtils
 
 # ----------------------------
 # helper: collect first nonzero midpoint residual term
@@ -138,7 +159,7 @@ function _leading_midpoint_residual_term(
 )::Tuple{Int, NewtonCotes.RBig}
 
     # boundary validation (also catches typos early)
-    QuadratureUtils._decode_boundary(boundary)
+    QuadratureBoundarySpec._decode_boundary(boundary)
 
     NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji("midpoint residual model currently expects :newton_pK rules (got rule=$rule)")
 
@@ -340,7 +361,7 @@ function _leading_midpoint_residual_terms(
 )::Tuple{Vector{Int}, Vector{NewtonCotes.RBig}}
 
     # Validate boundary symbol (also catches typos early)
-    QuadratureUtils._decode_boundary(boundary)
+    QuadratureBoundarySpec._decode_boundary(boundary)
 
     # This residual construction currently assumes ns rules
     NewtonCotes._is_newton_cotes_rule(rule) || JobLoggerTools.error_benji(

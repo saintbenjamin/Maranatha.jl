@@ -8,6 +8,29 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module MaranathaIO
+
+Serialization, summary-export, and result-file management helpers for
+`Maranatha.jl`.
+
+# Module description
+`Maranatha.Utils.MaranathaIO` provides the I/O glue for saving, loading,
+summarizing, merging, and filtering structured Maranatha result objects.
+
+The module supports scalar and axis-wise domain / rule / boundary metadata and
+encodes them in both serialized payloads and default filename conventions.
+
+# Main entry points
+- [`namedtuple_to_dict`](@ref)
+- [`dict_to_namedtuple`](@ref)
+- [`save_datapoint_results`](@ref)
+- [`load_datapoint_results`](@ref)
+- [`merge_datapoint_results`](@ref)
+- [`merge_datapoint_result_files`](@ref)
+- [`drop_nsamples_from_result`](@ref)
+- [`drop_nsamples_from_file`](@ref)
+"""
 module MaranathaIO
 
 import ..TOML
@@ -84,6 +107,100 @@ portable container types.
 end
 
 """
+    _storable_boundary_value(x)
+
+Convert a boundary specification into a serialization-friendly representation.
+
+# Function description
+Scalar boundary symbols are converted to strings. Tuple/vector axis-wise
+boundary specifications are converted to vectors of strings. Other inputs are
+returned unchanged.
+
+# Arguments
+- `x`: Boundary specification to normalize for storage.
+
+# Returns
+- A storage-friendly boundary representation composed of strings and standard
+  containers.
+
+# Errors
+- No explicit validation is performed.
+"""
+@inline function _storable_boundary_value(x)
+    if x isa Symbol
+        return String(x)
+    elseif x isa Tuple
+        return String.(collect(x))
+    elseif x isa AbstractVector
+        return String.(collect(x))
+    else
+        return x
+    end
+end
+
+"""
+    _storable_rule_value(x)
+
+Convert a quadrature-rule specification into a serialization-friendly
+representation.
+
+# Function description
+Scalar rule symbols are converted to strings. Tuple/vector axis-wise rule
+specifications are converted to vectors of strings. Other inputs are returned
+unchanged.
+
+# Arguments
+- `x`: Rule specification to normalize for storage.
+
+# Returns
+- A storage-friendly rule representation composed of strings and standard
+  containers.
+
+# Errors
+- No explicit validation is performed.
+"""
+@inline function _storable_rule_value(x)
+    if x isa Symbol
+        return String(x)
+    elseif x isa Tuple
+        return String.(collect(x))
+    elseif x isa AbstractVector
+        return String.(collect(x))
+    else
+        return x
+    end
+end
+
+"""
+    _restore_rule_value(x)
+
+Reconstruct a quadrature-rule specification from serialized storage form.
+
+# Function description
+String input is converted back to a scalar `Symbol`. Vector input is converted
+to a tuple of `Symbol` values, restoring the axis-wise rule form used by the
+runtime pipeline.
+
+# Arguments
+- `x`: Serialized rule representation.
+
+# Returns
+- Scalar `Symbol` or tuple of `Symbol` values.
+
+# Errors
+- Conversion errors propagate if the stored representation is malformed.
+"""
+@inline function _restore_rule_value(x)
+    if x isa AbstractString
+        return Symbol(x)
+    elseif x isa AbstractVector
+        return Tuple(Symbol.(x))
+    else
+        return Symbol(x)
+    end
+end
+
+"""
     _restore_domain_value(x, T)
 
 Reconstruct a domain value from a serialized representation.
@@ -115,6 +232,178 @@ and returned as a tuple. Scalar inputs are converted directly to `T`.
     else
         return convert(T, x)
     end
+end
+
+"""
+    _restore_boundary_value(x)
+
+Reconstruct a boundary specification from serialized storage form.
+
+# Function description
+String input is converted back to a scalar boundary `Symbol`. Vector input is
+converted to a tuple of `Symbol` values, restoring the axis-wise boundary form
+used by the runtime pipeline.
+
+# Arguments
+- `x`: Serialized boundary representation.
+
+# Returns
+- Scalar `Symbol` or tuple of `Symbol` values.
+
+# Errors
+- Conversion errors propagate if the stored representation is malformed.
+"""
+@inline function _restore_boundary_value(x)
+    if x isa AbstractString
+        return Symbol(x)
+    elseif x isa AbstractVector
+        return Tuple(Symbol.(x))
+    else
+        return Symbol(x)
+    end
+end
+
+"""
+    _filename_spec_is_multi(x) -> Bool
+
+Return `true` if `x` participates as an axis-wise filename specification.
+
+# Function description
+Tuple and vector values are classified as axis-wise metadata, while all other
+values are treated as shared scalar metadata for filename construction.
+
+# Arguments
+- `x`: Candidate filename-metadata value.
+
+# Returns
+- `Bool`: `true` for tuple/vector input, `false` otherwise.
+
+# Errors
+- No explicit validation is performed.
+"""
+@inline _filename_spec_is_multi(x) = x isa Tuple || x isa AbstractVector
+
+"""
+    _filename_spec_dim(a, b, rule, boundary) -> Int
+
+Infer the effective axis count used for result-filename construction.
+
+# Function description
+This helper inspects domain bounds together with rule and boundary metadata and
+returns the unique common axis count implied by any axis-wise inputs. If all
+inputs are scalar-like, the returned dimension is `1`.
+
+# Arguments
+- `a`, `b`: Domain-bound specifications.
+- `rule`: Quadrature-rule specification.
+- `boundary`: Boundary specification.
+
+# Returns
+- `Int`: Effective dimension used when expanding filename tokens.
+
+# Errors
+- Throws via [`JobLoggerTools.error_benji`](@ref) if `a` and `b` mix scalar and
+  collection styles or if axis-wise inputs imply inconsistent dimensions.
+"""
+@inline function _filename_spec_dim(a, b, rule, boundary)::Int
+    a_multi = _filename_spec_is_multi(a)
+    b_multi = _filename_spec_is_multi(b)
+
+    a_multi == b_multi || JobLoggerTools.error_benji(
+        "Filename-spec mismatch: `a` and `b` must both be scalar or both be tuple/vector-like."
+    )
+
+    dims = Int[]
+
+    if a_multi
+        push!(dims, length(a))
+        push!(dims, length(b))
+    end
+    _filename_spec_is_multi(rule)     && push!(dims, length(rule))
+    _filename_spec_is_multi(boundary) && push!(dims, length(boundary))
+
+    isempty(dims) && return 1
+
+    dim = first(dims)
+    all(==(dim), dims) || JobLoggerTools.error_benji(
+        "Filename-spec mismatch: inconsistent axis counts across domain/rule/boundary."
+    )
+
+    return dim
+end
+
+"""
+    _filename_spec_at(x, d::Int, dim::Int)
+
+Resolve one filename-metadata value on axis `d`.
+
+# Function description
+Scalar inputs are treated as shared values and returned unchanged. Tuple/vector
+inputs are validated against `dim` and indexed at axis `d`.
+
+# Arguments
+- `x`: Scalar or axis-wise filename-metadata specification.
+- `d::Int`: Axis index to resolve.
+- `dim::Int`: Expected axis count for axis-wise inputs.
+
+# Returns
+- The scalar shared value or the axis-local entry `x[d]`.
+
+# Errors
+- Throws via [`JobLoggerTools.error_benji`](@ref) if an axis-wise input has
+  length different from `dim`.
+"""
+@inline function _filename_spec_at(x, d::Int, dim::Int)
+    if _filename_spec_is_multi(x)
+        length(x) == dim || JobLoggerTools.error_benji(
+            "Filename-spec mismatch: spec length must equal dim."
+        )
+        return x[d]
+    end
+    return x
+end
+
+"""
+    _rule_boundary_filename_token(a, b, rule, boundary) -> String
+
+Construct the compact rule/boundary token used in saved-result filenames.
+
+# Function description
+If all inputs are scalar-like, this helper returns `"<rule>_<boundary>"`. If
+any input is axis-wise, it expands the result into an axis-tagged token of the
+form `"1_<rule1>_<boundary1>_2_<rule2>_<boundary2>_..."`.
+
+# Arguments
+- `a`, `b`: Domain-bound specifications used only to infer scalar vs axis-wise
+  filename layout.
+- `rule`: Quadrature-rule specification.
+- `boundary`: Boundary specification.
+
+# Returns
+- `String`: Filename-friendly rule/boundary token.
+
+# Errors
+- Propagates dimensional-consistency errors from
+  [`_filename_spec_dim`](@ref) and [`_filename_spec_at`](@ref).
+
+# Notes
+- Domain values themselves are not embedded in the returned token.
+"""
+@inline function _rule_boundary_filename_token(a, b, rule, boundary)::String
+    dim = _filename_spec_dim(a, b, rule, boundary)
+
+    if dim == 1
+        return "$(string(rule))_$(string(boundary))"
+    end
+
+    parts = String[]
+    for d in 1:dim
+        push!(parts, string(d))
+        push!(parts, string(_filename_spec_at(rule, d, dim)))
+        push!(parts, string(_filename_spec_at(boundary, d, dim)))
+    end
+
+    return join(parts, "_")
 end
 
 """
@@ -263,6 +552,9 @@ It currently supports two error-entry layouts:
 # Notes
 - Residual-based entries are currently tagged with `"err_format" => "derivative"`.
 - Refinement-based entries are currently tagged with `"err_format" => "refinement"`.
+- Residual-based entries are serialized in the legacy flat layout. Any
+  axis-wise decomposition stored in a `per_axis` field is not currently
+  preserved by this helper.
 """
 function _err_entry_to_dict(e)
     if hasproperty(e, :ks)
@@ -280,8 +572,8 @@ function _err_entry_to_dict(e)
         return Dict(
             "err_format"   => "refinement",
             "method"       => String(e.method),
-            "rule"         => String(e.rule),
-            "boundary"     => String(e.boundary),
+            "rule"         => _storable_rule_value(e.rule),
+            "boundary"     => _storable_boundary_value(e.boundary),
             "N_coarse"     => Int(e.N_coarse),
             "N_fine"       => Int(e.N_fine),
             "dim"          => Int(e.dim),
@@ -334,6 +626,8 @@ Currently supported serialized formats are:
 - Scalar and axis-wise geometric fields are restored through
   [`_restore_domain_value`](@ref), so rectangular-domain error metadata is
   reconstructed as tuples when appropriate.
+- Residual-based entries are reconstructed in the legacy flat layout and do
+  not currently restore a `per_axis` decomposition.
 """
 function _dict_to_err_entry(e)
     fmt = get(e, "err_format", "refinement")
@@ -355,8 +649,8 @@ function _dict_to_err_entry(e)
         T = typeof(e["estimate"])
         return (
             method      = Symbol(e["method"]),
-            rule        = Symbol(e["rule"]),
-            boundary    = Symbol(e["boundary"]),
+            rule        = _restore_rule_value(e["rule"]),
+            boundary    = _restore_boundary_value(e["boundary"]),
             N_coarse    = Int(e["N_coarse"]),
             N_fine      = Int(e["N_fine"]),
             dim         = Int(e["dim"]),
@@ -429,13 +723,14 @@ This helper converts the structured result object produced by the Maranatha
 workflow into a plain dictionary composed of standard container and scalar
 types.
 
-The conversion preserves the full stored content, including:
+The conversion preserves the stored result content needed by downstream
+workflows, including:
 
 - global integration metadata,
 - scalarized step sizes in `res.h`,
 - original per-axis step information in `res.tuple_h` when present,
 - quadrature estimates, and
-- detailed per-datapoint error descriptors.
+- detailed per-datapoint error descriptors in their serialized legacy form.
 
 The resulting structure is suitable for storage in formats such as `JLD2` or
 other external representations that do not naturally preserve Julia
@@ -462,6 +757,10 @@ later through [`dict_to_namedtuple`](@ref).
   refinement-based error object.
 - For rectangular-domain results, `tuple_h` preserves the original per-axis
   step tuples while `h` preserves the scalar fitting step sequence.
+- Axis-wise `rule` and `boundary` specifications are preserved through the
+  dedicated rule/boundary serialization helpers.
+- Residual-based error entries are serialized in the flat legacy layout, so a
+  `per_axis` field is not currently round-tripped.
 """
 function namedtuple_to_dict(res)
     return Dict(
@@ -473,8 +772,8 @@ function namedtuple_to_dict(res)
                            [_storable_domain_value(hi) for hi in res.tuple_h] :
                            [_storable_domain_value(hi) for hi in res.h],
         "avg"           => collect(res.avg),
-        "rule"          => String(res.rule),
-        "boundary"      => String(res.boundary),
+        "rule"          => _storable_rule_value(res.rule),
+        "boundary"      => _storable_boundary_value(res.boundary),
         "dim"           => Int(res.dim),
         "err_method"    => String(res.err_method),
         "nerr_terms"    => Int(res.nerr_terms),
@@ -536,6 +835,10 @@ collection, they are reconstructed via [`infer_nsamples`](@ref).
   otherwise, `h` is reused as a fallback for backward compatibility.
 - `use_cuda` defaults to `false` and `real_type` defaults to `string(T)` when
   those keys are absent.
+- Axis-wise `rule` and `boundary` specifications are restored as tuples of
+  symbols when appropriate.
+- Residual-based error entries are reconstructed in the legacy flat layout and
+  therefore do not currently recover any original `per_axis` decomposition.
 """
 function dict_to_namedtuple(d)
     err = [_dict_to_err_entry(e) for e in d["err"]]
@@ -565,8 +868,8 @@ function dict_to_namedtuple(d)
         tuple_h       = tuple_h_restored,
         avg           = Vector{T}(d["avg"]),
         err           = err,
-        rule          = Symbol(d["rule"]),
-        boundary      = Symbol(d["boundary"]),
+        rule          = _restore_rule_value(d["rule"]),
+        boundary      = _restore_boundary_value(d["boundary"]),
         dim           = Int(d["dim"]),
         err_method    = Symbol(d["err_method"]),
         nerr_terms    = Int(d["nerr_terms"]),
@@ -655,8 +958,8 @@ function generate_summary_dict(res)
         "a"             => _toml_safe(res.a),
         "b"             => _toml_safe(res.b),
         "dim"           => Int(res.dim),
-        "rule"          => String(res.rule),
-        "boundary"      => String(res.boundary),
+        "rule"          => _toml_safe(_storable_rule_value(res.rule)),
+        "boundary"      => _toml_safe(_storable_boundary_value(res.boundary)),
         "err_method"    => String(res.err_method),
         "nerr_terms"    => Int(res.nerr_terms),
         "fit_terms"     => Int(res.fit_terms),
@@ -934,6 +1237,8 @@ end
         save_dir,
         name_prefix,
         name_suffix,
+        a,
+        b,
         rule,
         boundary,
         Ns
@@ -950,8 +1255,10 @@ and the explicit list of stored subdivision counts.
 - `save_dir`: Output directory.
 - `name_prefix`: User-facing prefix for the dataset.
 - `name_suffix`: User-facing suffix for the dataset.
-- `rule`: Quadrature rule label.
-- `boundary`: Boundary-condition label.
+- `a`, `b`: Domain-bound specifications used when deciding whether the filename
+  token should stay scalar or expand axis-by-axis.
+- `rule`: Quadrature-rule specification.
+- `boundary`: Boundary-condition specification.
 - `Ns`: Collection of subdivision counts.
 
 # Returns
@@ -963,22 +1270,25 @@ and the explicit list of stored subdivision counts.
 # Notes
 - This helper only constructs a path string; it does not create files or
   directories.
-- The generated filename includes the rule, boundary, `nsamples` suffix,
-  and user-provided prefix/suffix.
+- The generated filename includes the axis-aware rule/boundary token,
+  `nsamples` suffix, and user-provided prefix/suffix.
 """
 function _default_result_path(
     save_dir::AbstractString,
     name_prefix::AbstractString,
     name_suffix::AbstractString,
+    a,
+    b,
     rule,
     boundary,
     Ns
 )
     ns_suffix = _build_nsamples_suffix(Ns)
+    spec_str = _rule_boundary_filename_token(a, b, rule, boundary)
 
     return joinpath(
         save_dir,
-        "result_$(name_prefix)_$(rule)_$(boundary)_$(ns_suffix)_$(name_suffix).jld2"
+        "result_$(name_prefix)_$(spec_str)_$(ns_suffix)_$(name_suffix).jld2"
     )
 end
 
@@ -1325,6 +1635,8 @@ function merge_datapoint_result_files(
             output_dir,
             name_prefix,
             name_suffix,
+            merged.a,
+            merged.b,
             merged.rule,
             merged.boundary,
             Ns,
@@ -1496,6 +1808,8 @@ function drop_nsamples_from_file(
             output_dir,
             name_prefix,
             name_suffix,
+            filtered.a,
+            filtered.b,
             filtered.rule,
             filtered.boundary,
             Ns,

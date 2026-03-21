@@ -45,8 +45,8 @@ The CUDA backend currently consists of four main internal roles:
 ## Notes
 
 - This module assumes that the supplied integrand is CUDA-compatible.
-- The same one-dimensional quadrature nodes and weights are reused on every
-  axis.
+- Each axis may carry a distinct 1D node/weight set when axis-wise domain,
+  `rule`, or `boundary` specifications are used.
 - The public API is centered on [`quadrature_cuda`](@ref Maranatha.Quadrature.QuadratureDispatch.QuadratureDispatchCUDA.quadrature_cuda).
 - The helper functions documented below are internal implementation details, but
   they are included here because this page exposes private autodocs.

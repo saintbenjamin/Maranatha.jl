@@ -100,9 +100,10 @@ based on the chosen quadrature rule.
 module ErrorBSpline
 
 import ..JobLoggerTools
-import ..Quadrature.BSpline
-import ..Quadrature.QuadratureUtils
+import ..QuadratureBoundarySpec
+import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.QuadratureDispatch
+import ..Quadrature.BSpline
 
 include("ErrorBSplineDerivative.jl")
 include("ErrorBSplineRefinement.jl")

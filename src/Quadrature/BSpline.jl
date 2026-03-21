@@ -8,6 +8,31 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module BSpline
+
+B-spline quadrature rule parser and 1D node/weight construction backend.
+
+# Module description
+`BSpline` implements the quadrature-family-specific helpers for the
+interpolation and smoothing B-spline rules used by `Maranatha.Quadrature`.
+
+Its responsibilities include:
+
+- identifying B-spline rule symbols,
+- parsing B-spline degree and variant information,
+- assembling knot vectors and local basis data,
+- constructing 1-dimensional nodes and weights for composite B-spline rules.
+
+This module is a family-specific backend. Higher-level tensor-product
+integration and axis-wise rule dispatch are handled elsewhere by
+`QuadratureNodes` and `QuadratureDispatch`.
+
+# Notes
+- This is an internal module.
+- Public quadrature entry points should normally be accessed through
+  `Maranatha.Quadrature`, not by calling `BSpline` helpers directly.
+"""
 module BSpline
 
 import ..LinearAlgebra

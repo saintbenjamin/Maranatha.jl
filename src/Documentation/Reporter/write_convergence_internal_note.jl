@@ -55,8 +55,8 @@ inote_<summary_basename>/
 ├── <summary_basename>table.tex
 ├── <summary_basename>figs.tex
 ├── figs/
-│ ├── result<name><rule><boundary>extrap.pdf
-│ └── result<name><rule>_<boundary>_reldiff.pdf
+│ ├── result_<name>_<spec_token>_extrap.pdf
+│ └── result_<name>_<spec_token>_reldiff.pdf
 └── Makefile
 ```
 
@@ -128,6 +128,8 @@ A `NamedTuple` containing paths and build-status information, including:
 - For rectangular-domain workflows, the generated note is based on the
   scalarized step-size sequence `result.h` rather than the original per-axis
   step tuples.
+- `<spec_token>` denotes the axis-aware rule/boundary token produced by
+  [`DocUtils._rule_boundary_filename_token`](@ref).
 """
 function write_convergence_internal_note(
     result,
@@ -137,20 +139,21 @@ function write_convergence_internal_note(
     save_file::Bool = true,
     try_build_pdf::Bool = true,
     move_existing_plots::Bool = true,
-    nerr_terms::Union{Nothing,Int} = nothing,
     author::Union{Nothing,AbstractString} = nothing,
     affiliation::Union{Nothing,AbstractString} = nothing,
     abstract_text::Union{Nothing,AbstractString} = nothing,
 )
     hs = Vector{Float64}(result.h)
     estimates = Vector{Float64}(result.avg)
+    a = result.a
+    b = result.b
     errors = result.err
     rule = result.rule
     boundary = result.boundary
     err_method = result.err_method
-    fit_terms = result.fit_terms
-    nerr_terms_eff_input = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
-    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms_eff_input
+    fit_terms = fit_result.fit_func_terms
+    nerr_terms = fit_result.nerr_terms
+    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
 
     n = length(hs)
     if length(estimates) != n || length(errors) != n
@@ -175,6 +178,8 @@ function write_convergence_internal_note(
 
     summary_basename = _build_convergence_summary_basename(
         name,
+        a,
+        b,
         rule,
         boundary,
         fit_terms,
@@ -205,11 +210,10 @@ function write_convergence_internal_note(
     summary_tex = write_convergence_summary(
         result,
         fit_result;
-        name,
-        out_dir = note_dir,
+        name = name,
         format = :tex,
+        out_dir = note_dir,
         save_file = save_file,
-        nerr_terms = nerr_terms_eff_input
     )
 
     if save_file
@@ -221,8 +225,10 @@ function write_convergence_internal_note(
     # ------------------------------------------------------------
     # 2. Move plot PDFs into figs/
     # ------------------------------------------------------------
-    extrap_plot_name = "result_$(name)_$(String(rule))_$(String(boundary))_extrap.pdf"
-    reldiff_plot_name = "result_$(name)_$(String(rule))_$(String(boundary))_reldiff.pdf"
+    spec_str = DocUtils._rule_boundary_filename_token(a, b, rule, boundary)
+
+    extrap_plot_name = "result_$(name)_$(spec_str)_extrap.pdf"
+    reldiff_plot_name = "result_$(name)_$(spec_str)_reldiff.pdf"
 
     src_extrap = joinpath(out_dir, extrap_plot_name)
     src_reldiff = joinpath(out_dir, reldiff_plot_name)

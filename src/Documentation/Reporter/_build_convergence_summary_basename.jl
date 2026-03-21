@@ -11,6 +11,8 @@
 """
     _build_convergence_summary_basename(
         name,
+        a,
+        b,
         rule,
         boundary,
         fit_terms,
@@ -44,8 +46,10 @@ modeling.
 # Arguments
 
 - `name`: Identifier for the integrand or experiment.
-- `rule`: Quadrature rule used.
-- `boundary`: Boundary-handling scheme.
+- `a`, `b`: Domain-bound specifications used when deciding whether the filename
+  token should stay scalar or expand axis-by-axis.
+- `rule`: Quadrature-rule specification.
+- `boundary`: Boundary-handling specification.
 - `fit_terms`: Number of terms used in the extrapolation fit.
 - `nerr_terms`: Number of error terms included in the model.
 
@@ -59,19 +63,24 @@ modeling.
 - Callers are responsible for ensuring the result is valid as a filename.
 - Passing `nothing` (or `0` for `nerr_terms`) suppresses the corresponding
   suffix, producing shorter basenames for simpler runs.
+- The rule/boundary portion is built through
+  [`DocUtils._rule_boundary_filename_token`](@ref), so axis-wise metadata are
+  encoded as `1_<rule1>_<boundary1>_2_<rule2>_<boundary2>_...`.
 """
 function _build_convergence_summary_basename(
     name::AbstractString,
+    a,
+    b,
     rule,
     boundary,
     fit_terms,
     nerr_terms,
 )
-    base = "summary_$(name)_$(String(rule))_$(String(boundary))"
+    spec_str = DocUtils._rule_boundary_filename_token(a, b, rule, boundary)
+
+    base = "summary_$(name)_$(spec_str)"
 
     fit_terms_suffix = isnothing(fit_terms) ? "" : "_ff_$(fit_terms)"
-
-    # Do not append error-term suffix when nerr_terms == 0
     nerr_terms_suffix =
         (isnothing(nerr_terms) || nerr_terms == 0) ? "" : "_er_$(nerr_terms)"
 

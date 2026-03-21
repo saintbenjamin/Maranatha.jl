@@ -8,10 +8,31 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module MaranathaTOML
+
+TOML parsing and validation helpers for `Maranatha.jl` run configurations.
+
+# Module description
+`Maranatha.Utils.MaranathaTOML` turns user-facing TOML files into normalized
+configuration bundles, validates them, and loads integrand functions from local
+Julia source files.
+
+It supports scalar and axis-wise domain / rule / boundary specifications and
+enforces the current refinement restriction that axis-wise rules must belong to
+one common family.
+
+# Main entry points
+- [`parse_run_config_from_toml`](@ref)
+- [`validate_run_config`](@ref)
+- [`load_integrand_from_file`](@ref)
+"""
 module MaranathaTOML
 
 import ..TOML
-import ...DoubleFloats
+import ..DoubleFloats
+
+import ..QuadratureBoundarySpec
 
 """
     VALID_ERR_METHODS :: Set{Symbol}
@@ -238,6 +259,275 @@ Behavior depends on `x`:
 end
 
 """
+    _parse_boundary_entry(x) -> Symbol
+
+Parse one scalar boundary entry from TOML input.
+
+# Function description
+This helper accepts either a `Symbol` or a string-like TOML value, normalizes
+it to `Symbol`, and validates it against [`QuadratureBoundarySpec._decode_boundary`](@ref).
+
+# Arguments
+- `x`: Scalar boundary entry from TOML input.
+
+# Returns
+- `Symbol`: Validated boundary symbol.
+
+# Errors
+- Throws if `x` is neither a symbol nor a string.
+- Throws if the decoded boundary symbol is unsupported.
+"""
+@inline function _parse_boundary_entry(x)::Symbol
+    if x isa Symbol
+        QuadratureBoundarySpec._decode_boundary(x)
+        return x
+    elseif x isa AbstractString
+        s = Symbol(strip(x))
+        QuadratureBoundarySpec._decode_boundary(s)
+        return s
+    else
+        error("Invalid boundary entry: expected Symbol or String, got $(typeof(x)).")
+    end
+end
+
+"""
+    _parse_boundary_spec(x)
+
+Parse a scalar or axis-wise boundary specification from TOML input.
+
+# Function description
+Scalar input is parsed as one boundary entry. Tuple/vector input is parsed
+entrywise and returned as a tuple of boundary symbols.
+
+# Arguments
+- `x`: TOML boundary value, scalar or array-like.
+
+# Returns
+- Scalar `Symbol` or tuple of `Symbol` values.
+
+# Errors
+- Propagates entry-level parsing errors from [`_parse_boundary_entry`](@ref).
+"""
+@inline function _parse_boundary_spec(x)
+    if x isa Tuple
+        vals = Tuple(_parse_boundary_entry(v) for v in x)
+        return vals
+    elseif x isa AbstractVector
+        vals = Tuple(_parse_boundary_entry(v) for v in x)
+        return vals
+    else
+        return _parse_boundary_entry(x)
+    end
+end
+
+"""
+    _parse_rule_entry(x) -> Symbol
+
+Parse one scalar quadrature-rule entry from TOML input.
+
+# Function description
+This helper accepts either a `Symbol` or a string-like TOML value and
+normalizes it to `Symbol`.
+
+# Arguments
+- `x`: Scalar rule entry from TOML input.
+
+# Returns
+- `Symbol`: Parsed rule symbol.
+
+# Errors
+- Throws if `x` is neither a symbol nor a string.
+"""
+@inline function _parse_rule_entry(x)::Symbol
+    if x isa Symbol
+        return x
+    elseif x isa AbstractString
+        return Symbol(strip(x))
+    else
+        error("Invalid rule entry: expected Symbol or String, got $(typeof(x)).")
+    end
+end
+
+"""
+    _parse_rule_spec(x)
+
+Parse a scalar or axis-wise quadrature-rule specification from TOML input.
+
+# Function description
+Scalar input is parsed as one rule symbol. Tuple/vector input is parsed
+entrywise and returned as a tuple of rule symbols.
+
+# Arguments
+- `x`: TOML rule value, scalar or array-like.
+
+# Returns
+- Scalar `Symbol` or tuple of `Symbol` values.
+
+# Errors
+- Propagates entry-level parsing errors from [`_parse_rule_entry`](@ref).
+"""
+@inline function _parse_rule_spec(x)
+    if x isa Tuple
+        return Tuple(_parse_rule_entry(v) for v in x)
+    elseif x isa AbstractVector
+        return Tuple(_parse_rule_entry(v) for v in x)
+    else
+        return _parse_rule_entry(x)
+    end
+end
+
+"""
+    _rule_family_local(rule::Symbol) -> Symbol
+
+Classify a TOML-parsed scalar rule symbol by family.
+
+# Function description
+This helper performs a lightweight local family classification used during TOML
+validation, without depending on the quadrature module's internal helpers.
+
+# Arguments
+- `rule::Symbol`: Scalar rule symbol to classify.
+
+# Returns
+- `Symbol`: One of `:newton_cotes`, `:gauss`, or `:bspline`.
+
+# Errors
+- Throws if `rule` is not a supported rule symbol.
+"""
+@inline function _rule_family_local(rule::Symbol)::Symbol
+    s = String(rule)
+
+    startswith(s, "newton_p") && return :newton_cotes
+    startswith(s, "gauss_p") && return :gauss
+
+    if startswith(s, "bspline_interp_p") || startswith(s, "bspline_smooth_p")
+        return :bspline
+    end
+
+    error("Invalid rule specification: unsupported rule symbol $(rule).")
+end
+
+"""
+    _rule_at_local(rule, d::Int, dim::Int) -> Symbol
+
+Resolve the scalar TOML-parsed rule symbol used on axis `d`.
+
+# Function description
+Scalar rules are returned unchanged after validation. Tuple/vector rules are
+validated against `dim`, indexed at `d`, and checked for supported family
+membership.
+
+# Arguments
+- `rule`: Scalar or axis-wise TOML-parsed rule specification.
+- `d::Int`: Axis index to resolve.
+- `dim::Int`: Expected axis count for axis-wise input.
+
+# Returns
+- `Symbol`: Scalar rule symbol used on axis `d`.
+
+# Errors
+- Throws if the rule specification is malformed or unsupported.
+"""
+@inline function _rule_at_local(rule, d::Int, dim::Int)::Symbol
+    if rule isa Symbol
+        _rule_family_local(rule)
+        return rule
+    elseif rule isa Tuple || rule isa AbstractVector
+        length(rule) == dim || error(
+            "Invalid rule specification: length(rule) must equal dim=$(dim)."
+        )
+        rd = rule[d]
+        rd isa Symbol || error(
+            "Invalid rule specification: rule[$d] must be a Symbol."
+        )
+        _rule_family_local(rd)
+        return rd
+    else
+        error(
+            "Invalid rule specification: expected Symbol or tuple/vector of Symbols, got $(typeof(rule))."
+        )
+    end
+end
+
+"""
+    _validate_rule_spec_local(rule, dim::Int) -> Nothing
+
+Validate that a TOML-parsed rule specification is well formed for dimension
+`dim`.
+
+# Function description
+This helper accepts either a scalar rule symbol shared across all axes or a
+tuple/vector of per-axis rule symbols of length `dim`. Every resolved axis
+entry is checked for supported family membership.
+
+# Arguments
+- `rule`: TOML-parsed rule specification.
+- `dim::Int`: Expected problem dimension.
+
+# Returns
+- `nothing`
+
+# Errors
+- Throws if `dim < 1`, if an axis-wise rule specification has the wrong
+  length, or if any axis-local rule is unsupported.
+"""
+@inline function _validate_rule_spec_local(rule, dim::Int)::Nothing
+    dim >= 1 || error("Invalid dim: dim must be >= 1, but got dim=$(dim).")
+
+    for d in 1:dim
+        _rule_at_local(rule, d, dim)
+    end
+
+    return nothing
+end
+
+"""
+    _validate_refinement_rule_family_local(
+        rule,
+        dim::Int,
+        err_method::Symbol,
+    ) -> Nothing
+
+Validate the current refinement restriction on axis-wise TOML rule specs.
+
+# Function description
+When `err_method != :refinement`, this helper returns immediately. For
+refinement runs, it verifies that all axis-local rule entries belong to one
+common quadrature family.
+
+# Arguments
+- `rule`: TOML-parsed rule specification.
+- `dim::Int`: Expected problem dimension.
+- `err_method::Symbol`: Parsed error-method selector.
+
+# Returns
+- `nothing`
+
+# Errors
+- Throws if `err_method == :refinement` and the resolved per-axis rules do not
+  all belong to one family.
+- Propagates rule-validation errors from [`_rule_at_local`](@ref) and
+  [`_rule_family_local`](@ref).
+"""
+@inline function _validate_refinement_rule_family_local(
+    rule,
+    dim::Int,
+    err_method::Symbol,
+)::Nothing
+    err_method === :refinement || return nothing
+
+    fam = _rule_family_local(_rule_at_local(rule, 1, dim))
+    for d in 2:dim
+        fam_d = _rule_family_local(_rule_at_local(rule, d, dim))
+        fam_d == fam || error(
+            "Invalid rule specification: err_method=:refinement requires all axis-wise rules to belong to one family, but got rule=$(rule)."
+        )
+    end
+
+    return nothing
+end
+
+"""
     _domain_axis_values(
         x, 
         dim::Int
@@ -366,6 +656,8 @@ In particular:
   resolved relative to the TOML file location;
 - string-like selectors such as `rule`, `boundary`, `err_method`, and
   `real_type` are converted to `Symbol` values;
+- `rule` and `boundary` may each be supplied either as scalar values or as
+  arrays describing axis-wise specifications;
 - domain endpoints `[domain].a` and `[domain].b` are parsed in the scalar type
   selected by `[execution].real_type`;
 - domain endpoints may be supplied either as ordinary numeric TOML values or as
@@ -404,6 +696,8 @@ returning:
 - Semantic validation is deferred to [`validate_run_config`](@ref).
 - Domain endpoints are converted to the scalar type selected by
   `[execution].real_type` during parsing.
+- Rule specifications are validated locally during parsing so that unsupported
+  rule symbols and mixed-family refinement rule sets fail early.
 - This allows wizard-generated string-valued domain literals to preserve
   precision until parse time while remaining backward compatible with ordinary
   numeric [`TOML`](https://toml.io/en/) input.
@@ -495,6 +789,16 @@ function parse_run_config_from_toml(
         "Invalid `[sampling].nsamples` in TOML: expected an array, got $(typeof(raw_nsamples))."
     )
 
+    dim_val = Int(get(domain_section, "dim", 1))
+
+    rule_parsed = _parse_rule_spec(quadrature_section["rule"])
+    boundary_parsed = _parse_boundary_spec(quadrature_section["boundary"])
+    err_method_parsed = Symbol(get(error_section, "err_method", "refinement"))
+
+    _validate_rule_spec_local(rule_parsed, dim_val)
+    _validate_refinement_rule_family_local(rule_parsed, dim_val, err_method_parsed)
+    QuadratureBoundarySpec._validate_boundary_spec(boundary_parsed, dim_val)
+
     return (
         toml_path      = abs_toml_path,
         integrand_file = integrand_file,
@@ -506,10 +810,10 @@ function parse_run_config_from_toml(
 
         nsamples = collect(Int.(raw_nsamples)),
 
-        rule = Symbol(quadrature_section["rule"]),
-        boundary = Symbol(quadrature_section["boundary"]),
+        rule = rule_parsed,
+        boundary = boundary_parsed,
 
-        err_method = Symbol(get(error_section, "err_method", "refinement")),
+        err_method = err_method_parsed,
         fit_terms  = Int(get(error_section, "fit_terms", 4)),
         nerr_terms = Int(get(error_section, "nerr_terms", 3)),
         ff_shift   = Int(get(error_section, "ff_shift", 0)),
@@ -565,6 +869,8 @@ It supports both isotropic and rectangular-domain configurations:
 - Throws if `err_method` is not contained in [`VALID_ERR_METHODS`](@ref).
 - Throws if `real_type` is not one of the supported scalar-type selectors.
 - Throws if `use_cuda == true` but `real_type` is not CUDA-compatible.
+- Throws if an axis-wise `rule` specification has the wrong length or, for
+  `err_method == :refinement`, mixes multiple quadrature families.
 
 # Notes
 - This helper does not verify whether the loaded integrand signature is
@@ -574,6 +880,8 @@ It supports both isotropic and rectangular-domain configurations:
   and `:BigFloat`.
 - For rectangular domains, endpoint-length consistency is checked through
   [`_domain_axis_values`](@ref).
+- Axis-wise `boundary` specifications are validated through
+  [`QuadratureBoundarySpec._validate_boundary_spec`](@ref).
 """
 function validate_run_config(cfg)::Nothing
     cfg.dim >= 1 || error(
@@ -582,6 +890,9 @@ function validate_run_config(cfg)::Nothing
 
     a_axes = _domain_axis_values(cfg.a, cfg.dim)
     b_axes = _domain_axis_values(cfg.b, cfg.dim)
+    QuadratureBoundarySpec._validate_boundary_spec(cfg.boundary, cfg.dim)
+    _validate_rule_spec_local(cfg.rule, cfg.dim)
+    _validate_refinement_rule_family_local(cfg.rule, cfg.dim, cfg.err_method)
 
     for i in 1:cfg.dim
         a_axes[i] < b_axes[i] || error(

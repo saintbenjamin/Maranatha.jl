@@ -8,28 +8,51 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorGaussRefinement
+
+Refinement-based error-estimation backend for Gauss-family quadrature rules.
+
+# Module description
+`ErrorGaussRefinement` implements the Gauss-family branch of the
+refinement-based error estimator.
+
+It validates Gauss-family rule specifications, evaluates coarse and refined
+quadrature values, and packages the resulting quadrature-difference estimate in
+a uniform result structure understood by the higher-level error-dispatch layer.
+
+# Notes
+- This is an internal module.
+- Axis-wise `rule` specifications are supported here when all axes remain in
+  the Gauss family.
+"""
 module ErrorGaussRefinement
 
 import ..JobLoggerTools
-import ..Gauss
-import ..QuadratureUtils
+import ..QuadratureBoundarySpec
+import ..QuadratureRuleSpec
 import ..QuadratureDispatch
+import ..Gauss
 
 """
     _require_gauss_rule(
-        rule::Symbol
+        rule,
+        dim::Int = 1,
     ) -> Nothing
 
 Validate that `rule` belongs to the supported Gauss-family quadrature rules.
 
 # Function description
-This internal helper checks whether the supplied quadrature-rule symbol is a
-Gauss-family rule recognized by the quadrature layer. It is used as a guard
-before calling Gauss-specific refinement routines.
+This internal helper checks whether the supplied quadrature-rule specification
+belongs to the Gauss family recognized by the quadrature layer. It is used as
+a guard before calling Gauss-specific refinement routines.
 
 # Arguments
-- `rule::Symbol`:
-  Quadrature rule symbol to validate.
+- `rule`:
+  Quadrature rule specification to validate. This may be either a scalar rule
+  symbol or an axis-wise tuple/vector of rule symbols.
+- `dim::Int = 1`:
+  Problem dimensionality used when validating axis-wise rule specifications.
 
 # Returns
 - `nothing`
@@ -41,14 +64,16 @@ before calling Gauss-specific refinement routines.
 # Notes
 - This helper validates only the rule family.
 - It does not validate `boundary`, `N`, or `dim`.
+- Axis-wise rule specifications must use Gauss-family rules on every axis.
 """
 @inline function _require_gauss_rule(
-    rule::Symbol
+    rule,
+    dim::Int = 1,
 )::Nothing
-    Gauss._is_gauss_rule(rule) ||
-        JobLoggerTools.error_benji(
-            "ErrorGaussRefinement only supports Gauss-family rules (got rule=$rule)"
-        )
+    fam = QuadratureRuleSpec._common_rule_family(rule, dim)
+    fam === :gauss || JobLoggerTools.error_benji(
+        "ErrorGaussRefinement only supports Gauss-family rules (got rule=$rule)"
+    )
     return nothing
 end
 
@@ -56,8 +81,8 @@ end
     _require_gauss_inputs(
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol,
+        rule,
+        boundary,
     ) -> Nothing
 
 Validate the basic inputs required by the Gauss refinement estimator.
@@ -66,17 +91,19 @@ Validate the basic inputs required by the Gauss refinement estimator.
 This helper performs the common input checks used by the Gauss-family
 refinement-based error-estimation layer. It verifies that the subdivision count
 and dimensionality are valid, confirms that `rule` belongs to the Gauss family,
-and delegates boundary validation to `QuadratureUtils._decode_boundary`.
+and delegates boundary validation to `QuadratureBoundarySpec._decode_boundary`.
 
 # Arguments
 - `N::Int`:
   Number of subdivisions or composite blocks per axis.
 - `dim::Int`:
   Problem dimensionality.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
+- `rule`:
+  Gauss-family quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Returns
 - `nothing`
@@ -94,13 +121,13 @@ and delegates boundary validation to `QuadratureUtils._decode_boundary`.
 @inline function _require_gauss_inputs(
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol,
+    rule,
+    boundary,
 )::Nothing
     (N >= 1)   || JobLoggerTools.error_benji("Need N ≥ 1 (got N=$N)")
     (dim >= 1) || JobLoggerTools.error_benji("dim must be ≥ 1 (got dim=$dim)")
-    _require_gauss_rule(rule)
-    QuadratureUtils._decode_boundary(boundary)
+    _require_gauss_rule(rule, dim)
+    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
     return nothing
 end
 
@@ -111,8 +138,8 @@ end
         b,
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         threaded_subgrid::Bool = false,
         real_type = nothing,
     ) -> Real
@@ -151,10 +178,12 @@ Two domain conventions are supported:
   Number of subdivisions or composite blocks per axis.
 - `dim::Int`:
   Number of dimensions.
-- `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
+- `rule`:
+  Gauss-family quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `threaded_subgrid::Bool = false`:
@@ -171,6 +200,8 @@ Two domain conventions are supported:
 - Propagates validation errors from [`_require_gauss_inputs`](@ref).
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from `QuadratureDispatch.quadrature`.
 
 # Notes
@@ -183,8 +214,8 @@ Two domain conventions are supported:
     b,
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     threaded_subgrid::Bool = false,
     real_type = nothing,
 )
@@ -222,8 +253,8 @@ end
         b,
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         threaded_subgrid::Bool = false,
         real_type = nothing,
         I_coarse = nothing,
@@ -275,10 +306,12 @@ and both quadrature evaluations.
   Coarse subdivision count.
 * `dim::Int`:
   Number of dimensions.
-* `rule::Symbol`:
-  Gauss-family quadrature rule symbol.
-* `boundary::Symbol`:
-  Boundary-condition symbol.
+* `rule`:
+  Gauss-family quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+* `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 
@@ -297,8 +330,8 @@ and both quadrature evaluations.
 * `NamedTuple` with fields:
 
   * `method`      : method tag `:gauss_refinement_difference`
-  * `rule`        : quadrature rule symbol
-  * `boundary`    : boundary-condition symbol
+  * `rule`        : quadrature rule specification
+  * `boundary`    : boundary-condition specification
   * `N_coarse`    : coarse subdivision count
   * `N_fine`      : refined subdivision count (`2N`)
   * `dim`         : dimensionality
@@ -315,6 +348,8 @@ and both quadrature evaluations.
 * Propagates validation errors from [`_require_gauss_inputs`](@ref).
 * Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+* Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 * Propagates errors from the quadrature-evaluation layer.
 
 # Notes
@@ -324,6 +359,8 @@ and both quadrature evaluations.
   additional Richardson-style normalization factor.
 * The optional `I_coarse` keyword is intended to avoid redundant coarse
   quadrature work when the caller has already computed that value.
+* Axis-wise `rule` specifications must remain within the Gauss family on every
+  axis.
 """
 function _estimate_by_refinement_gauss(
     f,
@@ -331,8 +368,8 @@ function _estimate_by_refinement_gauss(
     b,
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     threaded_subgrid::Bool = false,
     real_type = nothing,
     I_coarse = nothing,
@@ -457,9 +494,13 @@ The routine validates the rule family and boundary selector, then dispatches to
 - `dim`:
   Number of dimensions.
 - `rule`:
-  Gauss-family quadrature rule symbol.
+  Gauss-family quadrature rule specification.
+  This may be either a scalar rule symbol or a tuple/vector of per-axis rule
+  symbols of length `dim`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol or a tuple/vector of per-axis
+  boundary symbols of length `dim`.
 
 # Keyword arguments
 - `threaded_subgrid::Bool = false`:
@@ -479,6 +520,8 @@ The routine validates the rule family and boundary selector, then dispatches to
 - Throws if `boundary` is invalid.
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from the refinement-estimation routine.
 
 # Notes
@@ -500,8 +543,7 @@ function error_estimate_refinement_gauss(
     real_type = nothing,
     I_coarse = nothing,
 )
-    _require_gauss_rule(rule)
-    QuadratureUtils._decode_boundary(boundary)
+    _require_gauss_rule(rule, dim)
 
     return _estimate_by_refinement_gauss(
         f,

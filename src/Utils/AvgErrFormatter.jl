@@ -15,6 +15,20 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module AvgErrFormatter
+
+Numeric value-plus-uncertainty formatting helpers for `Maranatha.jl`.
+
+# Module description
+`Maranatha.Utils.AvgErrFormatter` provides scientific-notation and grouped-digit
+formatters used when printing fitted values, uncertainties, and report tables.
+
+# Main entry points
+- [`avgerr_e2d`](@ref)
+- [`avgerr_e2d_from_float`](@ref)
+- [`latex_group_fraction_digits`](@ref)
+"""
 module AvgErrFormatter
 
 import ..Printf: @sprintf, Printf

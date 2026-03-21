@@ -17,6 +17,10 @@ Its responsibilities are intentionally narrow:
    and optional `I_coarse`,
 4. expose a single public entry point for refinement-based error estimation.
 
+When `rule` is axis-wise, this module also enforces the current restriction
+that all active axes must belong to the same quadrature family before
+refinement dispatch may proceed.
+
 This module does **not** construct residual models, does **not** evaluate
 high-order derivatives, and does **not** use derivative jets.
 
@@ -84,7 +88,8 @@ The internal helper
 [`Maranatha.ErrorEstimate.ErrorDispatch.ErrorDispatchRefinement._dispatch_refinement`](@ref)
 performs the actual rule-family selection.
 
-It checks the input `rule` in the following order:
+It first validates that the scalar-or-axis-wise `rule` specification belongs to
+one common family, then checks that family in the following order:
 
 1. Gauss-family rule,
 2. Newton-Cotes rule,
@@ -117,7 +122,7 @@ The Gauss refinement backend compares:
 * `Q(N)`
 * `Q(2N)`
 
-using the same rule family and boundary handling.
+using the same Gauss-family rule configuration and boundary handling.
 
 ### Newton-Cotes rules
 

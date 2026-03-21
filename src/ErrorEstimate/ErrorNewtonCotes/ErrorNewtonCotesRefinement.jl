@@ -8,28 +8,52 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorNewtonCotesRefinement
+
+Refinement-based error-estimation backend for Newton-Cotes quadrature rules.
+
+# Module description
+`ErrorNewtonCotesRefinement` implements the Newton-Cotes branch of the
+refinement-based error estimator.
+
+It validates Newton-Cotes rule specifications, computes a refinement level that
+is admissible across all active axes, evaluates coarse and refined quadrature
+values, and packages the resulting quadrature-difference estimate in a uniform
+result structure understood by the higher-level error-dispatch layer.
+
+# Notes
+- This is an internal module.
+- Axis-wise `rule` specifications are supported here when all axes remain in
+  the Newton-Cotes family.
+"""
 module ErrorNewtonCotesRefinement
 
 import ..JobLoggerTools
-import ..NewtonCotes
-import ..QuadratureUtils
+import ..QuadratureBoundarySpec
+import ..QuadratureRuleSpec
 import ..QuadratureDispatch
+import ..NewtonCotes
 
 """
     _require_newton_cotes_rule(
-        rule::Symbol
+        rule,
+        dim::Int = 1,
     ) -> Nothing
 
 Validate that `rule` belongs to the supported Newton-Cotes quadrature family.
 
 # Function description
-This internal helper checks whether the supplied quadrature-rule symbol is a
-Newton-Cotes rule recognized by the quadrature layer. It is used as a guard
-before calling Newton-Cotes-specific refinement routines.
+This internal helper checks whether the supplied quadrature-rule specification
+belongs to the Newton-Cotes family recognized by the quadrature layer. It is
+used as a guard before calling Newton-Cotes-specific refinement routines.
 
 # Arguments
-- `rule::Symbol`:
-  Quadrature rule symbol to validate.
+- `rule`:
+  Quadrature rule specification to validate. This may be either a scalar rule
+  symbol or an axis-wise tuple/vector of rule symbols.
+- `dim::Int = 1`:
+  Problem dimensionality used when validating axis-wise rule specifications.
 
 # Returns
 - `nothing`
@@ -41,14 +65,16 @@ before calling Newton-Cotes-specific refinement routines.
 # Notes
 - This helper validates only the rule family.
 - It does not validate `boundary`, `N`, or `dim`.
+- Axis-wise rule specifications must use Newton-Cotes rules on every axis.
 """
 @inline function _require_newton_cotes_rule(
-    rule::Symbol
+    rule,
+    dim::Int = 1,
 )::Nothing
-    NewtonCotes._is_newton_cotes_rule(rule) ||
-        JobLoggerTools.error_benji(
-            "ErrorNewtonCotesRefinement only supports Newton-Cotes rules (got rule=$rule)"
-        )
+    fam = QuadratureRuleSpec._common_rule_family(rule, dim)
+    fam === :newton_cotes || JobLoggerTools.error_benji(
+        "ErrorNewtonCotesRefinement only supports Newton-Cotes rules (got rule=$rule)"
+    )
     return nothing
 end
 
@@ -56,8 +82,8 @@ end
     _require_newton_cotes_inputs(
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol,
+        rule,
+        boundary,
     ) -> Nothing
 
 Validate the basic inputs required by the Newton-Cotes refinement estimator.
@@ -66,17 +92,19 @@ Validate the basic inputs required by the Newton-Cotes refinement estimator.
 This helper performs the common input checks used by the Newton-Cotes
 refinement-based error-estimation layer. It verifies that the subdivision count
 and dimensionality are valid, confirms that `rule` belongs to the Newton-Cotes
-family, and delegates boundary validation to `QuadratureUtils._decode_boundary`.
+family, and delegates boundary validation to `QuadratureBoundarySpec._decode_boundary`.
 
 # Arguments
 - `N::Int`:
   Number of subdivisions or composite blocks per axis.
 - `dim::Int`:
   Problem dimensionality.
-- `rule::Symbol`:
-  Newton-Cotes quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
+- `rule`:
+  Newton-Cotes quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Returns
 - `nothing`
@@ -94,14 +122,86 @@ family, and delegates boundary validation to `QuadratureUtils._decode_boundary`.
 @inline function _require_newton_cotes_inputs(
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol,
+    rule,
+    boundary,
 )::Nothing
     (N >= 1)   || JobLoggerTools.error_benji("Need N ≥ 1 (got N=$N)")
     (dim >= 1) || JobLoggerTools.error_benji("dim must be ≥ 1 (got dim=$dim)")
-    _require_newton_cotes_rule(rule)
-    QuadratureUtils._decode_boundary(boundary)
+    _require_newton_cotes_rule(rule, dim)
+    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
     return nothing
+end
+
+"""
+    _next_valid_Nsub_common(
+        rule,
+        boundary,
+        dim::Int,
+        Ntarget::Int,
+    ) -> Int
+
+Return the smallest common Newton-Cotes subdivision count greater than or equal
+to `Ntarget` that is valid on every axis.
+
+# Function description
+For axis-wise Newton-Cotes configurations, each axis may impose its own
+admissibility constraint on the composite subdivision count. This helper
+repeatedly applies [`NewtonCotes._next_valid_Nsub`](@ref) on every axis until a
+common valid count is reached.
+
+# Arguments
+- `rule`:
+  Newton-Cotes quadrature rule specification, scalar or axis-wise.
+- `boundary`:
+  Boundary specification, scalar or axis-wise.
+- `dim::Int`:
+  Problem dimensionality.
+- `Ntarget::Int`:
+  Requested lower bound for the refined subdivision count.
+
+# Returns
+- `Int`:
+  Smallest common valid subdivision count `>= Ntarget`.
+
+# Errors
+- Propagates Newton-Cotes-family validation errors from
+  [`_require_newton_cotes_rule`](@ref).
+- Propagates boundary-access and admissibility errors from
+  [`QuadratureRuleSpec._rule_at`](@ref),
+  [`QuadratureBoundarySpec._boundary_at`](@ref), and
+  [`NewtonCotes._next_valid_Nsub`](@ref).
+
+# Notes
+- This helper is used by the refinement estimator so that all axes share one
+  common refined composite tiling.
+"""
+function _next_valid_Nsub_common(
+    rule,
+    boundary,
+    dim::Int,
+    Ntarget::Int,
+)::Int
+    _require_newton_cotes_rule(rule, dim)
+
+    Ncand = Ntarget
+
+    while true
+        updated = false
+
+        for d in 1:dim
+            rd = QuadratureRuleSpec._rule_at(rule, d, dim)
+            bd = QuadratureBoundarySpec._boundary_at(boundary, d, dim)
+            p = NewtonCotes._parse_newton_p(rd)
+            Nd = NewtonCotes._next_valid_Nsub(p, bd, Ncand)
+
+            if Nd > Ncand
+                Ncand = Nd
+                updated = true
+            end
+        end
+
+        updated || return Ncand
+    end
 end
 
 """
@@ -111,8 +211,8 @@ end
         b,
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         threaded_subgrid::Bool = false,
         real_type = nothing,
     ) -> Real
@@ -151,10 +251,12 @@ Two domain conventions are supported:
   Number of subdivisions or composite blocks per axis.
 - `dim::Int`:
   Number of dimensions.
-- `rule::Symbol`:
-  Newton-Cotes quadrature rule symbol.
-- `boundary::Symbol`:
-  Boundary-condition symbol.
+- `rule`:
+  Newton-Cotes quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `threaded_subgrid::Bool = false`:
@@ -171,6 +273,8 @@ Two domain conventions are supported:
 - Propagates validation errors from [`_require_newton_cotes_inputs`](@ref).
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from `QuadratureDispatch.quadrature`.
 
 # Notes
@@ -183,8 +287,8 @@ Two domain conventions are supported:
     b,
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     threaded_subgrid::Bool = false,
     real_type = nothing,
 )
@@ -222,8 +326,8 @@ end
         b,
         N::Int,
         dim::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         threaded_subgrid::Bool = false,
         real_type = nothing,
         I_coarse = nothing,
@@ -238,8 +342,8 @@ Newton-Cotes quadrature rules. It computes
 
 - a coarse quadrature value at subdivision count `N`, either by evaluating it
   internally or by reusing the externally supplied `I_coarse`, and
-- a refined quadrature value using a boundary-compatible refined subdivision
-  count obtained from `NewtonCotes._nearest_valid_Nsub(p, boundary, 2N)`,
+- a refined quadrature value using a common axis-compatible refined
+  subdivision count obtained from [`_next_valid_Nsub_common`](@ref),
 
 then forms the refinement difference
 
@@ -279,10 +383,12 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
   Coarse subdivision count.
 * `dim::Int`:
   Number of dimensions.
-* `rule::Symbol`:
-  Newton-Cotes quadrature rule symbol.
-* `boundary::Symbol`:
-  Boundary-condition symbol.
+* `rule`:
+  Newton-Cotes quadrature rule specification. This may be either a scalar rule
+  symbol or a tuple/vector of per-axis rule symbols of length `dim`.
+* `boundary`:
+  Boundary-condition specification. This may be either a scalar boundary
+  symbol or a tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 
@@ -301,8 +407,8 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
 * `NamedTuple` with fields:
 
   * `method`      : method tag `:newton_cotes_refinement_difference`
-  * `rule`        : quadrature rule symbol
-  * `boundary`    : boundary-condition symbol
+  * `rule`        : quadrature rule specification
+  * `boundary`    : boundary-condition specification
   * `N_coarse`    : coarse subdivision count
   * `N_fine`      : actual valid refined subdivision count used in the refined run
   * `dim`         : dimensionality
@@ -319,6 +425,8 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
 * Propagates validation errors from [`_require_newton_cotes_inputs`](@ref).
 * Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+* Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 * Propagates errors from the quadrature-evaluation layer.
 * Propagates errors from the refined-subdivision adjustment logic.
 
@@ -331,6 +439,8 @@ The returned named tuple records both mesh sizes and quadrature values, and uses
   the refined quadrature evaluation.
 * The optional `I_coarse` keyword is intended to avoid redundant coarse
   quadrature work when the caller has already computed that value.
+* For axis-wise Newton-Cotes inputs, `N_fine` is chosen so that all axes share
+  one common valid refined composite tiling.
 """
 function _estimate_by_refinement_newton_cotes(
     f,
@@ -338,8 +448,8 @@ function _estimate_by_refinement_newton_cotes(
     b,
     N::Int,
     dim::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     threaded_subgrid::Bool = false,
     real_type = nothing,
     I_coarse = nothing,
@@ -356,8 +466,7 @@ function _estimate_by_refinement_newton_cotes(
 
     _require_newton_cotes_inputs(N, dim, rule, boundary)
 
-    p = NewtonCotes._parse_newton_p(rule)
-    N_fine_actual = NewtonCotes._nearest_valid_Nsub(p, boundary, 2N)
+    N_fine_actual = _next_valid_Nsub_common(rule, boundary, dim, 2N)
 
     if a isa AbstractVector || a isa Tuple
         aa = ntuple(i -> convert(T, a[i]), dim)
@@ -375,12 +484,12 @@ function _estimate_by_refinement_newton_cotes(
 
     q_coarse = isnothing(I_coarse) ?
         _quadrature_value_newton_cotes(
-            f, 
-            aa, 
-            bb, 
-            N, 
-            dim, 
-            rule, 
+            f,
+            aa,
+            bb,
+            N,
+            dim,
+            rule,
             boundary;
             threaded_subgrid = threaded_subgrid,
             real_type = T,
@@ -388,12 +497,12 @@ function _estimate_by_refinement_newton_cotes(
         I_coarse
 
     q_fine = _quadrature_value_newton_cotes(
-        f, 
-        aa, 
-        bb, 
-        N_fine_actual, 
-        dim, 
-        rule, 
+        f,
+        aa,
+        bb,
+        N_fine_actual,
+        dim,
+        rule,
         boundary;
         threaded_subgrid = threaded_subgrid,
         real_type = T,
@@ -467,9 +576,13 @@ The routine validates the rule family and boundary selector, then dispatches to
 - `dim`:
   Number of dimensions.
 - `rule`:
-  Newton-Cotes quadrature rule symbol.
+  Newton-Cotes quadrature rule specification.
+  This may be either a scalar rule symbol or a tuple/vector of per-axis rule
+  symbols of length `dim`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol or a tuple/vector of per-axis
+  boundary symbols of length `dim`.
 
 # Keyword arguments
 - `threaded_subgrid::Bool = false`:
@@ -489,6 +602,8 @@ The routine validates the rule family and boundary selector, then dispatches to
 - Throws if `boundary` is invalid.
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from the refinement-estimation routine.
 
 # Notes
@@ -520,8 +635,7 @@ function error_estimate_refinement_newton_cotes(
         promote_type(typeof(a), typeof(b))
     end
 
-    _require_newton_cotes_rule(rule)
-    QuadratureUtils._decode_boundary(boundary)
+    _require_newton_cotes_rule(rule, dim)
 
     return _estimate_by_refinement_newton_cotes(
         f,

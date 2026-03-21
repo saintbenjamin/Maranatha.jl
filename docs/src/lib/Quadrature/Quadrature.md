@@ -1,89 +1,112 @@
 # Maranatha.Quadrature
 
-`Maranatha.Quadrature` is the rule-dispatched numerical integration backend of
-`Maranatha.jl`.
+`Maranatha.Quadrature` is the deterministic rule-dispatched integration layer
+of `Maranatha.jl`.
 
-This page expands the higher-level design notes that are intentionally kept
-shorter in the module docstring.
+It provides the package's tensor-product quadrature engine together with the
+rule-family-specific helpers needed to construct 1D nodes and weights.
 
 ---
 
-## Supported backends
+## Overview
 
-### 1. [`Maranatha.Quadrature.NewtonCotes`](@ref)
+The quadrature layer currently supports three rule families:
 
-Exact-rational composite Newton-Cotes construction.
+- Newton-Cotes
+- Gauss-family rules
+- B-spline rules
 
-Features:
+and extends them to multidimensional tensor-product integration over:
 
-- `Rational{BigInt}` exact local moment matching
-- Exact global ``\beta`` coefficient assembly
-- Composite boundary tiling validation
-- `Float64` conversion only at final stage
-- Process-local caching of assembled weights
+- scalar hypercube domains `[a,b]^dim`, and
+- axis-wise rectangular domains specified by tuples or vectors of endpoints.
 
-Supported rule symbols:
+Both `rule` and `boundary` may be passed either as:
+
+- one scalar symbol shared across all axes, or
+- a tuple / vector with one entry per axis.
+
+---
+
+## Main layers
+
+The quadrature stack is organized into several cooperating modules.
+
+| Layer | Responsibility |
+|:--|:--|
+| [`Maranatha.Quadrature.NewtonCotes`](@ref) | exact-rational Newton-Cotes parsing and weight assembly |
+| [`Maranatha.Quadrature.Gauss`](@ref) | Gauss / Radau / Lobatto rule construction |
+| [`Maranatha.Quadrature.BSpline`](@ref) | interpolation and smoothing B-spline node/weight construction |
+| [`Maranatha.Quadrature.QuadratureRuleSpec`](@ref) | scalar-versus-axis-wise rule validation and normalization |
+| [`Maranatha.Utils.QuadratureBoundarySpec`](@ref) | scalar-versus-axis-wise boundary validation and endpoint decoding |
+| [`Maranatha.Quadrature.QuadratureNodes`](@ref) | 1D node/weight construction |
+| [`Maranatha.Quadrature.QuadratureDispatch`](@ref) | tensor-product accumulation and execution-backend selection |
+
+---
+
+## Supported rule families
+
+### Newton-Cotes
+
+Composite Newton-Cotes rules are assembled from exact rational data before
+conversion to floating-point weights.
+
+Typical symbols:
 
 ```julia
 :newton_p3, :newton_p4, :newton_p5, ...
 ```
 
-Supported boundary patterns:
+Boundary selectors determine the open/closed endpoint treatment of the
+composite assembly.
 
-```julia
-:LU_ININ  :LU_EXIN  :LU_INEX  :LU_EXEX
-```
+### Gauss-family rules
 
-### 2. [`Maranatha.Quadrature.Gauss`](@ref)
+The Gauss backend supports Legendre, Radau, and Lobatto variants through the
+common `:gauss_p*` rule symbols together with the boundary selector.
 
-Single-interval Gauss-family rules on ``[-1,1]``:
-
-- Gauss-Legendre
-- Gauss-Radau (left or right)
-- Gauss-Lobatto
-
-Composite repetition over uniform subintervals is also supported.
-
-Supported rule symbols:
+Typical symbols:
 
 ```julia
 :gauss_p2, :gauss_p3, :gauss_p4, ...
 ```
 
-Boundary selects the rule family:
+### B-spline rules
 
-- `:LU_EXEX` → Legendre
-- `:LU_INEX` → Radau (left)
-- `:LU_EXIN` → Radau (right)
-- `:LU_ININ` → Lobatto
+The B-spline backend supports interpolation and smoothing variants.
 
-Nodes and weights are cached per `(n, boundary)` pair.
-
-### 3. [`Maranatha.Quadrature.BSpline`](@ref)
-
-B-spline-based quadrature using:
-
-- Uniform knot construction
-- Greville abscissae nodes
-- Exact basis integrals
-- Interpolation mode
-- Optional smoothing mode with a Tikhonov second-difference penalty
-
-Supported rule symbols:
+Typical symbols:
 
 ```julia
 :bspline_interp_p2, :bspline_interp_p3, ...
 :bspline_smooth_p2, :bspline_smooth_p3, ...
 ```
 
-Boundary selection controls endpoint clamping behavior.
+In the current public node-construction path, B-spline quadrature accepts only
+`boundary = :LU_ININ`.
 
-### 4. [`Maranatha.Quadrature.QuadratureDispatch`](@ref)
+---
 
-Provides the unified interface for node/weight generation and tensor-product
-integration:
+## Multidimensional strategy
 
-- [`Maranatha.Quadrature.QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref)
+All multidimensional integration is performed by tensor-product accumulation:
+
+```math
+\sum_{i_1,\ldots,i_d} w^{(1)}_{i_1} \cdots w^{(d)}_{i_d}
+f(x^{(1)}_{i_1}, \ldots, x^{(d)}_{i_d}).
+```
+
+Important implementation details:
+
+- 1D node and weight sets are constructed independently on each active axis,
+- axis-wise domains, rules, and boundaries are supported,
+- zero-weight entries may be skipped,
+- accumulation order is deterministic,
+- execution may use the plain CPU path, the threaded-subgrid path, or CUDA,
+  depending on the selected backend.
+
+The common low-dimensional entry points are:
+
 - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_1d`](@ref)
 - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_2d`](@ref)
 - [`Maranatha.Quadrature.QuadratureDispatch.quadrature_3d`](@ref)
@@ -93,55 +116,40 @@ integration:
 
 ---
 
-## Computational strategy
-
-All multidimensional integration is carried out through explicit
-tensor-product construction:
-
-```math
-\sum_{i_1 , i_2 , \ldots , i_d} w_{i_1} w_{i_2} \ldots w_{i_d} f\left( x_{i_1} , x_{i_2} , \ldots , x_{i_d} \right)
-```
-
-Implementation details:
-
-- explicit nested loops are used for $d \le 4$
-- an odometer-style multi-index traversal is used for general `dim`
-- zero-weight entries may be skipped for efficiency
-- accumulation order is kept deterministic
-
-The computational cost scales as:
-
-```math
-\mathcal{O} \left( \texttt{length(xs)}^{\texttt{dim}} \right)
-```
-
----
-
 ## Boundary semantics
 
-The shared boundary patterns
+The shared boundary symbols
 
 ```julia
 :LU_ININ  :LU_EXIN  :LU_INEX  :LU_EXEX
 ```
 
-are interpreted by each backend according to its mathematical construction.
-In practice, they control endpoint inclusion, family selection, or knot
-clamping behavior depending on the rule family.
+have backend-dependent numerical meaning:
+
+- Newton-Cotes uses them for composite open/closed endpoint treatment,
+- Gauss-family rules use them to select Legendre / Radau / Lobatto variants,
+- B-spline rules currently use only `:LU_ININ` in the public quadrature path.
+
+The selector syntax is unified, but its interpretation is family-specific.
 
 ---
 
 ## Scope notes
 
-`Maranatha.Quadrature` is intended as a deterministic and research-oriented
-integration layer.
+`Maranatha.Quadrature` is intentionally deterministic and explicit.
 
-In particular:
+It does **not** provide:
 
-- it does **not** provide adaptive quadrature
-- it does **not** apply parallelism internally
-- it does enforce backend-specific rule constraints explicitly
-- it is aimed at structured numerical experiments rather than opaque black-box use
+- adaptive quadrature,
+- hidden rule mutation,
+- opaque black-box refinement heuristics.
+
+Instead, it emphasizes:
+
+- explicit rule selection,
+- transparent tensor-product structure,
+- reproducible accumulation order,
+- family-specific validation of admissible configurations.
 
 ---
 

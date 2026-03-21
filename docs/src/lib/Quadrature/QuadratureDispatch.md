@@ -29,14 +29,15 @@ is encapsulated outside the dispatch layer.
 
 ---
 
-## Boundary decoding
+## Boundary handling
 
-The helper [`Maranatha.Quadrature.QuadratureUtils._decode_boundary`](@ref)
+The helper [`Maranatha.Utils.QuadratureBoundarySpec._decode_boundary`](@ref)
 translates the global boundary selector into local endpoint tags used by
 rule-specific backends.
 
 This dispatch layer does not interpret boundary semantics directly, but
-passes the selector to the underlying node generator.
+passes the selector to the underlying node generator, which relies on the
+dedicated `QuadratureBoundarySpec` module.
 
 ---
 

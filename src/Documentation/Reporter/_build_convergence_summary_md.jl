@@ -47,8 +47,7 @@ The structure mirrors the [``\\LaTeX``](https://www.latex-project.org/) version 
 - `a`, `b`: Integration domain endpoints.
 
   These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form via an internal formatter.
+  per-axis bounds for rectangular domains.
 
 - `name`: Display name of the experiment or dataset.
 - `hsp`: Filtered scalar step sizes used in the fit / report.
@@ -72,9 +71,10 @@ The structure mirrors the [``\\LaTeX``](https://www.latex-project.org/) version 
 
 - Designed for GitHub-compatible Markdown rendering.
 - Mathematical expressions are emitted using fenced `math` blocks.
-- For rectangular-domain runs, the interval display summarizes the
-  per-axis bounds while the tabulated `h` columns use the scalarized step
-  sequence supplied to the fitter/reporting pipeline.
+- When any of `a`, `b`, `rule`, or `boundary` is axis-wise, the run
+  configuration table expands into one row per axis.
+- The tabulated `h` columns always use the scalarized step sequence supplied to
+  the fitter/reporting pipeline.
 """
 function _build_convergence_summary_md(
     a, 
@@ -96,9 +96,8 @@ function _build_convergence_summary_md(
     err_method=:refinement
 )
     io = IOBuffer()
-    interval_txt = _format_interval_for_note(a, b)
-
     nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
+    cfg_dim = _report_cfg_dim(a, b, rule, boundary)
 
     println(io, "# Convergence summary: $(name)")
     println(io, "")
@@ -106,21 +105,37 @@ function _build_convergence_summary_md(
     println(io, "## Run configuration")
     println(io, "")
 
-    if nerr_terms_eff == 0
-        println(io, "| Interval | Rule (Boundary) |")
-        println(io, "|:--|:--|")
-        println(io,
-            "| `$(interval_txt)` | " *
-            "`$(String(rule)) ($(String(boundary)))` |"
-        )
+    if cfg_dim == 1
+        interval_txt = _fmt_axis_interval_for_run_config(a, b, 1, 1)
+        rule_boundary_txt = _fmt_rule_boundary_cell_md(rule, boundary, 1, 1)
+
+        if nerr_terms_eff == 0
+            println(io, "| Interval | Rule (Boundary) |")
+            println(io, "|:--|:--|")
+            println(io, "| `$(interval_txt)` | `$(rule_boundary_txt)` |")
+        else
+            println(io, "| Interval | Rule (Boundary) | Number of error terms |")
+            println(io, "|:--|:--|:--|")
+            println(io, "| `$(interval_txt)` | `$(rule_boundary_txt)` | `$(nerr_terms_eff)` |")
+        end
     else
-        println(io, "| Interval | Rule (Boundary) | Number of error terms |")
-        println(io, "|:--|:--|:--|")
-        println(io,
-            "| `$(interval_txt)` | " *
-            "`$(String(rule)) ($(String(boundary)))` | " *
-            "`$(nerr_terms)` |"
-        )
+        if nerr_terms_eff == 0
+            println(io, "| Axis | Rule (Boundary) |")
+            println(io, "|:--|:--|")
+            for d in 1:cfg_dim
+                axis_txt = _fmt_axis_cell_md(a, b, d, cfg_dim)
+                rule_boundary_txt = _fmt_rule_boundary_cell_md(rule, boundary, d, cfg_dim)
+                println(io, "| `$(axis_txt)` | `$(rule_boundary_txt)` |")
+            end
+        else
+            println(io, "| Axis | Rule (Boundary) | Number of error terms |")
+            println(io, "|:--|:--|:--|")
+            for d in 1:cfg_dim
+                axis_txt = _fmt_axis_cell_md(a, b, d, cfg_dim)
+                rule_boundary_txt = _fmt_rule_boundary_cell_md(rule, boundary, d, cfg_dim)
+                println(io, "| `$(axis_txt)` | `$(rule_boundary_txt)` | `$(nerr_terms_eff)` |")
+            end
+        end
     end
 
     println(io, "")

@@ -97,6 +97,8 @@ Users normally do not call the low-level B-spline backends directly.
 - These estimators provide error scales, not strict bounds.
 - Performance and stability depend on spline degree, resolution, and integrand smoothness.
 - Refinement-based estimation can be especially effective for spline rules due to their locality.
+- The current public B-spline quadrature path accepts only `boundary = :LU_ININ`,
+  so B-spline error-estimation workflows should be understood in that boundary regime.
 
 ---
 

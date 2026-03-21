@@ -55,19 +55,19 @@ h = \frac{b-a}{N}
 
 using a simple extended grid, followed by endpoint clamping.
 
-Boundary behavior is interpreted as:
+The low-level knot helper machinery can interpret boundary symbols as:
 
 - `:LU_ININ` : clamp both endpoints
 - `:LU_INEX` : clamp left endpoint only
 - `:LU_EXIN` : clamp right endpoint only
 - `:LU_EXEX` : no endpoint clamping
 
-In the current public driver, however, the actual quadrature routine restricts
-usage to:
+In the current public quadrature driver, however, B-spline node/weight
+construction is intentionally restricted to:
 
 - `boundary == :LU_ININ`
 
-So the helper machinery is broader than the currently enabled public policy.
+So the internal knot logic is broader than the currently enabled public policy.
 
 ---
 

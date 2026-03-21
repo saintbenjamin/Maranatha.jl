@@ -26,6 +26,7 @@ Currently included:
 
 - [`Maranatha.Utils.JobLoggerTools`](@ref)
 - [`Maranatha.Utils.AvgErrFormatter`](@ref)
+- [`Maranatha.Utils.QuadratureBoundarySpec`](@ref)
 - [`Maranatha.Utils.MaranathaIO`](@ref)
 - [`Maranatha.Utils.MaranathaTOML`](@ref)
 - [`Maranatha.Utils.Wizard`](@ref)
@@ -51,6 +52,7 @@ module Utils
 
 import ..Printf
 import ..TOML
+import ..DoubleFloats
 import ..LinearAlgebra
 import Dates
 import JLD2
@@ -58,12 +60,14 @@ import JLD2
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
 include("MaranathaIO.jl")
+include("QuadratureBoundarySpec.jl")
 include("MaranathaTOML.jl")
 include("Wizard.jl")
 
 using .JobLoggerTools
 using .AvgErrFormatter
 using .MaranathaIO
+using .QuadratureBoundarySpec
 using .MaranathaTOML
 using .Wizard
 

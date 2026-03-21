@@ -29,8 +29,8 @@ thread-local partial sums into a final quadrature value.
 - provide a single public dispatcher for dimension-based entry
 
 # Notes
-- This module assumes the same one-dimensional quadrature nodes and weights are
-  used on every axis.
+- This module supports both shared and axis-wise `rule` / `boundary`
+  specifications, as well as hypercube and rectangular per-axis domains.
 - The public entry point of this module is
   [`quadrature_threaded_subgrid`](@ref).
 - Specialized implementations are provided for dimensions 1 through 4, with a
@@ -41,6 +41,8 @@ module QuadratureDispatchThreadedSubgrid
 import Base.Threads
 
 import ..JobLoggerTools
+import ..QuadratureBoundarySpec
+import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
 """
@@ -306,9 +308,13 @@ supported. Rectangular-domain support is provided by the selected backend.
 - `N`:
   Quadrature subdivision or rule-resolution parameter.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification. This may be either a scalar rule symbol
+  shared across all axes or a tuple/vector of per-axis rule symbols of length
+  `dim`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary specification. This may be either a scalar boundary symbol shared
+  across all axes or a tuple/vector of per-axis boundary symbols of length
+  `dim`.
 - `dim::Int`:
   Number of dimensions.
 - `nthreads_req::Int = Threads.nthreads()`:
@@ -328,6 +334,8 @@ supported. Rectangular-domain support is provided by the selected backend.
 - Throws `ArgumentError` if `dim < 1`.
 - Throws `ArgumentError` indirectly if axis-wise bounds do not match the
   requested dimensionality.
+- Throws `ArgumentError` indirectly if axis-wise `rule` or `boundary`
+  specifications do not match the requested dimensionality.
 - Propagates errors from the selected dimension-specific routine.
 
 # Notes

@@ -8,6 +8,28 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorBSplineDerivative
+
+Residual-model backend for derivative-based error estimation with B-spline
+quadrature rules.
+
+# Module description
+`ErrorBSplineDerivative` implements the rule-family-specific residual analysis
+used by derivative-based error estimators for interpolation and smoothing
+B-spline quadrature rules.
+
+It provides helpers for:
+
+- identifying leading nonzero midpoint residual terms,
+- converting those residuals into factorial-scaled coefficients,
+- exposing B-spline-specific residual models to the generic derivative
+  dispatch layer.
+
+# Notes
+- This is an internal module.
+- Higher-level orchestration is performed by `ErrorDispatchDerivative`.
+"""
 module ErrorBSplineDerivative
 
 import ..JobLoggerTools
@@ -78,7 +100,7 @@ end
         rule::Symbol,
         boundary::Symbol,
         Nsub::Int;
-        nterms::Int = 2,
+        fit_func_terms::Int = 2,
         kmax::Int = 128,
         λ = 0.0,
         tol_abs = nothing,
@@ -86,7 +108,7 @@ end
         real_type = Float64,
     ) -> Tuple
 
-Collect the first `nterms` detected nonzero midpoint-shifted residual coefficients
+Collect the first `fit_func_terms` detected nonzero midpoint-shifted residual coefficients
 for composite B-spline quadrature rules on ``u \\in [0, N_{\\texttt{sub}}]``.
 
 # Function description
@@ -122,7 +144,7 @@ the routine records the factorial-scaled coefficient
 \\texttt{coeff}_k = \\frac{\\texttt{diff}_k}{k!} \\, .
 ```
 
-The first `nterms` detected pairs are returned.
+The first `fit_func_terms` detected pairs are returned.
 
 # Arguments
 - `rule`: B-spline rule symbol.
@@ -130,7 +152,7 @@ The first `nterms` detected pairs are returned.
 - `Nsub`: Dimensionless tiling length.
 
 # Keyword arguments
-- `nterms`: Number of detected nonzero residual terms to collect.
+- `fit_func_terms`: Number of detected nonzero residual terms to collect.
 - `kmax`: Maximum moment order to scan.
 - `λ`: Smoothing strength for smoothing spline rules.
 - `tol_abs`: Absolute tolerance used in residual detection. If `nothing`, a
@@ -149,10 +171,10 @@ The first `nterms` detected pairs are returned.
   stored in the active `real_type`.
 
 # Errors
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1`, `kmax < 0`, or `Nsub < 1`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `fit_func_terms < 1`, `kmax < 0`, or `Nsub < 1`.
 - Throws if `rule` is not a recognized B-spline rule.
 - Throws if `λ < 0` for a smoothing spline rule.
-- Throws if fewer than `nterms` residual terms are found up to `kmax`.
+- Throws if fewer than `fit_func_terms` residual terms are found up to `kmax`.
 
 # Notes
 - Nodes and weights are generated on ``[0, N_{\\texttt{sub}}]`` using
@@ -165,7 +187,7 @@ function _leading_midpoint_residual_terms_bspline_float(
     rule::Symbol,
     boundary::Symbol,
     Nsub::Int;
-    nterms::Int = 2,
+    fit_func_terms::Int = 2,
     kmax::Int = 128,
     λ = 0.0,
     tol_abs = nothing,
@@ -178,7 +200,7 @@ function _leading_midpoint_residual_terms_bspline_float(
     tol_abs_T = isnothing(tol_abs) ? T(5e4) * eps(T) : convert(T, tol_abs)
     tol_rel_T = isnothing(tol_rel) ? T(5e4) * eps(T) : convert(T, tol_rel)
 
-    (nterms >= 1) || JobLoggerTools.error_benji("nterms must be ≥ 1")
+    (fit_func_terms >= 1) || JobLoggerTools.error_benji("fit_func_terms must be ≥ 1")
     (kmax >= 0)   || JobLoggerTools.error_benji("kmax must be ≥ 0")
     (Nsub >= 1)   || JobLoggerTools.error_benji("Nsub must be ≥ 1 (got Nsub=$Nsub)")
 
@@ -215,7 +237,7 @@ function _leading_midpoint_residual_terms_bspline_float(
         if abs(diff) > (tol_abs_T + tol_rel_T * abs(exact))
             push!(ks, k)
             push!(coeffs, diff * inv_fact)
-            length(ks) == nterms && return ks, coeffs
+            length(ks) == fit_func_terms && return ks, coeffs
         end
 
         kk = k + 1
@@ -223,7 +245,9 @@ function _leading_midpoint_residual_terms_bspline_float(
         inv_fact == zero(T) && break
     end
 
-    JobLoggerTools.error_benji("Could not collect nterms=$nterms B-spline residual terms up to kmax=$kmax (Nsub=$Nsub).")
+    JobLoggerTools.error_benji(
+        "Could not collect fit_func_terms=$fit_func_terms B-spline residual terms up to kmax=$kmax (Nsub=$Nsub)."
+    )
 end
 
 """
@@ -231,7 +255,7 @@ end
         rule::Symbol,
         boundary::Symbol,
         Nsub::Int;
-        nterms::Int,
+        fit_func_terms::Int,
         kmax::Int = 256,
         λ = 0.0,
         tol_abs = nothing,
@@ -257,7 +281,7 @@ This matches the interface used by the higher-level residual dispatch layer.
 - `Nsub`: Dimensionless tiling length.
 
 # Keyword arguments
-- `nterms`: Number of residual indices to return.
+- `fit_func_terms`: Number of residual indices to return.
 - `kmax`: Maximum moment order to scan.
 - `λ`: Smoothing strength for smoothing spline rules.
 - `tol_abs`: Absolute tolerance for residual detection. If `nothing`, a
@@ -279,7 +303,7 @@ function _leading_residual_ks_with_center_bspline_float(
     rule::Symbol,
     boundary::Symbol,
     Nsub::Int;
-    nterms::Int,
+    fit_func_terms::Int,
     kmax::Int = 256,
     λ = 0.0,
     tol_abs = nothing,
@@ -289,7 +313,7 @@ function _leading_residual_ks_with_center_bspline_float(
 
     ks, _coeffs = _leading_midpoint_residual_terms_bspline_float(
         rule, boundary, Nsub;
-        nterms = nterms,
+        fit_func_terms = fit_func_terms,
         kmax = kmax,
         λ = λ,
         tol_abs = tol_abs,

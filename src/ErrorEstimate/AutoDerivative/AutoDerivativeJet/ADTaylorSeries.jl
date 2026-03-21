@@ -8,6 +8,22 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADTaylorSeries
+
+TaylorSeries-based backend for derivative-jet construction.
+
+# Module description
+This module implements the derivative-jet backend based on `TaylorSeries.jl`
+for the automatic-differentiation layer used by `Maranatha.ErrorEstimate`.
+
+It expands the callable around a scalar point and extracts the function value
+and successive derivatives up to the requested jet order.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeJet`.
+"""
 module ADTaylorSeries
 
 import TaylorSeries

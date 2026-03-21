@@ -65,6 +65,9 @@ for pre-fit inspection of alignment, scaling, and possible oscillatory behavior.
 - This routine accepts both residual-based and refinement-based error-info
   objects, provided that each entry exposes either `.total` or `.estimate`.
 - The plotting logic operates on the scalar step-size sequence `result.h`.
+- Saved filenames encode rule/boundary metadata through
+  [`DocUtils._rule_boundary_filename_token`](@ref), so axis-wise specifications
+  produce axis-tagged filename tokens.
 """
 function plot_datapoints_result(
     result;
@@ -179,7 +182,9 @@ function plot_datapoints_result(
 
     display_name, file_name = DocUtils._split_report_name(name)
 
-    basename = "$(file_name)_$(String(rule))_$(String(boundary))_datapoints_hpow_$(h_power)_$(xscale)_$(yscale)"
+    spec_str = DocUtils._rule_boundary_filename_token(result.a, result.b, rule, boundary)
+
+    basename = "$(file_name)_$(spec_str)_datapoints_hpow_$(h_power)_$(xscale)_$(yscale)"
     resfile  = joinpath(figs_dir, "$basename.pdf")
     cropped  = joinpath(figs_dir, "$basename-crop.pdf")
 

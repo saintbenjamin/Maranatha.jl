@@ -14,8 +14,8 @@
         a,
         b,
         N::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128,
@@ -64,8 +64,12 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
   This may be either a scalar upper bound shared across both axes, or a length-2
   tuple/vector of per-axis upper bounds.
 * `N::Int`: Number of subintervals per axis.
-* `rule::Symbol`: Quadrature rule symbol.
-* `boundary::Symbol`: Boundary pattern symbol.
+* `rule`: Quadrature rule specification.
+  This may be either a scalar rule symbol shared across both axes, or a length-2
+  tuple/vector of per-axis rule symbols.
+* `boundary`: Boundary pattern specification.
+  This may be either a scalar boundary symbol shared across both axes, or a
+  length-2 tuple/vector of per-axis boundary symbols.
 
 # Keyword arguments
 
@@ -88,6 +92,7 @@ E \\approx \\sum_{i=1}^{n_{\\text{err}}}
   * `total`
   * `center`
   * `h`
+  * `per_axis`
 
 # Errors
 
@@ -110,137 +115,26 @@ function error_estimate_derivative_jet_2d(
     a,
     b,
     N::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
-
-    (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
-    (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
-
-    # ------------------------------------------------------------
-    # Domain handling — identical logic to quadrature_2d
-    # ------------------------------------------------------------
-    if !(a isa AbstractVector || a isa Tuple)
-        ax = ay = convert(T, a)
-        bx = by = convert(T, b)
-    else
-        length(a) == 2 || throw(ArgumentError("length(a) must be 2"))
-        length(b) == 2 || throw(ArgumentError("length(b) must be 2"))
-
-        ax, ay = convert(T, a[1]), convert(T, a[2])
-        bx, by = convert(T, b[1]), convert(T, b[2])
-    end
-
-    hx = (bx - ax) / T(N)
-    hy = (by - ay) / T(N)
-
-    x̄ = (ax + bx) / T(2)
-    ȳ = (ay + by) / T(2)
-
-    xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        ax, 
-        bx, 
-        N, 
-        rule, 
-        boundary; 
-        real_type = T
-    )
-    ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        ay, 
-        by, 
-        N, 
-        rule, 
-        boundary; 
-        real_type = T
-    )
-
-    ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, 
-        boundary, 
-        N;
-        nterms = nerr_terms,
-        kmax   = kmax
-    )
-    coeffs = T.(coeffs0)
-
-    n = length(ks)
-    derivatives = zeros(T, n)
-    terms       = zeros(T, n)
-
-    jet_fun, backend_tag =
-        AutoDerivativeJet.resolve_derivative_jet_backend(err_method)
-
-    # ------------------------------------------------------------
-    # X-direction derivatives integrated over Y
-    # ------------------------------------------------------------
-    @inbounds for j in eachindex(ys)
-        y = ys[j]
-        gy(x) = f(x, y)
-
-        vals0 = AutoDerivativeJet._derivative_values_for_ks(
-            jet_fun,
-            backend_tag,
-            gy,
-            x̄,
-            ks;
+    return _flatten_axiswise_error_result(
+        error_estimate_derivative_jet_nd(
+            f,
+            a,
+            b,
+            N,
+            rule,
+            boundary;
+            dim = 2,
+            err_method = err_method,
+            nerr_terms = nerr_terms,
+            kmax = kmax,
+            real_type = real_type,
         )
-        vals = T.(vals0)
-
-        for it in eachindex(ks)
-            k = ks[it]
-            k == 0 && continue
-            derivatives[it] += wy[j] * vals[it]
-        end
-    end
-
-    # ------------------------------------------------------------
-    # Y-direction derivatives integrated over X
-    # ------------------------------------------------------------
-    @inbounds for i in eachindex(xs)
-        x = xs[i]
-        gx(y) = f(x, y)
-
-        vals0 = AutoDerivativeJet._derivative_values_for_ks(
-            jet_fun,
-            backend_tag,
-            gx,
-            ȳ,
-            ks;
-        )
-        vals = T.(vals0)
-
-        for it in eachindex(ks)
-            k = ks[it]
-            k == 0 && continue
-            derivatives[it] += wx[i] * vals[it]
-        end
-    end
-
-    # ------------------------------------------------------------
-    # Assemble terms
-    # ------------------------------------------------------------
-    @inbounds for it in eachindex(ks)
-        k = ks[it]
-        if k == 0
-            derivatives[it] = zero(T)
-            terms[it] = zero(T)
-        else
-            terms[it] = coeffs[it] * (hx + hy)^(k + 1) * derivatives[it]
-        end
-    end
-
-    return (;
-        ks          = ks,
-        coeffs      = coeffs,
-        derivatives = derivatives,
-        terms       = terms,
-        total       = sum(terms),
-        center      = (x̄, ȳ),
-        h           = (hx, hy)
     )
 end

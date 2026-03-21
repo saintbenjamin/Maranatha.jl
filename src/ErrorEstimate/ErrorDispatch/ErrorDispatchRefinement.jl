@@ -8,9 +8,28 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorDispatchRefinement
+
+Unified refinement-based error-estimation dispatch layer.
+
+# Module description
+`ErrorDispatchRefinement` provides the shared rule-family dispatch used by the
+refinement-based error estimator.
+
+It validates the incoming quadrature-rule specification, enforces the current
+same-family restriction for axis-wise refinement rules, and forwards the
+request to the matching Gauss, Newton-Cotes, or B-spline backend.
+
+# Notes
+- This is an internal module.
+- Public callers should use the higher-level `ErrorDispatch.error_estimate`
+  interface rather than invoking these helpers directly.
+"""
 module ErrorDispatchRefinement
 
 import ..JobLoggerTools
+import ..QuadratureRuleSpec
 import ..NewtonCotes
 import ..Gauss
 import ..BSpline
@@ -60,9 +79,14 @@ raised.
 - `dim`:
   Number of dimensions.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification.
+  This may be either a scalar rule symbol shared across all axes, or a
+  tuple/vector of per-axis rule symbols of length `dim`. Axis-wise rule
+  specifications must belong to a single quadrature family.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol shared across all axes, or a
+  tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `λ = nothing`:
@@ -82,6 +106,8 @@ raised.
 # Errors
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `rule` is not supported by the
   refinement-dispatch layer.
+- Throws `ArgumentError` if an axis-wise `rule` specification mixes multiple
+  quadrature families.
 - Propagates errors from the selected backend estimator.
 
 # Notes
@@ -106,43 +132,27 @@ raised.
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
-    if Gauss._is_gauss_rule(rule)
+    family = QuadratureRuleSpec._common_rule_family(rule, dim)
+
+    if family === :gauss
         return ErrorGaussRefinement.error_estimate_refinement_gauss(
-            f,
-            a,
-            b,
-            N,
-            dim,
-            rule,
-            boundary;
+            f, a, b, N, dim, rule, boundary;
             threaded_subgrid = threaded_subgrid,
             real_type = T,
             I_coarse = I_coarse,
         )
 
-    elseif NewtonCotes._is_newton_cotes_rule(rule)
+    elseif family === :newton_cotes
         return ErrorNewtonCotesRefinement.error_estimate_refinement_newton_cotes(
-            f,
-            a,
-            b,
-            N,
-            dim,
-            rule,
-            boundary;
+            f, a, b, N, dim, rule, boundary;
             threaded_subgrid = threaded_subgrid,
             real_type = T,
             I_coarse = I_coarse,
         )
 
-    elseif BSpline._is_bspline_rule(rule)
+    elseif family === :bspline
         return ErrorBSplineRefinement.error_estimate_refinement_bspline(
-            f,
-            a,
-            b,
-            N,
-            dim,
-            rule,
-            boundary;
+            f, a, b, N, dim, rule, boundary;
             λ = λT,
             threaded_subgrid = threaded_subgrid,
             real_type = T,
@@ -198,9 +208,14 @@ comparison and returns its rule-specific refinement estimate object.
 - `dim`:
   Number of dimensions.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification.
+  This may be either a scalar rule symbol shared across all axes, or a
+  tuple/vector of per-axis rule symbols of length `dim`. Axis-wise rule
+  specifications must belong to a single quadrature family.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol shared across all axes, or a
+  tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `λ = nothing`:
@@ -219,6 +234,8 @@ comparison and returns its rule-specific refinement estimate object.
 
 # Errors
 - Throws if `rule` does not belong to a supported refinement backend.
+- Throws if an axis-wise `rule` specification mixes multiple quadrature
+  families.
 - Propagates validation and computation errors from the selected backend.
 
 # Notes

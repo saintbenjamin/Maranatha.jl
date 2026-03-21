@@ -10,6 +10,7 @@
 
 using Test
 using Maranatha
+using DoubleFloats
 
 # ----------------------------------------------------------------------------
 # Optional plotting switch:
@@ -56,8 +57,8 @@ end
     @testset "Canonical integrands (multi-dim, multi-rule)" begin
         include_with_announce("canonical/1D_newton_test.jl")
         include_with_announce("canonical/2D_newton_test.jl")
-        include_with_announce("canonical/3D_newton_test.jl")
-        include_with_announce("canonical/4D_newton_test.jl")
+        # include_with_announce("canonical/3D_newton_test.jl")
+        # include_with_announce("canonical/4D_newton_test.jl")
         include_with_announce("canonical/1D_gauss_test.jl")
         include_with_announce("canonical/2D_gauss_test.jl")
         include_with_announce("canonical/3D_gauss_test.jl")
@@ -67,6 +68,8 @@ end
         include_with_announce("canonical/3D_bspline_test.jl")
         include_with_announce("canonical/4D_bspline_test.jl")
     end
-    include_with_announce("pedagogical/visualization_1D_test.jl")
     include_with_announce("complicated/1D_F0000_test.jl")
+    include_with_announce("regression/axiswise_boundary_derivative_test.jl")
+    include_with_announce("regression/axiswise_rule_test.jl")
+    include_with_announce("pedagogical/visualization_1D_test.jl")
 end

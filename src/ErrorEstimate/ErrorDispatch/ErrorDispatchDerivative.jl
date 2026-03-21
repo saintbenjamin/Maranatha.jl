@@ -8,13 +8,39 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorDispatchDerivative
+
+Unified derivative-based error-estimation dispatch layer.
+
+# Module description
+`ErrorDispatchDerivative` provides the shared orchestration for residual-based
+error estimators that combine quadrature residual models with automatic
+derivative probes.
+
+Its responsibilities include:
+
+- selecting direct versus jet derivative workflows,
+- validating scalar versus axis-wise `rule` / `boundary` specifications,
+- requesting family-specific residual models,
+- combining per-axis residual contributions into unified result objects.
+
+This module is the main bridge between the automatic-differentiation layer and
+the rule-family residual backends.
+
+# Notes
+- This is an internal module.
+- The generic `*_nd` paths preserve per-axis results; some lower-dimensional
+  wrappers additionally expose legacy flattened fields for compatibility.
+"""
 module ErrorDispatchDerivative
 
 import ..JobLoggerTools
+import ..QuadratureBoundarySpec
+import ..QuadratureRuleSpec
 import ..NewtonCotes
 import ..Gauss
 import ..BSpline
-import ..QuadratureUtils
 import ..QuadratureNodes
 import ..AutoDerivativeDirect
 import ..AutoDerivativeJet
@@ -189,7 +215,7 @@ function _leading_residual_terms_any(
 )::Tuple{Vector{Int}, Vector, Symbol}
 
     T = real_type
-    QuadratureUtils._decode_boundary(boundary)
+    QuadratureBoundarySpec._decode_boundary(boundary)
 
     if NewtonCotes._is_newton_cotes_rule(rule)
         if nterms == 1
@@ -235,22 +261,24 @@ function _leading_residual_terms_any(
         return ks, T.(coeffs), :mid
     end
 
-    JobLoggerTools.error_benji("Unsupported rule for residual model: rule=$rule")
+    JobLoggerTools.error_benji(
+        "Unsupported rule for residual model: rule=$rule"
+    )
 end
 
 """
     _leading_residual_ks_with_center_any(
         rule::Symbol,
-        boundary::Symbol,
+        boundary,
         Nsub::Int;
-        nterms::Int,
+        fit_func_terms::Int,
         kmax::Int = 256,
         tol_abs = nothing,
         tol_rel = nothing,
         real_type = Float64,
     ) -> Tuple{Vector{Int}, Symbol}
 
-Extract only the residual indices `k` of the first `nterms` nonzero midpoint-shifted
+Extract only the residual indices `k` of the first `fit_func_terms` nonzero midpoint-shifted
 residual moments, together with the centering convention.
 
 # Function description
@@ -267,11 +295,12 @@ The center is currently always `:mid`.
 
 # Arguments
 - `rule`: Quadrature rule symbol.
-- `boundary`: Boundary pattern symbol.
+- `boundary`: Boundary pattern specification. If a tuple/vector is supplied,
+  only its first entry is used.
 - `Nsub`: Number of unit blocks in the dimensionless tiling domain.
 
 # Keyword arguments
-- `nterms`: Number of residual indices to collect.
+- `fit_func_terms`: Number of residual indices to collect.
 - `kmax`: Maximum moment order to scan.
 - `tol_abs`: Absolute tolerance for floating-point residual detection. If `nothing`,
   a type-scaled default is used.
@@ -285,15 +314,15 @@ The center is currently always `:mid`.
 - `center::Symbol`: Centering convention tag, currently `:mid`.
 
 # Errors
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nterms < 1` or `kmax < 0`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if `fit_func_terms < 1` or `kmax < 0`.
 - Throws if `boundary` is invalid or `rule` is unsupported.
 - Propagates backend residual-detection errors.
 """
 function _leading_residual_ks_with_center_any(
     rule::Symbol,
-    boundary::Symbol,
+    boundary,
     Nsub::Int;
-    nterms::Int,
+    fit_func_terms::Int,
     kmax::Int = 256,
     tol_abs = nothing,
     tol_rel = nothing,
@@ -304,14 +333,25 @@ function _leading_residual_ks_with_center_any(
     tol_abs_T = isnothing(tol_abs) ? T(5e4) * eps(T) : convert(T, tol_abs)
     tol_rel_T = isnothing(tol_rel) ? T(5e4) * eps(T) : convert(T, tol_rel)
 
-    (nterms >= 1) || JobLoggerTools.error_benji(
-        "nterms must be ≥ 1 (got $nterms)"
+    (fit_func_terms >= 1) || JobLoggerTools.error_benji(
+        "fit_func_terms must be ≥ 1 (got $fit_func_terms)"
     )
     (kmax >= 0)   || JobLoggerTools.error_benji(
         "kmax must be ≥ 0 (got $kmax)"
     )
 
-    QuadratureUtils._decode_boundary(boundary)
+    bd = if boundary isa Symbol
+        QuadratureBoundarySpec._decode_boundary(boundary)
+        boundary
+    elseif boundary isa Tuple || boundary isa AbstractVector
+        isempty(boundary) && throw(ArgumentError("boundary must not be empty"))
+        boundary[1] isa Symbol || throw(ArgumentError("boundary[1] must be a Symbol"))
+        QuadratureBoundarySpec._decode_boundary(boundary[1])
+        boundary[1]
+    else
+        throw(ArgumentError("unsupported boundary specification"))
+    end
+    QuadratureBoundarySpec._decode_boundary(bd)
     center = :mid
 
     if NewtonCotes._is_newton_cotes_rule(rule)
@@ -320,7 +360,7 @@ function _leading_residual_ks_with_center_any(
         Nrb = NewtonCotes.RBig(BigInt(Nsub), 1)
 
         β = NewtonCotes._assemble_composite_beta_rational(
-            NewtonCotes._parse_newton_p(rule), boundary, Nsub
+            NewtonCotes._parse_newton_p(rule), bd, Nsub
         )
 
         for k in 0:kmax
@@ -336,28 +376,28 @@ function _leading_residual_ks_with_center_any(
 
             if exact - approx != 0
                 push!(ks, k)
-                length(ks) == nterms && return ks, center
+                length(ks) == fit_func_terms && return ks, center
             end
         end
 
         JobLoggerTools.error_benji(
-            "Could not collect nterms=$nterms Newton-Cotes residual ks up to kmax=$kmax"
+            "Could not collect fit_func_terms=$fit_func_terms Newton-Cotes residual ks up to kmax=$kmax"
         )
     end
 
     if Gauss._is_gauss_rule(rule)
         npts = Gauss._parse_gauss_p(rule)
 
-        if boundary === :LU_INEX || boundary === :LU_EXIN
+        if bd === :LU_INEX || bd === :LU_EXIN
             ks = Int[]
             k0 = 2 * npts - 1
-            for j in 0:(nterms - 1)
+            for j in 0:(fit_func_terms - 1)
                 push!(ks, k0 + 2 * j)
             end
             return ks, center
         end
 
-        U, W = Gauss._composite_gauss_u_grid(Nsub, npts, boundary)
+        U, W = Gauss._composite_gauss_u_grid(Nsub, npts, bd)
         UT = T.(U)
         WT = T.(W)
         c = T(Nsub) / T(2)
@@ -375,27 +415,27 @@ function _leading_residual_ks_with_center_any(
 
             if abs(diff) > (tol_abs_T + tol_rel_T * abs(exact))
                 push!(ks, k)
-                length(ks) == nterms && return ks, center
+                length(ks) == fit_func_terms && return ks, center
             end
         end
 
         if !isempty(ks) && ks[1] == 0
             JobLoggerTools.error_benji(
-                "Gauss residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$boundary Nsub=$Nsub"
+                "Gauss residual ks starts with 0 (unstable moment-test). ks=$ks rule=$rule boundary=$bd Nsub=$Nsub"
             )
         end
 
         JobLoggerTools.error_benji(
-            "Could not collect nterms=$nterms Gauss residual ks up to kmax=$kmax"
+            "Could not collect fit_func_terms=$fit_func_terms Gauss residual ks up to kmax=$kmax"
         )
     end
 
     if BSpline._is_bspline_rule(rule)
         ks, center = ErrorBSplineDerivative._leading_residual_ks_with_center_bspline_float(
             rule, 
-            boundary, 
+            bd, 
             Nsub;
-            nterms = nterms,
+            fit_func_terms = fit_func_terms,
             kmax = kmax,
             λ = 0.0,
             tol_abs = Float64(tol_abs_T),
@@ -406,6 +446,74 @@ function _leading_residual_ks_with_center_any(
 
     JobLoggerTools.error_benji(
         "Unsupported rule=$rule for residual ks extraction."
+    )
+end
+
+"""
+    _flatten_axiswise_error_result(err_nd) -> NamedTuple
+
+Convert the axis-wise generic derivative estimator output into the legacy flat
+result layout expected by downstream fitting and serialization code.
+
+# Function description
+This helper preserves the exact per-axis decomposition in `err_nd.per_axis`,
+while also constructing flat aggregate fields:
+
+- `ks`: union of all residual orders appearing on any axis,
+- `coeffs`, `derivatives`, `terms`: sums of same-`k` contributions across axes,
+- `total`: sum of the flattened `terms`.
+
+The midpoint `center` and mesh-size field `h` are forwarded unchanged from the
+generic `nd` result.
+
+# Arguments
+- `err_nd`: Generic axis-wise derivative-estimator result with a `per_axis`
+  field.
+
+# Returns
+- `NamedTuple`: Legacy-compatible flat result with an added `per_axis` field.
+
+# Notes
+- This helper is a compatibility bridge for the 2D/3D/4D wrappers.
+- No information is discarded: the exact axis-wise pieces remain available in
+  `per_axis`.
+"""
+@inline function _flatten_axiswise_error_result(err_nd)
+    axis_results = err_nd.per_axis
+    T = eltype(axis_results[1].terms)
+
+    # Preserve the legacy flat fields used by the fitter / serializer,
+    # while also keeping the exact axis-wise decomposition in `per_axis`.
+    ks_all = Int[]
+    for axis_res in axis_results
+        append!(ks_all, axis_res.ks)
+    end
+    sort!(unique!(ks_all))
+
+    coeffs = zeros(T, length(ks_all))
+    derivatives = zeros(T, length(ks_all))
+    terms = zeros(T, length(ks_all))
+
+    for axis_res in axis_results
+        for j in eachindex(axis_res.ks)
+            k = axis_res.ks[j]
+            i = findfirst(==(k), ks_all)
+            i === nothing && continue
+            coeffs[i] += axis_res.coeffs[j]
+            derivatives[i] += axis_res.derivatives[j]
+            terms[i] += axis_res.terms[j]
+        end
+    end
+
+    return (;
+        ks = ks_all,
+        coeffs = coeffs,
+        derivatives = derivatives,
+        terms = terms,
+        total = sum(terms),
+        center = err_nd.center,
+        h = err_nd.h,
+        per_axis = axis_results,
     )
 end
 
@@ -470,9 +578,13 @@ dimension-specific backend.
 - `dim`:
   Number of dimensions.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification.
+  This may be either a scalar rule symbol shared across all axes, or a
+  tuple/vector of per-axis rule symbols of length `dim`.
 - `boundary`:
-  Boundary pattern symbol.
+  Boundary pattern specification.
+  This may be either a scalar boundary symbol shared across all axes, or a
+  tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `err_method`:
@@ -489,6 +601,8 @@ dimension-specific backend.
 # Errors
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from the selected estimator.
 """
 function error_estimate_derivative_direct(
@@ -512,6 +626,7 @@ function error_estimate_derivative_direct(
     else
         promote_type(typeof(a), typeof(b))
     end
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
 
     if dim == 1
         return error_estimate_derivative_direct_1d(
@@ -608,9 +723,13 @@ dimension-specific backend.
 - `dim`:
   Problem dimensionality.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification.
+  This may be either a scalar rule symbol shared across all axes, or a
+  tuple/vector of per-axis rule symbols of length `dim`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol shared across all axes, or a
+  tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `err_method::Symbol`:
@@ -629,6 +748,8 @@ dimension-specific backend.
 # Errors
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Propagates errors from the selected dimension-specific jet estimator.
 
 # Notes
@@ -660,6 +781,7 @@ function error_estimate_derivative_jet(
     else
         promote_type(typeof(a), typeof(b))
     end
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
 
     if dim == 1
         return error_estimate_derivative_jet_1d(

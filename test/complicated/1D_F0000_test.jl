@@ -24,33 +24,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -58,14 +56,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -84,33 +79,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -118,14 +111,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -144,33 +134,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -178,14 +166,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -204,33 +189,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -238,14 +221,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -264,33 +244,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -298,14 +276,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -324,33 +299,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -358,14 +331,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -384,33 +354,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -418,14 +386,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -444,33 +409,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -478,14 +441,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -504,33 +464,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -538,14 +496,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -564,33 +519,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -598,14 +551,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -624,33 +574,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -658,14 +606,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -684,33 +629,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -718,14 +661,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -744,33 +684,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -778,14 +716,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -804,33 +739,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -838,14 +771,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -864,33 +794,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -898,14 +826,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -924,33 +849,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -958,14 +881,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -984,33 +904,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1018,14 +936,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1044,33 +959,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1078,14 +991,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1104,33 +1014,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1138,14 +1046,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1164,33 +1069,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1198,14 +1101,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1224,33 +1124,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1258,14 +1156,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1284,33 +1179,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1318,14 +1211,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1344,33 +1234,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1378,14 +1266,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1404,33 +1289,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1438,14 +1321,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1464,33 +1344,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1498,14 +1376,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1524,33 +1399,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1558,14 +1431,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1584,33 +1454,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1618,14 +1486,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1644,33 +1509,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1678,14 +1541,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 
@@ -1704,33 +1564,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
-        run_result = run_Maranatha(
+        use_cuda = false
+        real_type = Float64
+        run_result = @time run_Maranatha(
             ff, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1738,14 +1596,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end    
 end
@@ -1774,33 +1629,31 @@ use_error_jet = false
         save_path = nothing
         write_summary = false
         save_file = false
+        use_cuda = false
+        real_type = Float64
         run_result = run_Maranatha(
             ff_here, 
             bounds...; 
-            dim=dim, 
-            nsamples=ns,
-            rule=rule, 
-            boundary=boundary, 
-            err_method=err_method,
-            fit_terms=fit_terms, 
-            nerr_terms=nerr_terms,
-            ff_shift=ff_shift, 
-            use_error_jet=use_error_jet,
-            name_prefix=result_string,
-            save_path=save_path,
-            write_summary=write_summary  
+            dim = dim, 
+            nsamples = ns,
+            rule = rule, 
+            boundary = boundary, 
+            err_method = err_method,
+            fit_terms = fit_terms, 
+            nerr_terms = nerr_terms,
+            ff_shift = ff_shift, 
+            use_error_jet = use_error_jet,
+            name_prefix = result_string,
+            save_path = save_path,
+            write_summary = write_summary,
+            use_cuda = use_cuda,
+            real_type = real_type
         )
         fit_result = least_chi_square_fit(
-            run_result.a,
-            run_result.b,
-            run_result.h,
-            run_result.avg,
-            run_result.err,
-            run_result.rule,
-            run_result.boundary;
-            nterms=fit_terms,
-            ff_shift=ff_shift,
-            nerr_terms=nerr_terms
+            run_result,
+            fit_func_terms = fit_terms,
+            ff_shift = ff_shift,
+            nerr_terms = nerr_terms
         )
         print_fit_result(fit_result)
         assert_result_sane(run_result)
@@ -1808,14 +1661,11 @@ use_error_jet = false
               all(e -> isfinite(getproperty(e, hasproperty(e, :total) ? :total : :estimate)),
                   run_result.err)
         DO_PLOT && plot_convergence_result(
-            bounds..., 
-            result_string,
-            run_result.h, 
-            run_result.avg, 
-            run_result.err, fit_result;
-            rule=rule, 
-            boundary=boundary,
-            save_file=save_file
+            run_result,
+            fit_result; 
+            name = result_string,
+            figs_dir = save_path,
+            save_file = save_file
         )
     end
 end

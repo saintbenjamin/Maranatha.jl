@@ -15,6 +15,22 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module JobLoggerTools
+
+Lightweight logging and assertion helpers shared across `Maranatha.jl`.
+
+# Module description
+`Maranatha.Utils.JobLoggerTools` collects small convenience wrappers for
+timestamped logging, staged progress messages, warnings, assertions, and
+fatal-error reporting.
+
+# Main entry points
+- [`println_benji`](@ref)
+- [`warn_benji`](@ref)
+- [`error_benji`](@ref)
+- [`assert_benji`](@ref)
+"""
 module JobLoggerTools
 
 import ..Printf: @sprintf

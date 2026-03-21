@@ -16,7 +16,6 @@
         out_dir::String = ".",
         format::Symbol = :tex,
         save_file::Bool = true,
-        nerr_terms::Union{Nothing,Int} = nothing,
     ) -> String
 
 Generate a convergence summary report in
@@ -105,6 +104,10 @@ usable scalar uncertainty field.
 - For rectangular-domain workflows, the generated summary is based on the
   scalarized step-size sequence `result.h` rather than the original per-axis
   step tuples.
+- When any of `a`, `b`, `rule`, or `boundary` is axis-wise, the run
+  configuration table expands into one row per axis.
+- Saved basenames encode rule/boundary metadata through the axis-aware token
+  produced by [`DocUtils._rule_boundary_filename_token`](@ref).
 """
 function write_convergence_summary(
     result,
@@ -113,7 +116,6 @@ function write_convergence_summary(
     out_dir::String = ".",
     format::Symbol = :tex,
     save_file::Bool = true,
-    nerr_terms::Union{Nothing,Int} = nothing,
 )
     a = result.a
     b = result.b
@@ -123,9 +125,9 @@ function write_convergence_summary(
     rule = result.rule
     boundary = result.boundary
     err_method = result.err_method
-    fit_terms = result.fit_terms
-    nerr_terms_eff_input = isnothing(nerr_terms) ? result.nerr_terms : nerr_terms
-    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms_eff_input
+    fit_terms = fit_result.fit_func_terms
+    nerr_terms = fit_result.nerr_terms
+    nerr_terms_eff = (err_method == :refinement) ? 0 : nerr_terms
 
     n = length(hs)
     if length(estimates) != n || length(errors) != n
@@ -205,6 +207,8 @@ function write_convergence_summary(
 
     summary_basename = _build_convergence_summary_basename(
         name,
+        a,
+        b,
         rule,
         boundary,
         fit_terms,
@@ -226,7 +230,7 @@ function write_convergence_summary(
             I0, 
             I0_err, 
             red, 
-            nerr_terms_eff_input;
+            nerr_terms_eff;
             rule=rule, 
             boundary=boundary
         )
@@ -255,7 +259,7 @@ function write_convergence_summary(
             I0, 
             I0_err, 
             red, 
-            nerr_terms_eff_input;
+            nerr_terms_eff;
             rule=rule, 
             boundary=boundary
         )

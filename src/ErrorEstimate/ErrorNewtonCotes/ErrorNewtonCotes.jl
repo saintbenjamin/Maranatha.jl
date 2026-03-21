@@ -114,9 +114,10 @@ quadrature-dispatch layer.
 module ErrorNewtonCotes
 
 import ..JobLoggerTools
-import ..Quadrature.NewtonCotes
-import ..Quadrature.QuadratureUtils
+import ..QuadratureBoundarySpec
+import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.QuadratureDispatch
+import ..Quadrature.NewtonCotes
 
 include("ErrorNewtonCotesDerivative.jl")
 include("ErrorNewtonCotesRefinement.jl")

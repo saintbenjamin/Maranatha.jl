@@ -14,8 +14,8 @@
         a::Real,
         b::Real,
         N::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
         kmax::Int = 128,
@@ -47,8 +47,12 @@ E \\approx \\sum_{i=1}^{n_{\text{err}}}
 - `a::Real`: Lower bound.
 - `b::Real`: Upper bound.
 - `N::Int`: Number of subintervals.
-- `rule::Symbol`: Quadrature rule symbol.
-- `boundary::Symbol`: Boundary pattern symbol.
+- `rule`: Quadrature rule specification valid for `dim = 1`.
+  This may be either a scalar rule symbol or a length-1 tuple/vector of rule
+  symbols.
+- `boundary`: Boundary pattern specification valid for `dim = 1`.
+  This may be either a scalar boundary symbol or a length-1 tuple/vector of
+  boundary symbols.
 
 # Keyword arguments
 - `err_method::Symbol`: Derivative backend selector.
@@ -85,8 +89,8 @@ function error_estimate_derivative_jet_1d(
     a::Real,
     b::Real,
     N::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
     kmax::Int = 128,
@@ -99,12 +103,19 @@ function error_estimate_derivative_jet_1d(
 
     aa = convert(T, a)
     bb = convert(T, b)
+
+    # --- boundary per axis ---
+    QuadratureRuleSpec._validate_rule_spec(rule, 1)
+
+    b1 = QuadratureBoundarySpec._boundary_at(boundary, 1, 1)
+    r1 = QuadratureRuleSpec._rule_at(rule, 1, 1)
+
     h  = (bb - aa) / T(N)
     x̄ = (aa + bb) / T(2)
 
     ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, 
-        boundary, 
+        r1,
+        b1,
         N;
         nterms = nerr_terms,
         kmax   = kmax

@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADForwardDiff
+
+ForwardDiff-based backend for derivative-jet construction.
+
+# Module description
+This module implements the derivative-jet backend based on `ForwardDiff.jl`
+for the automatic-differentiation layer used by `Maranatha.ErrorEstimate`.
+
+It constructs the derivative jet
+`[f(x), f'(x), ..., f^(nmax)(x)]`
+by repeated forward-mode differentiation of nested scalar callables.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeJet`.
+"""
 module ADForwardDiff
 
 import ForwardDiff

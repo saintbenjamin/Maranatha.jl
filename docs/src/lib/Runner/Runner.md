@@ -145,6 +145,10 @@ integrand(x) = sin(x)
 The domain section accepts either scalar endpoints (for ``[a,b]^n``)
 or axis-wise endpoints for rectangular regions.
 
+Likewise, the `[quadrature]` entries `rule` and `boundary` may be written
+either as scalar strings shared across all axes or as TOML arrays giving the
+configuration axis by axis.
+
 When precision-sensitive bounds should be preserved until parsing, the domain
 values may also be written as TOML strings and later interpreted using
 `real_type`.
@@ -187,6 +191,7 @@ You can then run:
 
 ```julia
 using Maranatha
+using DoubleFloats
 
 run_result = run_Maranatha("./sample_1d.toml")
 ```
@@ -215,9 +220,8 @@ These fields are usually enough to continue directly into the fitting stage.
 
 When axis-specific bounds are used, `result.a` and `result.b` retain the
 per-axis endpoint information. `result.tuple_h` preserves the original step
-object at each resolution. For tuple-based axis-wise steps, `result.h` stores
-the scalarized L2 norm; for vector-based axis-wise steps, the current
-implementation preserves the vector in `result.h`.
+object at each resolution, while `result.h` stores the scalarized step proxy
+used by the fitter and plotting layer.
 
 ---
 

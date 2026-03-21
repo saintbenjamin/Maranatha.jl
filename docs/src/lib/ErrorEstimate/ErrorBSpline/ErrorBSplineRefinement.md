@@ -72,6 +72,10 @@ The refined rule is generated using the same spline family and smoothing
 parameters as the original rule so that differences reflect resolution changes
 only.
 
+For axis-wise `rule` specifications, the refinement dispatch layer currently
+accepts the request only when all active axes remain within the B-spline
+family.
+
 ---
 
 ## Supported spline families
@@ -83,6 +87,9 @@ This backend supports the same spline rule families as the main B-spline module:
 
 For smoothing splines, the smoothing parameter `\lambda` is preserved when
 constructing the refined rule.
+
+In the current public quadrature path, B-spline node construction still
+requires `boundary = :LU_ININ`.
 
 ---
 

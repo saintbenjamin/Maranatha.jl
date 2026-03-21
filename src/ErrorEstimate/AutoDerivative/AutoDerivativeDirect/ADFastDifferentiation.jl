@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADFastDifferentiation
+
+FastDifferentiation-based backend for scalar direct derivative evaluation.
+
+# Module description
+This module implements the direct `n`-th-derivative backend based on
+`FastDifferentiation.jl` for the automatic-differentiation layer used by
+`Maranatha.ErrorEstimate`.
+
+It differentiates symbolic expressions generated from the supplied scalar
+callable and evaluates the compiled derivative expression at the target point.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeDirect`.
+"""
 module ADFastDifferentiation
 
 import FastDifferentiation

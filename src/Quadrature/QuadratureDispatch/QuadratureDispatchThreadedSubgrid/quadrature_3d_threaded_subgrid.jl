@@ -55,9 +55,11 @@ Otherwise, the full tensor-product loop is evaluated serially.
 - `N`:
   Quadrature subdivision or rule-resolution parameter.
 - `rule`:
-  Quadrature rule symbol.
+  Either a scalar rule symbol shared across all axes, or a length-3
+  tuple/vector of per-axis rule symbols.
 - `boundary`:
-  Boundary-condition symbol.
+  Either a scalar boundary symbol shared across all axes, or a length-3
+  tuple/vector of per-axis boundary symbols.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
 - `λ = nothing`:
@@ -92,119 +94,16 @@ function quadrature_3d_threaded_subgrid(
     λ = nothing,
     real_type = nothing,
 )
-    T = if !isnothing(real_type)
-        real_type
-    elseif a isa AbstractVector || a isa Tuple
-        length(a) == 3 || throw(ArgumentError("length(a) must be 3 for 3D"))
-        length(b) == 3 || throw(ArgumentError("length(b) must be 3 for 3D"))
-        promote_type(typeof(a[1]), typeof(a[2]), typeof(a[3]), typeof(b[1]), typeof(b[2]), typeof(b[3]))
-    else
-        promote_type(typeof(a), typeof(b))
-    end
-    λT = isnothing(λ) ? zero(T) : convert(T, λ)
-
-    nthreads_eff = _effective_nthreads_req(nthreads_req)
-
-    if !(a isa AbstractVector || a isa Tuple)
-        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-        ys, wy = xs, wx
-        zs, wz = xs, wx
-    else
-        xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[1], 
-            b[1], 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-        ys, wy = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[2], 
-            b[2], 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-        zs, wz = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a[3], 
-            b[3], 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-    end
-
-    nx = length(xs)
-    ny = length(ys)
-    nz = length(zs)
-
-    if nthreads_eff <= 1 || (nx == 1 && ny == 1 && nz == 1)
-        total = zero(T)
-        @inbounds for i in eachindex(xs)
-            xi = xs[i]
-            wi = wx[i]
-            for j in eachindex(ys)
-                yj = ys[j]
-                wij = wi * wy[j]
-                for k in eachindex(zs)
-                    w = wij * wz[k]
-                    iszero(w) && continue
-                    total += w * f(xi, yj, zs[k])
-                end
-            end
-        end
-        return total
-    end
-
-    ngrid = max(nx, ny, nz)
-    splits = _choose_axis_splits(nthreads_eff, 3, ngrid)
-    blocks = _block_ranges_from_splits(ngrid, splits)
-
-    JobLoggerTools.println_benji(
-        "Global grid: $(nx)×$(ny)×$(nz) points | threads: $(nthreads_eff) → axis splits = $(splits) → total subgrids = $(length(blocks))"
+    return quadrature_nd_threaded_subgrid(
+        f,
+        a,
+        b,
+        N,
+        rule,
+        boundary;
+        dim = 3,
+        nthreads_req = nthreads_req,
+        λ = λ,
+        real_type = real_type,
     )
-
-    partial = zeros(T, Threads.maxthreadid())
-
-    Threads.@threads for bid in eachindex(blocks)
-        r1g, r2g, r3g = blocks[bid]
-        r1 = max(first(r1g), 1):min(last(r1g), nx)
-        r2 = max(first(r2g), 1):min(last(r2g), ny)
-        r3 = max(first(r3g), 1):min(last(r3g), nz)
-
-        (isempty(r1) || isempty(r2) || isempty(r3)) && continue
-
-        local_sum = zero(T)
-
-        @inbounds for i in r1
-            xi = xs[i]
-            wi = wx[i]
-            for j in r2
-                yj = ys[j]
-                wij = wi * wy[j]
-                for k in r3
-                    w = wij * wz[k]
-                    iszero(w) && continue
-                    local_sum += w * f(xi, yj, zs[k])
-                end
-            end
-        end
-
-        partial[Threads.threadid()] += local_sum
-    end
-
-    return sum(partial)
 end

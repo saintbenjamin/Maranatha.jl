@@ -14,8 +14,8 @@
         a,
         b,
         N::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         dim::Int,
         err_method::Symbol = :forwarddiff,
         nerr_terms::Int = 1,
@@ -59,8 +59,12 @@ odometer-style tensor-product traversal.
   This may be either a scalar upper bound shared across all axes, or a tuple/vector
   of per-axis upper bounds of length `dim`.
 - `N::Int`: Number of subintervals per axis.
-- `rule::Symbol`: Quadrature rule symbol.
-- `boundary::Symbol`: Boundary pattern symbol.
+- `rule`: Quadrature rule specification.
+  This may be either a scalar rule symbol shared across all axes, or a
+  tuple/vector of per-axis rule symbols of length `dim`.
+- `boundary`: Boundary pattern specification.
+  This may be either a scalar boundary symbol shared across all axes, or a
+  tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `dim::Int`: Problem dimensionality.
@@ -74,10 +78,7 @@ odometer-style tensor-product traversal.
 
 # Returns
 - `NamedTuple` with fields:
-  - `ks`
-  - `coeffs`
-  - `derivatives`
-  - `terms`
+  - `per_axis`
   - `total`
   - `center`
   - `h`
@@ -86,6 +87,8 @@ odometer-style tensor-product traversal.
 - Throws `ArgumentError` if `dim < 1`.
 - Throws `ArgumentError` if axis-wise bounds are supplied but `length(a) != dim`
   or `length(b) != dim`.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification has
+  length different from `dim`.
 - Throws (via [`JobLoggerTools.error_benji`](@ref)) if `nerr_terms < 1`.
 - Propagates quadrature-node construction, residual-model extraction, and
   derivative-evaluation errors.
@@ -96,14 +99,17 @@ odometer-style tensor-product traversal.
 - This estimator can become expensive for large `dim`.
 - Residual-term reuse through caching reduces repeated setup cost across
   multiple calls with the same rule configuration.
+- Unlike the 2D/3D/4D compatibility wrappers, this generic `nd` variant returns
+  the exact axis-wise decomposition in `per_axis` rather than a flattened
+  legacy summary.
 """
 function error_estimate_derivative_direct_nd(
     f,
     a,
     b,
     N::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     dim::Int,
     err_method::Symbol = :forwarddiff,
     nerr_terms::Int = 1,
@@ -116,9 +122,6 @@ function error_estimate_derivative_direct_nd(
     (nerr_terms >= 1) || JobLoggerTools.error_benji("nerr_terms must be ≥ 1")
     (kmax >= 0)       || JobLoggerTools.error_benji("kmax must be ≥ 0")
 
-    # ------------------------------------------------------------
-    # Domain handling — rectangular domain support
-    # ------------------------------------------------------------
     if !(a isa AbstractVector || a isa Tuple)
         aa = ntuple(_ -> convert(T, a), dim)
         bb = ntuple(_ -> convert(T, b), dim)
@@ -130,80 +133,77 @@ function error_estimate_derivative_direct_nd(
         bb = ntuple(i -> convert(T, b[i]), dim)
     end
 
+    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
+
     hs = ntuple(i -> (bb[i] - aa[i]) / T(N), dim)
     center = ntuple(i -> (aa[i] + bb[i]) / T(2), dim)
-    hsum = zero(T)
-    @inbounds for i in 1:dim
-        hsum += hs[i]
-    end
 
     nodes = Vector{Vector{T}}(undef, dim)
     weights = Vector{Vector{T}}(undef, dim)
 
-    @inbounds for d in 1:dim
+    for d in 1:dim
         xd, wd = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            aa[d], 
-            bb[d], 
-            N, 
-            rule, 
+            aa[d],
+            bb[d],
+            N,
+            rule,
             boundary;
             real_type = T,
+            axis = d,
+            dim = dim,
         )
         nodes[d] = collect(T, xd)
         weights[d] = collect(T, wd)
     end
 
-    @inline function _call_with_axis(
-        f, 
-        fixed, 
-        axis::Int, 
-        x, 
-        dim::Int
-    )
-        return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
+    deriv_fun, backend_tag =
+        AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+
+    ks_axes = Vector{Vector{Int}}(undef, dim)
+    coeffs_axes = Vector{Vector{T}}(undef, dim)
+
+    for d in 1:dim
+        rd = QuadratureRuleSpec._rule_at(rule, d, dim)
+        bd = QuadratureBoundarySpec._boundary_at(boundary, d, dim)
+        ks_d, coeffs_d0, _ = _get_residual_model_fixed(
+            rd,
+            bd,
+            N;
+            nterms = nerr_terms,
+            kmax = kmax,
+            real_type = T,
+        )
+        ks_axes[d] = ks_d
+        coeffs_axes[d] = T.(coeffs_d0)
     end
-
-    ks, coeffs0, _center = _get_residual_model_fixed(
-        rule, 
-        boundary, 
-        N;
-        nterms = nerr_terms,
-        kmax   = kmax
-    )
-    coeffs = T.(coeffs0)
-
-    isempty(ks) && return (;
-        ks = Int[],
-        coeffs = T[],
-        derivatives = T[],
-        terms = T[],
-        total = zero(T),
-        center = center,
-        h = hs
-    )
-
-    derivatives = Vector{T}(undef, length(ks))
-    terms       = Vector{T}(undef, length(ks))
 
     fixed = Vector{T}(undef, dim)
     idx   = ones(Int, max(dim - 1, 1))
 
-    deriv_fun, backend_tag =
-        AutoDerivativeDirect.resolve_nth_derivative_backend(err_method)
+    @inline function _call_with_axis(f, fixed, axis::Int, x, dim::Int)
+        return f(ntuple(d -> (d == axis ? x : fixed[d]), dim)...)
+    end
 
-    @inbounds for it in eachindex(ks)
-        k = ks[it]
+    axis_results = Vector{NamedTuple}(undef, dim)
 
-        if k == 0
-            derivatives[it] = zero(T)
-            terms[it] = zero(T)
-            continue
-        end
+    for axis in 1:dim
+        ks = ks_axes[axis]
+        coeffs = coeffs_axes[axis]
 
-        coeff = coeffs[it]
-        total_axes = zero(T)
+        derivatives = Vector{T}(undef, length(ks))
+        terms       = Vector{T}(undef, length(ks))
 
-        for axis in 1:dim
+        for it in eachindex(ks)
+            k = ks[it]
+
+            if k == 0
+                derivatives[it] = zero(T)
+                terms[it] = zero(T)
+                continue
+            end
+
+            coeff = coeffs[it]
             Iaxis = zero(T)
 
             if dim == 1
@@ -248,7 +248,6 @@ function error_estimate_derivative_direct_nd(
                     q = dim - 1
                     while q >= 1
                         idx[q] += 1
-
                         other_axis = q >= axis ? q + 1 : q
                         if idx[q] <= length(nodes[other_axis])
                             break
@@ -262,20 +261,23 @@ function error_estimate_derivative_direct_nd(
                 end
             end
 
-            total_axes += Iaxis
+            derivatives[it] = Iaxis
+            terms[it] = coeff * hs[axis]^(k + 1) * Iaxis
         end
 
-        derivatives[it] = total_axes
-        terms[it] = coeff * hsum^(k + 1) * total_axes
+        axis_results[axis] = (;
+            ks = ks,
+            coeffs = coeffs,
+            derivatives = derivatives,
+            terms = terms,
+            total = sum(terms),
+        )
     end
 
     return (;
-        ks          = ks,
-        coeffs      = coeffs,
-        derivatives = derivatives,
-        terms       = terms,
-        total       = sum(terms),
-        center      = center,
-        h           = hs
+        per_axis = axis_results,
+        total = sum(r.total for r in axis_results),
+        center = center,
+        h = hs,
     )
 end

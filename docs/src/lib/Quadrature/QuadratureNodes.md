@@ -16,7 +16,7 @@ Within the quadrature architecture:
 
 | Layer | Responsibility |
 |:------|:---------------|
-| `QuadratureUtils` | shared helpers (e.g., boundary decoding) |
+| `QuadratureBoundarySpec` | boundary decoding and axis-wise boundary access |
 | `QuadratureNodes` | construct 1D nodes and weights |
 | `QuadratureDispatch` | perform multi-dimensional accumulation |
 
@@ -54,7 +54,7 @@ tensor-product quadrature drivers.
 ## Notes
 
 - Boundary-condition semantics are interpreted via
-  [`Maranatha.Quadrature.QuadratureUtils._decode_boundary`](@ref).
+  [`Maranatha.Utils.QuadratureBoundarySpec._decode_boundary`](@ref).
 - The module returns floating-point nodes and weights suitable for numerical
   integration.
 - Rule-specific logic is delegated to the corresponding backend modules

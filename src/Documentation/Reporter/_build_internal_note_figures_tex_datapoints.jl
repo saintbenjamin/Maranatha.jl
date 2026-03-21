@@ -72,12 +72,22 @@ function _build_internal_note_figures_tex_datapoints(
     yscale,
 )
     safe_title = _latex_escape_underscore(title)
-    safe_rule = _latex_escape_underscore(String(rule))
-    safe_boundary = _latex_escape_underscore(String(boundary))
+    safe_rule = _latex_escape_underscore(string(rule))
+    safe_boundary = boundary isa Symbol ?
+        _latex_escape_underscore(String(boundary)) :
+        "(" * join(_latex_escape_underscore.(String.(collect(boundary))), ",\\ ") * ")"
+
+    boundary_str = if boundary isa Symbol
+        String(boundary)
+    elseif boundary isa Tuple || boundary isa AbstractVector
+        join(String.(boundary), "_")
+    else
+        String(boundary)
+    end
 
     plain_title = title
-    plain_rule = String(rule)
-    plain_boundary = String(boundary)
+    plain_rule = string(rule)
+    plain_boundary = boundary_str
 
     cap_title = "\\texorpdfstring{\\texttt{$safe_title}}{$plain_title}"
     cap_rule  = "\\texorpdfstring{\\texttt{$safe_rule}}{$plain_rule}"

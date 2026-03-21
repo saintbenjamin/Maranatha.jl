@@ -28,7 +28,7 @@ using least-``\\chi^2`` fitting.
 The framework follows a **pipeline-oriented workflow**:
 
 1. deterministic quadrature evaluation
-2. derivative-informed error-scale estimation
+2. derivative-based or refinement-based error-scale estimation
 3. least-``\\chi^2`` extrapolation to ``h → 0``
 4. convergence visualization
 
@@ -39,6 +39,12 @@ The integration domain may be specified either as a scalar interval
 (common bounds for all axes) or as axis-wise endpoints, allowing
 general rectangular domains.
 
+The quadrature `rule` and endpoint `boundary` may likewise be specified either
+as single values shared by all axes or as tuples/vectors providing axis-wise
+configuration. For refinement-based error estimation, axis-wise `rule`
+specifications are currently supported when all active axes remain within the
+same quadrature family.
+
 ## Core components
 
 The package is internally divided into independent submodules:
@@ -47,7 +53,8 @@ The package is internally divided into independent submodules:
   Multi-dimensional tensor-product quadrature with rule dispatch
   (Newton–Cotes, Gauss-family, B-spline).
 
-  Supports both uniform hypercubes and axis-wise rectangular domains.
+  Supports both uniform hypercubes and axis-wise rectangular domains, together
+  with scalar or axis-wise `rule` / `boundary` specifications.
 
   Supports multiple execution backends including
   serial evaluation, threaded subgrid partitioning,
@@ -56,6 +63,9 @@ The package is internally divided into independent submodules:
 - [`Maranatha.ErrorEstimate`](@ref)  
   Unified error-scale modeling layer supporting both derivative-based
   residual models and refinement-based coarse-vs-refined estimators.
+
+  Refinement-based estimation currently accepts axis-wise `rule`
+  specifications only when all axes remain within the same quadrature family.
 
 - [`Maranatha.LeastChiSquareFit`](@ref)  
   Weighted least-``χ²`` extrapolation routines for estimating the
@@ -92,6 +102,18 @@ The top-level namespace re-exports a minimal set of entry points:
 - [`plot_quadrature_coverage_1d`](@ref)  
   Visualize one-dimensional quadrature structure for a selected rule.
 
+- [`write_convergence_summary`](@ref)  
+  Write a convergence summary report for a fitted run result.
+
+- [`write_convergence_internal_note`](@ref)  
+  Write an internal-note style report that bundles figures and fit summaries.
+
+- [`write_convergence_summary_datapoints`](@ref)  
+  Write a datapoints-only convergence summary before extrapolation fitting.
+
+- [`write_convergence_internal_note_datapoints`](@ref)  
+  Write an internal-note style datapoints report with the associated figures.
+
 - [`load_datapoint_results`](@ref)  
   Load a saved convergence dataset from disk.
 
@@ -120,6 +142,10 @@ plot_convergence_result(run_result, fit_result)
 
 The integration bounds supplied to `run_Maranatha` may be scalars
 (for ``[a,b]^n``) or tuples/vectors specifying per-axis limits.
+
+Likewise, `rule` and `boundary` may be passed either as single values shared
+across all axes or as tuples/vectors that specify the configuration axis by
+axis.
 
 For detailed documentation, tutorials, and complete workflow examples,
 please refer to the project documentation site or the example

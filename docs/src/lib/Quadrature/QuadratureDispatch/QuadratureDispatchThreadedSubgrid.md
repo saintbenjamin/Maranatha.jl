@@ -67,8 +67,8 @@ while still preserving a general ND path for broader use.
 
 ## Notes
 
-- The same one-dimensional quadrature nodes and weights are reused on every
-  axis.
+- Each axis may carry a distinct 1D node/weight set when axis-wise domain,
+  `rule`, or `boundary` specifications are used.
 - Zero-weight quadrature points are skipped during accumulation.
 - The public API is centered on [`quadrature_threaded_subgrid`](@ref Maranatha.Quadrature.QuadratureDispatch.QuadratureDispatchThreadedSubgrid.quadrature_threaded_subgrid).
 - Private helpers are included below because this page exposes private autodocs.

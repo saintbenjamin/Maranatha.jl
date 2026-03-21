@@ -38,6 +38,8 @@ module QuadratureDispatchCUDA
 import CUDA
 
 import ..JobLoggerTools
+import ..QuadratureBoundarySpec
+import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
 """
@@ -321,9 +323,13 @@ then sums the per-thread partial contributions on the host.
   Quadrature subdivision or rule-resolution parameter forwarded to
   `QuadratureNodes.get_quadrature_1d_nodes_weights`.
 * `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification. This may be either a scalar rule symbol
+  shared across all axes or a tuple/vector of per-axis rule symbols of length
+  `dim`.
 * `boundary`:
-  Boundary-condition symbol.
+  Boundary specification. This may be either a scalar boundary symbol shared
+  across all axes or a tuple/vector of per-axis boundary symbols of length
+  `dim`.
 * `dim::Int`:
   Number of dimensions.
 * `threads::Int = 256`:
@@ -393,33 +399,38 @@ function quadrature_cuda(
 
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
+    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
+
     xs_list = Vector{Vector{T}}(undef, dim)
     ws_list = Vector{Vector{T}}(undef, dim)
 
     if !(a isa AbstractVector || a isa Tuple)
-        xs, ws = QuadratureNodes.get_quadrature_1d_nodes_weights(
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary;
-            λ = λT,
-            real_type = T,
-        )
         for d in 1:dim
-            xs_list[d] = xs
-            ws_list[d] = ws
+            xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
+                a,
+                b,
+                N,
+                rule,
+                boundary;
+                λ = λT,
+                real_type = T,
+                axis = d,
+                dim = dim,
+            )
         end
     else
         for d in 1:dim
             xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a[d], 
-                b[d], 
-                N, 
-                rule, 
+                a[d],
+                b[d],
+                N,
+                rule,
                 boundary;
                 λ = λT,
                 real_type = T,
+                axis = d,
+                dim = dim,
             )
         end
     end

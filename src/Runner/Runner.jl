@@ -21,7 +21,7 @@ In a standard workflow, the runner sits between the user-defined integrand
 and the downstream extrapolation tools:
 
 1. evaluate quadrature estimates at several resolutions,
-2. attach derivative-informed error-scale estimates,
+2. attach derivative-based or refinement-based error-scale estimates,
 3. collect the results into a uniform `NamedTuple`,
 4. optionally save the dataset to disk for later reuse.
 
@@ -39,8 +39,10 @@ import ..TOML
 import ..Utils.JobLoggerTools
 import ..Utils.MaranathaIO
 import ..Utils.MaranathaTOML
-import ..Quadrature.QuadratureUtils
+import ..Utils.QuadratureBoundarySpec
+import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.QuadratureDispatch
+import ..Quadrature.NewtonCotes
 import ..ErrorEstimate.ErrorDispatch
 
 """
@@ -50,8 +52,8 @@ import ..ErrorEstimate.ErrorDispatch
         b;
         dim::Int = 1,
         nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
-        rule::Symbol = :gauss_p4,
-        boundary::Symbol = :LU_EXEX,
+        rule = :gauss_p4,
+        boundary = :LU_EXEX,
         err_method::Symbol = :refinement,
         fit_terms::Int = 4,
         nerr_terms::Int = 3,
@@ -97,10 +99,8 @@ For scalar domains, the step size is the usual scalar quantity
 
 For axis-wise domains, the per-axis step size is constructed componentwise,
 and the original step object is always recorded in `tuple_h`.
-
-If the axis-wise step is tuple-valued, the companion `h` entry stores its
-scalar L2 norm. If the axis-wise step is vector-valued, the current
-implementation preserves that vector in `h` as well.
+Downstream consumers that need exact per-axis step information should use
+`tuple_h`.
 
 The collected results are returned as a single `NamedTuple` and can also be
 written to disk for later reuse.
@@ -156,12 +156,21 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
 * `nsamples = [2, 3, 4, 5, 6, 7, 8, 9]`:
   Subdivision counts used to build the convergence dataset.
 
-* `rule::Symbol = :gauss_p4`:
-  Quadrature rule identifier forwarded to both quadrature and error estimation.
-  (Also used together with `real_type` to determine the numeric backend.)
+* `rule = :gauss_p4`:
+  Quadrature rule specification forwarded to both quadrature and error estimation.
 
-* `boundary::Symbol = :LU_EXEX`:
-  Boundary pattern used consistently across the quadrature pipeline.
+  This may be either:
+
+  - a single rule symbol shared by all axes, or
+  - a tuple/vector of rule symbols of length `dim`.
+
+* `boundary = :LU_EXEX`:
+  Boundary specification used consistently across the quadrature pipeline.
+
+  This may be either:
+
+  - a single boundary symbol shared by all axes, or
+  - a tuple/vector of boundary symbols of length `dim`.
 
 * `err_method::Symbol = :refinement`:
   Error-estimation backend selector.
@@ -172,6 +181,9 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
 
   The actual dispatch is performed by
   [`ErrorDispatch.error_estimate`](@ref).
+
+  When `err_method == :refinement` and `rule` is axis-wise, all per-axis
+  rule entries must belong to the same quadrature family.
 
 * `fit_terms::Int = 4`:
   Suggested number of basis terms for a later least-``\\chi^2`` fit.
@@ -221,9 +233,8 @@ Important fields include:
 * `nsamples`: subdivision counts actually used to build the dataset,
 * `tuple_h`: original step object stored at each resolution,
 * `h`: downstream step proxy; for scalar domains this is the scalar step size,
-  for tuple-based axis-wise domains this is the L2 norm of the per-axis step
-  tuple, and for vector-based axis-wise domains the current implementation
-  preserves the step vector itself,
+  and for tuple-based axis-wise domains this is the L2 norm of the per-axis
+  step tuple,
 * `avg`: quadrature estimates,
 * `err`: error-estimator outputs,
 * `rule`, `boundary`, `dim`, `err_method`: execution metadata,
@@ -241,8 +252,13 @@ directory creation and file writing.
 The output filename has the form
 
 ```julia
-result_\$(name_prefix)_\$(rule)_\$(boundary)_N_\$(join(sort(nsamples), "_")).jld2
+result_\$(name_prefix)_\$(spec)_N_\$(join(sort(nsamples), "_")).jld2
 ```
+
+where `spec` is:
+
+- `\$(rule)_\$(boundary)` for scalar rule / boundary specifications, or
+- `1_\$(rule_1)_\$(boundary_1)_2_\$(rule_2)_\$(boundary_2)_...` for axis-wise specifications.
 
 If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is written alongside it.
 
@@ -260,10 +276,8 @@ If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is writt
   All backend selection is handled internally by
   [`ErrorDispatch.error_estimate`](@ref).
 * For axis-wise domains, this routine always stores the original per-axis step
-  information in `tuple_h`.
-  When the step object is tuple-valued, `h` stores its scalarized L2 measure;
-  when the step object is vector-valued, the current implementation preserves
-  that vector in `h`.
+  information in `tuple_h`; downstream code that needs exact axis-wise spacing
+  should prefer `tuple_h` over `h`.
 
 # Examples
 
@@ -323,7 +337,7 @@ Configuration-file workflow:
 
 ```julia
 using Maranatha
-using Double64
+using DoubleFloats
 
 run_result = run_Maranatha("./sample_1d.toml")
 ```
@@ -351,8 +365,6 @@ function run_Maranatha(
     use_cuda::Bool = false,
     real_type = nothing,
 )
-    JobLoggerTools.log_stage_benji("Start run_Maranatha")
-
     T = isnothing(real_type) ? Float64 : real_type
 
     if use_cuda && !(T === Float32 || T === Float64)
@@ -360,6 +372,16 @@ function run_Maranatha(
             "CUDA mode currently supports only Float32 or Float64 real_type (got $(T))."
         ))
     end
+
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
+
+    if err_method === :refinement
+        QuadratureRuleSpec._common_rule_family(rule, dim)
+    end
+
+    JobLoggerTools.println_benji(
+        "run config: dim=$(dim), rule=$(string(rule)), boundary=$(string(boundary)), err_method=$(err_method)"
+    )
 
     # ------------------------------------------------------------
     # Domain handling
@@ -388,10 +410,11 @@ function run_Maranatha(
     hs    = Vector{Any}()
     hs_l2 = Vector{T}()
 
-    nsamples = QuadratureUtils._sanitize_nsamples_newton_cotes(
+    nsamples = _sanitize_run_nsamples(
         nsamples,
         rule,
-        boundary
+        boundary,
+        dim,
     )
 
     for N in nsamples
@@ -471,9 +494,11 @@ function run_Maranatha(
         mkpath(save_path_abs)
 
         Nstr = join(sort(nsamples), "_")
+        spec_str = MaranathaIO._rule_boundary_filename_token(aT, bT, rule, boundary)
+
         save_jld2_path = joinpath(
             save_path_abs,
-            "result_$(name_prefix)_$(rule)_$(boundary)_N_$(Nstr).jld2"
+            "result_$(name_prefix)_$(spec_str)_N_$(Nstr).jld2"
         )
 
         MaranathaIO.save_datapoint_results(
@@ -576,6 +601,145 @@ function run_Maranatha(
         use_cuda      = cfg.use_cuda,
         real_type     = T,
     )
+end
+
+"""
+    _sanitize_run_nsamples(
+        nsamples::Vector{Int},
+        rule,
+        boundary,
+        dim::Int = 1,
+    ) -> Vector{Int}
+
+Sanitize a candidate subdivision sequence for Newton-Cotes composite rules.
+
+# Function description
+Newton-Cotes composite formulas do not accept arbitrary subdivision counts.
+For a given local node count `p` and boundary pattern `boundary`, valid values
+must satisfy the tiling constraint
+
+```math
+N_{\\mathrm{sub}} = w_L + m (p-1) + w_R,
+```
+
+where `w_L` and `w_R` are the boundary block widths and `m ≥ 0` is an integer.
+
+When `rule` and `boundary` are axis-wise specifications, this helper computes a
+single subdivision sequence that is simultaneously valid for every
+Newton-Cotes-active axis. Axes that use non-Newton-Cotes rule families are
+ignored for this admissibility check.
+
+This helper transforms an arbitrary input sequence into a valid sequence that:
+
+* preserves the original length,
+* forms a valid arithmetic progression with step `(p - 1)`,
+* starts from the nearest admissible value not exceeding the first input
+  element, or from the smallest admissible value if none is smaller.
+
+If `rule` is not a Newton-Cotes rule, the input is returned unchanged.
+
+# Arguments
+
+* `nsamples::Vector{Int}`
+  Candidate subdivision counts supplied by the caller.
+
+* `rule`
+  Quadrature rule specification. This may be either a scalar rule symbol shared
+  across all axes or a tuple / vector of rule symbols of length `dim`.
+
+* `boundary`
+  Boundary specification. This may be either a scalar boundary symbol shared
+  across all axes or a tuple / vector of boundary symbols of length `dim`.
+
+* `dim::Int = 1`
+  Problem dimension used when resolving axis-wise `rule` / `boundary`
+  specifications.
+
+# Returns
+
+* `Vector{Int}`
+  A corrected subdivision sequence compatible with the Newton-Cotes composite
+  tiling constraint. The returned vector has the same length as `nsamples`.
+
+# Errors
+
+* Propagates validation errors from rule and boundary specification checks, and
+  from the Newton-Cotes helper routines used to determine admissible
+  subdivision counts.
+* Does not throw for inadmissible subdivision counts; instead, it adjusts them.
+
+# Notes
+
+* This helper is intended for internal use by runner-level components that
+  accept user-supplied subdivision arrays.
+* A warning is emitted if the sequence is modified.
+* The resulting sequence always represents a monotone refinement ladder whose
+  common step is the least common multiple of all active Newton-Cotes block
+  widths.
+"""
+function _sanitize_run_nsamples(
+    nsamples::Vector{Int},
+    rule,
+    boundary,
+    dim::Int = 1,
+)::Vector{Int}
+
+    isempty(nsamples) && return nsamples
+
+    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
+
+    rule_axes = [QuadratureRuleSpec._rule_at(rule, d, dim) for d in 1:dim]
+    nc_axes = [d for d in 1:dim if NewtonCotes._is_newton_cotes_rule(rule_axes[d])]
+
+    isempty(nc_axes) && return nsamples
+
+    function _is_valid_common_N(Ncand::Int)::Bool
+        for d in nc_axes
+            rd = rule_axes[d]
+            bd = QuadratureBoundarySpec._boundary_at(boundary, d, dim)
+            p = NewtonCotes._parse_newton_p(rd)
+            Nd = NewtonCotes._nearest_valid_Nsub(p, bd, Ncand)
+            Nd == Ncand || return false
+        end
+        return true
+    end
+
+    steps = Int[Quadrature.NewtonCotes._parse_newton_p(rule_axes[d]) - 1 for d in nc_axes]
+    step = foldl(lcm, steps; init = 1)
+
+    N0 = first(nsamples)
+    start = nothing
+
+    for Ncand in N0:-1:1
+        if _is_valid_common_N(Ncand)
+            start = Ncand
+            break
+        end
+    end
+
+    if isnothing(start)
+        Ncand = 1
+        while true
+            if _is_valid_common_N(Ncand)
+                start = Ncand
+                break
+            end
+            Ncand += 1
+        end
+    end
+
+    newN = [start + (i - 1) * step for i in 1:length(nsamples)]
+
+    if newN != nsamples
+        JobLoggerTools.warn_benji(
+            "nsamples corrected for rule=$(rule), boundary=$(boundary), dim=$(dim)\n" *
+            "input = $(nsamples)\n" *
+            "using = $(newN)"
+        )
+    end
+
+    return newN
 end
 
 end  # module Runner

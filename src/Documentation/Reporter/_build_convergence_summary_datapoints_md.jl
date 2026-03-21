@@ -47,8 +47,7 @@ value or fit diagnostics.
 - `a`, `b`: Integration domain endpoints.
 
   These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form via an internal formatter.
+  per-axis bounds for rectangular domains.
 
 - `name`: Display name of the experiment or dataset.
 - `hsp`: Filtered step sizes.
@@ -74,8 +73,8 @@ value or fit diagnostics.
   [`_fmt_md_code_sci`](@ref) and [`_fmt_avgerr_md`](@ref).
 - The output is intended to be GitHub-friendly and visually parallel to the
   [``\\LaTeX``](https://www.latex-project.org/) version where possible.
-- For rectangular-domain runs, the interval display summarizes the
-  per-axis bounds rather than reproducing full tuple structure verbatim.
+- When any of `a`, `b`, `rule`, or `boundary` is axis-wise, the run
+  configuration table expands into one row per axis.
 """
 function _build_convergence_summary_datapoints_md(
     a, 
@@ -92,20 +91,40 @@ function _build_convergence_summary_datapoints_md(
     boundary,
 )
     io = IOBuffer()
-    interval_txt = _format_interval_for_note(a, b)
+    cfg_dim = _report_cfg_dim(a, b, rule, boundary)
+    plot_setup_txt = "h^$(h_power), $(string(xscale))/$(string(yscale))"
 
     println(io, "# Convergence datapoints summary: $(name)")
     println(io, "")
 
     println(io, "## Run configuration")
     println(io, "")
-    println(io, "| Interval | Rule (Boundary) | Plot setup |")
-    println(io, "|:--|:--|:--|")
-    println(io,
-        "| `$(interval_txt)` | " *
-        "`$(String(rule)) ($(String(boundary)))` | " *
-        "`h^$(h_power)`, `$(String(xscale))/$(String(yscale))` |"
-    )
+
+    if cfg_dim == 1
+        interval_txt = _fmt_axis_interval_for_run_config(a, b, 1, 1)
+        rule_boundary_txt = _fmt_rule_boundary_cell_md(rule, boundary, 1, 1)
+
+        println(io, "| Interval | Rule (Boundary) | Plot setup |")
+        println(io, "|:--|:--|:--|")
+        println(io,
+            "| `$(interval_txt)` | " *
+            "`$(rule_boundary_txt)` | " *
+            "`$(plot_setup_txt)` |"
+        )
+    else
+        println(io, "| Axis | Rule (Boundary) | Plot setup |")
+        println(io, "|:--|:--|:--|")
+        for d in 1:cfg_dim
+            axis_txt = _fmt_axis_cell_md(a, b, d, cfg_dim)
+            rule_boundary_txt = _fmt_rule_boundary_cell_md(rule, boundary, d, cfg_dim)
+            println(io,
+                "| `$(axis_txt)` | " *
+                "`$(rule_boundary_txt)` | " *
+                "`$(plot_setup_txt)` |"
+            )
+        end
+    end
+
     println(io, "")
 
     println(io, "## Quadrature estimates and uncertainties for different step sizes")

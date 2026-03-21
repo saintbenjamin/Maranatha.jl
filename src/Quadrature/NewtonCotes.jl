@@ -8,10 +8,34 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module NewtonCotes
+
+Composite Newton-Cotes backend for rule parsing and exact weight assembly.
+
+# Module description
+`NewtonCotes` provides the Newton-Cotes-specific infrastructure used by the
+quadrature and error-estimation layers.
+
+Its responsibilities include:
+
+- recognizing and parsing supported Newton-Cotes rule symbols,
+- encoding endpoint admissibility constraints through boundary selectors,
+- assembling exact composite coefficient vectors using rational arithmetic,
+- converting those coefficients into physical 1-dimensional quadrature weights.
+
+The module is also reused by the error-estimation layer when it needs
+Newton-Cotes residual models or refinement admissibility checks.
+
+# Notes
+- This is an internal module.
+- Exact rational assembly is used here to avoid losing structural information
+  before the final conversion to floating-point weights.
+"""
 module NewtonCotes
 
 import ..JobLoggerTools
-import ..Quadrature.QuadratureUtils
+import ..QuadratureBoundarySpec
 
 """
     RBig = Rational{BigInt}
@@ -257,7 +281,7 @@ function _check_condition(
     p >= 2 || JobLoggerTools.error_benji("p must be ≥ 2")
     Nsub >= 1 || JobLoggerTools.error_benji("Nsub must be ≥ 1")
 
-    Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
+    Ltype, Rtype = QuadratureBoundarySpec._decode_boundary(boundary)
 
     wL = _local_width(p, Ltype)
     wR = _local_width(p, Rtype)
@@ -326,7 +350,7 @@ function _assemble_composite_beta_rational(
     Nsub::Int
 )::Vector{RBig}
     m, wL, wR = _check_condition(p, boundary, Nsub)
-    Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
+    Ltype, Rtype = QuadratureBoundarySpec._decode_boundary(boundary)
 
     if p >= 9
         JobLoggerTools.warn_benji("p=$p is high; NC weights can get enormous (exact rational). May become slow/heavy.")
@@ -519,9 +543,7 @@ where `w_L` and `w_R` are the left and right boundary block widths and `m` is a
 nonnegative integer counting interior closed blocks.
 
 This helper maps an input candidate `Nsub` to the nearest valid subdivision
-count compatible with that structure. It is especially useful in refinement-based
-error estimation, where a nominal refined count such as `2N` may not itself be
-a valid Newton-Cotes composite tiling.
+count compatible with that structure.
 
 # Arguments
 
@@ -540,7 +562,7 @@ a valid Newton-Cotes composite tiling.
 # Errors
 
 * Propagates boundary-validation errors from
-  `QuadratureUtils._decode_boundary`.
+  `QuadratureBoundarySpec._decode_boundary`.
 * Propagates errors from [`_local_width`](@ref) if the decoded local block type
   is invalid.
 
@@ -550,15 +572,15 @@ a valid Newton-Cotes composite tiling.
   returned.
 * Otherwise, the function rounds to the nearest admissible value in the
   arithmetic progression `w_L + w_R + m(p-1)`.
-* This helper is primarily intended for internal use by refinement-based
-  Newton-Cotes routines.
+* Unlike [`_next_valid_Nsub`](@ref), this helper may return a valid value
+  strictly smaller than the input `Nsub`.
 """
 function _nearest_valid_Nsub(
-    p::Int, 
-    boundary::Symbol, 
+    p::Int,
+    boundary::Symbol,
     Nsub::Int
 )
-    Ltype, Rtype = QuadratureUtils._decode_boundary(boundary)
+    Ltype, Rtype = QuadratureBoundarySpec._decode_boundary(boundary)
 
     wL = _local_width(p, Ltype)
     wR = _local_width(p, Rtype)
@@ -570,8 +592,84 @@ function _nearest_valid_Nsub(
         return base
     end
 
-    rem = Nsub - base
-    m = round(Int, rem / wC)
+    offset = Nsub - base
+    m = round(Int, offset / wC)
+
+    return base + m * wC
+end
+
+"""
+    _next_valid_Nsub(
+        p::Int,
+        boundary::Symbol,
+        Nsub::Int
+    ) -> Int
+
+Return the smallest boundary-compatible composite subdivision count greater than
+or equal to `Nsub`.
+
+# Function description
+Newton-Cotes composite assembly requires the global subdivision count to satisfy
+
+```math
+N_{\\mathrm{sub}} = w_L + m (p-1) + w_R,
+```
+
+with the same boundary-dependent block widths used by
+[`_nearest_valid_Nsub`](@ref).
+
+This helper is the monotone counterpart of [`_nearest_valid_Nsub`](@ref): it
+never rounds downward. It is intended for callers that treat `Nsub` as a lower
+bound, such as refinement and residual-model setup.
+
+# Arguments
+
+* `p::Int`:
+  Local node count of the Newton-Cotes rule.
+* `boundary::Symbol`:
+  Boundary pattern symbol.
+* `Nsub::Int`:
+  Requested lower bound for the subdivision count.
+
+# Returns
+
+* `Int`:
+  The smallest valid subdivision count compatible with `(p, boundary)` such
+  that the returned value is `>= Nsub`.
+
+# Errors
+
+* Propagates boundary-validation errors from
+  `QuadratureBoundarySpec._decode_boundary`.
+* Propagates errors from [`_local_width`](@ref) if the decoded local block type
+  is invalid.
+
+# Notes
+
+* If `Nsub <= w_L + w_R`, the function returns the smallest admissible count
+  `w_L + w_R`.
+* Otherwise, the function rounds upward within the admissible arithmetic
+  progression `w_L + w_R + m(p-1)`.
+"""
+function _next_valid_Nsub(
+    p::Int,
+    boundary::Symbol,
+    Nsub::Int
+)
+    Ltype, Rtype = QuadratureBoundarySpec._decode_boundary(boundary)
+
+    wL = _local_width(p, Ltype)
+    wR = _local_width(p, Rtype)
+    wC = p - 1
+
+    base = wL + wR
+
+    if Nsub <= base
+        return base
+    end
+
+    offset = Nsub - base
+    m = cld(offset, wC)
 
     return base + m * wC
 end

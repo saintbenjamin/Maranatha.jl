@@ -8,6 +8,28 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module AutoDerivativeDirect
+
+Direct scalar-derivative dispatch layer for the error-estimation subsystem.
+
+# Module description
+`AutoDerivativeDirect` unifies the backend-specific routines that compute a
+single scalar `n`-th derivative at a given point.
+
+Its responsibilities include:
+
+- selecting a concrete differentiation backend from `err_method`,
+- exposing a uniform direct-derivative interface,
+- coordinating cache-aware derivative evaluation for residual estimators.
+
+This module sits between the derivative-based error-estimation dispatchers and
+the backend-specific AD implementations.
+
+# Notes
+- This is an internal module.
+- Supported backends are implemented in the sibling submodules included here.
+"""
 module AutoDerivativeDirect
 
 import ..JobLoggerTools

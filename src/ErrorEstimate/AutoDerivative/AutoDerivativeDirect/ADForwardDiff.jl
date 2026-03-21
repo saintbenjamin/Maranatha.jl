@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADForwardDiff
+
+ForwardDiff-based backend for scalar direct derivative evaluation.
+
+# Module description
+This module implements the direct `n`-th-derivative backend based on
+`ForwardDiff.jl` for the automatic-differentiation layer used by
+`Maranatha.ErrorEstimate`.
+
+It constructs higher-order scalar derivatives by repeated application of
+`ForwardDiff.derivative` to nested scalar callables.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeDirect`.
+"""
 module ADForwardDiff
 
 import ForwardDiff

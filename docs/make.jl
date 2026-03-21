@@ -60,7 +60,7 @@ makedocs(
         "Runner"                                    => "lib/Runner/Runner.md",
         "Quadrature"                                => Any[
             "Quadrature"                            => "lib/Quadrature/Quadrature.md",
-            "QuadratureUtils"                       => "lib/Quadrature/QuadratureUtils.md",
+            "QuadratureRuleSpec"                              => "lib/Quadrature/QuadratureRuleSpec.md",
             "QuadratureNodes"                       => "lib/Quadrature/QuadratureNodes.md",
             "QuadratureDispatch"                    => Any[
                 "QuadratureDispatch"                => "lib/Quadrature/QuadratureDispatch.md",
@@ -125,6 +125,7 @@ makedocs(
             "JobLoggerTools"                        => "lib/Utils/JobLoggerTools.md",
             "MaranathaIO"                           => "lib/Utils/MaranathaIO.md",
             "MaranathaTOML"                         => "lib/Utils/MaranathaTOML.md",
+            "QuadratureBoundarySpec"                          => "lib/Utils/QuadratureBoundarySpec.md",
             "Wizard"                                => "lib/Utils/Wizard.md",
         ]
     ],

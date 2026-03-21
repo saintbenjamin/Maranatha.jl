@@ -59,13 +59,23 @@ function _build_internal_note_figures_tex(
 
     # --- LaTeX-safe (for document body) ---
     safe_title = _latex_escape_underscore(title)
-    safe_rule = _latex_escape_underscore(String(rule))
-    safe_boundary = _latex_escape_underscore(String(boundary))
+    safe_rule = _latex_escape_underscore(string(rule))
+    safe_boundary = boundary isa Symbol ?
+        _latex_escape_underscore(String(boundary)) :
+        "(" * join(_latex_escape_underscore.(String.(collect(boundary))), ",\\ ") * ")"
+
+    boundary_str = if boundary isa Symbol
+        String(boundary)
+    elseif boundary isa Tuple || boundary isa AbstractVector
+        join(String.(boundary), "_")
+    else
+        String(boundary)
+    end
 
     # --- Plain text (for PDF bookmarks) ---
     plain_title = title
-    plain_rule = String(rule)
-    plain_boundary = String(boundary)
+    plain_rule = string(rule)
+    plain_boundary = boundary_str
 
     # --- Caption fragments with texorpdfstring ---
     cap_title = "\\texorpdfstring{\\texttt{$safe_title}}{$plain_title}"
@@ -88,7 +98,7 @@ function _build_internal_note_figures_tex(
     println(io, "    \\label{fig:$(title)_reldiff}")
     println(io, "  }")
     println(io,
-        "  \\caption{Summary plots for $cap_title, with rule $cap_rule and boundary $cap_bound.}")
+        "  \\caption{Summary plots for $(cap_title).}")
     println(io, "  \\label{fig:$(title)_summary}")
     println(io, "\\end{figure}")
 

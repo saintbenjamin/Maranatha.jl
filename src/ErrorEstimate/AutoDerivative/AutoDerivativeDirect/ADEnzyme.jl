@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADEnzyme
+
+Enzyme-based backend for scalar direct derivative evaluation.
+
+# Module description
+This module implements the direct `n`-th-derivative backend based on
+`Enzyme.jl` for the automatic-differentiation layer used by
+`Maranatha.ErrorEstimate`.
+
+It computes higher-order scalar derivatives by recursively applying first-order
+reverse-mode differentiation to nested callables.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeDirect`.
+"""
 module ADEnzyme
 
 import Enzyme

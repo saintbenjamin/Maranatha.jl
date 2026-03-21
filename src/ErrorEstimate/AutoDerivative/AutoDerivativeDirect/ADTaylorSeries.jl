@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADTaylorSeries
+
+TaylorSeries-based backend for scalar direct derivative evaluation.
+
+# Module description
+This module implements the direct `n`-th-derivative backend based on
+`TaylorSeries.jl` for the automatic-differentiation layer used by
+`Maranatha.ErrorEstimate`.
+
+It provides scalar derivative probes at a single point, which are then reused
+by derivative-based residual error estimators.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeDirect`.
+"""
 module ADTaylorSeries
 
 import TaylorSeries

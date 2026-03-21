@@ -45,8 +45,7 @@ The output is intended for inclusion in larger [``\\LaTeX``](https://www.latex-p
 - `a`, `b`: Integration domain endpoints.
 
   These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form via an internal formatter.
+  per-axis bounds for rectangular domains.
 
 - `name`: Experiment identifier.
 - `hsp`: Scalar step sizes (filtered and ordered).
@@ -72,9 +71,10 @@ The output is intended for inclusion in larger [``\\LaTeX``](https://www.latex-p
 
 - No preamble or document environment is included.
 - Numeric formatting uses specialized helpers for readability.
-- For rectangular-domain runs, the interval display summarizes the
-  per-axis bounds while the tabulated `h` columns use the scalarized step
-  sequence supplied to the fitter/reporting pipeline.
+- When any of `a`, `b`, `rule`, or `boundary` is axis-wise, the run
+  configuration table expands into one row per axis.
+- The tabulated `h` columns always use the scalarized step sequence supplied to
+  the fitter/reporting pipeline.
 """
 function _build_convergence_summary_tex(
     a, 
@@ -96,10 +96,8 @@ function _build_convergence_summary_tex(
 )
 
     safe_name = _latex_escape_underscore(name)
-    safe_rule = _latex_escape_underscore(String(rule))
-    safe_boundary = _latex_escape_underscore(String(boundary))
     fit_model_tex = _build_fit_model_tex(fit_powers)
-    interval_txt = _format_interval_for_note(a, b)
+    cfg_dim = _report_cfg_dim(a, b, rule, boundary)
 
     io = IOBuffer()
 
@@ -136,23 +134,43 @@ function _build_convergence_summary_tex(
     println(io, "\\begin{ruledtabular}")
     println(io, "\\caption{Run configuration for \\texttt{$(safe_name)}}")
 
-    if nerr_terms == 0
-        println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
-        println(io, "Interval & Rule (Boundary) \\\\")
-        println(io, "\\hline")
-        println(io,
-            "\$$(interval_txt)\$ & " *
-            "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) \\\\"
+    if cfg_dim == 1
+        interval_txt = _latex_escape_underscore(
+            _fmt_axis_interval_for_run_config(a, b, 1, 1)
         )
+        rule_boundary_txt = _fmt_rule_boundary_cell_tex(rule, boundary, 1, 1)
+
+        if nerr_terms == 0
+            println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
+            println(io, "Interval & Rule (Boundary) \\\\")
+            println(io, "\\hline")
+            println(io, "\\texttt{$interval_txt} & $rule_boundary_txt \\\\")
+        else
+            println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
+            println(io, "Interval & Rule (Boundary) & Number of error terms \\\\")
+            println(io, "\\hline")
+            println(io, "\\texttt{$interval_txt} & $rule_boundary_txt & \$$(nerr_terms)\$ \\\\")
+        end
     else
-        println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
-        println(io, "Interval & Rule (Boundary) & Number of error terms \\\\")
-        println(io, "\\hline")
-        println(io,
-            "\$$(interval_txt)\$ & " *
-            "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) & " *
-            "\$$(nerr_terms)\$ \\\\"
-        )
+        if nerr_terms == 0
+            println(io, "\\begin{tabular}{ @{\\quad} l @{\\quad} | @{\\quad} l @{\\quad} }")
+            println(io, "Axis & Rule (Boundary) \\\\")
+            println(io, "\\hline")
+            for d in 1:cfg_dim
+                axis_txt = _fmt_axis_cell_tex(a, b, d, cfg_dim)
+                rule_boundary_txt = _fmt_rule_boundary_cell_tex(rule, boundary, d, cfg_dim)
+                println(io, "$axis_txt & $rule_boundary_txt \\\\")
+            end
+        else
+            println(io, "\\begin{tabular}{ @{\\quad} l @{\\quad} | @{\\quad} l @{\\quad} | @{\\quad} c @{\\quad} }")
+            println(io, "Axis & Rule (Boundary) & Number of error terms \\\\")
+            println(io, "\\hline")
+            for d in 1:cfg_dim
+                axis_txt = _fmt_axis_cell_tex(a, b, d, cfg_dim)
+                rule_boundary_txt = _fmt_rule_boundary_cell_tex(rule, boundary, d, cfg_dim)
+                println(io, "$axis_txt & $rule_boundary_txt & \$$(nerr_terms)\$ \\\\")
+            end
+        end
     end
 
     println(io, "\\end{tabular}")

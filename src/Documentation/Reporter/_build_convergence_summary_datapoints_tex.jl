@@ -45,8 +45,7 @@ fitting stage.
 - `a`, `b`: Integration domain endpoints.
 
   These may be either scalars (uniform-domain case) or tuples specifying
-  per-axis bounds for rectangular domains. The interval is rendered in a
-  compact textual form via an internal formatter.
+  per-axis bounds for rectangular domains.
 
 - `name`: Display name of the experiment or dataset.
 - `hsp`: Filtered step sizes.
@@ -73,8 +72,8 @@ fitting stage.
   [`_fmt_tex_texttt_sci`](@ref) and [`_fmt_avgerr_tex`](@ref).
 - The output is designed to parallel the style of
   [`_build_convergence_summary_tex`](@ref) while omitting fit-specific content.
-- For rectangular-domain runs, the interval display summarizes the
-  per-axis bounds rather than reproducing full tuple structure verbatim.
+- When any of `a`, `b`, `rule`, or `boundary` is axis-wise, the run
+  configuration table expands into one row per axis.
 """
 function _build_convergence_summary_datapoints_tex(
     a, 
@@ -91,9 +90,9 @@ function _build_convergence_summary_datapoints_tex(
     boundary,
 )
     safe_name = _latex_escape_underscore(name)
-    safe_rule = _latex_escape_underscore(String(rule))
-    safe_boundary = _latex_escape_underscore(String(boundary))
-    interval_txt = _format_interval_for_note(a, b)
+    cfg_dim = _report_cfg_dim(a, b, rule, boundary)
+    safe_xscale = _latex_escape_underscore(string(xscale))
+    safe_yscale = _latex_escape_underscore(string(yscale))
 
     io = IOBuffer()
 
@@ -103,14 +102,36 @@ function _build_convergence_summary_datapoints_tex(
     println(io, "\\begin{table}[ht!]")
     println(io, "\\begin{ruledtabular}")
     println(io, "\\caption{Run configuration for \\texttt{$(safe_name)}}")
-    println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
-    println(io, "Interval & Rule (Boundary) & Plot setup \\\\")
-    println(io, "\\hline")
-    println(io,
-        "\$$(interval_txt)\$ & " *
-        "\\texttt{$(safe_rule)} (\\texttt{$(safe_boundary)}) & " *
-        "\$h^{$(h_power)}\$, \\texttt{$(String(xscale))}/\\texttt{$(String(yscale))} \\\\"
-    )
+
+    if cfg_dim == 1
+        interval_txt = _latex_escape_underscore(
+            _fmt_axis_interval_for_run_config(a, b, 1, 1)
+        )
+        rule_boundary_txt = _fmt_rule_boundary_cell_tex(rule, boundary, 1, 1)
+
+        println(io, "\\begin{tabular}{ @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} | @{\\quad} c @{\\quad} }")
+        println(io, "Interval & Rule (Boundary) & Plot setup \\\\")
+        println(io, "\\hline")
+        println(io,
+            "\\texttt{$interval_txt} & " *
+            "$rule_boundary_txt & " *
+            "\$h^{$(h_power)}\$, \\texttt{$safe_xscale}/\\texttt{$safe_yscale} \\\\"
+        )
+    else
+        println(io, "\\begin{tabular}{ @{\\quad} l @{\\quad} | @{\\quad} l @{\\quad} | @{\\quad} l @{\\quad} }")
+        println(io, "Axis & Rule (Boundary) & Plot setup \\\\")
+        println(io, "\\hline")
+        for d in 1:cfg_dim
+            axis_txt = _fmt_axis_cell_tex(a, b, d, cfg_dim)
+            rule_boundary_txt = _fmt_rule_boundary_cell_tex(rule, boundary, d, cfg_dim)
+            println(io,
+                "$axis_txt & " *
+                "$rule_boundary_txt & " *
+                "\$h^{$(h_power)}\$, \\texttt{$safe_xscale}/\\texttt{$safe_yscale} \\\\"
+            )
+        end
+    end
+
     println(io, "\\end{tabular}")
     println(io, "\\end{ruledtabular}")
     println(io, "\\end{table}")

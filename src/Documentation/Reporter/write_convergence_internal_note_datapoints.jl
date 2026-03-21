@@ -56,7 +56,7 @@ inote_<summary_basename>/
 ├── <summary_basename>_table.tex
 ├── <summary_basename>_figs.tex
 ├── figs/
-│   └── <file_name>_<rule>_<boundary>_datapoints_*.pdf
+│   └── <file_name>_<spec_token>_datapoints_*.pdf
 └── Makefile
 ```
 
@@ -140,6 +140,8 @@ including:
 - For rectangular-domain workflows, the generated note is based on the
   scalarized step-size sequence `result.h` rather than the original per-axis
   step tuples.
+- `<spec_token>` denotes the axis-aware rule/boundary token produced by
+  [`DocUtils._rule_boundary_filename_token`](@ref).
 """
 function write_convergence_internal_note_datapoints(
     result;
@@ -158,6 +160,8 @@ function write_convergence_internal_note_datapoints(
     hs = Vector{Float64}(result.h)
     estimates = Vector{Float64}(result.avg)
     errors = result.err
+    a = result.a
+    b = result.b
     rule = result.rule
     boundary = result.boundary
 
@@ -176,7 +180,7 @@ function write_convergence_internal_note_datapoints(
     display_name, file_name = DocUtils._split_report_name(name)
 
     summary_basename = _build_convergence_summary_datapoints_basename(
-        file_name, rule, boundary, h_power, xscale, yscale
+        file_name, a, b, rule, boundary, h_power, xscale, yscale
     )
 
     note_dirname = "inote_" * summary_basename
@@ -220,8 +224,10 @@ function write_convergence_internal_note_datapoints(
     # ------------------------------------------------------------
     # 2. Move datapoints plot PDF into figs/
     # ------------------------------------------------------------
+    spec_str = DocUtils._rule_boundary_filename_token(a, b, rule, boundary)
+
     datapoints_plot_name =
-        "$(file_name)_$(String(rule))_$(String(boundary))_datapoints_hpow_$(h_power)_$(xscale)_$(yscale).pdf"
+        "$(file_name)_$(spec_str)_datapoints_hpow_$(h_power)_$(xscale)_$(yscale).pdf"
 
     src_plot = joinpath(out_dir, datapoints_plot_name)
     dst_plot = joinpath(figs_dir, datapoints_plot_name)

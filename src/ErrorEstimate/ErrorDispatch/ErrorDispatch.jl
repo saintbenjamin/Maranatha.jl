@@ -61,6 +61,7 @@ Key properties:
 * based on coarse vs refined quadrature comparison
 * can reuse a caller-supplied coarse quadrature value through `I_coarse`
 * supports Gauss, Newton–Cotes, and B-spline rules
+* accepts axis-wise `rule` specifications only when all axes use the same rule family
 
 ---
 
@@ -171,10 +172,11 @@ err = error_estimate(
 module ErrorDispatch
 
 import ..JobLoggerTools
+import ..QuadratureBoundarySpec
+import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
-import ..Quadrature.QuadratureUtils
 import ..Quadrature.QuadratureNodes
 import ..Quadrature.QuadratureDispatch
 import ..ErrorEstimate.AutoDerivative.AutoDerivativeDirect
@@ -249,9 +251,13 @@ it instead of recomputing the coarse-grid value.
 - `dim`:
   Number of dimensions.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification.
+  This may be either a scalar rule symbol shared across all axes, or a
+  tuple/vector of per-axis rule symbols of length `dim`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary-condition specification.
+  This may be either a scalar boundary symbol shared across all axes, or a
+  tuple/vector of per-axis boundary symbols of length `dim`.
 
 # Keyword arguments
 - `err_method::Symbol = :refinement`:
@@ -290,6 +296,8 @@ it instead of recomputing the coarse-grid value.
 - Propagates backend-specific validation and computation errors.
 - Throws if the chosen backend does not support the provided `rule`,
   `boundary`, or dimensionality.
+- Throws if `err_method == :refinement` and an axis-wise `rule` specification
+  mixes multiple quadrature families across axes.
 
 # Notes
 - This function is intended to be the single public dispatcher used by the
@@ -297,6 +305,8 @@ it instead of recomputing the coarse-grid value.
 - Derivative-cache clearing is intentionally not handled here; that remains the
   responsibility of higher-level orchestration code such as `run_Maranatha`.
 - `I_coarse` is ignored when a derivative-based backend is selected.
+- Axis-wise `rule` and `boundary` specifications follow the same conventions as
+  the quadrature dispatch layer.
 """
 function error_estimate(
     f,

@@ -8,6 +8,31 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module Gauss
+
+Gauss-family quadrature backend for composite 1D node/weight construction.
+
+# Module description
+`Gauss` provides the rule-family-specific helpers used to support Gauss,
+Gauss-Radau, and Gauss-Lobatto composite quadrature rules inside
+`Maranatha.Quadrature`.
+
+Its responsibilities include:
+
+- recognizing and parsing supported Gauss-family rule symbols,
+- evaluating Legendre-polynomial data needed for root solves,
+- constructing local Gauss-family nodes and weights,
+- assembling composite 1-dimensional nodes and weights on physical intervals.
+
+Tensor-product assembly, axis-wise rule handling, and backend dispatch are
+performed by higher-level quadrature modules.
+
+# Notes
+- This is an internal module.
+- Users should typically access Gauss-family quadrature through the unified
+  `quadrature` interfaces rather than calling these helpers directly.
+"""
 module Gauss
 
 import ..LinearAlgebra

@@ -71,8 +71,10 @@ function _build_internal_note_master_tex(
     abstract_text::Union{Nothing,AbstractString} = nothing,
 )
     # safe_title = _latex_escape_underscore(title)
-    safe_rule = _latex_escape_underscore(String(rule))
-    safe_boundary = _latex_escape_underscore(String(boundary))
+    safe_rule = _latex_escape_underscore(string(rule))
+    safe_boundary = boundary isa Symbol ?
+        _latex_escape_underscore(String(boundary)) :
+        "(" * join(_latex_escape_underscore.(String.(collect(boundary))), ",\\ ") * ")"
 
     # note_title = "Maranatha.jl: \\texttt{$safe_title}, " *
     #              "\\texttt{$safe_rule}, " *

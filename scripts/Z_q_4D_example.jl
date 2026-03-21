@@ -40,7 +40,7 @@ save_file=true
     run_result.err,
     run_result.rule,
     run_result.boundary;
-    nterms=fit_terms,
+    fit_func_terms=fit_terms,
     ff_shift=ff_shift,
     nerr_terms=nerr_terms
 )

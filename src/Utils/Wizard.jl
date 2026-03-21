@@ -8,6 +8,22 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module Wizard
+
+Interactive TOML-configuration wizard for `Maranatha.jl`.
+
+# Module description
+`Maranatha.Utils.Wizard` provides a small terminal-driven workflow that collects
+run settings interactively, writes a TOML configuration file, and can generate
+a matching sample integrand source file.
+
+The wizard supports both shared scalar and axis-wise rule / boundary input for
+multi-dimensional runs.
+
+# Main entry points
+- [`run_wizard`](@ref)
+"""
 module Wizard
 
 """
@@ -268,6 +284,124 @@ function _prompt_literal_vector(
 end
 
 """
+    _prompt_boundary_spec(
+        msg::String,
+        dim::Int;
+        default_scalar::AbstractString = "LU_EXEX",
+    )
+
+Prompt the user for a scalar or axis-wise boundary specification.
+
+# Function description
+For `dim == 1`, this helper behaves like a simple scalar string prompt. For
+`dim > 1`, it accepts either one shared boundary value or exactly `dim`
+comma-separated per-axis values.
+
+# Arguments
+- `msg::String`: Prompt message shown to the user.
+- `dim::Int`: Problem dimensionality.
+
+# Keyword arguments
+- `default_scalar::AbstractString = "LU_EXEX"`:
+  Default shared boundary value.
+
+# Returns
+- `String` for shared scalar input.
+- `Vector{String}` for explicit axis-wise input.
+
+# Errors
+- Throws if `dim > 1` and the user supplies neither one value nor exactly
+  `dim` comma-separated values.
+- Propagates I/O errors from [`_prompt`](@ref).
+"""
+function _prompt_boundary_spec(
+    msg::String,
+    dim::Int;
+    default_scalar::AbstractString = "LU_EXEX",
+)
+    if dim == 1
+        return _prompt(msg, default_scalar)
+    end
+
+    raw = _prompt(
+        msg * " (single value or comma-separated $dim values)",
+        default_scalar,
+    )
+
+    parts = String.(strip.(split(raw, ",")))
+
+    if length(parts) == 1
+        return parts[1]
+    elseif length(parts) == dim
+        return parts
+    else
+        error(
+            "Boundary input must be either a single value or exactly $dim values, " *
+            "but got $(length(parts)) value(s)."
+        )
+    end
+end
+
+"""
+    _prompt_rule_spec(
+        msg::String,
+        dim::Int;
+        default_scalar::AbstractString = "gauss_p4",
+    )
+
+Prompt the user for a scalar or axis-wise quadrature-rule specification.
+
+# Function description
+For `dim == 1`, this helper behaves like a simple scalar string prompt. For
+`dim > 1`, it accepts either one shared rule value or exactly `dim`
+comma-separated per-axis values.
+
+# Arguments
+- `msg::String`: Prompt message shown to the user.
+- `dim::Int`: Problem dimensionality.
+
+# Keyword arguments
+- `default_scalar::AbstractString = "gauss_p4"`:
+  Default shared rule value.
+
+# Returns
+- `String` for shared scalar input.
+- `Vector{String}` for explicit axis-wise input.
+
+# Errors
+- Throws if `dim > 1` and the user supplies neither one value nor exactly
+  `dim` comma-separated values.
+- Propagates I/O errors from [`_prompt`](@ref).
+"""
+function _prompt_rule_spec(
+    msg::String,
+    dim::Int;
+    default_scalar::AbstractString = "gauss_p4",
+)
+    if dim == 1
+        return _prompt(msg, default_scalar)
+    end
+
+    raw = _prompt(
+        msg * " (single value or comma-separated $dim values)",
+        default_scalar,
+    )
+
+    parts = String.(strip.(split(raw, ",")))
+
+    if length(parts) == 1
+        return parts[1]
+    elseif length(parts) == dim
+        return parts
+    else
+        error(
+            "Rule input must be either a single value or exactly $dim values, " *
+            "but got $(length(parts)) value(s)."
+        )
+    end
+end
+
+"""
     _toml_literal(x) -> String
 
 Format a scalar or array-like wizard value as a TOML literal.
@@ -369,8 +503,8 @@ dim = $(cfg.dim)
 nsamples = $ns_toml
 
 [quadrature]
-rule = \"$(cfg.rule)\"
-boundary = \"$(cfg.boundary)\"
+rule = $(_toml_literal(cfg.rule))
+boundary = $(_toml_literal(cfg.boundary))
 
 [error]
 err_method = \"$(cfg.err_method)\"
@@ -542,6 +676,8 @@ selected `real_type`.
   it should be overwritten.
 - In the per-axis domain branch, the wizard requires exactly `dim` lower-bound
   values and `dim` upper-bound values.
+- For `dim > 1`, both `rule` and `boundary` may be entered either as one
+  shared scalar value or as exactly `dim` comma-separated axis-wise values.
 - The `use_error_jet` option only affects derivative-based error methods and is
   ignored when `err_method = "refinement"`.
 """
@@ -558,6 +694,8 @@ function run_wizard(;
 
     file = _prompt("Integrand file", "sample_$(dim)d.jl")
     func = _prompt("Integrand function name", "integrand")
+
+    use_axiswise_domain = dim > 1 ? _prompt_bool("Use axis-wise rectangular domain", false) : false
 
     if use_axiswise_domain
         println("Rectangular domain mode: enter comma-separated bounds with exactly $dim values.")
@@ -578,11 +716,16 @@ function run_wizard(;
 
     nsamples = _prompt_int_vector("Number of samples", [2, 3, 4, 5, 6, 7, 8, 9])
 
-    println("Example rules: newton_p3, gauss_p4, bspline_p3 ...")
-    rule = _prompt("Quadrature rule", "gauss_p4")
+    if dim > 1
+        println("Rule can be either a single value shared by all axes,")
+        println("or a comma-separated list with exactly $dim values.")
+    end
 
-    println("Example boundaries: LU_ININ, LU_EXEX, LU_INEX ...")
-    boundary = _prompt("Boundary", "LU_EXEX")
+    println("Example rules: newton_p3, gauss_p4, bspline_interp_p3, bspline_smooth_p3 ...")
+    rule = _prompt_rule_spec("Quadrature rule", dim; default_scalar = "gauss_p4")
+
+    println("Example boundaries: LU_ININ, LU_EXEX, LU_INEX, LU_EXIN ...")
+    boundary = _prompt_boundary_spec("Boundary", dim; default_scalar = "LU_EXEX")
 
     println("Error methods: refinement, forwarddiff, taylorseries, enzyme, fastdifferentiation")
     err_method = _prompt("Error method", "refinement")

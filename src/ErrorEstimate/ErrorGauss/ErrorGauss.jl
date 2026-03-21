@@ -116,9 +116,10 @@ Boundary handling is delegated to the quadrature-dispatch layer.
 module ErrorGauss
 
 import ..JobLoggerTools
-import ..Quadrature.Gauss
-import ..Quadrature.QuadratureUtils
+import ..QuadratureBoundarySpec
+import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.QuadratureDispatch
+import ..Quadrature.Gauss
 
 include("ErrorGaussDerivative.jl")
 include("ErrorGaussRefinement.jl")

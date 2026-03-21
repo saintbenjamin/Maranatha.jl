@@ -40,9 +40,9 @@ distributed across Julia threads; otherwise, a serial fallback is used.
 - `N`:
   Quadrature subdivision or rule-resolution parameter.
 - `rule`:
-  Quadrature rule symbol.
+  Quadrature rule specification valid for `dim = 1`.
 - `boundary`:
-  Boundary-condition symbol.
+  Boundary specification valid for `dim = 1`.
 - `nthreads_req::Int = Threads.nthreads()`:
   Requested number of threads.
 - `λ = nothing`:
@@ -76,12 +76,14 @@ function quadrature_1d_threaded_subgrid(
 
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
+    b1 = QuadratureBoundarySpec._boundary_at(boundary, 1, 1)
+
     xs, wx = QuadratureNodes.get_quadrature_1d_nodes_weights(
-        a, 
-        b, 
-        N, 
-        rule, 
-        boundary;
+        a,
+        b,
+        N,
+        rule,
+        b1;
         λ = λT,
         real_type = T,
     )

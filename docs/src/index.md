@@ -31,6 +31,10 @@ can be exploited.
 The integration bounds may be specified either as common scalar limits
 for all axes or as axis-wise endpoints, allowing general rectangular domains.
 
+The quadrature `rule` and endpoint `boundary` may likewise be supplied either
+as single values shared across all axes or as tuples / vectors providing
+axis-wise configuration.
+
 ---
 
 ## Pipeline-oriented workflow
@@ -71,6 +75,9 @@ Supported rule families include:
 - Newton–Cotes rules
 - Gauss-family rules
 - B-spline reconstruction rules
+
+Both scalar and axis-wise `rule` / `boundary` specifications are supported
+through the shared specification layer.
 
 The quadrature core uses an **exact-moment / Taylor-expansion-based
 construction** which enables a unified implementation of general
@@ -113,6 +120,9 @@ extrapolation via least-``\chi^2`` fitting.
 
 The estimator is not a strict truncation bound; instead it produces
 consistent scaling weights suitable for extrapolation.
+
+For refinement-based estimation, axis-wise `rule` specifications are currently
+supported when all active axes remain within the same quadrature family.
 
 ---
 
@@ -161,6 +171,9 @@ The main orchestration entry point is
 
 The integration domain supplied to the runner may be a scalar interval
 (applied to all axes) or axis-specific limits given as tuples or vectors.
+
+Likewise, `rule` and `boundary` may be given either as shared scalar symbols or
+as axis-wise tuples / vectors.
 
 It performs:
 
@@ -231,6 +244,9 @@ domain, sampling sequence, quadrature rule, and output options.
 The domain may be specified using scalar endpoints (for ``[a,b]^n``)
 or axis-wise endpoints for rectangular regions.
 
+The same scalar-versus-axis-wise convention also applies to `rule` and
+`boundary`.
+
 Example configuration file (`sample_1d.toml`):
 
 ```toml
@@ -257,7 +273,7 @@ nerr_terms = 3
 ff_shift = 0
 
 [execution]
-use_error_jet = true
+use_error_jet = false
 real_type = "Double64"
 
 [output]
@@ -287,15 +303,11 @@ run_result = run_Maranatha("sample_1d.toml")
 
 ### Step 4 :: perform continuum extrapolation
 
-Once the dataset has been generated, the continuum limit ``h \to 0`` can be estimated by performing a least-``\chi^2`` fit.
+Once the dataset has been generated, the continuum limit ``h \to 0`` can be
+estimated by performing a least-``\chi^2`` fit.
 
 ```julia
-fit_result = least_chi_square_fit(
-    run_result;
-    nterms = 4,
-    ff_shift = 0,
-    nerr_terms = 3
-)
+fit_result = least_chi_square_fit(run_result)
 
 print_fit_result(fit_result)
 ```

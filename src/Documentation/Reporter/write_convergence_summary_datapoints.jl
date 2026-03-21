@@ -109,6 +109,10 @@ fit parameters, extrapolated values, or goodness-of-fit statistics.
   objects, provided that each entry exposes either `.total` or `.estimate`.
 - For rectangular-domain workflows, the generated summary is based on the
   scalarized step-size sequence `result.h`.
+- When any of `a`, `b`, `rule`, or `boundary` is axis-wise, the run
+  configuration table expands into one row per axis.
+- Saved basenames encode rule/boundary metadata through the axis-aware token
+  produced by [`DocUtils._rule_boundary_filename_token`](@ref).
 """
 function write_convergence_summary_datapoints(
     result;
@@ -180,7 +184,7 @@ function write_convergence_summary_datapoints(
     errp = errp[perm]
 
     summary_basename = _build_convergence_summary_datapoints_basename(
-        file_name, rule, boundary, h_power, xscale, yscale
+        file_name, a, b, rule, boundary, h_power, xscale, yscale
     )
 
     if format == :tex

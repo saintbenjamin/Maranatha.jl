@@ -30,8 +30,8 @@ Two complementary approaches are implemented.
 
 ### Direct derivative evaluation
 
-Computes each derivative order independently using automatic differentiation
-or finite-difference fallback methods.
+Computes each derivative order independently using one of the supported
+automatic-differentiation or symbolic-differentiation backends.
 
 Characteristics:
 

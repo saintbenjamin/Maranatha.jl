@@ -8,6 +8,28 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ErrorGaussDerivative
+
+Residual-model backend for derivative-based error estimation with Gauss-family
+quadrature rules.
+
+# Module description
+`ErrorGaussDerivative` implements the rule-family-specific residual analysis
+used by derivative-based error estimators for Gauss, Gauss-Radau, and
+Gauss-Lobatto composite quadrature rules.
+
+It provides helpers for:
+
+- identifying leading midpoint residual terms,
+- converting those residuals into factorial-scaled coefficients,
+- exposing Gauss-family residual models to the generic derivative dispatch
+  layer.
+
+# Notes
+- This is an internal module.
+- Higher-level orchestration is performed by `ErrorDispatchDerivative`.
+"""
 module ErrorGaussDerivative
 
 import ..JobLoggerTools

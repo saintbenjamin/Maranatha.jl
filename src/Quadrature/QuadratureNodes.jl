@@ -29,7 +29,6 @@ Within the overall architecture:
 
 | Layer | Responsibility |
 |:------|:---------------|
-| `QuadratureUtils` | shared helpers (e.g., boundary decoding) |
 | `QuadratureNodes` | construct 1D nodes and weights |
 | QuadratureDispatch | evaluate multi-dimensional integrals |
 
@@ -60,14 +59,15 @@ The primary public interface is:
 - The same nodes and weights may be reused across multiple dimensions in
   tensor-product quadrature.
 - Boundary-condition semantics are interpreted via
-  [`QuadratureUtils._decode_boundary`](@ref).
+  [`QuadratureBoundarySpec._decode_boundary`](@ref).
 - The module returns floating-point nodes and weights in the active scalar type,
   suitable for numerical integration backends.
 """
 module QuadratureNodes
 
 import ..JobLoggerTools
-import ..Quadrature.QuadratureUtils
+import ..QuadratureBoundarySpec
+import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.NewtonCotes
 import ..Quadrature.Gauss
 import ..Quadrature.BSpline
@@ -77,10 +77,12 @@ import ..Quadrature.BSpline
         a::Real,
         b::Real,
         N::Int,
-        rule::Symbol,
-        boundary::Symbol;
+        rule,
+        boundary;
         λ = nothing,
         real_type = nothing,
+        axis::Int = 1,
+        dim::Int = 1,
     ) -> (xs, ws)
 
 Construct ``1``-dimensional quadrature nodes and weights on ``[a,b]`` for a
@@ -90,6 +92,11 @@ rule-dispatched quadrature backend.
 This routine is the public node/weight generator used by the tensor-product
 quadrature drivers. It dispatches to the appropriate backend according to
 `rule`.
+
+The `rule` and `boundary` arguments may be supplied either as scalar
+specifications shared across all axes or as axis-wise tuple / vector
+specifications. In the axis-wise case, the local rule and boundary used here
+are selected by the `axis` / `dim` keywords.
 
 Supported rule families:
 
@@ -111,8 +118,8 @@ parameter `λ` is used only for smoothing B-spline rules.
 # Arguments
 - `a`, `b`: Lower and upper bounds of the interval.
 - `N`: Number of composite blocks / subintervals (``N \\ge 1``).
-- `rule`: Quadrature rule symbol.
-- `boundary`: Boundary pattern selector.
+- `rule`: Quadrature rule specification.
+- `boundary`: Boundary specification.
 
 # Keyword arguments
 - `λ = nothing`:
@@ -120,6 +127,12 @@ parameter `λ` is used only for smoothing B-spline rules.
   If `nothing`, zero is used in the active scalar type.
 - `real_type = nothing`:
   Optional scalar type used internally for node and weight construction.
+- `axis::Int = 1`:
+  Axis selector used when resolving axis-wise `rule` / `boundary`
+  specifications.
+- `dim::Int = 1`:
+  Problem dimension used when validating axis-wise `rule` / `boundary`
+  specifications.
 
 # Returns
 - `xs`: Quadrature nodes on ``[a,b]`` in the active scalar type.
@@ -127,29 +140,37 @@ parameter `λ` is used only for smoothing B-spline rules.
 
 # Errors
 - Throws `ArgumentError` if ``N < 1``.
-- Throws (via [`JobLoggerTools.error_benji`](@ref)) if the boundary is invalid,
-  if rule-specific constraints fail, or if `rule` is unsupported.
+- Throws `ArgumentError` if an axis-wise `rule` or `boundary` specification is
+  inconsistent with `dim`.
+- Throws (via [`JobLoggerTools.error_benji`](@ref)) if the resolved axis-local
+  boundary is invalid, if rule-specific constraints fail, or if the resolved
+  rule is unsupported.
 """
 function get_quadrature_1d_nodes_weights(
     a::Real,
     b::Real,
     N::Int,
-    rule::Symbol,
-    boundary::Symbol;
+    rule,
+    boundary;
     λ = nothing,
     real_type = nothing,
+    axis::Int = 1,
+    dim::Int = 1,
 )
     T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
     λT = isnothing(λ) ? zero(T) : convert(T, λ)
 
     N >= 1 || throw(ArgumentError("N must be ≥ 1"))
 
-    QuadratureUtils._decode_boundary(boundary)
+    QuadratureRuleSpec._validate_rule_spec(rule, dim)
+    rl = QuadratureRuleSpec._rule_at(rule, axis, dim)
 
-    # --- composite Newton-Cotes branch ---
-    if NewtonCotes._is_newton_cotes_rule(rule)
-        p = NewtonCotes._parse_newton_p(rule)
-        β = NewtonCotes._get_beta(T, p, boundary, N)
+    bd = QuadratureBoundarySpec._boundary_at(boundary, axis, dim)
+    QuadratureBoundarySpec._decode_boundary(bd)
+
+    if NewtonCotes._is_newton_cotes_rule(rl)
+        p = NewtonCotes._parse_newton_p(rl)
+        β = NewtonCotes._get_beta(T, p, bd, N)
 
         aa = convert(T, a)
         bb = convert(T, b)
@@ -163,49 +184,33 @@ function get_quadrature_1d_nodes_weights(
         return xs, ws
     end
 
-    # --- composite Gauss branch ---
-    if Gauss._is_gauss_rule(rule)
-        npts = Gauss._parse_gauss_p(rule)
+    if Gauss._is_gauss_rule(rl)
+        npts = Gauss._parse_gauss_p(rl)
         return Gauss._composite_gauss_nodes_weights(
-            a, 
-            b, 
-            N, 
-            npts, 
-            boundary;
+            a, b, N, npts, bd;
             real_type = T,
             λ = λT,
         )
     end
 
-    # --- composite B-SPLINE branch ---
-    if BSpline._is_bspline_rule(rule)
-        if boundary !== :LU_ININ
-            JobLoggerTools.error_benji(
-                "B-spline rules currently support only boundary=:LU_ININ (clamped). " *
-                "Got boundary=$boundary for rule=$rule."
-            )
-        end
+    if BSpline._is_bspline_rule(rl)
+        bd === :LU_ININ || JobLoggerTools.error_benji(
+            "B-spline rules currently support only boundary=:LU_ININ (clamped). " *
+            "Got boundary=$bd for rule=$rl."
+        )
 
-        p = BSpline._parse_bspline_p(rule)
-        kind = BSpline._bspline_kind(rule)
+        p = BSpline._parse_bspline_p(rl)
+        kind = BSpline._bspline_kind(rl)
 
         if kind === :interp
             return BSpline.bspline_nodes_weights(
-                a, 
-                b, 
-                N, 
-                p, 
-                boundary;
+                a, b, N, p, bd;
                 kind = :interp,
                 real_type = T,
             )
         else
             return BSpline.bspline_nodes_weights(
-                a, 
-                b, 
-                N, 
-                p, 
-                boundary;
+                a, b, N, p, bd;
                 kind = :smooth,
                 λ = λT,
                 real_type = T,
@@ -213,7 +218,6 @@ function get_quadrature_1d_nodes_weights(
         end
     end
 
-    JobLoggerTools.error_benji("Unsupported rule=$rule.")
+    JobLoggerTools.error_benji("Unsupported rule=$rl.")
 end
-
 end  # module QuadratureNodes

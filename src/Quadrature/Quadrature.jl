@@ -25,6 +25,9 @@ It supports:
 - B-spline-based quadrature
 - Deterministic tensor-product extension to arbitrary dimension
 
+Both `rule` and `boundary` may be supplied either as single symbols shared
+across all axes or as explicit axis-wise tuple / vector specifications.
+
 The module is designed around reproducibility, analytical transparency,
 and explicit control of rule and boundary behavior.
 
@@ -88,18 +91,19 @@ module Quadrature
 import ..LinearAlgebra
 
 import ..Utils.JobLoggerTools
+import ..Utils.QuadratureBoundarySpec
 
-include("QuadratureUtils.jl")
 include("NewtonCotes.jl")
 include("Gauss.jl")
 include("BSpline.jl")
+include("QuadratureRuleSpec.jl")
 include("QuadratureNodes.jl")
 include("QuadratureDispatch.jl")
 
-using .QuadratureUtils
 using .NewtonCotes
 using .Gauss
 using .BSpline
+using .QuadratureRuleSpec
 using .QuadratureNodes
 using .QuadratureDispatch
 

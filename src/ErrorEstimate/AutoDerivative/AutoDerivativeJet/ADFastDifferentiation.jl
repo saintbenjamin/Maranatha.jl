@@ -8,6 +8,23 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    module ADFastDifferentiation
+
+FastDifferentiation-based backend for derivative-jet construction.
+
+# Module description
+This module implements the derivative-jet backend based on
+`FastDifferentiation.jl` for the automatic-differentiation layer used by
+`Maranatha.ErrorEstimate`.
+
+It builds symbolic derivatives from order `0` through `nmax`, compiles them,
+and evaluates the full derivative jet at the target point.
+
+# Notes
+- This is an internal backend module.
+- Backend selection is handled by `AutoDerivativeJet`.
+"""
 module ADFastDifferentiation
 
 import FastDifferentiation

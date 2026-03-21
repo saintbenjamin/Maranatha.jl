@@ -1,4 +1,5 @@
 use_cuda = false
+nsamples = [17, 18, 19, 20, 21, 22, 23]
 use_error_jet = true
 b = 1.0
 a = 0.0
