@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/write_convergence_internal_note.jl
+# src/Documentation/Reporter/internal_note/write_convergence_internal_note.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

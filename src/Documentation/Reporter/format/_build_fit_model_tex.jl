@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_build_fit_model_tex.jl
+# src/Documentation/Reporter/format/_build_fit_model_tex.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/PlotTools/plot_convergence_result.jl
+# src/Documentation/PlotTools/convergence/plot_convergence_result.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

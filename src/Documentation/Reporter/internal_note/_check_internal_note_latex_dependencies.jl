@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_check_internal_note_latex_dependencies.jl
+# src/Documentation/Reporter/internal_note/_check_internal_note_latex_dependencies.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

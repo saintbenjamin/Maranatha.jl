@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/PlotTools/plot_quadrature_coverage_1d.jl
+# src/Documentation/PlotTools/coverage/plot_quadrature_coverage_1d.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

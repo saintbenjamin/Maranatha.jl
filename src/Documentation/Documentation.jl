@@ -41,9 +41,9 @@ import ..Quadrature.Gauss
 import ..Quadrature.BSpline
 import ..Quadrature.QuadratureNodes
 
-include("DocUtils.jl")
-include("PlotTools.jl")
-include("Reporter.jl")
+include("DocUtils/DocUtils.jl")
+include("PlotTools/PlotTools.jl")
+include("Reporter/Reporter.jl")
 
 using .DocUtils
 using .PlotTools

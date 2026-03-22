@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/write_convergence_summary_datapoints.jl
+# src/Documentation/Reporter/datapoints/write_convergence_summary_datapoints.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

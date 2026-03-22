@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_report_cfg_dim.jl
+# src/Documentation/Reporter/run_config/_report_cfg_dim.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

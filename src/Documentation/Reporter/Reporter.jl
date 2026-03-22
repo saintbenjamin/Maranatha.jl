@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter.jl
+# src/Documentation/Reporter/Reporter.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -36,40 +36,40 @@ import ..JobLoggerTools
 import ..AvgErrFormatter
 import ..Documentation.DocUtils
 
-include("Reporter/_fmt_sci_texttt.jl")
-include("Reporter/_fmt_tex_texttt_sci.jl")
-include("Reporter/_fmt_md_code_sci.jl")
-include("Reporter/_fmt_avgerr_tex.jl")
-include("Reporter/_fmt_avgerr_md.jl")
-include("Reporter/_latex_escape_underscore.jl")
-include("Reporter/_report_cfg_is_multi.jl")
-include("Reporter/_report_cfg_dim.jl")
-include("Reporter/_report_cfg_at.jl")
-include("Reporter/_fmt_axis_interval_for_run_config.jl")
-include("Reporter/_fmt_axis_cell_md.jl")
-include("Reporter/_fmt_axis_cell_tex.jl")
-include("Reporter/_fmt_rule_boundary_cell_md.jl")
-include("Reporter/_fmt_rule_boundary_cell_tex.jl")
-include("Reporter/_build_fit_model_tex.jl")
+include("format/_fmt_sci_texttt.jl")
+include("format/_fmt_tex_texttt_sci.jl")
+include("format/_fmt_md_code_sci.jl")
+include("format/_fmt_avgerr_tex.jl")
+include("format/_fmt_avgerr_md.jl")
+include("format/_latex_escape_underscore.jl")
+include("format/_fmt_axis_interval_for_run_config.jl")
+include("format/_fmt_axis_cell_md.jl")
+include("format/_fmt_axis_cell_tex.jl")
+include("format/_fmt_rule_boundary_cell_md.jl")
+include("format/_fmt_rule_boundary_cell_tex.jl")
+include("format/_build_fit_model_tex.jl")
 
-include("Reporter/write_convergence_summary.jl")
-include("Reporter/_build_convergence_summary_basename.jl")
-include("Reporter/_build_convergence_summary_tex.jl")
-include("Reporter/_build_convergence_summary_md.jl")
+include("run_config/_report_cfg_is_multi.jl")
+include("run_config/_report_cfg_dim.jl")
+include("run_config/_report_cfg_at.jl")
 
-include("Reporter/write_convergence_internal_note.jl")
-include("Reporter/_build_internal_note_figures_tex.jl")
-include("Reporter/_build_internal_note_master_tex.jl")
-include("Reporter/_build_internal_note_makefile.jl")
-include("Reporter/_check_internal_note_latex_dependencies.jl")
-include("Reporter/_try_build_internal_note.jl")
+include("summary/write_convergence_summary.jl")
+include("summary/_build_convergence_summary_basename.jl")
+include("summary/_build_convergence_summary_tex.jl")
+include("summary/_build_convergence_summary_md.jl")
 
-include("Reporter/write_convergence_summary_datapoints.jl")
-include("Reporter/_build_convergence_summary_datapoints_tex.jl")
-include("Reporter/_build_convergence_summary_datapoints_md.jl")
-include("Reporter/_build_convergence_summary_datapoints_basename.jl")
+include("internal_note/write_convergence_internal_note.jl")
+include("internal_note/_build_internal_note_figures_tex.jl")
+include("internal_note/_build_internal_note_master_tex.jl")
+include("internal_note/_build_internal_note_makefile.jl")
+include("internal_note/_check_internal_note_latex_dependencies.jl")
+include("internal_note/_try_build_internal_note.jl")
 
-include("Reporter/write_convergence_internal_note_datapoints.jl")
-include("Reporter/_build_internal_note_figures_tex_datapoints.jl")
+include("datapoints/write_convergence_summary_datapoints.jl")
+include("datapoints/_build_convergence_summary_datapoints_tex.jl")
+include("datapoints/_build_convergence_summary_datapoints_md.jl")
+include("datapoints/_build_convergence_summary_datapoints_basename.jl")
+include("datapoints/write_convergence_internal_note_datapoints.jl")
+include("datapoints/_build_internal_note_figures_tex_datapoints.jl")
 
 end  # module Reporter

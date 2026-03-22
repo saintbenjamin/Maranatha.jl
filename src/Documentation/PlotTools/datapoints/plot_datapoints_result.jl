@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/PlotTools/plot_datapoint_result.jl
+# src/Documentation/PlotTools/datapoints/plot_datapoints_result.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

@@ -41,10 +41,10 @@ import ..BSpline
 import ..QuadratureNodes
 import ..Documentation.DocUtils
 
-include("PlotTools/set_pyplot_latex_style.jl")
-include("PlotTools/_smart_text_placement.jl")
-include("PlotTools/plot_convergence_result.jl")
-include("PlotTools/plot_datapoints_result.jl")
-include("PlotTools/plot_quadrature_coverage_1d.jl")
+include("style/set_pyplot_latex_style.jl")
+include("common/_smart_text_placement.jl")
+include("convergence/plot_convergence_result.jl")
+include("datapoints/plot_datapoints_result.jl")
+include("coverage/plot_quadrature_coverage_1d.jl")
 
 end  # module PlotTools

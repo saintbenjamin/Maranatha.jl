@@ -26,6 +26,9 @@ and the downstream extrapolation tools:
 4. optionally save the dataset to disk for later reuse.
 
 The main entry point is [`run_Maranatha`](@ref).
+The module also contains private helpers for run-time type resolution,
+domain normalization, option preparation, per-datapoint execution, and
+optional result persistence.
 For least-``\\chi^2`` extrapolation of the generated dataset, see
 [`Maranatha.LeastChiSquareFit.least_chi_square_fit`](@ref).
 For visualization of the resulting convergence behavior, see
@@ -34,7 +37,6 @@ For visualization of the resulting convergence behavior, see
 module Runner
 
 import ..DoubleFloats
-import ..TOML
 
 import ..Utils.JobLoggerTools
 import ..Utils.MaranathaIO
@@ -44,6 +46,13 @@ import ..Quadrature.QuadratureRuleSpec
 import ..Quadrature.QuadratureDispatch
 import ..Quadrature.NewtonCotes
 import ..ErrorEstimate.ErrorDispatch
+
+include("internal/_resolve_real_type.jl")
+include("internal/_normalize_domain.jl")
+include("internal/_sanitize_run_nsamples.jl")
+include("internal/_prepare_run_options.jl")
+include("internal/_compute_single_datapoint.jl")
+include("internal/_maybe_save_result.jl")
 
 """
     run_Maranatha(
@@ -79,13 +88,17 @@ visualize the result with
 
 # What this function does
 
-At the beginning of the run, this routine clears the global
+At the beginning of the run, this routine resolves the active scalar type,
+normalizes the domain, prepares runner options, and sanitizes the requested
+subdivision sequence when Newton-Cotes admissibility constraints apply.
+
+When a derivative-based backend is selected, the runner also clears the global
 derivative-based error-estimation caches via
-[`ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!`](@ref)
-when a derivative-based backend is selected.
+[`ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!`](@ref).
 The refinement-based path does not use these caches.
 
-For each subdivision count `N` in `nsamples`, this routine:
+For each subdivision count `N` in `nsamples`, this routine delegates one
+per-resolution datapoint computation that:
 
 1. constructs the step size for the current subdivision count `N`,
 2. evaluates the quadrature estimate via
@@ -233,8 +246,7 @@ Important fields include:
 * `nsamples`: subdivision counts actually used to build the dataset,
 * `tuple_h`: original step object stored at each resolution,
 * `h`: downstream step proxy; for scalar domains this is the scalar step size,
-  and for tuple-based axis-wise domains this is the L2 norm of the per-axis
-  step tuple,
+  and for axis-wise domains this is the L2 norm of the per-axis step object,
 * `avg`: quadrature estimates,
 * `err`: error-estimator outputs,
 * `rule`, `boundary`, `dim`, `err_method`: execution metadata,
@@ -275,6 +287,9 @@ If `write_summary = true`, a [`TOML`](https://toml.io/en/) summary file is writt
   and are selected through `err_method`.
   All backend selection is handled internally by
   [`ErrorDispatch.error_estimate`](@ref).
+* The public runner delegates internal tasks such as type resolution, domain
+  normalization, run-option preparation, per-datapoint execution, and optional
+  persistence to private helpers within `Maranatha.Runner`.
 * For axis-wise domains, this routine always stores the original per-axis step
   information in `tuple_h`; downstream code that needs exact axis-wise spacing
   should prefer `tuple_h` over `h`.
@@ -365,77 +380,32 @@ function run_Maranatha(
     use_cuda::Bool = false,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? Float64 : real_type
+    T = _resolve_real_type(real_type, use_cuda)
 
-    if use_cuda && !(T === Float32 || T === Float64)
-        throw(ArgumentError(
-            "CUDA mode currently supports only Float32 or Float64 real_type (got $(T))."
-        ))
-    end
+    domain = _normalize_domain(a, b, dim, T)
+    aT = domain.aT
+    bT = domain.bT
+    is_rect_domain = domain.is_rect_domain
 
-    QuadratureRuleSpec._validate_rule_spec(rule, dim)
-
-    if err_method === :refinement
-        QuadratureRuleSpec._common_rule_family(rule, dim)
-    end
-
-    JobLoggerTools.println_benji(
-        "run config: dim=$(dim), rule=$(string(rule)), boundary=$(string(boundary)), err_method=$(err_method)"
-    )
-
-    # ------------------------------------------------------------
-    # Domain handling
-    # ------------------------------------------------------------
-    is_rect_domain = a isa AbstractVector || a isa Tuple
-
-    if !is_rect_domain
-        aT = convert(T, a)
-        bT = convert(T, b)
-    else
-        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
-        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
-
-        aT = a isa Tuple ? ntuple(i -> convert(T, a[i]), dim) : T[convert(T, a[i]) for i in 1:dim]
-        bT = b isa Tuple ? ntuple(i -> convert(T, b[i]), dim) : T[convert(T, b[i]) for i in 1:dim]
-    end
-
-    threaded_subgrid = (!use_cuda) && (Base.Threads.nthreads() > 1)
-
-    if err_method !== :refinement
-        ErrorDispatch.ErrorDispatchDerivative.clear_error_estimate_derivative_caches!()
-    end
-
-    estimates = T[]
-    error_infos = NamedTuple[]
-    hs    = Vector{Any}()
-    hs_l2 = Vector{T}()
-
-    nsamples = _sanitize_run_nsamples(
+    opts = _prepare_run_options(
         nsamples,
         rule,
         boundary,
         dim,
+        err_method,
+        use_cuda,
     )
 
+    nsamples = opts.nsamples
+    threaded_subgrid = opts.threaded_subgrid
+
+    estimates = T[]
+    error_infos = NamedTuple[]
+    hs = Vector{Any}()
+    hs_l2 = Vector{T}()
+
     for N in nsamples
-        h = if !is_rect_domain
-            (bT - aT) / T(N)
-        else
-            aT isa Tuple ?
-                ntuple(i -> (bT[i] - aT[i]) / T(N), dim) :
-                T[(bT[i] - aT[i]) / T(N) for i in 1:dim]
-        end
-
-        push!(hs, h)
-
-        # --- L2 norm scalar h ---
-        h_l2 = h isa Tuple ?
-            sqrt(sum(x -> x*x, h)) :
-            h
-
-        push!(hs_l2, h_l2)
-
-        I = QuadratureDispatch.quadrature(
+        dp = _compute_single_datapoint(
             integrand,
             aT,
             bT,
@@ -443,29 +413,19 @@ function run_Maranatha(
             dim,
             rule,
             boundary;
-            use_cuda = use_cuda,
-            threaded_subgrid = threaded_subgrid,
-            real_type = T,
-        )
-
-        err = ErrorDispatch.error_estimate(
-            integrand,
-            aT,
-            bT,
-            N,
-            dim,
-            rule,
-            boundary;
+            is_rect_domain = is_rect_domain,
             err_method = err_method,
             nerr_terms = nerr_terms,
             use_error_jet = use_error_jet,
             threaded_subgrid = threaded_subgrid,
-            real_type = T,
-            I_coarse = I,
+            use_cuda = use_cuda,
+            T = T,
         )
 
-        push!(estimates, I)
-        push!(error_infos, err)
+        push!(hs, dp.h)
+        push!(hs_l2, dp.h_l2)
+        push!(estimates, dp.estimate)
+        push!(error_infos, dp.err)
     end
 
     result = (;
@@ -488,25 +448,12 @@ function run_Maranatha(
         real_type     = string(T),
     )
 
-    if save_path !== nothing
-        save_path_abs = isabspath(save_path) ? save_path : joinpath(pwd(), save_path)
-
-        mkpath(save_path_abs)
-
-        Nstr = join(sort(nsamples), "_")
-        spec_str = MaranathaIO._rule_boundary_filename_token(aT, bT, rule, boundary)
-
-        save_jld2_path = joinpath(
-            save_path_abs,
-            "result_$(name_prefix)_$(spec_str)_N_$(Nstr).jld2"
-        )
-
-        MaranathaIO.save_datapoint_results(
-            save_jld2_path,
-            result;
-            write_summary = write_summary,
-        )
-    end
+    _maybe_save_result(
+        result,
+        save_path,
+        name_prefix,
+        write_summary,
+    )
 
     return result
 end
@@ -572,20 +519,11 @@ function run_Maranatha(
         cfg.real_type === :Double64 ? DoubleFloats.Double64 :
         error("Unsupported real_type=$(cfg.real_type)")
 
-    # # --- Domain casting to selected real type T ---
-    # _cast_domain(x) =
-    #     x isa Tuple           ? Tuple(T(v) for v in x) :
-    #     x isa AbstractVector  ? [T(v) for v in x]      :
-    #                             T(x)
-
-    # aT = _cast_domain(cfg.a)
-    # bT = _cast_domain(cfg.b)
-
     return Base.invokelatest(
         run_Maranatha,
         integrand,
-        cfg.a, # aT,
-        cfg.b; # bT;
+        cfg.a,
+        cfg.b;
         dim           = cfg.dim,
         nsamples      = cfg.nsamples,
         rule          = cfg.rule,
@@ -601,145 +539,6 @@ function run_Maranatha(
         use_cuda      = cfg.use_cuda,
         real_type     = T,
     )
-end
-
-"""
-    _sanitize_run_nsamples(
-        nsamples::Vector{Int},
-        rule,
-        boundary,
-        dim::Int = 1,
-    ) -> Vector{Int}
-
-Sanitize a candidate subdivision sequence for Newton-Cotes composite rules.
-
-# Function description
-Newton-Cotes composite formulas do not accept arbitrary subdivision counts.
-For a given local node count `p` and boundary pattern `boundary`, valid values
-must satisfy the tiling constraint
-
-```math
-N_{\\mathrm{sub}} = w_L + m (p-1) + w_R,
-```
-
-where `w_L` and `w_R` are the boundary block widths and `m ≥ 0` is an integer.
-
-When `rule` and `boundary` are axis-wise specifications, this helper computes a
-single subdivision sequence that is simultaneously valid for every
-Newton-Cotes-active axis. Axes that use non-Newton-Cotes rule families are
-ignored for this admissibility check.
-
-This helper transforms an arbitrary input sequence into a valid sequence that:
-
-* preserves the original length,
-* forms a valid arithmetic progression with step `(p - 1)`,
-* starts from the nearest admissible value not exceeding the first input
-  element, or from the smallest admissible value if none is smaller.
-
-If `rule` is not a Newton-Cotes rule, the input is returned unchanged.
-
-# Arguments
-
-* `nsamples::Vector{Int}`
-  Candidate subdivision counts supplied by the caller.
-
-* `rule`
-  Quadrature rule specification. This may be either a scalar rule symbol shared
-  across all axes or a tuple / vector of rule symbols of length `dim`.
-
-* `boundary`
-  Boundary specification. This may be either a scalar boundary symbol shared
-  across all axes or a tuple / vector of boundary symbols of length `dim`.
-
-* `dim::Int = 1`
-  Problem dimension used when resolving axis-wise `rule` / `boundary`
-  specifications.
-
-# Returns
-
-* `Vector{Int}`
-  A corrected subdivision sequence compatible with the Newton-Cotes composite
-  tiling constraint. The returned vector has the same length as `nsamples`.
-
-# Errors
-
-* Propagates validation errors from rule and boundary specification checks, and
-  from the Newton-Cotes helper routines used to determine admissible
-  subdivision counts.
-* Does not throw for inadmissible subdivision counts; instead, it adjusts them.
-
-# Notes
-
-* This helper is intended for internal use by runner-level components that
-  accept user-supplied subdivision arrays.
-* A warning is emitted if the sequence is modified.
-* The resulting sequence always represents a monotone refinement ladder whose
-  common step is the least common multiple of all active Newton-Cotes block
-  widths.
-"""
-function _sanitize_run_nsamples(
-    nsamples::Vector{Int},
-    rule,
-    boundary,
-    dim::Int = 1,
-)::Vector{Int}
-
-    isempty(nsamples) && return nsamples
-
-    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
-    QuadratureRuleSpec._validate_rule_spec(rule, dim)
-
-    rule_axes = [QuadratureRuleSpec._rule_at(rule, d, dim) for d in 1:dim]
-    nc_axes = [d for d in 1:dim if NewtonCotes._is_newton_cotes_rule(rule_axes[d])]
-
-    isempty(nc_axes) && return nsamples
-
-    function _is_valid_common_N(Ncand::Int)::Bool
-        for d in nc_axes
-            rd = rule_axes[d]
-            bd = QuadratureBoundarySpec._boundary_at(boundary, d, dim)
-            p = NewtonCotes._parse_newton_p(rd)
-            Nd = NewtonCotes._nearest_valid_Nsub(p, bd, Ncand)
-            Nd == Ncand || return false
-        end
-        return true
-    end
-
-    steps = Int[Quadrature.NewtonCotes._parse_newton_p(rule_axes[d]) - 1 for d in nc_axes]
-    step = foldl(lcm, steps; init = 1)
-
-    N0 = first(nsamples)
-    start = nothing
-
-    for Ncand in N0:-1:1
-        if _is_valid_common_N(Ncand)
-            start = Ncand
-            break
-        end
-    end
-
-    if isnothing(start)
-        Ncand = 1
-        while true
-            if _is_valid_common_N(Ncand)
-                start = Ncand
-                break
-            end
-            Ncand += 1
-        end
-    end
-
-    newN = [start + (i - 1) * step for i in 1:length(nsamples)]
-
-    if newN != nsamples
-        JobLoggerTools.warn_benji(
-            "nsamples corrected for rule=$(rule), boundary=$(boundary), dim=$(dim)\n" *
-            "input = $(nsamples)\n" *
-            "using = $(newN)"
-        )
-    end
-
-    return newN
 end
 
 end  # module Runner

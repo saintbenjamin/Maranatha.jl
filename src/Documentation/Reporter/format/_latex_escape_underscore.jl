@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_latex_escape_underscore.jl
+# src/Documentation/Reporter/format/_latex_escape_underscore.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

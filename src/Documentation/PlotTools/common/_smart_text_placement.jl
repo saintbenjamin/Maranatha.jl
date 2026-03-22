@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/PlotTools/_smart_text_placement!.jl
+# src/Documentation/PlotTools/common/_smart_text_placement.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

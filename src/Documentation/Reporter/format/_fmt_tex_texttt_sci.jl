@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_fmt_tex_texttt_sci.jl
+# src/Documentation/Reporter/format/_fmt_tex_texttt_sci.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

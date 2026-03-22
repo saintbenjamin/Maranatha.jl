@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_build_internal_note_figures_tex_datapoints.jl
+# src/Documentation/Reporter/datapoints/_build_internal_note_figures_tex_datapoints.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

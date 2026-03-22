@@ -59,9 +59,9 @@ import JLD2
 
 include("JobLoggerTools.jl")
 include("AvgErrFormatter.jl")
-include("MaranathaIO.jl")
+include("MaranathaIO/MaranathaIO.jl")
 include("QuadratureBoundarySpec.jl")
-include("MaranathaTOML.jl")
+include("MaranathaTOML/MaranathaTOML.jl")
 include("Wizard.jl")
 
 using .JobLoggerTools

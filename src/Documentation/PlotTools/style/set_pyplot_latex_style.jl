@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/PlotTools/set_pyplot_latex_style.jl
+# src/Documentation/PlotTools/style/set_pyplot_latex_style.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

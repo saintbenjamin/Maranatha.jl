@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Documentation/Reporter/_build_internal_note_makefile.jl
+# src/Documentation/Reporter/internal_note/_build_internal_note_makefile.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
