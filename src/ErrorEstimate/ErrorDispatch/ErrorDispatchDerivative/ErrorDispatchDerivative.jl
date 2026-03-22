@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative.jl
+# src/ErrorEstimate/ErrorDispatch/ErrorDispatchDerivative/ErrorDispatchDerivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -521,11 +521,11 @@ end
 # Unified public API
 # ============================================================
 
-include("ErrorDispatchDerivative/error_estimate_derivative_direct_1d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_direct_2d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_direct_3d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_direct_4d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_direct_nd.jl")
+include("error_estimate_derivative_direct_1d.jl")
+include("error_estimate_derivative_direct_2d.jl")
+include("error_estimate_derivative_direct_3d.jl")
+include("error_estimate_derivative_direct_4d.jl")
+include("error_estimate_derivative_direct_nd.jl")
 
 """
     error_estimate_derivative_direct(
@@ -667,11 +667,11 @@ function error_estimate_derivative_direct(
     end
 end
 
-include("ErrorDispatchDerivative/error_estimate_derivative_jet_1d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_jet_2d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_jet_3d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_jet_4d.jl")
-include("ErrorDispatchDerivative/error_estimate_derivative_jet_nd.jl")
+include("error_estimate_derivative_jet_1d.jl")
+include("error_estimate_derivative_jet_2d.jl")
+include("error_estimate_derivative_jet_3d.jl")
+include("error_estimate_derivative_jet_4d.jl")
+include("error_estimate_derivative_jet_nd.jl")
 
 """
     error_estimate_derivative_jet(

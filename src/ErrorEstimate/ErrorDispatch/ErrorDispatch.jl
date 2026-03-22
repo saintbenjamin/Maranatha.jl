@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorDispatch.jl
+# src/ErrorEstimate/ErrorDispatch/ErrorDispatch.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -191,7 +191,11 @@ import ..ErrorEstimate._RES_MODEL_CACHE
 import ..ErrorEstimate._NTH_DERIV_CACHE
 import ..ErrorEstimate._DERIV_JET_CACHE
 
-include("ErrorDispatchDerivative.jl")
+include("internal/_resolve_error_dispatch_type_and_lambda.jl")
+include("internal/_dispatch_derivative_error_estimate.jl")
+include("internal/_dispatch_error_estimate_backend.jl")
+
+include("ErrorDispatchDerivative/ErrorDispatchDerivative.jl")
 include("ErrorDispatchRefinement.jl")
 
 using .ErrorDispatchDerivative
@@ -324,52 +328,29 @@ function error_estimate(
     real_type = nothing,
     I_coarse = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
-    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+    dispatch_state = _resolve_error_dispatch_type_and_lambda(
+        a,
+        b,
+        λ,
+        real_type,
+    )
 
-    if err_method === :refinement
-        return ErrorDispatchRefinement.error_estimate_refinement(
-            f,
-            a,
-            b,
-            N,
-            dim,
-            rule,
-            boundary;
-            λ = λT,
-            threaded_subgrid = threaded_subgrid,
-            real_type = T,
-            I_coarse = I_coarse,
-        )
-    end
-
-    if use_error_jet
-        return ErrorDispatchDerivative.error_estimate_derivative_jet(
-            f,
-            a,
-            b,
-            N,
-            dim,
-            rule,
-            boundary;
-            err_method = err_method,
-            nerr_terms = nerr_terms,
-            real_type = T,
-        )
-    else
-        return ErrorDispatchDerivative.error_estimate_derivative_direct(
-            f,
-            a,
-            b,
-            N,
-            dim,
-            rule,
-            boundary;
-            err_method = err_method,
-            nerr_terms = nerr_terms,
-            real_type = T,
-        )
-    end
+    return _dispatch_error_estimate_backend(
+        f,
+        a,
+        b,
+        N,
+        dim,
+        rule,
+        boundary;
+        err_method = err_method,
+        nerr_terms = nerr_terms,
+        use_error_jet = use_error_jet,
+        λ = dispatch_state.λT,
+        threaded_subgrid = threaded_subgrid,
+        real_type = dispatch_state.T,
+        I_coarse = I_coarse,
+    )
 end
 
 end  # module ErrorDispatch
