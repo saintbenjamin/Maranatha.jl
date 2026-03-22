@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Quadrature/QuadratureDispatch.jl
+# src/Quadrature/QuadratureDispatch/QuadratureDispatch.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -38,16 +38,16 @@ import ..QuadratureBoundarySpec
 import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
-include("QuadratureDispatch/internal/_resolve_dispatch_type_and_lambda.jl")
-include("QuadratureDispatch/internal/_dispatch_local_quadrature.jl")
+include("internal/_resolve_dispatch_type_and_lambda.jl")
+include("internal/_dispatch_local_quadrature.jl")
 
-include("QuadratureDispatch/QuadratureDispatchThreadedSubgrid.jl")
-include("QuadratureDispatch/QuadratureDispatchCUDA.jl")
+include("QuadratureDispatchThreadedSubgrid/QuadratureDispatchThreadedSubgrid.jl")
+include("QuadratureDispatchCUDA/QuadratureDispatchCUDA.jl")
 
 using .QuadratureDispatchThreadedSubgrid
 using .QuadratureDispatchCUDA
 
-include("QuadratureDispatch/internal/_dispatch_backend_quadrature.jl")
+include("internal/_dispatch_backend_quadrature.jl")
 
 """
     quadrature_1d(

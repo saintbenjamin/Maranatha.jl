@@ -73,83 +73,23 @@ Base.@noinline function _quadrature_nd_threaded_subgrid_from_nodes(
     lens = [length(xs_list[d]) for d in 1:dim]
 
     if nthreads_eff <= 1 || all(==(1), lens)
-        idx = ones(Int, dim)
-        args = Vector{T}(undef, dim)
-        total = zero(T)
-
-        while true
-            wprod = one(T)
-            for d in 1:dim
-                ii = idx[d]
-                args[d] = xs_list[d][ii]
-                wprod *= ws_list[d][ii]
-            end
-
-            iszero(wprod) || (total += wprod * f(args...))
-
-            carry_dim = dim
-            while carry_dim >= 1
-                idx[carry_dim] += 1
-                if idx[carry_dim] <= lens[carry_dim]
-                    break
-                else
-                    idx[carry_dim] = 1
-                    carry_dim -= 1
-                end
-            end
-
-            carry_dim == 0 && break
-        end
-
-        return total
+        return _quadrature_nd_serial_from_nodes(
+            f,
+            xs_list,
+            ws_list,
+            lens,
+            dim,
+        )
     end
 
-    ngrid = maximum(lens)
-    splits = _choose_axis_splits(nthreads_eff, dim, ngrid)
-    blocks = _block_ranges_from_splits(ngrid, splits)
-
-    partial = zeros(T, length(blocks))
-
-    Threads.@threads for bid in eachindex(blocks)
-        ranges_g = blocks[bid]
-
-        ranges = Vector{UnitRange{Int}}(undef, dim)
-
-        valid = true
-        for d in 1:dim
-            lo = max(first(ranges_g[d]), 1)
-            hi = min(last(ranges_g[d]), lens[d])
-
-            if lo > hi
-                valid = false
-                break
-            end
-
-            ranges[d] = lo:hi
-        end
-
-        valid || continue
-
-        local_sum = zero(T)
-
-        for I in Iterators.product(ranges...)
-            wprod = one(T)
-
-            for d in 1:dim
-                ii = I[d]
-                wprod *= ws_list[d][ii]
-            end
-
-            if !iszero(wprod)
-                vals = ntuple(d -> xs_list[d][I[d]], dim)
-                local_sum += wprod * f(vals...)
-            end
-        end
-
-        partial[bid] = local_sum
-    end
-
-    return sum(partial)
+    return _quadrature_nd_threaded_from_nodes(
+        f,
+        xs_list,
+        ws_list,
+        lens,
+        dim,
+        nthreads_eff,
+    )
 end
 
 """
@@ -270,46 +210,21 @@ function quadrature_nd_threaded_subgrid(
 
     nthreads_eff = _effective_nthreads_req(nthreads_req)
 
-    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
-    QuadratureRuleSpec._validate_rule_spec(rule, dim)
-
-    xs_list = Vector{Vector{T}}(undef, dim)
-    ws_list = Vector{Vector{T}}(undef, dim)
-
-    if !(a isa AbstractVector || a isa Tuple)
-        for d in 1:dim
-            xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a,
-                b,
-                N,
-                rule,
-                boundary;
-                λ = λT,
-                real_type = T,
-                axis = d,
-                dim = dim,
-            )
-        end
-    else
-        for d in 1:dim
-            xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a[d],
-                b[d],
-                N,
-                rule,
-                boundary;
-                λ = λT,
-                real_type = T,
-                axis = d,
-                dim = dim,
-            )
-        end
-    end
+    node_state = _build_nd_threaded_subgrid_nodes_weights(
+        a,
+        b,
+        N,
+        rule,
+        boundary;
+        dim = dim,
+        λ = λT,
+        real_type = T,
+    )
 
     return _quadrature_nd_threaded_subgrid_from_nodes(
         f,
-        xs_list,
-        ws_list,
+        node_state.xs_list,
+        node_state.ws_list,
         dim,
         nthreads_eff,
     )

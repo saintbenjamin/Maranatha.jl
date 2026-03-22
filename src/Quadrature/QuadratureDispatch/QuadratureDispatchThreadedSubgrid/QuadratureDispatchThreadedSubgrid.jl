@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Quadrature/QuadratureDispatch/QuadratureDispatchThreadedSubgrid.jl
+# src/Quadrature/QuadratureDispatch/QuadratureDispatchThreadedSubgrid/QuadratureDispatchThreadedSubgrid.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -45,8 +45,8 @@ import ..QuadratureBoundarySpec
 import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
-include("QuadratureDispatchThreadedSubgrid/internal/_resolve_threaded_subgrid_type_and_lambda.jl")
-include("QuadratureDispatchThreadedSubgrid/internal/_dispatch_threaded_subgrid_by_dim.jl")
+include("internal/_resolve_threaded_subgrid_type_and_lambda.jl")
+include("internal/_dispatch_threaded_subgrid_by_dim.jl")
 
 """
     _chunk_range(
@@ -266,11 +266,15 @@ min(nthreads_req, Threads.nthreads())
     return min(nthreads_req, Threads.nthreads())
 end
 
-include("QuadratureDispatchThreadedSubgrid/quadrature_1d_threaded_subgrid.jl")
-include("QuadratureDispatchThreadedSubgrid/quadrature_2d_threaded_subgrid.jl")
-include("QuadratureDispatchThreadedSubgrid/quadrature_3d_threaded_subgrid.jl")
-include("QuadratureDispatchThreadedSubgrid/quadrature_4d_threaded_subgrid.jl")
-include("QuadratureDispatchThreadedSubgrid/quadrature_nd_threaded_subgrid.jl")
+include("quadrature_1d_threaded_subgrid.jl")
+include("quadrature_2d_threaded_subgrid.jl")
+include("quadrature_3d_threaded_subgrid.jl")
+include("quadrature_4d_threaded_subgrid.jl")
+include("internal/_build_nd_threaded_subgrid_nodes_weights.jl")
+include("internal/_quadrature_nd_serial_from_nodes.jl")
+include("internal/_clip_nd_threaded_subgrid_ranges.jl")
+include("internal/_quadrature_nd_threaded_from_nodes.jl")
+include("quadrature_nd_threaded_subgrid.jl")
 
 """
     quadrature_threaded_subgrid(

@@ -1,5 +1,5 @@
 # ============================================================================
-# src/Quadrature/QuadratureDispatch/QuadratureDispatchCUDA.jl
+# src/Quadrature/QuadratureDispatch/QuadratureDispatchCUDA/QuadratureDispatchCUDA.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba
@@ -42,9 +42,9 @@ import ..QuadratureBoundarySpec
 import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
-include("QuadratureDispatchCUDA/internal/_resolve_cuda_type_and_lambda.jl")
-include("QuadratureDispatchCUDA/internal/_build_cuda_axis_nodes_weights.jl")
-include("QuadratureDispatchCUDA/internal/_prepare_cuda_launch_state.jl")
+include("internal/_resolve_cuda_type_and_lambda.jl")
+include("internal/_build_cuda_axis_nodes_weights.jl")
+include("internal/_prepare_cuda_launch_state.jl")
 
 """
     _linear_to_indices_cuda(

@@ -98,7 +98,7 @@ include("Gauss.jl")
 include("BSpline.jl")
 include("QuadratureRuleSpec.jl")
 include("QuadratureNodes.jl")
-include("QuadratureDispatch.jl")
+include("QuadratureDispatch/QuadratureDispatch.jl")
 
 using .NewtonCotes
 using .Gauss
