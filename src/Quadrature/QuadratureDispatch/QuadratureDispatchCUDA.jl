@@ -42,6 +42,10 @@ import ..QuadratureBoundarySpec
 import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
+include("QuadratureDispatchCUDA/internal/_resolve_cuda_type_and_lambda.jl")
+include("QuadratureDispatchCUDA/internal/_build_cuda_axis_nodes_weights.jl")
+include("QuadratureDispatchCUDA/internal/_prepare_cuda_launch_state.jl")
+
 """
     _linear_to_indices_cuda(
         q::Int,
@@ -380,97 +384,47 @@ function quadrature_cuda(
     λ = nothing,
     real_type = nothing,
 )
-    dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
-    threads >= 1 || throw(ArgumentError("threads must be ≥ 1"))
-
-    T = if !isnothing(real_type)
-        real_type
-    elseif a isa AbstractVector || a isa Tuple
-        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
-        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
-        promote_type(map(typeof, a)..., map(typeof, b)...)
-    else
-        promote_type(typeof(a), typeof(b))
-    end
-
-    (T === Float32 || T === Float64) || throw(ArgumentError(
-        "CUDA mode currently supports only Float32 or Float64 real_type (got $(T))."
-    ))
-
-    λT = isnothing(λ) ? zero(T) : convert(T, λ)
-
-    QuadratureBoundarySpec._validate_boundary_spec(boundary, dim)
-    QuadratureRuleSpec._validate_rule_spec(rule, dim)
-
-    xs_list = Vector{Vector{T}}(undef, dim)
-    ws_list = Vector{Vector{T}}(undef, dim)
-
-    if !(a isa AbstractVector || a isa Tuple)
-        for d in 1:dim
-            xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a,
-                b,
-                N,
-                rule,
-                boundary;
-                λ = λT,
-                real_type = T,
-                axis = d,
-                dim = dim,
-            )
-        end
-    else
-        for d in 1:dim
-            xs_list[d], ws_list[d] = QuadratureNodes.get_quadrature_1d_nodes_weights(
-                a[d],
-                b[d],
-                N,
-                rule,
-                boundary;
-                λ = λT,
-                real_type = T,
-                axis = d,
-                dim = dim,
-            )
-        end
-    end
-
-    lens_vec = [length(xs_list[d]) for d in 1:dim]
-    maxn = maximum(lens_vec)
-
-    xs_mat = zeros(T, maxn, dim)
-    ws_mat = zeros(T, maxn, dim)
-
-    for d in 1:dim
-        nd = lens_vec[d]
-        xs_mat[1:nd, d] .= xs_list[d]
-        ws_mat[1:nd, d] .= ws_list[d]
-    end
-
-    xs_d = CUDA.CuArray(xs_mat)
-    ws_d = CUDA.CuArray(ws_mat)
-
-    lens = ntuple(d -> lens_vec[d], dim)
-    total_points = prod(lens_vec)
-    blocks = cld(total_points, threads)
-
-    out = CUDA.zeros(T, threads * blocks)
-
-    JobLoggerTools.println_benji(
-        "CUDA backend: dim=$(dim), lens=$(lens_vec) → total points=$(total_points) | blocks=$(blocks), threads/block=$(threads)"
+    dispatch_state = _resolve_cuda_type_and_lambda(
+        a,
+        b,
+        dim,
+        threads,
+        λ,
+        real_type,
     )
 
-    CUDA.@cuda threads=threads blocks=blocks _kernel_quadrature_nd!(
-        out,
-        xs_d,
-        ws_d,
-        lens,
-        total_points,
+    host_state = _build_cuda_axis_nodes_weights(
+        a,
+        b,
+        N,
+        rule,
+        boundary;
+        dim = dim,
+        λ = dispatch_state.λT,
+        real_type = dispatch_state.T,
+    )
+
+    launch_state = _prepare_cuda_launch_state(
+        host_state.xs_list,
+        host_state.ws_list,
+        threads,
+    )
+
+    JobLoggerTools.println_benji(
+        "CUDA backend: dim=$(dim), lens=$(launch_state.lens_vec) → total points=$(launch_state.total_points) | blocks=$(launch_state.blocks), threads/block=$(threads)"
+    )
+
+    CUDA.@cuda threads=threads blocks=launch_state.blocks _kernel_quadrature_nd!(
+        launch_state.out,
+        launch_state.xs_d,
+        launch_state.ws_d,
+        launch_state.lens,
+        launch_state.total_points,
         Val(dim),
         f,
     )
 
-    return sum(Array(out))
+    return sum(Array(launch_state.out))
 end
 
 end  # module QuadratureDispatchCUDA

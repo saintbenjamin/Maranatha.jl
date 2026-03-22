@@ -45,6 +45,9 @@ import ..QuadratureBoundarySpec
 import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
+include("QuadratureDispatchThreadedSubgrid/internal/_resolve_threaded_subgrid_type_and_lambda.jl")
+include("QuadratureDispatchThreadedSubgrid/internal/_dispatch_threaded_subgrid_by_dim.jl")
+
 """
     _chunk_range(
         n::Int,
@@ -354,81 +357,26 @@ function quadrature_threaded_subgrid(
     λ = nothing,
     real_type = nothing,
 )
-    dim >= 1 || throw(ArgumentError("dim must be ≥ 1"))
+    dispatch_state = _resolve_threaded_subgrid_type_and_lambda(
+        a,
+        b,
+        dim,
+        λ,
+        real_type,
+    )
 
-    T = if !isnothing(real_type)
-        real_type
-    elseif a isa AbstractVector || a isa Tuple
-        length(a) == dim || throw(ArgumentError("length(a) must equal dim"))
-        length(b) == dim || throw(ArgumentError("length(b) must equal dim"))
-        promote_type(map(typeof, a)..., map(typeof, b)...)
-    else
-        promote_type(typeof(a), typeof(b))
-    end
-    λT = isnothing(λ) ? zero(T) : convert(T, λ)
-
-    if dim == 1
-        return quadrature_1d_threaded_subgrid(
-            f, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary;
-            nthreads_req = nthreads_req,
-            λ = λT,
-            real_type = T,
-        )
-    elseif dim == 2
-        return quadrature_2d_threaded_subgrid(
-            f, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary;
-            nthreads_req = nthreads_req,
-            λ = λT,
-            real_type = T,
-        )
-    elseif dim == 3
-        return quadrature_3d_threaded_subgrid(
-            f, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary;
-            nthreads_req = nthreads_req,
-            λ = λT,
-            real_type = T,
-        )
-    elseif dim == 4
-        return quadrature_4d_threaded_subgrid(
-            f, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary;
-            nthreads_req = nthreads_req,
-            λ = λT,
-            real_type = T,
-        )
-    else
-        return quadrature_nd_threaded_subgrid(
-            f, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary;
-            dim = dim,
-            nthreads_req = nthreads_req,
-            λ = λT,
-            real_type = T,
-        )
-    end
+    return _dispatch_threaded_subgrid_by_dim(
+        f,
+        a,
+        b,
+        N,
+        rule,
+        boundary;
+        dim = dim,
+        nthreads_req = nthreads_req,
+        λ = dispatch_state.λT,
+        real_type = dispatch_state.T,
+    )
 end
 
 end  # module QuadratureDispatchThreadedSubgrid

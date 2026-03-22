@@ -8,4 +8,6 @@ test/*.jld2
 inote*
 ipynb/jld2/*.md
 samples/jld2/*.md
-test.ipynb
+/test_??.ipynb
+/test_??.jl
+/jld2
