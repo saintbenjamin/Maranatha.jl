@@ -55,17 +55,22 @@ function _prepare_cuda_launch_state(
 )
     T = eltype(xs_list[1])
 
-    lens_vec = [length(xs_list[d]) for d in eachindex(xs_list)]
-    maxn = maximum(lens_vec)
     dim = length(xs_list)
+    lens_vec = Vector{Int}(undef, dim)
 
-    xs_mat = zeros(T, maxn, dim)
-    ws_mat = zeros(T, maxn, dim)
+    @inbounds for d in 1:dim
+        lens_vec[d] = length(xs_list[d])
+    end
 
-    for d in 1:dim
+    maxn = maximum(lens_vec)
+
+    xs_mat = Matrix{T}(undef, maxn, dim)
+    ws_mat = Matrix{T}(undef, maxn, dim)
+
+    @inbounds for d in 1:dim
         nd = lens_vec[d]
-        xs_mat[1:nd, d] .= xs_list[d]
-        ws_mat[1:nd, d] .= ws_list[d]
+        copyto!(view(xs_mat, 1:nd, d), xs_list[d])
+        copyto!(view(ws_mat, 1:nd, d), ws_list[d])
     end
 
     xs_d = CUDA.CuArray(xs_mat)
