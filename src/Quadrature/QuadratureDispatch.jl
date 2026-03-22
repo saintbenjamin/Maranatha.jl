@@ -38,11 +38,16 @@ import ..QuadratureBoundarySpec
 import ..QuadratureRuleSpec
 import ..QuadratureNodes
 
+include("QuadratureDispatch/internal/_resolve_dispatch_type_and_lambda.jl")
+include("QuadratureDispatch/internal/_dispatch_local_quadrature.jl")
+
 include("QuadratureDispatch/QuadratureDispatchThreadedSubgrid.jl")
 include("QuadratureDispatch/QuadratureDispatchCUDA.jl")
 
 using .QuadratureDispatchThreadedSubgrid
 using .QuadratureDispatchCUDA
+
+include("QuadratureDispatch/internal/_dispatch_backend_quadrature.jl")
 
 """
     quadrature_1d(
@@ -610,103 +615,26 @@ function quadrature(
     threaded_subgrid::Bool = false,
     real_type = nothing,
 )
-    T = isnothing(real_type) ? promote_type(typeof(a), typeof(b)) : real_type
-    λT = isnothing(λ) ? zero(T) : convert(T, λ)
+    dispatch_state = _resolve_dispatch_type_and_lambda(
+        a,
+        b,
+        λ,
+        real_type,
+    )
 
-    # ------------------------------------------------------------
-    # CUDA backend
-    # ------------------------------------------------------------
-    if use_cuda
-        return QuadratureDispatchCUDA.quadrature_cuda(
-            integrand,
-            a,
-            b,
-            N,
-            rule,
-            boundary;
-            dim = dim,
-            λ = λT,
-            real_type = T,
-        )
-    end
-
-    # ------------------------------------------------------------
-    # Threaded CPU backend
-    # ------------------------------------------------------------
-    if threaded_subgrid
-        return QuadratureDispatchThreadedSubgrid.quadrature_threaded_subgrid(
-            integrand,
-            a,
-            b,
-            N,
-            rule,
-            boundary;
-            dim = dim,
-            λ = λT,
-            real_type = T,
-        )
-    end
-
-    # ------------------------------------------------------------
-    # Dimension-specialized local paths
-    # ------------------------------------------------------------
-    if dim == 1
-        return quadrature_1d(
-            integrand, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-    elseif dim == 2
-        return quadrature_2d(
-            integrand, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-    elseif dim == 3
-        return quadrature_3d(
-            integrand, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-    elseif dim == 4
-        return quadrature_4d(
-            integrand, 
-            a, 
-            b, 
-            N, 
-            rule, 
-            boundary; 
-            λ = λT, 
-            real_type = T
-        )
-    else
-        return quadrature_nd(
-            integrand,
-            a,
-            b,
-            N,
-            rule,
-            boundary;
-            dim = dim,
-            λ = λT,
-            real_type = T,
-        )
-    end
+    return _dispatch_backend_quadrature(
+        integrand,
+        a,
+        b,
+        N,
+        dim,
+        rule,
+        boundary;
+        λ = dispatch_state.λT,
+        use_cuda = use_cuda,
+        threaded_subgrid = threaded_subgrid,
+        real_type = dispatch_state.T,
+    )
 end
 
 end  # module QuadratureDispatch
