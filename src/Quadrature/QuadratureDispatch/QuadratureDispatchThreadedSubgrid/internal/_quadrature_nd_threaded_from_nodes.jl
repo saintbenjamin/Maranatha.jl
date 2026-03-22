@@ -31,20 +31,44 @@ function _quadrature_nd_threaded_from_nodes(
 
         isnothing(ranges) && continue
 
+        starts = Vector{Int}(undef, dim)
+        stops = Vector{Int}(undef, dim)
+        idx = Vector{Int}(undef, dim)
+        args = Vector{T}(undef, dim)
+
+        @inbounds for d in 1:dim
+            starts[d] = first(ranges[d])
+            stops[d] = last(ranges[d])
+            idx[d] = starts[d]
+        end
+
         local_sum = zero(T)
 
-        for I in Iterators.product(ranges...)
+        while true
             wprod = one(T)
 
-            for d in 1:dim
-                ii = I[d]
+            @inbounds for d in 1:dim
+                ii = idx[d]
+                args[d] = xs_list[d][ii]
                 wprod *= ws_list[d][ii]
             end
 
             if !iszero(wprod)
-                vals = ntuple(d -> xs_list[d][I[d]], dim)
-                local_sum += wprod * f(vals...)
+                local_sum += wprod * f(args...)
             end
+
+            carry_dim = dim
+            while carry_dim >= 1
+                idx[carry_dim] += 1
+                if idx[carry_dim] <= stops[carry_dim]
+                    break
+                else
+                    idx[carry_dim] = starts[carry_dim]
+                    carry_dim -= 1
+                end
+            end
+
+            carry_dim == 0 && break
         end
 
         partial[bid] = local_sum
