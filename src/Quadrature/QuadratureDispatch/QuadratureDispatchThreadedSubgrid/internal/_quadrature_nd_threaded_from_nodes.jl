@@ -8,6 +8,58 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    _quadrature_nd_threaded_from_nodes(
+        f,
+        xs_list::Vector{Vector{T}},
+        ws_list::Vector{Vector{T}},
+        lens::Vector{Int},
+        dim::Int,
+        nthreads_eff::Int,
+    ) where {T} -> T
+
+Evaluate a generic ND tensor-product quadrature sum using threaded subgrid
+decomposition from precomputed per-axis nodes and weights.
+
+# Function description
+This helper partitions a common reference grid into rectangular blocks,
+clips each block to the valid per-axis node ranges, and assigns block-local
+tensor-product traversal to Julia threads.
+
+Within each block it uses an explicit odometer loop over local indices,
+multiplies the active per-axis weights, evaluates the integrand at the current
+coordinates, and accumulates a block-local scalar sum. The final result is the
+sum of all block-local partials.
+
+# Arguments
+- `f`:
+  Integrand callable accepting `dim` positional arguments.
+- `xs_list::Vector{Vector{T}}`:
+  Per-axis quadrature nodes.
+- `ws_list::Vector{Vector{T}}`:
+  Per-axis quadrature weights.
+- `lens::Vector{Int}`:
+  Valid node counts on each axis.
+- `dim::Int`:
+  Problem dimensionality.
+- `nthreads_eff::Int`:
+  Effective number of CPU threads requested for block decomposition.
+
+# Returns
+- `T`:
+  Threaded tensor-product quadrature approximation in the active scalar type.
+
+# Errors
+- May propagate indexing errors if node, weight, and length arrays are
+  inconsistent.
+- Propagates exceptions thrown by `f`.
+
+# Notes
+- Reduction is performed through block-local partial sums indexed by block id.
+- Zero-weight tensor-product nodes are skipped.
+- This helper assumes that node and weight construction has already been
+  completed by the caller.
+"""
 function _quadrature_nd_threaded_from_nodes(
     f,
     xs_list::Vector{Vector{T}},

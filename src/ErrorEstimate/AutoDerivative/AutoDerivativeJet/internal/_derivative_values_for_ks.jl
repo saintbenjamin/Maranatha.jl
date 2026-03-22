@@ -65,6 +65,11 @@ orders are needed at the same point, since one jet can serve all of them.
   A vector containing the requested derivative values in the same order as `ks`,
   converted to the active scalar type.
 
+# Errors
+- Propagates backend and conversion errors from [`derivative_jet`](@ref).
+- May throw bounds errors if a requested derivative order in `ks` lies outside
+  the computed jet range.
+
 # Notes
 - If `ks` is empty, the function returns an empty vector of the active scalar type.
 - The derivative jet is computed only up to `maximum(ks)`.

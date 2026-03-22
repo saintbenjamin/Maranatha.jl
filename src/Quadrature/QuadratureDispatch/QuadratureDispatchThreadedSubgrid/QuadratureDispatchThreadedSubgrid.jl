@@ -76,6 +76,9 @@ sizes differ by at most one element.
 - `UnitRange{Int}`:
   Contiguous index range assigned to the requested chunk.
 
+# Errors
+- Throws `DivideError` if `nparts == 0`.
+
 # Notes
 - This helper does not itself validate that `part` lies in `1:nparts`.
 - Empty ranges may occur when `nparts > n`.
@@ -196,6 +199,10 @@ processed together.
 # Returns
 - `Vector{NTuple{dim,UnitRange{Int}}}`:
   Tensor-product block ranges, where `dim = length(splits)`.
+
+# Errors
+- May propagate argument errors from [`_chunk_range`](@ref) if any split count
+  is invalid.
 
 # Notes
 - The block count is the product of all entries in `splits`.

@@ -49,6 +49,10 @@ The returned tuple contains:
   `(ks, coeffs, center)` for the requested residual model, with `coeffs`
   stored in the active scalar type.
 
+# Errors
+- Propagates residual-model construction errors from
+  [`_leading_residual_terms_any`](@ref).
+
 # Notes
 - The cache key is `(rule, boundary, nterms, kmax, real_type)`.
 - `Nref` is forwarded to the builder when the model is first created, but it is

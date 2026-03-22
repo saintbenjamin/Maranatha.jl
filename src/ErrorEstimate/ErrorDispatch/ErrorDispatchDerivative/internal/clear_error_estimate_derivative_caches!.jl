@@ -25,8 +25,15 @@ This is useful when:
 - debugging stale cache contents,
 - resetting state between large runs.
 
+# Arguments
+- None.
+
 # Returns
 - `nothing`
+
+# Errors
+- This helper does not throw on normal use; dictionary mutation failures are
+  propagated if they occur.
 
 # Side effects
 - Mutates the following global caches:

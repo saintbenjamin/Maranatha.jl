@@ -16,6 +16,11 @@
 Resolve a scalar automatic-differentiation backend selector into the concrete
 derivative routine and its canonical backend tag.
 
+# Function description
+This helper maps the public derivative backend selector symbol to the concrete
+scalar `n`-th-derivative routine used by the direct derivative path, together
+with the canonical backend tag stored in cache keys and downstream metadata.
+
 # Arguments
 - `err_method::Symbol`:
   Backend selector symbol.

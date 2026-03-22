@@ -29,8 +29,34 @@ implementation selected by `dim`.
 This helper centralizes dimension-based selection for
 [`error_estimate_derivative_direct`](@ref).
 
+# Arguments
+- `f`:
+  Integrand callable.
+- `a`, `b`:
+  Integration-bound specifications.
+- `N`:
+  Quadrature subdivision count.
+- `dim`:
+  Problem dimensionality.
+- `rule`:
+  Quadrature-rule specification.
+- `boundary`:
+  Boundary specification.
+
+# Keyword arguments
+- `err_method::Symbol`:
+  Derivative backend selector.
+- `nerr_terms::Int`:
+  Number of residual terms requested.
+- `real_type`:
+  Active scalar type.
+
 # Returns
 - The named tuple returned by the selected dimension-specific direct estimator.
+
+# Errors
+- Propagates any validation or computation error thrown by the selected
+  dimension-specific direct estimator.
 """
 function _dispatch_error_estimate_derivative_direct_by_dim(
     f,

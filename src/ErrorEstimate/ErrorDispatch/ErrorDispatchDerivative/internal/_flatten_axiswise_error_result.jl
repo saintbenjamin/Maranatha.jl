@@ -32,6 +32,10 @@ generic `nd` result.
 # Returns
 - `NamedTuple`: Legacy-compatible flat result with an added `per_axis` field.
 
+# Errors
+- May throw if `err_nd.per_axis` is empty or if its entries are structurally
+  inconsistent with the expected derivative-estimator result layout.
+
 # Notes
 - This helper is a compatibility bridge for the 2D/3D/4D wrappers.
 - No information is discarded: the exact axis-wise pieces remain available in

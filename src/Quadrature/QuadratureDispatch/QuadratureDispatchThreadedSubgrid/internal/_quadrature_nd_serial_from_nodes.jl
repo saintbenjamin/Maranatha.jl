@@ -8,6 +8,52 @@
 # License: MIT License
 # ============================================================================
 
+"""
+    _quadrature_nd_serial_from_nodes(
+        f,
+        xs_list::Vector{Vector{T}},
+        ws_list::Vector{Vector{T}},
+        lens::AbstractVector{<:Integer},
+        dim::Int,
+    ) where {T} -> T
+
+Evaluate a generic ND tensor-product quadrature sum serially from precomputed
+per-axis nodes and weights.
+
+# Function description
+This helper performs iterative multi-index traversal over the full
+tensor-product grid described by `xs_list`, `ws_list`, and `lens`.
+
+At each tensor-product node it forms the weight product, gathers the active
+coordinates into `args`, evaluates the integrand, and accumulates the weighted
+contribution into a scalar total.
+
+# Arguments
+- `f`:
+  Integrand callable accepting `dim` positional arguments.
+- `xs_list::Vector{Vector{T}}`:
+  Per-axis quadrature nodes.
+- `ws_list::Vector{Vector{T}}`:
+  Per-axis quadrature weights.
+- `lens::AbstractVector{<:Integer}`:
+  Valid node counts on each axis.
+- `dim::Int`:
+  Problem dimensionality.
+
+# Returns
+- `T`:
+  Serial tensor-product quadrature approximation in the active scalar type.
+
+# Errors
+- May propagate indexing errors if node, weight, and length arrays are
+  inconsistent.
+- Propagates exceptions thrown by `f`.
+
+# Notes
+- Zero-weight tensor-product nodes are skipped.
+- This helper is used as the serial fallback inside the generic ND
+  threaded-subgrid backend.
+"""
 function _quadrature_nd_serial_from_nodes(
     f,
     xs_list::Vector{Vector{T}},

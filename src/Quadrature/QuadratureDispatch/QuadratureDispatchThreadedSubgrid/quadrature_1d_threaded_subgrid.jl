@@ -55,6 +55,11 @@ distributed across Julia threads; otherwise, a serial fallback is used.
 # Returns
 - Quadrature approximation of the one-dimensional integral in the active scalar type.
 
+# Errors
+- Propagates node-construction errors from
+  [`QuadratureNodes.get_quadrature_1d_nodes_weights`](@ref).
+- Propagates exceptions thrown by the integrand `f`.
+
 # Notes
 - If `nthreads_req <= 1` or only one quadrature node is present, the function
   uses a serial loop.

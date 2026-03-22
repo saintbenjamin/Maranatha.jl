@@ -55,6 +55,11 @@ and returns it.
   ``[g(x), g'(x), g''(x), \\ldots, g^{(nmax)}(x)]``
   converted to the active scalar type.
 
+# Errors
+- Propagates backend failures from `jet_fun`.
+- Propagates conversion errors if `x` or any jet entry cannot be converted to
+  the active scalar type.
+
 # Notes
 - This function is marked `@inline` to reduce dispatch overhead in tight loops.
 - The cache key uses the callable `g`, the converted evaluation point,
@@ -81,7 +86,15 @@ and returns it.
     end
 
     jet0 = jet_fun(g, x0, nmax)
-    jet = T.(jet0)
+    jet = if jet0 isa Vector{T}
+        jet0
+    else
+        vals = Vector{T}(undef, length(jet0))
+        @inbounds for i in eachindex(jet0)
+            vals[i] = convert(T, jet0[i])
+        end
+        vals
+    end
 
     _DERIV_JET_CACHE[key] = jet
     return jet

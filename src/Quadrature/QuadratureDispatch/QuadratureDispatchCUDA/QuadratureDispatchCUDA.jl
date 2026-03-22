@@ -235,6 +235,11 @@ that thread is written into `out[idx]`.
 
 * `nothing`
 
+# Errors
+
+* Propagates CUDA kernel execution failures and any GPU-side errors raised while
+  evaluating the integrand `f`.
+
 # Notes
 
 * This kernel performs no global reduction; it writes thread-local partial sums

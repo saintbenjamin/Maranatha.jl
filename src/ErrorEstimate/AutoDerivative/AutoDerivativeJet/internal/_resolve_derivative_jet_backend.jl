@@ -16,6 +16,11 @@
 Resolve a derivative-jet backend selector into the concrete jet routine and its
 canonical backend tag.
 
+# Function description
+This helper maps the public derivative-jet backend selector symbol to the
+concrete jet-construction routine used by the jet derivative path, together
+with the canonical backend tag stored in cache keys and downstream metadata.
+
 # Arguments
 - `err_method::Symbol`:
   Backend selector symbol.

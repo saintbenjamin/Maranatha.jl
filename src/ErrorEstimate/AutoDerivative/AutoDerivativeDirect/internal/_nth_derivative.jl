@@ -56,6 +56,11 @@ This interface is shared across ``1``/``2``/``3``/``4``-dimensional and general
 - `Real`:
   The `n`-th derivative value ``g^{(n)}(x)`` converted to the active scalar type.
 
+# Errors
+- Propagates backend failures from `deriv_fun`.
+- Propagates conversion errors if `x` or the backend result cannot be converted
+  to the active scalar type.
+
 # Notes
 - This function is marked `@inline` so it can be inlined into tight quadrature
   loops with minimal dispatch overhead.
