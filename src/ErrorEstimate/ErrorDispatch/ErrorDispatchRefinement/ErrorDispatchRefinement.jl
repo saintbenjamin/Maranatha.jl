@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/ErrorDispatchRefinement.jl
+# src/ErrorEstimate/ErrorDispatch/ErrorDispatchRefinement/ErrorDispatchRefinement.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

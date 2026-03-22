@@ -1,5 +1,5 @@
 # ============================================================================
-# src/ErrorEstimate/AutoDerivative.jl
+# src/ErrorEstimate/AutoDerivative/AutoDerivative.jl
 #
 # Author: Benjamin Jaedon Choi (https://github.com/saintbenjamin)
 # Affiliation: Center for Computational Sciences, University of Tsukuba

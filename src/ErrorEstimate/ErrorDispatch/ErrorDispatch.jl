@@ -196,7 +196,7 @@ include("internal/_dispatch_derivative_error_estimate.jl")
 include("internal/_dispatch_error_estimate_backend.jl")
 
 include("ErrorDispatchDerivative/ErrorDispatchDerivative.jl")
-include("ErrorDispatchRefinement.jl")
+include("ErrorDispatchRefinement/ErrorDispatchRefinement.jl")
 
 using .ErrorDispatchDerivative
 using .ErrorDispatchRefinement
