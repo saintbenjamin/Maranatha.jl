@@ -68,6 +68,7 @@ end
         include_with_announce("canonical/3D_bspline_test.jl")
         include_with_announce("canonical/4D_bspline_test.jl")
     end
+    include_with_announce("io/1D_gauss_io_test.jl")
     include_with_announce("complicated/1D_F0000_test.jl")
     include_with_announce("regression/axiswise_boundary_derivative_test.jl")
     include_with_announce("regression/axiswise_rule_test.jl")
