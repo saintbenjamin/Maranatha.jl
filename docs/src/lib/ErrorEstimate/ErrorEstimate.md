@@ -119,7 +119,6 @@ Supported backends include:
 
 * `:forwarddiff`
 * `:taylorseries`
-* `:fastdifferentiation`
 * `:enzyme`
 
 Derivative jets are handled separately by the jet module.

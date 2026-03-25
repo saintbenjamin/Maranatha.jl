@@ -39,7 +39,7 @@ layer between
 
 - the error-estimation dispatchers in `Maranatha.ErrorEstimate`, and
 - external differentiation backends such as
-  `ForwardDiff`, `TaylorSeries`, `FastDifferentiation`, and `Enzyme`.
+  `ForwardDiff`, `TaylorSeries`, and `Enzyme`.
 
 A typical call chain is
 
@@ -61,7 +61,6 @@ Both direct and jet pathways support multiple differentiation engines:
 
 - `:forwarddiff`         → Forward-mode automatic differentiation
 - `:taylorseries`        → Truncated Taylor expansion
-- `:fastdifferentiation` → Symbolic differentiation and compilation
 - `:enzyme`              → Reverse-mode AD via Enzyme
 
 Backend selection is controlled externally through the `err_method`
@@ -130,7 +129,7 @@ error-estimation layer rather than this module.
 * [`Maranatha.ErrorEstimate.ErrorDispatch`](@ref)
 * [`Maranatha.Runner.run_Maranatha`](@ref)
 * External packages: ForwardDiff.jl, TaylorSeries.jl,
-  FastDifferentiation.jl, Enzyme.jl
+  Enzyme.jl
 """
 module AutoDerivative
 

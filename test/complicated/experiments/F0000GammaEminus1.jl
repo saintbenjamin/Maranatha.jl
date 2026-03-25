@@ -23,7 +23,6 @@ using Bessels
 
 using TaylorSeries
 using ForwardDiff
-using FastDifferentiation
 
 import SpecialFunctions: besseli
 
@@ -197,41 +196,6 @@ appears in the F0000 integrand.
 end
 
 """
-    exI0_safe(
-        x::T
-    ) where {T<:Number}
-
-Return the scaled modified Bessel factor ``exp(-x) \\, I_0(x)`` in a numerically safe way.
-
-Uses a simple branch on the **real constant term** of ``x``:
-- for ``x \\le 50``: evaluates ``\\exp(-x) \\; \\texttt{besseli}(0, x)`` directly,
-- for ``x > 50``: uses a truncated large-`x` asymptotic expansion of ``exp(-x) \\, I_0(x)``.
-
-This is written to work with plain reals as well as AD / Taylor types by avoiding
-type-dependent branching.
-"""
-@inline function exI0_safe(
-    x::FastDifferentiation.Node
-)
-    T = typeof(x)
-
-    # Asymptotic expansion of exp(-x) I0(x):
-    # exp(-x) I0(x) ~ 1/sqrt(2πx) * (1 + 1/(8x) + 9/(128x^2) + 225/(3072x^3) + 11025/(98304x^4) + ...)
-    invx = inv(x)
-
-    s = one(T) +
-        invx / T(8) +
-        T(9) * invx^2 / T(128) +
-        T(225) * invx^3 / T(3072) +
-        T(11025) * invx^4 / T(98304) # +
-        # T(893025) * invx^5 / T(3932160) +
-        # T(108056025) * invx^6 / T(188743680)
-
-    return s / sqrt(T(2) * T(pi) * x)
-    # return Bessels.besseli0x(x)
-end
-
-"""
     g_F0000_raw(
         y::T
     ) where {T<:Number}
@@ -289,38 +253,6 @@ function g_F0000_raw(
 
     return termA + termB
 end
-
-"""
-    g_F0000_raw(
-        y::T
-    ) where {T<:Number}
-
-Evaluate the **raw** F0000 integrand on ``y \\in (0, 1)``.
-
-Computes ``x = \\dfrac{1 - y}{y}`` and returns the sum of:
-- a term proportional to ``\\left(\\exp(-x) \\, I_0(x)\\right)^4`` with rational prefactors in ``y``,
-- a correction term involving ``\\exp(-x/2)``.
-
-This raw form has endpoint-singular prefactors, so it is intended for interior
-evaluation (endpoint handling is done elsewhere).
-"""
-function g_F0000_raw(
-    y::FastDifferentiation.Node
-)
-    T = typeof(y)
-
-    x = (one(T) - y) / y  # x>0
-    exI0 = exI0_safe(x)
-
-    termA = (4T(pi)^2) * ((one(T) - y) / (y^3)) * (exI0^4)
-
-    emx2 = exp(-x / T(2))
-    bracket = one(T) - (T(1)/T(2)) * (one(T) + one(T)/y) * emx2
-    termB = - (one(T) / (y * (one(T) - y))) * bracket
-
-    return termA + termB
-end
-
 
 """
     gtilde_F0000(

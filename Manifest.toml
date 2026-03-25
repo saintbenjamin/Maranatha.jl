@@ -278,18 +278,6 @@ git-tree-sha1 = "27415f162e6028e81c72b82ef756bf321213b6ec"
 uuid = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
 version = "0.1.10"
 
-[[deps.FastDifferentiation]]
-deps = ["DataStructures", "DiffRules", "LinearAlgebra", "NaNMath", "RuntimeGeneratedFunctions", "SparseArrays", "SpecialFunctions", "StaticArrays", "UUIDs"]
-git-tree-sha1 = "6178bfbd6c8097f1170ef2f65596967a5ec26777"
-uuid = "eb9bf01b-bf85-4b60-bf87-ee5de06c00be"
-version = "0.4.5"
-
-    [deps.FastDifferentiation.extensions]
-    FastDifferentiationVisualizationExt = "ElectronDisplay"
-
-    [deps.FastDifferentiation.weakdeps]
-    ElectronDisplay = "d872a56f-244b-5cc9-b574-2017b5b909a8"
-
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
 git-tree-sha1 = "6522cfb3b8fe97bec632252263057996cbd3de20"
@@ -526,7 +514,7 @@ uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
 version = "0.5.16"
 
 [[deps.Maranatha]]
-deps = ["Bessels", "CUDA", "Dates", "DoubleFloats", "Enzyme", "FastDifferentiation", "ForwardDiff", "JLD2", "LinearAlgebra", "Printf", "PyPlot", "SpecialFunctions", "Statistics", "TOML", "TaylorSeries"]
+deps = ["Bessels", "CUDA", "Dates", "DoubleFloats", "Enzyme", "ForwardDiff", "JLD2", "LinearAlgebra", "Printf", "PyPlot", "SpecialFunctions", "Statistics", "TOML", "TaylorSeries"]
 path = "."
 uuid = "f59da73d-25b7-4e5f-93e8-d831d7277eb4"
 version = "1.1.6"

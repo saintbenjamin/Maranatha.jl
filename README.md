@@ -287,7 +287,6 @@ Maranatha supports two complementary error-scale strategies.
 * backend support via:
   * [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
   * [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/)
-  * [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/)
   * [`Enzyme.jl`](https://enzyme.mit.edu/julia/stable/)
 
 **Refinement-based models**
@@ -480,7 +479,6 @@ MIT License
 
 * [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/)
 * [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/)
-* [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/)
 * [`Enzyme.jl`](https://enzyme.mit.edu/julia/stable/)
 * [`PyPlot.jl`](https://github.com/JuliaPy/PyPlot.jl)
 * [`CUDA.jl`](https://cuda.juliagpu.org/stable/)

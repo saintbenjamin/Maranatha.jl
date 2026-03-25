@@ -40,12 +40,10 @@ import .._DERIV_JET_CACHE
 include("ADTaylorSeries.jl")
 include("ADEnzyme.jl")
 include("ADForwardDiff.jl")
-include("ADFastDifferentiation.jl")
 
 using .ADTaylorSeries
 using .ADEnzyme
 using .ADForwardDiff
-using .ADFastDifferentiation
 
 include("internal/_resolve_nth_derivative_backend.jl")
 include("internal/_nth_derivative.jl")

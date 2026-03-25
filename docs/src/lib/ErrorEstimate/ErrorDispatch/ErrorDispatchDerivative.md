@@ -66,7 +66,7 @@ Supported backends are:
 
 - `:forwarddiff`
 - `:taylorseries`
-- `:fastdifferentiation`
+- ``
 - `:enzyme`
 
 The scalar wrapper first checks an internal derivative cache and then dispatches
@@ -96,7 +96,6 @@ Each backend has slightly different strengths:
 
 - [`ForwardDiff.jl`](https://juliadiff.org/ForwardDiff.jl/stable/) is the default practical path,
 - [`TaylorSeries.jl`](https://juliadiff.org/TaylorSeries.jl/stable/) is useful for single-pass higher-order expansion,
-- [`FastDifferentiation.jl`](https://brianguenter.github.io/FastDifferentiation.jl/stable/) provides symbolic differentiation when the integrand is compatible,
 - [`Enzyme.jl`](https://enzyme.mit.edu/index.fcgi/julia/stable/) is present mainly as an experimental / benchmarking path here.
 
 ---

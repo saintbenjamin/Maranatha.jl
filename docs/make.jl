@@ -78,14 +78,12 @@ makedocs(
                 "AutoDerivativeDirect"              => Any[
                     "AutoDerivativeDirect"          => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/AutoDerivativeDirect.md",
                     "ADEnzyme"                      => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADEnzyme.md",
-                    "ADFastDifferentiation"         => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADFastDifferentiation.md",
                     "ADForwardDiff"                 => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADForwardDiff.md",
                     "ADTaylorSeries"                => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeDirect/ADTaylorSeries.md",
                 ],
                 "AutoDerivativeJet"                 => Any[
                     "AutoDerivativeJet"             => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/AutoDerivativeJet.md",
                     "ADEnzyme"                      => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADEnzyme.md",
-                    "ADFastDifferentiation"         => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADFastDifferentiation.md",
                     "ADForwardDiff"                 => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADForwardDiff.md",
                     "ADTaylorSeries"                => "lib/ErrorEstimate/AutoDerivative/AutoDerivativeJet/ADTaylorSeries.md",
                 ],

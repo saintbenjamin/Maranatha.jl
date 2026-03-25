@@ -69,7 +69,7 @@ Key properties:
 
 Derivative-based estimation is selected when
 `err_method` is set to a derivative backend such as
-`:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, or `:enzyme`.
+`:forwarddiff`, `:taylorseries`, ``, or `:enzyme`.
 
 Two sub-modes exist.
 
@@ -80,7 +80,6 @@ backend:
 
 * ForwardDiff
 * TaylorSeries
-* FastDifferentiation
 * Enzyme
 
 Backend:
@@ -271,7 +270,7 @@ it instead of recomputing the coarse-grid value.
 
   - `:refinement` for refinement-based estimation
   - derivative backend selectors such as
-    `:forwarddiff`, `:taylorseries`, `:fastdifferentiation`, or `:enzyme`
+    `:forwarddiff`, `:taylorseries`, ``, or `:enzyme`
 - `nerr_terms::Int = 1`:
   Number of residual terms used by derivative-based estimators.
   Ignored when `err_method == :refinement`.

@@ -9,7 +9,7 @@
         boundary = :LU_ININ
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -63,7 +63,7 @@
         boundary = :LU_INEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -117,7 +117,7 @@
         boundary = :LU_EXIN
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -171,7 +171,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9, 10]
         ns .+= 2
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -225,7 +225,7 @@
         boundary = :LU_ININ
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -279,7 +279,7 @@
         boundary = :LU_INEX
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -333,7 +333,7 @@
         boundary = :LU_EXIN
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -387,7 +387,7 @@
         boundary = :LU_EXEX
         ns = [4, 6, 8, 10, 12, 14, 16, 18, 20]
         ns .+= 2
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -441,7 +441,7 @@
         boundary = :LU_ININ
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -495,7 +495,7 @@
         boundary = :LU_INEX
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -549,7 +549,7 @@
         boundary = :LU_EXIN
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -603,7 +603,7 @@
         boundary = :LU_EXEX
         ns = [6, 9, 12, 15, 18, 21, 24, 27, 30]
         ns .+= 2
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -657,7 +657,7 @@
         boundary = :LU_ININ
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -711,7 +711,7 @@
         boundary = :LU_INEX
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -765,7 +765,7 @@
         boundary = :LU_EXIN
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -819,7 +819,7 @@
         boundary = :LU_EXEX
         ns = [8, 12, 16, 20, 24, 28, 32, 36, 40]
         ns .+= 2
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -873,7 +873,7 @@
         boundary = :LU_ININ
         ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -927,7 +927,7 @@
         boundary = :LU_INEX
         ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -981,7 +981,7 @@
         boundary = :LU_EXIN
         ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
         ns .+= 1
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -1035,7 +1035,7 @@
         boundary = :LU_EXEX
         ns = [10, 15, 20, 25, 30, 35, 40, 45, 50]
         ns .+= 2
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4

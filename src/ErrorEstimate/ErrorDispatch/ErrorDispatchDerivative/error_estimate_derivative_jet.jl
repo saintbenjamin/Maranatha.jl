@@ -69,7 +69,7 @@ dimension-specific backend.
 # Keyword arguments
 - `err_method::Symbol`:
   Derivative backend selector
-  (`:forwarddiff | :taylorseries | :fastdifferentiation | :enzyme`).
+  (`:forwarddiff | :taylorseries |  | :enzyme`).
 - `nerr_terms::Int`:
   Number of residual contributions to retain when constructing the effective
   error estimate.

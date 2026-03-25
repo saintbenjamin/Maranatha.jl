@@ -22,7 +22,7 @@ backend dispatch by itself.
 
 # Notes
 - Supported values are `:refinement`, `:forwarddiff`, `:taylorseries`,
-  `:enzyme`, and `:fastdifferentiation`.
+  and `:enzyme`.
 - Derivative-based methods and `:refinement` use different `nerr_terms`
   validation rules; see [`validate_run_config`](@ref).
 """
@@ -31,5 +31,4 @@ const VALID_ERR_METHODS = Set([
     :forwarddiff,
     :taylorseries,
     :enzyme,
-    :fastdifferentiation,
 ])

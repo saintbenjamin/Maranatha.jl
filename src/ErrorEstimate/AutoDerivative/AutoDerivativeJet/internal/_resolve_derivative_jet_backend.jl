@@ -29,7 +29,7 @@ with the canonical backend tag stored in cache keys and downstream metadata.
 
   - `:forwarddiff`
   - `:taylorseries`
-  - `:fastdifferentiation`
+  - ``
   - `:enzyme`
 
 # Returns
@@ -54,7 +54,6 @@ with the canonical backend tag stored in cache keys and downstream metadata.
 )
     return err_method === :forwarddiff         ? (ADForwardDiff.derivative_jet_forwarddiff, :forwarddiff) :
            err_method === :taylorseries        ? (ADTaylorSeries.derivative_jet_taylor, :taylorseries) :
-           err_method === :fastdifferentiation ? (ADFastDifferentiation.derivative_jet_fastdifferentiation, :fastdifferentiation) :
            err_method === :enzyme              ? (ADEnzyme.derivative_jet_enzyme, :enzyme) :
            JobLoggerTools.error_benji("Unknown err_method=$err_method")
 end

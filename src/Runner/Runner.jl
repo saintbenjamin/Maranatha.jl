@@ -190,7 +190,7 @@ pipeline, while `use_error_jet` controls only the derivative-based branch.
 
   - `:refinement` selects the refinement-based estimator.
   - Any other supported symbol (e.g. `:forwarddiff`, `:taylorseries`,
-    `:fastdifferentiation`, `:enzyme`) selects a derivative-based estimator.
+    ``, `:enzyme`) selects a derivative-based estimator.
 
   The actual dispatch is performed by
   [`ErrorDispatch.error_estimate`](@ref).

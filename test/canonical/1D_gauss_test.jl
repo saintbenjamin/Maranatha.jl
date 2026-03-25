@@ -9,7 +9,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -63,7 +63,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
@@ -117,7 +117,7 @@
         boundary = :LU_EXEX
         ns = [2, 3, 4, 5, 6, 7, 8, 9]
         ns .+= 0
-        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , :fastdifferentiation
+        err_method = :refinement # :forwarddiff , :taylorseries , :enzyme , 
         nerr_terms = 3
         ff_shift = 0
         fit_terms = 4
