@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Home · Maranatha.jl</title><meta name="title" content="Home · Maranatha.jl"/><meta property="og:title" content="Home · Maranatha.jl"/><meta property="twitter:title" content="Home · Maranatha.jl"/><meta name="description" content="Documentation for Maranatha.jl."/><meta property="og:description" content="Documentation for Maranatha.jl."/><meta property="twitter:description" content="Documentation for Maranatha.jl."/><script data-outdated-warner src="assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="assets/documenter.js"></script><script src="search_index.js"></script><script src="siteinfo.js"></script><script src="../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href>Maranatha.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li class="is-active"><a class="tocitem" href>Home</a></li><li><span class="tocitem">Reference</span><ul><li><a class="tocitem" href="lib/Runner/">Runner</a></li><li><input class="collapse-toggle" id="menuitem-2-2" type="checkbox"/><label class="tocitem" for="menuitem-2-2"><span class="docs-label">Quadrature</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="lib/Quadrature/">Quadrature</a></li><li><a class="tocitem" href="lib/QuadratureDispatch/">QuadratureDispatch</a></li><li><a class="tocitem" href="lib/BSpline/">BSpline</a></li><li><a class="tocitem" href="lib/Gauss/">Gauss</a></li><li><a class="tocitem" href="lib/NewtonCotes/">NewtonCotes</a></li></ul></li><li><input class="collapse-toggle" id="menuitem-2-3" type="checkbox"/><label class="tocitem" for="menuitem-2-3"><span class="docs-label">ErrorEstimate</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="lib/ErrorEstimate/">ErrorEstimate</a></li><li><a class="tocitem" href="lib/ErrorDispatch/">ErrorDispatch</a></li><li><a class="tocitem" href="lib/ErrorBSpline/">ErrorBSpline</a></li><li><a class="tocitem" href="lib/ErrorGauss/">ErrorGauss</a></li><li><a class="tocitem" href="lib/ErrorNewtonCotes/">ErrorNewtonCotes</a></li></ul></li><li><a class="tocitem" href="lib/LeastChiSquareFit/">LeastChiSquareFit</a></li><li><a class="tocitem" href="lib/PlotTools/">PlotTools</a></li><li><a class="tocitem" href="lib/Integrands/">Integrands</a></li><li><input class="collapse-toggle" id="menuitem-2-7" type="checkbox"/><label class="tocitem" for="menuitem-2-7"><span class="docs-label">Utils</span><i class="docs-chevron"></i></label><ul class="collapsed"><li><a class="tocitem" href="lib/Utils/">Utils</a></li><li><a class="tocitem" href="lib/AvgErrFormatter/">AvgErrFormatter</a></li><li><a class="tocitem" href="lib/JobLoggerTools/">JobLoggerTools</a></li><li><a class="tocitem" href="lib/MaranathaIO/">MaranathaIO</a></li><li><a class="tocitem" href="lib/MaranathaTOML/">MaranathaTOML</a></li><li><a class="tocitem" href="lib/Wizard/">Wizard</a></li></ul></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Home</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Home</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/saintbenjamin/Maranatha.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Maranatha.jl-Project-Documentation"><a class="docs-heading-anchor" href="#Maranatha.jl-Project-Documentation">Maranatha.jl Project Documentation</a><a id="Maranatha.jl-Project-Documentation-1"></a><a class="docs-heading-anchor-permalink" href="#Maranatha.jl-Project-Documentation" title="Permalink"></a></h1><p>Welcome to the documentation for the <strong>Maranatha.jl</strong>!</p><article><details class="docstring" open="true"><summary id="Maranatha.Maranatha"><a class="docstring-binding" href="#Maranatha.Maranatha"><code>Maranatha.Maranatha</code></a> — <span class="docstring-category">Module</span></summary><section><div><pre><code class="language-julia hljs">module Maranatha</code></pre><p><code>Maranatha.jl</code> is a modular toolkit for <strong>multi-dimensional quadrature</strong>, <strong>error-scale modeling</strong>, and <strong>least <span>$\chi^2$</span> fitting for <span>$h \to 0$</span> extrapolation</strong> on hypercube domains <span>$[a,b]^n$</span> where <span>$n$</span> is the (spacetime) dimensionality.</p><p>The quadrature layer supports multiple rule backends (Newton-Cotes, Gauss-family, and B-spline), selected via rule dispatch.</p><p><code>Maranatha.jl</code> is designed around a <strong>pipeline-oriented workflow</strong>:</p><ol><li>quadrature</li><li>error estimation</li><li><span>$h \to 0$</span> extrapolation via least <span>$\chi^2$</span> fitting</li><li>visualization using <a href="https://github.com/JuliaPy/PyPlot.jl"><code>PyPlot.jl</code></a>.</li></ol><p>The internal structure is intentionally split into small, independent submodules so that numerical components, dataset generation, fitting, logging, plotting, and preset integrands can evolve without tightly coupling the codebase.</p><p>In the current design, these pipeline stages are exposed as separate responsibilities: the runner builds raw convergence data, the fitter performs <span>$h \to 0$</span> extrapolation, and plotting utilities visualize either the fitted result or the underlying quadrature behavior.</p><p><strong>Architecture overview</strong></p><p><strong>Integration layer</strong></p><p><a href="lib/Quadrature/#Maranatha.Quadrature"><code>Maranatha.Quadrature</code></a> provides a unified front-end for tensor-product quadrature in arbitrary dimensions, dispatching to multiple rule backends (Newton-Cotes / Gauss-family / B-spline). The concrete rule implementations are kept internal and are not part of the public API surface. The quadrature core uses an exact-moment / Taylor-expansion-based construction to support general multi-point composite Newton-Cotes rules through a unified implementation (including configurable endpoint openness via boundary patterns).</p><p><strong>Error modeling</strong></p><p>The <a href="lib/ErrorEstimate/#Maranatha.ErrorEstimate"><code>Maranatha.ErrorEstimate</code></a> module supplies lightweight derivative-based error (scale) estimators that follow a tensor-product philosophy across dimensions. The estimator uses a lightweight derivative-based <em>error scale</em> model whose leading structure is determined from a rule-family residual model (dispatched by <code>rule</code>), using midpoint residual moments/terms derived from the underlying composite weights.</p><p>The estimator supports using one or more residual terms (LO, NLO, ...) via a term count parameter (e.g. <code>nerr_terms</code> in the high-level runner), which sums multiple midpoint-residual contributions when requested. This provides consistent <span>$h$</span>-scaling weights for least-<span>$\chi^2$</span> fitting across dimensions.</p><p>This estimator is <em>not a rigorous truncation bound</em>; it is designed to produce consistent scaling weights for least <span>$\chi^2$</span> fitting for <span>$h \to 0$</span> extrapolation.</p><p><strong>Least <span>$\chi^2$</span> fitting</strong></p><p><a href="lib/LeastChiSquareFit/#Maranatha.LeastChiSquareFit"><code>Maranatha.LeastChiSquareFit</code></a> submodule performs least <span>$\chi^2$</span> fitting for <span>$h \to 0$</span> extrapolation using a <em>residual-informed exponent basis</em> dispatched by rule family (via the error-model backend).</p><p>The fitted model is linear in its parameters:</p><p class="math-container">\[I(h) = \sum_{\texttt{i}=1}^{n} \lambda_\texttt{i} \, h^{\,\texttt{powers[i]}}\]</p><p>where the exponent vector <code>powers</code> is determined during fitting and stored in the fit result (e.g. <code>fit_result.powers</code>, with <code>powers[1] = 0</code> for the constant term).</p><p>The fitter may optionally apply a <strong>fitting-function-shift</strong> (e.g. <code>ff_shift</code>) when selecting residual-derived powers, allowing the fit basis to skip a nominal leading order that is expected to vanish for the given integrand. In such cases, the stored <code>fit_result.powers</code> reflects the shifted basis actually used in the fit.</p><p>The routine also returns the parameter covariance matrix, enabling covariance-propagated uncertainty bands in convergence plots.</p><p><strong>Integrand system</strong></p><p>The <a href="lib/Integrands/#Maranatha.Integrands"><code>Maranatha.Integrands</code></a> submodule implements a registry-based preset system that allows named integrands to be constructed via factories while still accepting plain <code>Julia</code> callables (functions, closures, callable structs).</p><p>This design keeps user-facing workflows simple without sacrificing flexibility.</p><p><strong>Execution layer</strong></p><p><a href="lib/Runner/#Maranatha.Runner.run_Maranatha-Tuple{AbstractString}"><code>Maranatha.Runner.run_Maranatha</code></a> is the main orchestration entry point for building a raw convergence dataset.</p><p>It performs:</p><ol><li>multi-resolution quadrature,</li><li>error-scale estimation (optionally summing LO + NLO + ... residual terms via <code>nerr_terms</code>),</li><li>collection and optional saving of the resulting convergence data.</li></ol><p>The returned dataset is then intended to be passed to <a href="lib/LeastChiSquareFit/#Maranatha.LeastChiSquareFit.least_chi_square_fit-Tuple{Any}"><code>Maranatha.LeastChiSquareFit.least_chi_square_fit</code></a> for downstream <span>$h \to 0$</span> extrapolation.</p><p>Formatted reporting of fit results is handled separately by <a href="lib/LeastChiSquareFit/#Maranatha.LeastChiSquareFit.print_fit_result-Tuple{Any}"><code>Maranatha.LeastChiSquareFit.print_fit_result</code></a>.</p><p>Users will often begin with this high-level runner, but fitting and reporting are now explicit downstream steps rather than responsibilities of the runner itself.</p><p><strong>Plotting utilities</strong></p><p><a href="lib/PlotTools/#Maranatha.PlotTools.plot_convergence_result-Tuple{Any, Any}"><code>Maranatha.PlotTools.plot_convergence_result</code></a> generates publication-style convergence figures using <a href="https://github.com/JuliaPy/PyPlot.jl"><code>PyPlot.jl</code></a> with <a href="https://www.latex-project.org/"><span>$\LaTeX$</span></a> rendering. The shaded band represents the covariance-propagated <span>$1 \, \sigma$</span> uncertainty of the fitted model. The plot reconstruction uses the exact exponent basis stored in the fit result (e.g. <code>fit_result.powers</code>) together with the parameter covariance (e.g. <code>fit_result.cov</code>), ensuring consistency with the fitted model, including any forward-shift (<code>ff_shift</code>) applied. Convergence is visualized against <span>$h^{p}$</span> where <span>$p = \texttt{fit\_result.powers[2]}$</span>, with model evaluation performed on <span>$h$</span> via <span>$h = x^{1/p}$</span>.</p><p><a href="lib/PlotTools/#Maranatha.PlotTools.plot_quadrature_coverage_1d-Tuple{AbstractString}"><code>Maranatha.PlotTools.plot_quadrature_coverage_1d</code></a> provides a complementary pedagogical visualization of how a selected 1D quadrature rule samples and approximates the integrand, including B-spline reconstruction and non-B-spline contribution views.</p><p><strong>Logging</strong></p><p>All runtime diagnostics are handled by <a href="lib/JobLoggerTools/#Maranatha.Utils.JobLoggerTools"><code>Maranatha.Utils.JobLoggerTools</code></a>, which provides timestamped logging, stage delimiters, and timing macros used consistently throughout the pipeline.</p><p><strong>Public API</strong></p><p>The top-level Maranatha namespace re-exports a minimal set of entry points:</p><ul><li><p><a href="lib/Runner/#Maranatha.Runner.run_Maranatha-Tuple{AbstractString}"><code>Maranatha.Runner.run_Maranatha</code></a> Perform numerical integration and error-scale estimation across multiple resolutions, returning a raw convergence dataset for later fitting.</p></li><li><p><a href="lib/LeastChiSquareFit/#Maranatha.LeastChiSquareFit.least_chi_square_fit-Tuple{Any}"><code>Maranatha.LeastChiSquareFit.least_chi_square_fit</code></a> Perform weighted least <span>$\chi^2$</span> fitting for <span>$h \to 0$</span> extrapolation from a raw convergence dataset.</p></li><li><p><a href="lib/LeastChiSquareFit/#Maranatha.LeastChiSquareFit.print_fit_result-Tuple{Any}"><code>Maranatha.LeastChiSquareFit.print_fit_result</code></a> Print a formatted summary of the fitted parameters, uncertainties, and <span>$\chi^2$</span> diagnostics.</p></li><li><p><a href="lib/PlotTools/#Maranatha.PlotTools.plot_convergence_result-Tuple{Any, Any}"><code>Maranatha.PlotTools.plot_convergence_result</code></a> Visualize convergence behavior and fitted uncertainty bands.</p></li></ul><p>Internal submodules remain accessible but are not required for normal usage, which typically proceeds through a small set of top-level dataset-generation, fitting, reporting, and plotting entry points.</p><p><strong>Dimensionality</strong></p><p>A generalized <span>$n$</span>-dimensional implementation is provided following the same tensor-product philosophy, with dimension-specific specializations available for lower dimensions. Because tensor enumeration scales rapidly with dimension, higher-dimensional usage is primarily intended for controlled numerical studies.</p><p><strong>Design goals</strong></p><ul><li>Pipeline-oriented structure rather than rule-centric APIs.</li><li>Strict separation between numerical core, orchestration, and visualization.</li><li>Reproducible floating-point behavior through preserved loop ordering.</li><li>Minimal public API surface with extensible internal modules.</li><li>Unified general multi-point Newton-Cotes support via Taylor-expansion/moment-based rule construction.</li></ul><p><strong>Examples</strong></p><p>The example below demonstrates the standard three-step workflow: generate a convergence dataset, perform the downstream fit, and plot the resulting convergence curve.</p><pre><code class="language-julia hljs">using Maranatha
+
+f(x, y, z, t) = sin(x * y^3 * z * t) * exp(x^2)
+
+result = run_Maranatha(
+    f,
+    0.0, 1.0;
+    dim = 4,
+    nsamples = [2, 3, 4, 5, 6, 7, 8, 9],
+    rule = :gauss_p4,
+    boundary = :LU_EXEX,
+    err_method = :forwarddiff,
+    fit_terms = 4,
+    nerr_terms = 3,
+    ff_shift = 0,
+    use_threads = false,
+    name_prefix = &quot;4D_test&quot;,
+    save_path = &quot;.&quot;,
+    write_summary = true
+)
+
+fit = least_chi_square_fit(
+    result.a,
+    result.b,
+    result.h,
+    result.avg,
+    result.err,
+    result.rule,
+    result.boundary;
+    nterms = result.fit_terms,
+    ff_shift = result.ff_shift,
+    nerr_terms = result.nerr_terms
+)
+
+print_fit_result(fit)
+
+plot_convergence_result(
+    result.a,
+    result.b,
+    &quot;4D_test&quot;,
+    result.h,
+    result.avg,
+    result.err,
+    fit;
+    rule = result.rule,
+    boundary = result.boundary
+)</code></pre><p>If a long convergence study is executed in multiple partial runs (for example, due to wall-time limits or interrupted sessions), the saved <code>.jld2</code> files can later be merged with <a href="lib/MaranathaIO/#Maranatha.Utils.MaranathaIO.merge_datapoint_result_files-Tuple{Vararg{AbstractString}}"><code>Utils.MaranathaIO.merge_datapoint_result_files</code></a> or <a href="lib/MaranathaIO/#Maranatha.Utils.MaranathaIO.merge_datapoint_results-Tuple"><code>Utils.MaranathaIO.merge_datapoint_results</code></a>, and the merged result can be passed to <a href="lib/LeastChiSquareFit/#Maranatha.LeastChiSquareFit.least_chi_square_fit-Tuple{Any}"><code>LeastChiSquareFit.least_chi_square_fit</code></a> in exactly the same way as a single-run result.</p><pre><code class="language-julia hljs">using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    &quot;result_part1.jld2&quot;,
+    &quot;result_part2.jld2&quot;,
+    &quot;result_part3.jld2&quot;;
+    output_path = &quot;result_merged.jld2&quot;,
+    write_summary = true,
+)
+
+merged = load_datapoint_results(merged_path)
+
+fit = least_chi_square_fit(
+    merged.a,
+    merged.b,
+    merged.h,
+    merged.avg,
+    merged.err,
+    merged.rule,
+    merged.boundary;
+    nterms = merged.fit_terms,
+    ff_shift = merged.ff_shift,
+    nerr_terms = merged.nerr_terms
+)</code></pre><p>The merged output path may also be generated automatically from the actual subdivision counts present in the merged result:</p><pre><code class="language-julia hljs">using Maranatha
+
+merged_path = merge_datapoint_result_files(
+    &quot;result_part1.jld2&quot;,
+    &quot;result_part2.jld2&quot;,
+    &quot;result_part3.jld2&quot;;
+    write_summary = true,
+    output_dir = &quot;.&quot;,
+    name_prefix = &quot;merged&quot;
+)
+
+merged = load_datapoint_results(merged_path)</code></pre><p>Then the output filename is automatically constructed as</p><pre><code class="language-julia hljs">result_merged_$(rule)_$(boundary)_N_2_3_4_5_6_7.jld2</code></pre><p>Selected subdivision counts can also be removed from an existing result file before fitting. This is useful when very coarse resolutions are considered unreliable or visually inconsistent with the main trend.</p><pre><code class="language-julia hljs">using Maranatha
+
+filtered_path = drop_nsamples_from_file(
+    &quot;result_full.jld2&quot;,
+    [2, 3];
+    write_summary = true,
+    output_dir = &quot;.&quot;,
+    name_prefix = &quot;filtered&quot;
+)</code></pre><p>Then the returned <code>filtered_path</code> points to a new file containing the same result data but with the specified <code>N</code> values removed, so that only the remaining resolutions are included in the downstream fit.</p><pre><code class="language-julia hljs">[2,3,4,5,6,7] -&gt; [4,5,6,7]</code></pre><p>You may then load the filtered result and pass it to the fitting routine as usual:</p><pre><code class="language-julia hljs">filtered = load_datapoint_results(filtered_path)
+
+fit = least_chi_square_fit(
+    filtered.a,
+    filtered.b,
+    filtered.h,
+    filtered.avg,
+    filtered.err,
+    filtered.rule,
+    filtered.boundary;
+    nterms = filtered.fit_terms,
+    ff_shift = filtered.ff_shift,
+    nerr_terms = filtered.nerr_terms
+)</code></pre><p>Before fitting, it can be useful to inspect only the raw datapoints in a chosen <code>h^p</code> coordinate in order to check apparent linearity, oscillation, or resolution-dependent irregularities.</p><pre><code class="language-julia hljs">using Maranatha
+
+plot_datapoints_result(
+    &quot;merged_test&quot;,
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :linear,
+    yscale = :linear,
+    ymode = :value,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)</code></pre><p>A relative-difference diagnostic view can also be drawn on log-log axes once a reference value is available:</p><pre><code class="language-julia hljs">using Maranatha
+
+plot_datapoints_result(
+    &quot;merged_test&quot;,
+    merged.h,
+    merged.avg,
+    merged.err;
+    h_power = 4,
+    xscale = :log,
+    yscale = :log,
+    ymode = :reldiff,
+    reference_value = fit.estimate,
+    rule = merged.rule,
+    boundary = merged.boundary,
+)</code></pre></div><a class="docs-sourcelink" target="_blank" href="https://github.com/saintbenjamin/Maranatha.jl/blob/4d8cca2f6e5e4299ca013baaf22cea8c23574004/src/Maranatha.jl#L11-L364">source</a></section></details></article></article><nav class="docs-footer"><a class="docs-footer-nextpage" href="lib/Runner/">Runner »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 7 March 2026 14:15">Saturday 7 March 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
