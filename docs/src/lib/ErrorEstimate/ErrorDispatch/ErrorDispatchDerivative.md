@@ -89,7 +89,6 @@ The backend-specific derivative helpers include:
 
 - [`Maranatha.ErrorEstimate.AutoDerivative.AutoDerivativeDirect.ADForwardDiff.nth_derivative_forwarddiff`](@ref)
 - [`Maranatha.ErrorEstimate.AutoDerivative.AutoDerivativeDirect.ADTaylorSeries.nth_derivative_taylor`](@ref)
-- [`Maranatha.ErrorEstimate.AutoDerivative.AutoDerivativeDirect.ADFastDifferentiation.nth_derivative_fastdifferentiation`](@ref)
 - [`Maranatha.ErrorEstimate.AutoDerivative.AutoDerivativeDirect.ADEnzyme.nth_derivative_enzyme`](@ref).
 
 Each backend has slightly different strengths:

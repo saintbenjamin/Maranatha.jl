@@ -727,7 +727,7 @@ function run_wizard(;
     println("Example boundaries: LU_ININ, LU_EXEX, LU_INEX, LU_EXIN ...")
     boundary = _prompt_boundary_spec("Boundary", dim; default_scalar = "LU_EXEX")
 
-    println("Error methods: refinement, forwarddiff, taylorseries, enzyme, fastdifferentiation")
+    println("Error methods: refinement, forwarddiff, taylorseries, enzyme")
     err_method = _prompt("Error method", "refinement")
 
     if lowercase(err_method) == "refinement"
